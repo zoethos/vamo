@@ -1,0 +1,52 @@
+name: Claude code review
+
+# Reviews every push to main — including feature-branch merge pushes — so the
+# branch-and-merge workflow gets reviewed without requiring PRs.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  review:
+    # Skip pure doc/asset pushes via commit message convention if desired:
+    # if: "!contains(github.event.head_commit.message, '[skip review]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # commit comments
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # need history to diff the pushed range
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(gh api:*),Read,Grep,Glob"
+          prompt: |
+            You are reviewing a push to main in the Vamo repo (Flutter/Dart
+            melos monorepo + Supabase SQL migrations + future TS web tier).
+
+            The pushed range is ${{ github.event.before }}..${{ github.event.after }}.
+            Run: git diff ${{ github.event.before }}..${{ github.event.after }}
+            (if the before SHA is all zeros, diff against the parent of HEAD).
+
+            Review ONLY the changed code, prioritized:
+            1. Security: RLS policy changes, SQL migrations, auth flows, any
+               user-facing string that leaks exception/framework/vendor details
+               (project policy: catalogued error messages only).
+            2. Correctness: money math must be integer cents (never floats),
+               the share invariant (sum of shares == base_cents), sync/outbox
+               idempotency, offline-first violations.
+            3. Conventions from CONTRIBUTING.md and the README's load-bearing
+               conventions section.
+
+            Then post your findings as a commit comment on ${{ github.event.after }} using:
+            gh api repos/${{ github.repository }}/commits/${{ github.event.after }}/comments -f body="..."
+
+            Format: a short verdict line (CLEAN / FINDINGS), then numbered
+            findings each with severity (P1/P2/P3), file, and a one-line fix.
+            If the diff is docs/assets only, post "CLEAN — docs only" and stop.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

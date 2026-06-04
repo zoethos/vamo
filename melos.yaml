@@ -27,3 +27,11 @@ scripts:
       melos run build_runner
       melos run analyze
       melos run test
+
+  android:
+    description: Run the app on the first connected Android device
+    run: powershell -ExecutionPolicy Bypass -File tool/run_android.ps1
+
+  chrome:
+    description: Run the app in Chrome on the Supabase-redirect-listed port
+    run: cd app && flutter run -d chrome --web-port 3000
