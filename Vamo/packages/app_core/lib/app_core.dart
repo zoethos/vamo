@@ -1,0 +1,38 @@
+/// Barrel for the app_core package — the cross-cutting foundations every
+/// feature builds on: env, Supabase, auth, design system, router, analytics.
+library app_core;
+
+export 'src/analytics/action_failure.dart';
+export 'src/analytics/action_error_ui.dart';
+export 'src/analytics/analytics.dart';
+export 'src/analytics/analytics_providers.dart';
+export 'src/analytics/error_kind.dart';
+export 'src/analytics/flow_tracker.dart';
+export 'src/analytics/navigation_observer.dart';
+export 'src/analytics/posthog_analytics.dart';
+export 'src/suggestions/suggestions_repository.dart';
+export 'src/design/app_states.dart';
+export 'src/profile/profile_models.dart';
+export 'src/profile/profile_providers.dart';
+export 'src/profile/profile_repository.dart';
+export 'src/auth/auth_providers.dart';
+export 'src/auth/auth_repository.dart';
+export 'src/auth/auth_urls.dart';
+export 'src/db/app_database.dart';
+export 'src/db/database_provider.dart';
+export 'src/design/app_colors.dart';
+export 'src/design/app_theme.dart';
+export 'src/env/env.dart';
+export 'src/fx/fx_math.dart';
+export 'src/fx/fx_providers.dart';
+export 'src/fx/fx_rates_client.dart';
+export 'src/fx/fx_snapshot.dart';
+export 'src/invites/invite_urls.dart';
+export 'src/router/app_router.dart';
+export 'src/supabase/supabase_providers.dart';
+export 'src/sync/sync_coordinator.dart';
+export 'src/sync/sync_operation.dart';
+export 'src/sync/sync_providers.dart';
+export 'src/sync/sync_queue.dart';
+export 'src/sync/sync_worker.dart';
+export 'src/sync/trip_realtime.dart';

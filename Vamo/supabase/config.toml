@@ -1,0 +1,15 @@
+# Minimal Supabase local config. Run `supabase init` to regenerate the full
+# file, or `supabase start` to bring up the local stack against these settings.
+project_id = "vamo"
+
+[auth]
+enabled = true
+# Deep-link scheme used by the OTP / OAuth redirect (app.vamo://login-callback)
+additional_redirect_urls = [
+  "app.vamo://login-callback",
+  "http://localhost:3000/login-callback",
+]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true

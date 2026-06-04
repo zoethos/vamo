@@ -1,0 +1,34 @@
+# Secrets
+.env
+*.env.local
+
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Generated code
+*.g.dart
+*.freezed.dart
+*.gr.dart
+
+# Melos
+.melos_tool/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Lock files left by office apps
+.~lock.*#

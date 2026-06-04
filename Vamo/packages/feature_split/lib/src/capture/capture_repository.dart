@@ -1,0 +1,297 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:app_core/app_core.dart';
+import 'package:drift/drift.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
+
+import 'capture_models.dart';
+import 'capture_storage.dart';
+
+final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
+  return CaptureRepository(
+    db: ref.watch(appDatabaseProvider),
+    client: ref.watch(supabaseClientProvider),
+    syncQueue: ref.watch(syncQueueProvider),
+    syncWorker: ref.watch(syncWorkerProvider),
+  );
+});
+
+/// Slice 8 — notes + photos, Drift-first with Supabase on write.
+class CaptureRepository {
+  CaptureRepository({
+    required AppDatabase db,
+    required SupabaseClient client,
+    required SyncQueue syncQueue,
+    required SyncWorker syncWorker,
+  })  : _db = db,
+        _client = client,
+        _syncQueue = syncQueue,
+        _syncWorker = syncWorker;
+
+  final AppDatabase _db;
+  final SupabaseClient _client;
+  final SyncQueue _syncQueue;
+  final SyncWorker _syncWorker;
+  final _uuid = const Uuid();
+
+  static const _capturesBucket = 'captures';
+
+  Stream<List<TripNoteView>> watchTripNotes(String tripId) {
+    return _db.watchTripNotes(tripId).map(
+          (rows) => rows
+              .map(
+                (r) => TripNoteView(
+                  id: r.id,
+                  tripId: r.tripId,
+                  title: r.title,
+                  body: r.body,
+                  capturedAt: r.capturedAt,
+                ),
+              )
+              .toList(),
+        );
+  }
+
+  Stream<List<TripPhotoView>> watchTripPhotos(String tripId) async* {
+    await for (final rows in _db.watchTripPhotos(tripId)) {
+      final views = <TripPhotoView>[];
+      for (final row in rows) {
+        final path = await _resolveDisplayPath(row);
+        if (path != null && path.isNotEmpty) {
+          views.add(
+            TripPhotoView(
+              id: row.id,
+              tripId: row.tripId,
+              displayPath: path,
+              caption: row.caption,
+              capturedAt: row.capturedAt,
+            ),
+          );
+        }
+      }
+      yield views;
+    }
+  }
+
+  Future<String?> _resolveDisplayPath(LocalTripPhoto row) async {
+    final local = row.localPath;
+    if (local != null && local.isNotEmpty && await File(local).exists()) {
+      return local;
+    }
+    final remote = row.storagePath;
+    if (remote == null || remote.isEmpty) return local;
+
+    final cached = await CaptureStorage.cacheFromStorage(
+      client: _client,
+      bucket: _capturesBucket,
+      tripId: row.tripId,
+      photoId: row.id,
+      storagePath: remote,
+    );
+    if (cached != null) {
+      await _db.upsertTripPhoto(
+        LocalTripPhotosCompanion(
+          id: Value(row.id),
+          localPath: Value(cached),
+        ),
+      );
+    }
+    return cached ?? local;
+  }
+
+  Future<String> addNote({
+    required String tripId,
+    required String title,
+    required String body,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Must be signed in to add a note');
+    }
+
+    final id = _uuid.v4();
+    final capturedAt = DateTime.now().toUtc();
+    final now = capturedAt;
+
+    await _db.upsertTripNote(
+      LocalTripNotesCompanion(
+        id: Value(id),
+        tripId: Value(tripId),
+        title: Value(title.trim()),
+        body: Value(body.trim()),
+        capturedAt: Value(capturedAt),
+        createdBy: Value(userId),
+        createdAt: Value(now),
+      ),
+    );
+
+    await _syncQueue.enqueue(
+      kind: SyncKind.tripNoteInsert,
+      payload: {
+        'id': id,
+        'trip_id': tripId,
+        'title': title.trim(),
+        'body': body.trim(),
+        'captured_at': capturedAt.toIso8601String(),
+        'created_by': userId,
+      },
+    );
+    unawaited(_syncWorker.flush());
+
+    return id;
+  }
+
+  Future<String> addPhoto({
+    required String tripId,
+    required String sourcePath,
+    String? caption,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Must be signed in to add a photo');
+    }
+
+    final id = _uuid.v4();
+    final localPath = await CaptureStorage.persistPhoto(
+      tripId: tripId,
+      photoId: id,
+      sourcePath: sourcePath,
+    );
+    final capturedAt = DateTime.now().toUtc();
+    final now = capturedAt;
+
+    await _db.upsertTripPhoto(
+      LocalTripPhotosCompanion(
+        id: Value(id),
+        tripId: Value(tripId),
+        localPath: Value(localPath),
+        storagePath: const Value.absent(),
+        caption: Value(caption?.trim()),
+        capturedAt: Value(capturedAt),
+        createdBy: Value(userId),
+        createdAt: Value(now),
+      ),
+    );
+
+    String? storagePath;
+    try {
+      storagePath = await _uploadPhoto(
+        userId: userId,
+        tripId: tripId,
+        photoId: id,
+        localPath: localPath,
+      );
+      await _client.from('trip_photos').insert({
+        'id': id,
+        'trip_id': tripId,
+        'storage_path': storagePath,
+        'caption': caption?.trim(),
+        'captured_at': capturedAt.toIso8601String(),
+        'created_by': userId,
+      });
+      await _db.upsertTripPhoto(
+        LocalTripPhotosCompanion(
+          id: Value(id),
+          storagePath: Value(storagePath),
+        ),
+      );
+    } catch (_) {
+      // Photo stays local-only if bucket missing or offline — still on Drift.
+    }
+
+    return id;
+  }
+
+  Future<String> _uploadPhoto({
+    required String userId,
+    required String tripId,
+    required String photoId,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    final ext = CaptureStorage.normalizeExt(
+      localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
+    );
+    final path = '$userId/$tripId/$photoId$ext';
+    await _client.storage.from(_capturesBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: CaptureStorage.contentTypeForPath(localPath),
+            upsert: true,
+          ),
+        );
+    return path;
+  }
+
+  Future<void> syncCaptureForTrips(Iterable<String> tripIds) async {
+    final ids = tripIds.toList();
+    if (ids.isEmpty) return;
+
+    final noteRows = await _client
+        .from('trip_notes')
+        .select(
+          'id, trip_id, title, body, captured_at, created_by, created_at',
+        )
+        .inFilter('trip_id', ids)
+        .order('captured_at', ascending: false);
+
+    for (final row in (noteRows as List).cast<Map<String, dynamic>>()) {
+      await _db.upsertTripNote(
+        LocalTripNotesCompanion(
+          id: Value(row['id'] as String),
+          tripId: Value(row['trip_id'] as String),
+          title: Value(row['title'] as String),
+          body: Value(row['body'] as String? ?? ''),
+          capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          createdBy: Value(row['created_by'] as String),
+          createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        ),
+      );
+    }
+
+    final photoRows = await _client
+        .from('trip_photos')
+        .select(
+          'id, trip_id, storage_path, caption, captured_at, created_by, created_at',
+        )
+        .inFilter('trip_id', ids)
+        .order('captured_at', ascending: false);
+
+    for (final row in (photoRows as List).cast<Map<String, dynamic>>()) {
+      final id = row['id'] as String;
+      final existing = await (_db.select(_db.localTripPhotos)
+            ..where((p) => p.id.equals(id)))
+          .getSingleOrNull();
+
+      final tripId = row['trip_id'] as String;
+      final storagePath = row['storage_path'] as String;
+      var localPath = existing?.localPath;
+      if (localPath == null || !await File(localPath).exists()) {
+        localPath = await CaptureStorage.cacheFromStorage(
+          client: _client,
+          bucket: _capturesBucket,
+          tripId: tripId,
+          photoId: id,
+          storagePath: storagePath,
+        );
+      }
+
+      await _db.upsertTripPhoto(
+        LocalTripPhotosCompanion(
+          id: Value(id),
+          tripId: Value(tripId),
+          localPath: Value(localPath),
+          storagePath: Value(storagePath),
+          caption: Value(row['caption'] as String?),
+          capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          createdBy: Value(row['created_by'] as String),
+          createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        ),
+      );
+    }
+  }
+}

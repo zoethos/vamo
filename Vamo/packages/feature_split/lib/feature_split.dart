@@ -1,0 +1,32 @@
+/// Barrel for the SplitTrip feature surface.
+library feature_split;
+
+export 'src/auth/auth_callback_screen.dart';
+export 'src/auth/auth_screen.dart';
+export 'src/capture/add_capture_note_screen.dart';
+export 'src/capture/capture_tab.dart';
+export 'src/balances/balances_tab.dart';
+export 'src/expenses/add_expense_screen.dart';
+export 'src/expenses/expense_split.dart';
+export 'src/expenses/money_format.dart';
+export 'src/settle/payment_links.dart';
+export 'src/settle/settle_up.dart';
+export 'src/settle/settlements_providers.dart';
+export 'src/settle/settlements_repository.dart';
+export 'src/snapshot/snapshot_share_screen.dart';
+export 'src/sync/trips_remote_sync_gateway.dart';
+export 'src/expenses/expenses_providers.dart';
+export 'src/expenses/expenses_repository.dart';
+export 'src/invites/invite_flow.dart';
+export 'src/invites/invites_repository.dart';
+export 'src/invites/join_trip_screen.dart';
+export 'src/invites/pending_invite.dart';
+export 'src/trips/create_trip_screen.dart';
+export 'src/trips/members_tab.dart';
+export 'src/trips/trip_home_screen.dart';
+export 'src/settings/settings_screen.dart';
+export 'src/settings/suggest_feature_screen.dart';
+export 'src/trips/trips_list_screen.dart';
+export 'src/trips/trips_models.dart';
+export 'src/trips/trips_providers.dart';
+export 'src/trips/trips_repository.dart';

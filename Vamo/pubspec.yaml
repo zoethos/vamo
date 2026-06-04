@@ -1,0 +1,9 @@
+name: vamo_workspace
+description: Vamo monorepo root (melos-managed). Not a publishable package.
+publish_to: none
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dev_dependencies:
+  melos: ^6.1.0
