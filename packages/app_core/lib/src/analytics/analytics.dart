@@ -24,7 +24,9 @@ enum VamoEvent {
   suggestionSubmitted('suggestion_submitted'),
 
   ocrSuggestionEdited('ocr_suggestion_edited'),
-  placeResolved('place_resolved');
+  placeResolved('place_resolved'),
+  tripRollupOpened('trip_rollup_opened'),
+  qrShown('qr_shown');
 
   const VamoEvent(this.name);
   final String name;
@@ -54,6 +56,8 @@ enum VamoEvent {
     suggestionSubmitted,
         ocrSuggestionEdited,
         placeResolved,
+        tripRollupOpened,
+        qrShown,
   ];
 }
 

@@ -38,7 +38,14 @@ Log an expense in a currency other than the trip base → client fetches daily F
 
 ## Slice 5 — invite & join
 
-**Invite Vamigos** on Members → share `https://vamo.app/j/<token>` (+ `app.vamo://join?token=…`). Opener signs in → `join_trip` RPC → trip home. Fires `member_invited`, `invite_accepted`.
+**Invite Vamigos** on Members → share `https://vamo.app/j/<token>` (+ `app.vamo://join?token=…`) or **Show QR** (`app.vamo://join?token=…` — system-camera safe until domain-owned share-pages, S25). Opener signs in → `join_trip` RPC → trip home. Fires `member_invited {channel: link|qr}`, `qr_shown` (when QR displayed), `invite_accepted {channel}`.
+
+### Slice 15 — QR invite (R9)
+
+1. Phone A: trip → **Members** → **Show QR** (full-screen sheet with brand header).
+2. Phone B: scan with the **system camera** (or in-app **Scan a Vamo QR**) → opens `app.vamo://join?token=…`.
+3. Phone B lands in the trip. PostHog: `invite_accepted` with `channel: qr` (no token in properties).
+4. Link share still fires `member_invited` with `channel: link`. Web hides scan entry; invite links still work.
 
 ### 1. Backend
 

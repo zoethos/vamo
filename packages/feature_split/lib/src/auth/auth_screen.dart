@@ -3,10 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../invites/invite_labels.dart';
+import '../invites/invite_qr_scanner.dart';
+
 /// Slice 0 onboarding: email OTP wired end-to-end, with Apple/Google/phone as
 /// the next surfaces to light up. On success the router redirects to /trips.
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.inviteLabels});
+
+  final InviteLabels? inviteLabels;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -193,6 +198,21 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         icon: const Icon(Icons.g_mobiledata, size: 28),
                         label: const Text('Continue with Google'),
                       ),
+                      if (widget.inviteLabels != null &&
+                          isInviteQrScanSupported) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => showInviteQrScannerSheet(
+                                    context: context,
+                                    ref: ref,
+                                    labels: widget.inviteLabels!,
+                                  ),
+                          icon: const Icon(Icons.qr_code_scanner_outlined),
+                          label: Text(widget.inviteLabels!.scanQr),
+                        ),
+                      ],
                       if (_error != null) ...[
                         const SizedBox(height: 20),
                         Text(

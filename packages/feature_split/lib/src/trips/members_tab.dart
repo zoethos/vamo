@@ -4,13 +4,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../expenses/expenses_providers.dart';
+import '../invites/invite_analytics.dart';
+import '../invites/invite_channel.dart';
+import '../invites/invite_labels.dart';
+import '../invites/invite_qr_show_sheet.dart';
 import '../invites/invites_repository.dart';
+import 'trips_providers.dart';
 
 /// Slice 5 — roster + invite link share.
 class MembersTab extends ConsumerStatefulWidget {
-  const MembersTab({super.key, required this.tripId});
+  const MembersTab({
+    super.key,
+    required this.tripId,
+    required this.inviteLabels,
+  });
 
   final String tripId;
+  final InviteLabels inviteLabels;
 
   @override
   ConsumerState<MembersTab> createState() => _MembersTabState();
@@ -18,6 +28,7 @@ class MembersTab extends ConsumerStatefulWidget {
 
 class _MembersTabState extends ConsumerState<MembersTab> {
   bool _sharing = false;
+  bool _showingQr = false;
   /// Started on invite tap only — browsing members is not an invite attempt.
   FlowTracker? _inviteFlow;
 
@@ -85,19 +96,39 @@ class _MembersTabState extends ConsumerState<MembersTab> {
               ),
             ),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _sharing ? null : _shareInvite,
-              icon: _sharing
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.share_outlined),
-              label: const Text('Invite Vamigos'),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _sharing ? null : _shareInvite,
+                    icon: _sharing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.share_outlined),
+                    label: const Text('Invite Vamigos'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showingQr ? null : _showQr,
+                    icon: _showingQr
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.qr_code_2_outlined),
+                    label: Text(widget.inviteLabels.showQr),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(
@@ -133,6 +164,11 @@ class _MembersTabState extends ConsumerState<MembersTab> {
         'Have the app? Tap: $app',
         subject: 'Join my Vamo trip',
       );
+      captureMemberInvitedShow(
+        ref.read(analyticsProvider),
+        tripId: widget.tripId,
+        channel: InviteChannel.link,
+      );
       _inviteFlow?.complete();
     } catch (e) {
       if (!mounted) return;
@@ -145,6 +181,38 @@ class _MembersTabState extends ConsumerState<MembersTab> {
       );
     } finally {
       if (mounted) setState(() => _sharing = false);
+    }
+  }
+
+  Future<void> _showQr() async {
+    setState(() => _showingQr = true);
+    try {
+      final token = await ref
+          .read(invitesRepositoryProvider)
+          .getOrCreateInviteToken(widget.tripId);
+      final tripName =
+          ref.read(tripDetailProvider(widget.tripId)).valueOrNull?.name ??
+              'Trip';
+      if (!mounted) return;
+      await showInviteQrSheet(
+        context: context,
+        analytics: ref.read(analyticsProvider),
+        tripId: widget.tripId,
+        tripName: tripName,
+        token: token,
+        labels: widget.inviteLabels,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'trip_home',
+        action: 'show_invite_qr',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _showingQr = false);
     }
   }
 }

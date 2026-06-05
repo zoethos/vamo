@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../trips/trips_providers.dart';
+import 'invite_channel.dart';
 import 'invites_repository.dart';
 import 'pending_invite.dart';
 
@@ -16,10 +17,15 @@ Future<void> tryConsumePendingInvite({
   if (token == null || token.isEmpty) return;
   if (!ref.read(isSignedInProvider)) return;
 
+  final channel = ref.read(pendingInviteChannelProvider) ?? InviteChannel.link;
+
   ref.read(pendingInviteTokenProvider.notifier).state = null;
+  ref.read(pendingInviteChannelProvider.notifier).state = null;
 
   try {
-    final tripId = await ref.read(invitesRepositoryProvider).joinTrip(token);
+    final tripId = await ref
+        .read(invitesRepositoryProvider)
+        .joinTrip(token, channel: channel);
     ref.invalidate(tripsSyncProvider);
     await ref.read(syncCoordinatorProvider).syncNow();
     if (context.mounted) {
@@ -39,7 +45,10 @@ Future<void> tryConsumePendingInvite({
 }
 
 /// Reads invite token from `/join` or `/join/:token` routes.
-String? inviteTokenFromLocation(String location, {Map<String, String> query = const {}}) {
+String? inviteTokenFromLocation(
+  String location, {
+  Map<String, String> query = const {},
+}) {
   final q = query['token'];
   if (q != null && q.isNotEmpty) return q;
 

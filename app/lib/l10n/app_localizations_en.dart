@@ -93,16 +93,93 @@ class AppLocalizationsEn extends AppLocalizations {
   String get expensesTitle => 'Expenses';
 
   @override
-  String get expensesEmptyTitle => 'No expenses yet';
+  String get expensesEmptyTitle => 'No trips yet';
 
   @override
-  String get expensesEmptySubtitle => 'Add one from a trip or tap +.';
+  String get expensesEmptySubtitle => 'Start a trip to track spending.';
 
   @override
   String get expensesLoadError => 'Could not load expenses.';
 
   @override
-  String get expensesAllTrips => 'All trips';
+  String get expensesBalanceAllSettled => 'All settled across your trips';
+
+  @override
+  String expensesBalanceYouOwe(String amount, int tripCount) {
+    String _temp0 = intl.Intl.pluralLogic(
+      tripCount,
+      locale: localeName,
+      other: '$tripCount trips',
+      one: '1 trip',
+    );
+    return 'You owe $amount across $_temp0';
+  }
+
+  @override
+  String expensesBalanceYouAreOwed(String amount) {
+    return 'You\'re owed $amount';
+  }
+
+  @override
+  String get expensesBalanceAcrossTrips => 'By trip';
+
+  @override
+  String get expensesPeriodThisMonth => 'This month';
+
+  @override
+  String get expensesPeriodThisYear => 'This year';
+
+  @override
+  String get expensesEarlierSection => 'Earlier';
+
+  @override
+  String get expensesTotalSpent => 'Total spent';
+
+  @override
+  String get expensesMyShare => 'My share';
+
+  @override
+  String get expensesSettlementUnsettled => 'Unsettled';
+
+  @override
+  String get expensesSettlementSettled => 'Settled';
+
+  @override
+  String get expensesSettlementAllSettled => 'All settled';
+
+  @override
+  String get expensesPickerTitle => 'Add expense to which trip?';
+
+  @override
+  String get expensesPickerLastUsed => 'Last used';
+
+  @override
+  String get inviteShowQr => 'Show QR';
+
+  @override
+  String get inviteScanQr => 'Scan a Vamo QR';
+
+  @override
+  String get inviteQrCaption => 'Point a camera at this to join';
+
+  @override
+  String get inviteNotVamoQr => 'That\'s not a Vamo invite';
+
+  @override
+  String get inviteCameraDenied =>
+      'Camera access is needed to scan. Paste the invite link below instead.';
+
+  @override
+  String get invitePasteLink => 'Paste invite link';
+
+  @override
+  String get invitePasteHint => 'https://vamo.app/j/…';
+
+  @override
+  String get invitePasteJoin => 'Join from link';
+
+  @override
+  String get inviteScannerTitle => 'Scan invite QR';
 
   @override
   String get profileTitle => 'Profile';

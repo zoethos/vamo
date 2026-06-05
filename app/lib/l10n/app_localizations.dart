@@ -264,13 +264,13 @@ abstract class AppLocalizations {
   /// No description provided for @expensesEmptyTitle.
   ///
   /// In en, this message translates to:
-  /// **'No expenses yet'**
+  /// **'No trips yet'**
   String get expensesEmptyTitle;
 
   /// No description provided for @expensesEmptySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Add one from a trip or tap +.'**
+  /// **'Start a trip to track spending.'**
   String get expensesEmptySubtitle;
 
   /// No description provided for @expensesLoadError.
@@ -279,11 +279,143 @@ abstract class AppLocalizations {
   /// **'Could not load expenses.'**
   String get expensesLoadError;
 
-  /// No description provided for @expensesAllTrips.
+  /// No description provided for @expensesBalanceAllSettled.
   ///
   /// In en, this message translates to:
-  /// **'All trips'**
-  String get expensesAllTrips;
+  /// **'All settled across your trips'**
+  String get expensesBalanceAllSettled;
+
+  /// No description provided for @expensesBalanceYouOwe.
+  ///
+  /// In en, this message translates to:
+  /// **'You owe {amount} across {tripCount, plural, =1{1 trip} other{{tripCount} trips}}'**
+  String expensesBalanceYouOwe(String amount, int tripCount);
+
+  /// No description provided for @expensesBalanceYouAreOwed.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re owed {amount}'**
+  String expensesBalanceYouAreOwed(String amount);
+
+  /// No description provided for @expensesBalanceAcrossTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'By trip'**
+  String get expensesBalanceAcrossTrips;
+
+  /// No description provided for @expensesPeriodThisMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get expensesPeriodThisMonth;
+
+  /// No description provided for @expensesPeriodThisYear.
+  ///
+  /// In en, this message translates to:
+  /// **'This year'**
+  String get expensesPeriodThisYear;
+
+  /// No description provided for @expensesEarlierSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier'**
+  String get expensesEarlierSection;
+
+  /// No description provided for @expensesTotalSpent.
+  ///
+  /// In en, this message translates to:
+  /// **'Total spent'**
+  String get expensesTotalSpent;
+
+  /// No description provided for @expensesMyShare.
+  ///
+  /// In en, this message translates to:
+  /// **'My share'**
+  String get expensesMyShare;
+
+  /// No description provided for @expensesSettlementUnsettled.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsettled'**
+  String get expensesSettlementUnsettled;
+
+  /// No description provided for @expensesSettlementSettled.
+  ///
+  /// In en, this message translates to:
+  /// **'Settled'**
+  String get expensesSettlementSettled;
+
+  /// No description provided for @expensesSettlementAllSettled.
+  ///
+  /// In en, this message translates to:
+  /// **'All settled'**
+  String get expensesSettlementAllSettled;
+
+  /// No description provided for @expensesPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add expense to which trip?'**
+  String get expensesPickerTitle;
+
+  /// No description provided for @expensesPickerLastUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Last used'**
+  String get expensesPickerLastUsed;
+
+  /// No description provided for @inviteShowQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Show QR'**
+  String get inviteShowQr;
+
+  /// No description provided for @inviteScanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a Vamo QR'**
+  String get inviteScanQr;
+
+  /// No description provided for @inviteQrCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Point a camera at this to join'**
+  String get inviteQrCaption;
+
+  /// No description provided for @inviteNotVamoQr.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s not a Vamo invite'**
+  String get inviteNotVamoQr;
+
+  /// No description provided for @inviteCameraDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is needed to scan. Paste the invite link below instead.'**
+  String get inviteCameraDenied;
+
+  /// No description provided for @invitePasteLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste invite link'**
+  String get invitePasteLink;
+
+  /// No description provided for @invitePasteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://vamo.app/j/…'**
+  String get invitePasteHint;
+
+  /// No description provided for @invitePasteJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Join from link'**
+  String get invitePasteJoin;
+
+  /// No description provided for @inviteScannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan invite QR'**
+  String get inviteScannerTitle;
 
   /// No description provided for @profileTitle.
   ///
