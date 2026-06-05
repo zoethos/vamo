@@ -6,7 +6,7 @@ import 'invite_analytics.dart';
 import 'invite_channel.dart';
 import 'invite_labels.dart';
 
-/// Full-screen sheet: app-scheme invite as QR (same token as link share).
+/// Full-screen sheet: owned-domain web invite as QR (same token as link share).
 Future<void> showInviteQrSheet({
   required BuildContext context,
   required Analytics analytics,

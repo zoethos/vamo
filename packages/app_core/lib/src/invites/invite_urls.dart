@@ -1,6 +1,10 @@
 /// Invite link shapes for Wave 1 (web universal + app custom scheme).
 abstract final class InviteUrls {
-  static const webHost = 'vamo.app';
+  static const webHost = 'vamo.world';
+
+  /// Legacy host — still accepted when parsing old shared links.
+  static const legacyWebHosts = ['vamo.app'];
+
   static const webPathPrefix = '/j/';
   static const appScheme = 'app.vamo';
   static const appJoinHost = 'join';
@@ -16,12 +20,8 @@ abstract final class InviteUrls {
         queryParameters: {'token': token},
       );
 
-  /// QR payload for in-person invite (R9). Encodes the app deep link so system
-  /// cameras route to the installed app — never [webInviteLink], which would hit
-  /// a domain we do not own.
-  ///
-  /// TODO(S25): switch to [webInviteLink] when domain-owned share-pages ship.
-  static String qrInvitePayload(String token) => appInviteUri(token).toString();
+  /// QR payload for in-person invite (R9) — owned-domain web link (S25 site).
+  static String qrInvitePayload(String token) => webInviteLink(token);
 
   /// In-app route used by GoRouter after [parseToken].
   static String inAppJoinLocation(String token) =>
@@ -43,7 +43,7 @@ abstract final class InviteUrls {
     }
 
     final host = uri.host.toLowerCase();
-    if (host == webHost || host.endsWith('.$webHost')) {
+    if (_isWebInviteHost(host)) {
       final segments = uri.pathSegments;
       if (segments.length >= 2 && segments.first == 'j') {
         return _nonEmpty(Uri.decodeComponent(segments[1]));
@@ -54,6 +54,14 @@ abstract final class InviteUrls {
     }
 
     return null;
+  }
+
+  static bool _isWebInviteHost(String host) {
+    if (host == webHost || host.endsWith('.$webHost')) return true;
+    for (final legacy in legacyWebHosts) {
+      if (host == legacy || host.endsWith('.$legacy')) return true;
+    }
+    return false;
   }
 
   static String? _nonEmpty(String? value) {

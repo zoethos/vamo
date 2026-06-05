@@ -1,0 +1,182 @@
+:root {
+  --sunset-coral: #ff5b4d;
+  --apricot: #ffa766;
+  --deep-plum: #6a2d6f;
+  --indigo: #0f1126;
+  --jade-teal: #00c2a8;
+  --go-lime: #c6ff00;
+  --ink: #0c0e16;
+  --graphite: #2a2e3a;
+  --mist-gray: #e9ecf2;
+  --warm-white: #fafafb;
+  --brand-gradient: linear-gradient(
+    135deg,
+    var(--sunset-coral) 0%,
+    var(--apricot) 35%,
+    var(--deep-plum) 100%
+  );
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  background: var(--indigo);
+  color: var(--warm-white);
+}
+
+a {
+  color: var(--jade-teal);
+}
+
+a:hover {
+  color: var(--go-lime);
+}
+
+.site-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+}
+
+.site-footer {
+  padding: 1.5rem 1.25rem 2rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--graphite);
+}
+
+.site-footer a {
+  margin: 0 0.75rem;
+}
+
+.prose {
+  line-height: 1.65;
+}
+
+.prose h1 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose h2 {
+  font-size: 1.125rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+  color: var(--warm-white);
+}
+
+.prose p,
+.prose li {
+  color: var(--mist-gray);
+}
+
+.prose ul {
+  padding-left: 1.25rem;
+}
+
+.draft-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(198, 255, 0, 0.15);
+  color: var(--go-lime);
+}
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  /* pattern_dark not in docs/brand yet — indigo base + brand gradient fallback */
+  background:
+    var(--brand-gradient),
+    var(--indigo);
+  background-blend-mode: normal, normal;
+}
+
+.landing-mark {
+  width: min(120px, 28vw);
+  height: auto;
+  margin-bottom: 1rem;
+}
+
+.landing-wordmark {
+  font-size: clamp(2.5rem, 10vw, 3.5rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.5rem;
+}
+
+.landing-tagline {
+  font-size: 1.25rem;
+  color: rgba(250, 250, 251, 0.92);
+  margin: 0 0 2rem;
+}
+
+.landing-soon {
+  font-size: 0.95rem;
+  color: rgba(250, 250, 251, 0.75);
+  margin: 0;
+}
+
+.join-card {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  background: var(--indigo);
+}
+
+.join-card h1 {
+  font-size: 1.5rem;
+  margin: 1rem 0 0.5rem;
+}
+
+.join-card p {
+  color: var(--mist-gray);
+  max-width: 28rem;
+  line-height: 1.6;
+}
+
+.store-badge {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  border: 1px dashed var(--graphite);
+  color: var(--mist-gray);
+  font-size: 0.875rem;
+}

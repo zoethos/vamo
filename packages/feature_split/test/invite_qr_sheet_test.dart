@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 void main() {
-  testWidgets('QR encodes app-scheme invite payload for token', (tester) async {
+  testWidgets('QR encodes owned web invite link for token', (tester) async {
     const token = 'invite-token-42';
     final payload = InviteUrls.qrInvitePayload(token);
 
@@ -23,7 +23,7 @@ void main() {
     );
 
     expect(find.byType(QrImageView), findsOneWidget);
-    expect(payload, 'app.vamo://join?token=invite-token-42');
+    expect(payload, 'https://vamo.world/j/invite-token-42');
   });
 
   test('invite labels bundle exposes scanner copy', () {
@@ -34,7 +34,7 @@ void main() {
       notVamoInvite: "That's not a Vamo invite",
       cameraDenied: 'Camera denied',
       pasteLink: 'Paste invite link',
-      pasteHint: 'https://vamo.app/j/…',
+      pasteHint: 'https://vamo.world/j/…',
       pasteJoin: 'Join from link',
       scannerTitle: 'Scan invite QR',
     );

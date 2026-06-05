@@ -4,9 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('parses web invite path', () {
     final token = InviteUrls.parseToken(
-      Uri.parse('https://vamo.app/j/abc%2Bdef'),
+      Uri.parse('https://vamo.world/j/abc%2Bdef'),
     );
     expect(token, 'abc+def');
+  });
+
+  test('parses legacy vamo.app invite path', () {
+    final token = InviteUrls.parseToken(
+      Uri.parse('https://vamo.app/j/legacy-token'),
+    );
+    expect(token, 'legacy-token');
   });
 
   test('parses app invite scheme', () {
@@ -18,7 +25,7 @@ void main() {
 
   test('parses web invite from raw string', () {
     expect(
-      InviteUrls.parseTokenFromString('https://vamo.app/j/tok-99'),
+      InviteUrls.parseTokenFromString('https://vamo.world/j/tok-99'),
       'tok-99',
     );
   });
@@ -39,15 +46,12 @@ void main() {
   test('builds shareable web link', () {
     expect(
       InviteUrls.webInviteLink('a+b'),
-      'https://vamo.app/j/a%2Bb',
+      'https://vamo.world/j/a%2Bb',
     );
   });
 
-  test('qr payload uses app scheme not web host', () {
-    expect(
-      InviteUrls.qrInvitePayload('tok'),
-      'app.vamo://join?token=tok',
-    );
-    expect(InviteUrls.qrInvitePayload('tok'), isNot(contains('vamo.app')));
+  test('qr payload uses owned web invite link', () {
+    expect(InviteUrls.qrInvitePayload('tok'), InviteUrls.webInviteLink('tok'));
+    expect(InviteUrls.qrInvitePayload('tok'), contains('vamo.world'));
   });
 }

@@ -387,7 +387,7 @@ class _AboutBlock extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () async {
-                    final uri = Uri.parse('https://vamo.app/privacy');
+                    final uri = Uri.parse('https://vamo.world/privacy');
                     if (await canLaunchUrl(uri)) {
                       await launchUrl(uri, mode: LaunchMode.externalApplication);
                     }

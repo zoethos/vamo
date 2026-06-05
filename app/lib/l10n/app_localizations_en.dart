@@ -173,7 +173,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invitePasteLink => 'Paste invite link';
 
   @override
-  String get invitePasteHint => 'https://vamo.app/j/…';
+  String get invitePasteHint => 'https://vamo.world/j/…';
 
   @override
   String get invitePasteJoin => 'Join from link';
