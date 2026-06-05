@@ -28,6 +28,8 @@ export 'src/fx/fx_providers.dart';
 export 'src/fx/fx_rates_client.dart';
 export 'src/fx/fx_snapshot.dart';
 export 'src/invites/invite_urls.dart';
+export 'src/locale/app_locales.dart';
+export 'src/locale/locale_providers.dart';
 export 'src/router/app_router.dart';
 export 'src/supabase/supabase_providers.dart';
 export 'src/sync/sync_coordinator.dart';

@@ -1,0 +1,11 @@
+{
+  "@@locale": "en_XA",
+  "appTitle": "【Vámó·】",
+  "@appTitle": {
+    "description": "Application title"
+  },
+  "settingsDevLocaleSection": "【····Dévélópér — lóçálé prévíéw·····】",
+  "settingsDevLocaleSystem": "【··Sýstém défáúlt···】",
+  "settingsDevLocaleRtl": "【····RTL prévíéw (Árábíç láýóút)·····】",
+  "settingsDevLocalePseudo": "【·····Pséúdó-lóçálé (lóng stríngs)·····】"
+}

@@ -9,6 +9,8 @@ export 'src/balances/balances_tab.dart';
 export 'src/expenses/add_expense_screen.dart';
 export 'src/expenses/expense_split.dart';
 export 'src/expenses/money_format.dart';
+export 'src/expenses/trip_expense_list_tile.dart';
+export 'src/trips/locale_format.dart';
 export 'src/settle/payment_links.dart';
 export 'src/settle/settle_up.dart';
 export 'src/settle/settlements_providers.dart';

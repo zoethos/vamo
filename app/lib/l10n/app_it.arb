@@ -1,0 +1,8 @@
+{
+  "@@locale": "it",
+  "appTitle": "Vamo",
+  "settingsDevLocaleSection": "Sviluppatore — anteprima lingua",
+  "settingsDevLocaleSystem": "Predefinito di sistema",
+  "settingsDevLocaleRtl": "Anteprima RTL (layout arabo)",
+  "settingsDevLocalePseudo": "Pseudo-locale (stringhe lunghe)"
+}

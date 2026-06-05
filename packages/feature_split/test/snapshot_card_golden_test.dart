@@ -5,6 +5,8 @@ import 'package:feature_split/src/snapshot/snapshot_themes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'golden_test_theme.dart';
+
 void main() {
   testWidgets('SnapshotBrandedCard matches golden', (tester) async {
     final data = SnapshotCardData(
@@ -23,7 +25,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: goldenTestTheme(),
         home: Scaffold(
           backgroundColor: AppColors.sandLight,
           body: Center(
@@ -60,7 +62,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: goldenTestTheme(),
         home: Scaffold(
           backgroundColor: AppColors.sandLight,
           body: Center(

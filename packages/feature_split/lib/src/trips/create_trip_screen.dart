@@ -244,7 +244,7 @@ class _DateRow extends StatelessWidget {
           child: OutlinedButton(
             onPressed: onPick,
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Text(formatted ?? label),
             ),
           ),

@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "appTitle": "Vamo",
+  "@appTitle": {
+    "description": "Application title"
+  },
+  "settingsDevLocaleSection": "Developer — locale preview",
+  "settingsDevLocaleSystem": "System default",
+  "settingsDevLocaleRtl": "RTL preview (Arabic layout)",
+  "settingsDevLocalePseudo": "Pseudo-locale (long strings)"
+}

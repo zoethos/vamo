@@ -193,7 +193,7 @@ class _SnapshotShareScreenState extends ConsumerState<SnapshotShareScreen> {
                     ),
                     const SizedBox(height: 8),
                     Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: Chip(
                         avatar: Icon(
                           Icons.palette_outlined,

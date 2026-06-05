@@ -1,0 +1,8 @@
+{
+  "@@locale": "hi",
+  "appTitle": "Vamo",
+  "settingsDevLocaleSection": "Developer — locale preview",
+  "settingsDevLocaleSystem": "System default",
+  "settingsDevLocaleRtl": "RTL preview (Arabic layout)",
+  "settingsDevLocalePseudo": "Pseudo-locale (long strings)"
+}

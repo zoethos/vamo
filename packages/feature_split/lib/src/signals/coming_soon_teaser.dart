@@ -59,7 +59,12 @@ class ComingSoonTeaser extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.muted),
+              Icon(
+                Directionality.of(context) == TextDirection.rtl
+                    ? Icons.chevron_left
+                    : Icons.chevron_right,
+                color: AppColors.muted,
+              ),
             ],
           ),
         ),

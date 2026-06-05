@@ -2,12 +2,11 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../balances/balances_tab.dart';
 import '../capture/capture_tab.dart';
 import '../sync/trip_realtime_binding.dart';
-import '../expenses/expense_display.dart';
+import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
 import '../expenses/expenses_providers.dart';
 import '../signals/coming_soon_teaser.dart';
 import 'members_tab.dart';
@@ -106,7 +105,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
                 child: Column(
                   children: [
                     ComingSoonTeaser(
@@ -214,25 +213,20 @@ class _ExpensesTab extends ConsumerWidget {
           itemBuilder: (context, i) {
             final e = list[i];
             final payer = nameByUserId[e.payerId] ?? 'Someone';
-            final when = DateFormat.MMMd().format(e.spentAt.toLocal());
-            return Card(
-              child: ListTile(
-                title: Text(e.description),
-                subtitle: Text('$payer · $when'),
-                trailing: Text(
-                  formatExpenseTrailing(
-                    baseCents: e.baseCents,
-                    tripBaseCurrency: baseCurrency,
-                    amountCents: e.amountCents,
-                    expenseCurrency: e.currency,
-                  ),
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.tealDark,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
+            final locale = Localizations.localeOf(context).toString();
+            return TripExpenseListTile(
+              description: e.description,
+              payer: payer,
+              spentAt: e.spentAt,
+              baseCents: e.baseCents,
+              amountCents: e.amountCents,
+              tripBaseCurrency: baseCurrency,
+              expenseCurrency: e.currency,
+              locale: locale,
+              expenseId: e.id,
+              tripId: e.tripId,
+              receiptPath: e.receiptPath,
+              localReceiptPath: e.localReceiptPath,
             );
           },
         );
