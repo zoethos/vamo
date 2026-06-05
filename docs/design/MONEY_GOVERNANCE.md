@@ -133,24 +133,27 @@ adjusting entries. The group reads, talks, and settles like adults.
 | Member leaves with rejected shares | Shares remain (debt survives membership); report lists them |
 | 6-month unresolved | **Objected/stuck trips only** — auto-close `unresolved`, notify, settle math frozen as-is |
 
-## Refinements (adversarial review, accepted 2026-06-05)
+## Amendments (adversarial review, accepted 2026-06-05)
 
-- **R1 fix (netting)**: settlements are netted and map to no specific
+Renamed R# → A# per `docs/CONVENTIONS.md` (R# is reserved for spec
+requirements; numbers preserved for traceability).
+
+- **A1 fix (netting)**: settlements are netted and map to no specific
   expense, so the dispute window is **per member**: it closes when that
   member confirms their own settlement after close ("you settled = you
   accepted the math"). Until then, dispute stays open.
-- **R3 teeth**: formal budget mode requires typed confirmation to commit an
+- **A3 teeth**: formal budget mode requires typed confirmation to commit an
   over-budget proposal (speed bump, not lock; D2 preserved).
-- **R5 consent**: Leave & purge warns when the leaver has unsettled balances
+- **A5 consent**: Leave & purge warns when the leaver has unsettled balances
   or open disputes — leaving freezes their responses as-is (RLS makes
   post-leave disputing impossible by design; the warning makes it informed).
-- **R6 operations** (amended with deemed acceptance): day-7 single reminder
+- **A6 operations** (amended with deemed acceptance): day-7 single reminder
   during the 14-day close window (`close_warned_at`, anti-nag); the 6-month
   clock starts at close request but only **objected/stuck** trips ride it
   (warn at month 5); unresolved trips remain visible in the Expenses
-  "Earlier" section with an `unresolved` badge. All R6/cancel/close
-  notifications depend on push plumbing (T10.5) — shipped in S16.
-- **R4 confirmation**: offline expenses snapshot their rate at creation
+  "Earlier" section with an `unresolved` badge. All A6/cancel/close
+  notifications depend on push plumbing (S16 — shipped).
+- **A4 confirmation**: offline expenses snapshot their rate at creation
   on-device (outbox already carries fx_rate), so post-refresh syncs keep
   honest history with no extra work.
 

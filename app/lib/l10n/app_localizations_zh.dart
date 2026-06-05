@@ -148,6 +148,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get expensesSettlementAllSettled => 'All settled';
 
   @override
+  String get expensesUnresolvedBadge => 'Unresolved';
+
+  @override
   String get expensesPickerTitle => 'Add expense to which trip?';
 
   @override

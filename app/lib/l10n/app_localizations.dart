@@ -351,6 +351,12 @@ abstract class AppLocalizations {
   /// **'All settled'**
   String get expensesSettlementAllSettled;
 
+  /// No description provided for @expensesUnresolvedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Unresolved'**
+  String get expensesUnresolvedBadge;
+
   /// No description provided for @expensesPickerTitle.
   ///
   /// In en, this message translates to:

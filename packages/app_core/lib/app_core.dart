@@ -45,4 +45,5 @@ export 'src/sync/sync_providers.dart';
 export 'src/sync/sync_queue.dart';
 export 'src/sync/sync_worker.dart';
 export 'src/sync/trip_realtime.dart';
+export 'src/trips/trip_lifecycle.dart';
 export 'src/trips/trip_member_roles.dart';

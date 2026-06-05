@@ -27,7 +27,12 @@ enum VamoEvent {
   placeResolved('place_resolved'),
   tripRollupOpened('trip_rollup_opened'),
   qrShown('qr_shown'),
-  routeNotFound('route_not_found');
+  routeNotFound('route_not_found'),
+  closeRequested('close_requested'),
+  closeAccepted('close_accepted'),
+  closeObjected('close_objected'),
+  tripCancelled('trip_cancelled'),
+  tripUnresolved('trip_unresolved');
 
   const VamoEvent(this.name);
   final String name;
@@ -60,6 +65,11 @@ enum VamoEvent {
         tripRollupOpened,
         qrShown,
         routeNotFound,
+        closeRequested,
+        closeAccepted,
+        closeObjected,
+        tripCancelled,
+        tripUnresolved,
   ];
 }
 

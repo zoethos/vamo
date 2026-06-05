@@ -11,6 +11,7 @@ import '../expenses/expenses_providers.dart';
 import '../invites/invite_labels.dart';
 import '../signals/coming_soon_teaser.dart';
 import 'members_tab.dart';
+import 'trip_lifecycle_banner.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
 
@@ -101,6 +102,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
 
         final hideExpenseFab = showCapture && _tabController!.index == 1;
         final postTrip = _isPostTrip(detail);
+        final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
 
         return Scaffold(
           appBar: AppBar(
@@ -130,6 +132,8 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                 padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
                 child: Column(
                   children: [
+                    TripLifecycleBanner(tripId: widget.tripId, detail: detail),
+                    const SizedBox(height: 8),
                     ComingSoonTeaser(
                       interestEvent: VamoEvent.mapInterestTapped,
                       feature: 'map',
@@ -167,7 +171,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
               ),
             ],
           ),
-          floatingActionButton: hideExpenseFab
+          floatingActionButton: hideExpenseFab || readOnly
               ? null
               : FloatingActionButton.extended(
                   backgroundColor: AppColors.goLime,

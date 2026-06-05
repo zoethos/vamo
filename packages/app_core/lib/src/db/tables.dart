@@ -9,6 +9,8 @@ class LocalTrips extends Table {
   TextColumn get endDate => text().nullable()();
   TextColumn get ownerId => text()();
   TextColumn get baseCurrency => text()();
+  TextColumn get lifecycle => text().withDefault(const Constant('active'))();
+  DateTimeColumn get closeRequestedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -23,6 +25,10 @@ class LocalTripMembers extends Table {
   TextColumn get role => text()();
   TextColumn get status => text()();
   TextColumn get displayName => text().nullable()();
+  DateTimeColumn get completedAt => dateTime().nullable()();
+  DateTimeColumn get closeAcceptedAt => dateTime().nullable()();
+  DateTimeColumn get closeObjectedAt => dateTime().nullable()();
+  TextColumn get closeObjectionReason => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {tripId, userId};

@@ -4,6 +4,7 @@
 //   RLS_USER_A_EMAIL / RLS_USER_A_PASSWORD — trip owner
 //   RLS_USER_B_EMAIL / RLS_USER_B_PASSWORD — joins via invite
 //   RLS_USER_C_EMAIL / RLS_USER_C_PASSWORD — outsider (never joins)
+//   RLS_SERVICE_ROLE_KEY — lifecycle job + backdate tests (S17)
 //
 // Also required:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
@@ -202,6 +203,148 @@ Future<void> main() async {
       'B co-admin cannot change roles',
       ownerRoleAfter['role'] == 'owner',
     ));
+
+    await clientA
+        .from('trips')
+        .update({'destination': 'RLS baseline'})
+        .eq('id', tripId);
+
+    // --- S17 lifecycle (R3) — before B is removed ---
+    await clientA.rpc('request_trip_close', params: {'p_trip_id': tripId});
+    final closingRow = await clientA
+        .from('trips')
+        .select('lifecycle')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check('A request_trip_close → closing', closingRow['lifecycle'] == 'closing'));
+
+    await clientB.rpc('object_to_trip_close', params: {
+      'p_trip_id': tripId,
+      'p_reason': 'rls_smoke objection',
+    });
+    final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
+    SupabaseClient? serviceClient;
+    if (serviceKey != null && serviceKey.isNotEmpty) {
+      serviceClient = SupabaseClient(url, serviceKey);
+      await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
+        'p_trip_id': tripId,
+        'p_at': DateTime.now().toUtc().subtract(const Duration(days: 15)).toIso8601String(),
+      });
+      await serviceClient.rpc('run_trip_lifecycle_jobs');
+      final objectedStillClosing = await clientA
+          .from('trips')
+          .select('lifecycle')
+          .eq('id', tripId)
+          .single();
+      results.add(_Check(
+        'objection holds trip in closing after window',
+        objectedStillClosing['lifecycle'] == 'closing',
+      ));
+
+      await clientB.rpc('withdraw_close_objection', params: {'p_trip_id': tripId});
+      await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
+        'p_trip_id': tripId,
+        'p_at': DateTime.now().toUtc().subtract(const Duration(days: 15)).toIso8601String(),
+      });
+      await serviceClient.rpc('run_trip_lifecycle_jobs');
+    }
+
+    final closedRow = await clientA
+        .from('trips')
+        .select('lifecycle')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check(
+      'deemed close after window (silent member)',
+      serviceClient != null && closedRow['lifecycle'] == 'closed',
+      detail: serviceClient == null ? 'set RLS_SERVICE_ROLE_KEY for job tests' : null,
+    ));
+
+    var expenseOnClosedBlocked = false;
+    try {
+      await clientB.from('expenses').insert({
+        'id': _uuid(),
+        'trip_id': tripId,
+        'payer_id': userB,
+        'amount_cents': 100,
+        'currency': 'EUR',
+        'base_cents': 100,
+        'fx_rate': 1,
+        'description': 'blocked',
+        'created_by': userB,
+      });
+    } catch (_) {
+      expenseOnClosedBlocked = true;
+    }
+    results.add(_Check(
+      'B INSERT expense on closed trip blocked',
+      closedRow['lifecycle'] == 'closed' && expenseOnClosedBlocked,
+    ));
+
+    var settlementOnClosedOk = false;
+    if (closedRow['lifecycle'] == 'closed') {
+      try {
+        await clientB.from('settlements').insert({
+          'id': _uuid(),
+          'trip_id': tripId,
+          'from_user': userB,
+          'to_user': userA,
+          'amount_cents': 50,
+          'currency': 'EUR',
+        });
+        settlementOnClosedOk = true;
+      } catch (_) {}
+    }
+    results.add(_Check(
+      'B settlement write on closed trip allowed',
+      settlementOnClosedOk,
+    ));
+
+    // Cancel + co-admin guard on a throwaway pre-start trip
+    final cancelTripId = _uuid();
+    await clientA.rpc('create_trip', params: {
+      'p_id': cancelTripId,
+      'p_name': 'RLS cancel smoke',
+      'p_start_date': DateTime.now().toUtc().add(const Duration(days: 30)).toIso8601String().substring(0, 10),
+    });
+    await clientA.rpc('cancel_trip', params: {'p_trip_id': cancelTripId});
+    final cancelled = await clientA
+        .from('trips')
+        .select('lifecycle')
+        .eq('id', cancelTripId)
+        .single();
+    results.add(_Check('A cancel pre-start', cancelled['lifecycle'] == 'cancelled'));
+
+    var writeOnCancelledBlocked = false;
+    try {
+      await clientA.from('expenses').insert({
+        'id': _uuid(),
+        'trip_id': cancelTripId,
+        'payer_id': userA,
+        'amount_cents': 100,
+        'currency': 'EUR',
+        'base_cents': 100,
+        'fx_rate': 1,
+        'description': 'blocked',
+        'created_by': userA,
+      });
+    } catch (_) {
+      writeOnCancelledBlocked = true;
+    }
+    results.add(_Check('write on cancelled trip blocked', writeOnCancelledBlocked));
+
+    await clientA.rpc('set_member_role', params: {
+      'p_trip_id': tripId,
+      'p_user_id': userB,
+      'p_role': 'co-admin',
+    });
+    var coAdminCancelBlocked = false;
+    try {
+      await clientB.rpc('cancel_trip', params: {'p_trip_id': tripId});
+    } catch (_) {
+      coAdminCancelBlocked = true;
+    }
+    results.add(_Check('co-admin cannot cancel trip', coAdminCancelBlocked));
 
     await clientA
         .from('trips')

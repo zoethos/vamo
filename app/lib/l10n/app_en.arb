@@ -61,6 +61,7 @@
   "expensesSettlementUnsettled": "Unsettled",
   "expensesSettlementSettled": "Settled",
   "expensesSettlementAllSettled": "All settled",
+  "expensesUnresolvedBadge": "Unresolved",
   "expensesPickerTitle": "Add expense to which trip?",
   "expensesPickerLastUsed": "Last used",
   "inviteShowQr": "Show QR",

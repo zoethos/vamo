@@ -54,6 +54,7 @@ class SplitLabels {
         settlementUnsettled: l10n.expensesSettlementUnsettled,
         settlementSettled: l10n.expensesSettlementSettled,
         settlementAllSettled: l10n.expensesSettlementAllSettled,
+        unresolvedBadge: l10n.expensesUnresolvedBadge,
         pickerTitle: l10n.expensesPickerTitle,
         pickerLastUsed: l10n.expensesPickerLastUsed,
       );

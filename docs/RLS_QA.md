@@ -14,7 +14,7 @@ dart pub get
 dart run tool/rls_smoke.dart
 ```
 
-The script creates a throwaway trip, verifies member vs outsider access (including **captures** bucket receipt paths with four segments), suggestions isolation, `trip_members` self-insert denial (`0007`), and **S16 role cases** (`0012`/`0013`: member cannot edit trip, co-admin can, co-admin cannot grant roles), then cleans up storage. Exit code `0` = all checks PASS.
+The script creates a throwaway trip, verifies member vs outsider access (including **captures** bucket receipt paths with four segments), suggestions isolation, `trip_members` self-insert denial (`0007`), **S16 role cases** (`0012`/`0013`: member cannot edit trip, co-admin can, co-admin cannot grant roles), and **S17 lifecycle cases** (`0015`: write-after-close blocked, settlements allowed on closed, deemed close via service-role job, objection holds closing, co-admin cannot cancel), then cleans up storage. Set `RLS_SERVICE_ROLE_KEY` for job/backdate tests. Exit code `0` = all checks PASS.
 
 Use this as the primary storage + RLS gate; manual steps below remain as an appendix.
 

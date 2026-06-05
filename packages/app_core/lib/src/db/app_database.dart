@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,6 +65,26 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(localPlaces);
             await m.addColumn(localExpenses, localExpenses.placeId);
           }
+          if (from < 9) {
+            await m.addColumn(localTrips, localTrips.lifecycle);
+            await m.addColumn(localTrips, localTrips.closeRequestedAt);
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.completedAt,
+            );
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.closeAcceptedAt,
+            );
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.closeObjectedAt,
+            );
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.closeObjectionReason,
+            );
+          }
         },
       );
 
@@ -92,6 +112,13 @@ class AppDatabase extends _$AppDatabase {
           ..where((m) => m.tripId.equals(tripId))
           ..where((m) => m.status.equals('active')))
         .watch();
+  }
+
+  Stream<LocalTripMember?> watchMember(String tripId, String userId) {
+    return (select(localTripMembers)
+          ..where((m) => m.tripId.equals(tripId))
+          ..where((m) => m.userId.equals(userId)))
+        .watchSingleOrNull();
   }
 
   Stream<List<LocalExpense>> watchTripExpenses(String tripId) {

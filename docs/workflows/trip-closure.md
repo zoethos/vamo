@@ -42,7 +42,7 @@ stateDiagram-v2
 |---|---|---|---|
 | `active` | ✅ | ✅ | ✅ |
 | `closing` | ✅ (trip is still live) | ✅ | ✅ |
-| `closed` | ❌ (RLS-blocked) | ✅ **stays open** | ✅ until own settle-confirm (R1) |
+| `closed` | ❌ (RLS-blocked) | ✅ **stays open** | ✅ until own settle-confirm (A1) |
 | `unresolved` | ❌ | ✅ | ✅ until own settle-confirm |
 | `cancelled` | ❌ | ❌ | — |
 
@@ -94,7 +94,7 @@ sequenceDiagram
     end
 
     Note over T: AFTER closed/unresolved — settling still open:
-    M1->>T: confirm own settlement → M1's dispute window closes (R1)
+    M1->>T: confirm own settlement → M1's dispute window closes (A1)
     M2->>T: dispute allowed until M2's own settle-confirm
 ```
 
@@ -121,9 +121,22 @@ sequenceDiagram
 
 ## rls_smoke cases (state-based, per the "no error ≠ it worked" rule)
 
-- Member INSERT/UPDATE expense on closed trip → **blocked**
-- Member settlement write on closed trip → **ALLOWED**
-- Any write on cancelled trip → **blocked**
+- Member INSERT/UPDATE/**DELETE** expense on closed trip → **blocked**
+  (DELETE matters: `FOR ALL` policies apply USING to deletes — found in
+  S17 review)
+- Member settlement write (own, as participant) on closed trip → **ALLOWED**
+- Member writes a settlement **between two other members** → **blocked**
+  (0007 participant-scoping regression lock)
+- Any write on cancelled trip → **blocked** (incl. settlements)
 - Deemed close: window expired + silent member → lifecycle = `closed`
 - Open objection at window expiry → lifecycle stays `closing`
+- All members mark complete → lifecycle auto-enters `closing`
+- Member early-accept completes → `closed` (member-driven transition must
+  pass the lifecycle guard — S17 review finding)
 - Co-admin cannot cancel/close/force (owner-only transitions)
+
+## Sequencing constraint (S17 review P2)
+
+**No notice, no deemed consent**: the day-14 deemed close must not run in
+production before lifecycle push notifications exist (S22). Until then,
+either the cron schedule stays off or S22's notify path ships first.

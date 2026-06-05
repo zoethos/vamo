@@ -29,6 +29,10 @@ screen. This brief is the contract for the identity implementation (W2-5).
    recolored per theme; position fixed (snapshot doctrine unchanged).
 4. All new layouts directional (I18N_PLAN rules) — board's mock is LTR;
    mirror-ready from first commit.
+5. **goLime is fill-only** (1.2:1 on white — unfixable as text/icon/border).
+   Foreground "primary" roles (text buttons, focused borders, cursors,
+   links, selected states) use `deepPlum`. ThemeData must never set
+   `colorScheme.primary` to goLime (regression-locked in contrast tests).
 
 ## Navigation (board sample screen = target)
 

@@ -1,6 +1,10 @@
 # Secrets
 .env
 *.env.local
+tool/rls-smoke.local.ps1
+
+# npm (supabase CLI dev-dependency)
+node_modules/
 
 # Dart / Flutter
 .dart_tool/

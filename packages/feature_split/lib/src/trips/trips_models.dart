@@ -7,6 +7,7 @@ class TripSummary {
     this.startDate,
     this.endDate,
     required this.baseCurrency,
+    this.lifecycle = 'active',
   });
 
   final String id;
@@ -15,6 +16,7 @@ class TripSummary {
   final String? startDate;
   final String? endDate;
   final String baseCurrency;
+  final String lifecycle;
 }
 
 /// Trip home header fields.
@@ -27,6 +29,8 @@ class TripDetail {
     this.endDate,
     required this.baseCurrency,
     required this.ownerId,
+    this.lifecycle = 'active',
+    this.closeRequestedAt,
   });
 
   final String id;
@@ -36,6 +40,8 @@ class TripDetail {
   final String? endDate;
   final String baseCurrency;
   final String ownerId;
+  final String lifecycle;
+  final DateTime? closeRequestedAt;
 }
 
 class CreateTripInput {

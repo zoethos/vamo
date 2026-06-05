@@ -66,6 +66,7 @@ class TripsRepository {
                   startDate: r.startDate,
                   endDate: r.endDate,
                   baseCurrency: r.baseCurrency,
+                  lifecycle: r.lifecycle,
                 ),
               )
               .toList(),
@@ -83,8 +84,20 @@ class TripsRepository {
         endDate: row.endDate,
         baseCurrency: row.baseCurrency,
         ownerId: row.ownerId,
+        lifecycle: row.lifecycle,
+        closeRequestedAt: row.closeRequestedAt,
       );
     });
+  }
+
+  Stream<LocalTripMember?> watchMember(String tripId, String userId) {
+    return _db.watchMember(tripId, userId);
+  }
+
+  Stream<bool> watchTripHasCloseObjection(String tripId) {
+    return _db.watchActiveMembers(tripId).map(
+          (members) => members.any((m) => m.closeObjectedAt != null),
+        );
   }
 
   Stream<int> watchActiveMemberCount(String tripId) =>
@@ -129,9 +142,7 @@ class TripsRepository {
 
     final tripRows = await _client
         .from('trips')
-        .select(
-          'id, name, destination, start_date, end_date, owner_id, base_currency, created_at',
-        )
+        .select(_tripSelectFields)
         .order('created_at', ascending: false);
 
     final remoteIds = (tripRows as List)
@@ -163,20 +174,17 @@ class TripsRepository {
     final tripRows = onlyTripId == null
         ? await _client
             .from('trips')
-            .select(
-              'id, name, destination, start_date, end_date, owner_id, base_currency, created_at',
-            )
+            .select(_tripSelectFields)
             .order('created_at', ascending: false)
         : await _client
             .from('trips')
-            .select(
-              'id, name, destination, start_date, end_date, owner_id, base_currency, created_at',
-            )
+            .select(_tripSelectFields)
             .eq('id', onlyTripId);
 
-    final memberQuery = _client
-        .from('trip_members')
-        .select('trip_id, user_id, role, status, profiles(display_name)');
+    final memberQuery = _client.from('trip_members').select(
+          'trip_id, user_id, role, status, completed_at, close_accepted_at, '
+          'close_objected_at, close_objection_reason, profiles(display_name)',
+        );
     final memberRows = onlyTripId == null
         ? await memberQuery
         : await memberQuery.eq('trip_id', onlyTripId);
@@ -195,6 +203,10 @@ class TripsRepository {
           endDate: Value(_dateToIso(row['end_date'])),
           ownerId: Value(row['owner_id'] as String),
           baseCurrency: Value(row['base_currency'] as String),
+          lifecycle: Value((row['lifecycle'] as String?) ?? 'active'),
+          closeRequestedAt: Value(
+            _timestamp(row['close_requested_at']),
+          ),
           createdAt: Value(created),
           updatedAt: Value(now),
         ),
@@ -212,6 +224,12 @@ class TripsRepository {
           role: Value(row['role'] as String),
           status: Value(row['status'] as String),
           displayName: Value(profile?['display_name'] as String?),
+          completedAt: Value(_timestamp(row['completed_at'])),
+          closeAcceptedAt: Value(_timestamp(row['close_accepted_at'])),
+          closeObjectedAt: Value(_timestamp(row['close_objected_at'])),
+          closeObjectionReason: Value(
+            row['close_objection_reason'] as String?,
+          ),
         ),
       );
     }
@@ -244,6 +262,7 @@ class TripsRepository {
         endDate: Value(input.endDate),
         ownerId: Value(userId),
         baseCurrency: Value(input.baseCurrency),
+        lifecycle: const Value('active'),
         createdAt: Value(now),
         updatedAt: Value(now),
       ),
@@ -301,6 +320,83 @@ class TripsRepository {
       'p_role': role,
     });
     await syncTripFromRemote(tripId);
+  }
+
+  Future<void> requestTripClose(String tripId) async {
+    await _client.rpc('request_trip_close', params: {'p_trip_id': tripId});
+    await syncTripFromRemote(tripId);
+    _analytics.capture(
+      VamoEvent.closeRequested,
+      properties: {'trip_id': tripId},
+    );
+  }
+
+  Future<void> markTripMemberComplete(String tripId) async {
+    await _client.rpc(
+      'mark_trip_member_complete',
+      params: {'p_trip_id': tripId},
+    );
+    await syncTripFromRemote(tripId);
+  }
+
+  Future<void> acceptTripClose(String tripId) async {
+    await _client.rpc('accept_trip_close', params: {'p_trip_id': tripId});
+    await syncTripFromRemote(tripId);
+    _analytics.capture(
+      VamoEvent.closeAccepted,
+      properties: {'trip_id': tripId, 'mode': 'explicit'},
+    );
+  }
+
+  Future<void> objectToTripClose({
+    required String tripId,
+    required String reason,
+  }) async {
+    await _client.rpc('object_to_trip_close', params: {
+      'p_trip_id': tripId,
+      'p_reason': reason.trim(),
+    });
+    await syncTripFromRemote(tripId);
+    _analytics.capture(
+      VamoEvent.closeObjected,
+      properties: {'trip_id': tripId, 'has_reason': true},
+    );
+  }
+
+  Future<void> withdrawCloseObjection(String tripId) async {
+    await _client.rpc(
+      'withdraw_close_objection',
+      params: {'p_trip_id': tripId},
+    );
+    await syncTripFromRemote(tripId);
+  }
+
+  Future<void> forceCloseTrip(String tripId) async {
+    await _client.rpc('force_close_trip', params: {'p_trip_id': tripId});
+    await syncTripFromRemote(tripId);
+    _analytics.capture(
+      VamoEvent.closeAccepted,
+      properties: {'trip_id': tripId, 'mode': 'forced'},
+    );
+  }
+
+  Future<void> cancelTrip(String tripId) async {
+    await _client.rpc('cancel_trip', params: {'p_trip_id': tripId});
+    await syncTripFromRemote(tripId);
+    _analytics.capture(
+      VamoEvent.tripCancelled,
+      properties: {'trip_id': tripId},
+    );
+  }
+
+  static const _tripSelectFields =
+      'id, name, destination, start_date, end_date, owner_id, base_currency, '
+      'lifecycle, close_requested_at, created_at';
+
+  DateTime? _timestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value.toUtc();
+    return DateTime.tryParse(value as String)?.toUtc();
   }
 
   String? _dateToIso(dynamic value) {

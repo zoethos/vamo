@@ -1,7 +1,7 @@
 # Closure patterns — cross-industry review of the "closure dance"
 
 Status: research memo for founder review · 2026-06-05
-Feeds: S17 (trip lifecycle) before implementation; amends `MONEY_GOVERNANCE.md` D2/R6 if accepted.
+Feeds: S17 (trip lifecycle) before implementation; amends `MONEY_GOVERNANCE.md` D2/A6 if accepted.
 
 ## Why this memo
 
@@ -30,7 +30,7 @@ AliExpress: buyer confirms receipt (or the order auto-confirms after the
 protection window, 15–60 days); **confirming receipt forfeits the right to
 open a dispute**. Disputes are only possible before confirmation.
 
-Lesson: Vamo already has this exact mechanic in MONEY_GOVERNANCE **R1** —
+Lesson: Vamo already has this exact mechanic in MONEY_GOVERNANCE **A1** —
 "you settled = you accepted the math". The per-member dispute window closing
 at own settlement confirm is the industry-standard shape. Keep it; it is the
 *final* gate, distinct from the close gate.
@@ -62,7 +62,7 @@ naming and semantics deliberately:
 | Construction | Vamo |
 |---|---|
 | Practical completion | `closed` — no new expenses/captures (read-only) |
-| Defects liability period | settling + disputes still open per member (R1) |
+| Defects liability period | settling + disputes still open per member (A1) |
 | Final certificate | per-member settlement confirm (dispute window closes) |
 | Sectional completion | member `completed_at` — finish your own way |
 
@@ -134,7 +134,7 @@ Replace **active unanimity** with **deemed acceptance**:
    default fate of every trip with one ghost member.
 5. **Reminder at day 7** (half-window), single shot (`close_warned_at`,
    anti-nag) — replaces the month-5 warning as the common case.
-6. **Financial finality stays per-member** (R1 unchanged): disputes and
+6. **Financial finality stays per-member** (A1 unchanged): disputes and
    settling remain open after `closed` until each member confirms their own
    settlement — construction's defects period. `settlements` writable in
    `closing/closed/unresolved`, never in `cancelled`.

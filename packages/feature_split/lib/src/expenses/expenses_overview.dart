@@ -19,6 +19,7 @@ class TripExpenseRollup {
     required this.sortKey,
     required this.isPast,
     required this.yearGroup,
+    this.lifecycle = 'active',
   });
 
   final String tripId;
@@ -32,6 +33,9 @@ class TripExpenseRollup {
   final DateTime sortKey;
   final bool isPast;
   final int? yearGroup;
+  final String lifecycle;
+
+  bool get isUnresolved => lifecycle == 'unresolved';
 }
 
 /// Cross-trip balance header aggregates (non-settled trips only).
@@ -168,6 +172,7 @@ List<TripExpenseRollup> buildTripRollups({
         sortKey: rollupSortKey(trip, tripExpenses),
         isPast: past,
         yearGroup: past ? pastTripYear(trip) : null,
+        lifecycle: trip.lifecycle,
       ),
     );
   }

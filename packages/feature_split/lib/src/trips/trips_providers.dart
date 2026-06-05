@@ -26,3 +26,15 @@ final tripMemberCountProvider =
     StreamProvider.family<int, String>((ref, tripId) {
   return ref.watch(tripsRepositoryProvider).watchActiveMemberCount(tripId);
 });
+
+final tripMyMemberProvider =
+    StreamProvider.family<LocalTripMember?, String>((ref, tripId) {
+  final userId = ref.watch(authRepositoryProvider).currentUser?.id;
+  if (userId == null) return Stream.value(null);
+  return ref.watch(tripsRepositoryProvider).watchMember(tripId, userId);
+});
+
+final tripHasCloseObjectionProvider =
+    StreamProvider.family<bool, String>((ref, tripId) {
+  return ref.watch(tripsRepositoryProvider).watchTripHasCloseObjection(tripId);
+});

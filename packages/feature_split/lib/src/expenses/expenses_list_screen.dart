@@ -25,6 +25,7 @@ class ExpensesListScreenLabels {
     required this.settlementUnsettled,
     required this.settlementSettled,
     required this.settlementAllSettled,
+    required this.unresolvedBadge,
     required this.pickerTitle,
     required this.pickerLastUsed,
   });
@@ -45,6 +46,7 @@ class ExpensesListScreenLabels {
   final String settlementUnsettled;
   final String settlementSettled;
   final String settlementAllSettled;
+  final String unresolvedBadge;
   final String pickerTitle;
   final String pickerLastUsed;
 }
@@ -436,6 +438,21 @@ class _TripRollupTile extends StatelessWidget {
                     backgroundColor: badge.$2,
                     side: BorderSide.none,
                   ),
+                  if (rollup.isUnresolved) ...[
+                    const SizedBox(width: 6),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(
+                        labels.unresolvedBadge,
+                        style: const TextStyle(
+                          color: AppColors.coralText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      backgroundColor: AppColors.coralText.withValues(alpha: 0.12),
+                      side: BorderSide.none,
+                    ),
+                  ],
                 ],
               ),
               if (rollup.dateRange != null) ...[

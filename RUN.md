@@ -88,6 +88,26 @@ curl -X POST "$SUPABASE_URL/functions/v1/send-push" \
 
 See `docs/SCHEDULED_JOBS.md`. Check pg_cron in SQL editor; if unavailable, schedule Edge Function `scheduled-heartbeat` (hourly cron). Heartbeats land in `job_heartbeats`.
 
+## Slice 17 — trip lifecycle (R3, Wave 2)
+
+Contract: `docs/workflows/trip-closure.md` (deemed acceptance, 14-day window).
+
+```bash
+supabase db push   # applies 0015_trip_lifecycle.sql
+npx supabase secrets set CRON_SECRET='…'
+npx supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
+dart run tool/rls_smoke.dart   # incl. write-after-close + deemed-close cases (needs RLS_SERVICE_ROLE_KEY)
+melos run ci
+```
+
+**Demo:** create trip → **Request close** (owner) or all members **I'm done** →
+members **Accept close** / **Object…** → after 14 days (or service-role job in
+smoke) trip `closed` → add expense blocked, settlement still allowed → owner
+**Close anyway** only when an objection is open.
+
+Lifecycle RPCs: `request_trip_close`, `mark_trip_member_complete`, `accept_trip_close`,
+`object_to_trip_close`, `withdraw_close_objection`, `force_close_trip`, `cancel_trip`.
+
 ### vamo.world site (`web/apps/site`)
 
 Public Next.js on Vercel: landing, `/privacy`, `/terms`, `/j/[token]` redirect, `/.well-known/assetlinks.json`.
