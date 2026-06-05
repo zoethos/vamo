@@ -1,5 +1,8 @@
 # Wave 2 — planning seed
 
+> **SEALED 2026-06-05** — superseded by `Vamo_Wave2_Spec.md` (approved).
+> No new entries here; new ideas → AI_IDEATION_GOVERNANCE ledger → Wave 3.
+
 Input for the Wave-2 spec session (run the Wave-1 drill: spec → build plan →
 sliced backlog). Collects everything approved or queued for the wave so far.
 Not a spec yet — estimates are rough, sequencing TBD at planning.
@@ -9,6 +12,17 @@ Not a spec yet — estimates are rough, sequencing TBD at planning.
 1. **EventList** (`feature_events`) — group events with RSVP + guest list.
 2. **TripBoard** (`feature_board`) — collaborative itinerary + shared lists.
    Together: the "open daily during the trip" stickiness wave.
+   **Enriched (founder, 2026-06-05): pre-trip money governance.** Plan items
+   carry optional proposed costs reviewed against the trip budget (#7);
+   members approve / reject with motivation ("hotel too expensive — pick
+   cheaper"). One expense state machine covers it all: proposed →
+   approved/rejected(reason) → committed, plus disputed (post-hoc, from the
+   ledger) — settle-up engine counts committed only; share invariant holds
+   through every transition. Pre-trip approval = engagement BEFORE the trip
+   starts, doubling the stickiness window. Plan items born extensible:
+   `kind` (lodging/flight/train/activity/other) + `external_ref` (flight
+   number, booking code, URL) — text today, API-resolved in W4+, affiliate
+   deep-links someday (gateway vision parked in roadmap Extras).
 3. **AI theme resolver** — spec ready: `docs/AI_THEMING_SPEC.md`
    (Edge Function + `destination_themes` global cache + client ladder). ~2d.
 4. **Web share-pages** (`web/apps/share-pages`) — view-before-install behind
@@ -40,6 +54,35 @@ Not a spec yet — estimates are rough, sequencing TBD at planning.
    Retroactive backfill command over already-stored receipts (Slice 14 stored
    the images + EXIF precisely to enable this). Offline-capable, zero cloud
    cost. Cloud fallback deferred.
+
+9b. **Trip FX policy** (founder, 2026-06-05, ~1d): at creation choose
+    Automatic (per-expense daily snapshot — current default) or **Fixed**
+    (organizer sets expected currencies + agreed rates, pre-filled from
+    today's market, editable — "we exchanged at 0.92" group fairness).
+    Implementation: trips.fx_policy + trip rate table; expenses keep storing
+    their fx_rate (source changes, math/invariants unchanged). At trip close:
+    informational FX reconciliation report (fixed vs market dailies drift) —
+    NO automatic adjustment in v1 (settlement-correctness minefield);
+    explicit adjust action possibly later, only before first confirmed
+    settlement. Belongs to the money-governance spec block with #1/#2
+    proposals + #7 budget + dispute mechanic.
+
+10. **Trip lifecycle — close semantics** (founder, 2026-06-05, ~1.5d):
+    member-level `completed_at` on trip_members ("finish my way" — also
+    defines each member's trace extent for the W5 replay); trip closed when
+    all active members complete OR owner force-close (`closed_at`/`closed_by`,
+    confirm dialog). Closed = read-only via RLS (new expenses/captures
+    blocked server-side), settling stays open, snapshot/recap prompts fire
+    on close, settle-nudge (#8) fires on close not end_date. Migration:
+    columns + policy updates + rls_smoke cases (write-after-close blocked).
+
+11. **Retention basics** (~1d, after #10): per-member "Offload media"
+    (keep trip, drop local cache, re-fetch on demand) and "Leave & purge"
+    (membership exit + local wipe; shared data untouched); owner "Delete for
+    everyone" with typed-confirm + server cascade incl. storage sweep.
+    Principle: my copy / my membership / our data are separately owned.
+    "Archive as video" option explicitly deferred to TripReel (Wave 4) —
+    listed in the menu as the W4 teaser (intention door, notify-me).
 
 ## Identity pass (critical path, runs with the name decision)
 
