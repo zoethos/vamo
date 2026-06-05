@@ -55,3 +55,5 @@ export 'src/trips/trips_list_screen.dart';
 export 'src/trips/trips_models.dart';
 export 'src/trips/trips_providers.dart';
 export 'src/trips/trips_repository.dart';
+export 'src/push/push_devices_repository.dart';
+export 'src/push/push_lifecycle.dart';
