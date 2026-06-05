@@ -10,8 +10,9 @@ import '../invites/invite_labels.dart';
 import '../invites/invite_qr_show_sheet.dart';
 import '../invites/invites_repository.dart';
 import 'trips_providers.dart';
+import 'trips_repository.dart';
 
-/// Slice 5 — roster + invite link share.
+/// Slice 5 — roster + invite link share. S16 — owner co-admin grants.
 class MembersTab extends ConsumerStatefulWidget {
   const MembersTab({
     super.key,
@@ -29,6 +30,8 @@ class MembersTab extends ConsumerStatefulWidget {
 class _MembersTabState extends ConsumerState<MembersTab> {
   bool _sharing = false;
   bool _showingQr = false;
+  String? _roleBusyUserId;
+
   /// Started on invite tap only — browsing members is not an invite attempt.
   FlowTracker? _inviteFlow;
 
@@ -41,7 +44,9 @@ class _MembersTabState extends ConsumerState<MembersTab> {
   @override
   Widget build(BuildContext context) {
     final members = ref.watch(tripMembersForExpenseProvider(widget.tripId));
+    final trip = ref.watch(tripDetailProvider(widget.tripId));
     final currentUserId = ref.watch(currentUserProvider)?.id;
+    final isOwner = trip.valueOrNull?.ownerId == currentUserId;
 
     return members.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -89,8 +94,14 @@ class _MembersTabState extends ConsumerState<MembersTab> {
                   title: Text(m.displayName),
                   subtitle: Text(
                     m.userId == currentUserId
-                        ? 'You · ${m.role}'
-                        : m.role,
+                        ? 'You · ${TripMemberRoles.label(m.role)}'
+                        : TripMemberRoles.label(m.role),
+                  ),
+                  trailing: _roleTrailing(
+                    isOwner: isOwner,
+                    memberUserId: m.userId,
+                    memberRole: m.role,
+                    currentUserId: currentUserId,
                   ),
                 ),
               ),
@@ -143,6 +154,68 @@ class _MembersTabState extends ConsumerState<MembersTab> {
         );
       },
     );
+  }
+
+  Widget? _roleTrailing({
+    required bool isOwner,
+    required String memberUserId,
+    required String memberRole,
+    required String? currentUserId,
+  }) {
+    if (!isOwner ||
+        memberUserId == currentUserId ||
+        TripMemberRoles.isOwner(memberRole)) {
+      return null;
+    }
+    if (_roleBusyUserId == memberUserId) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return PopupMenuButton<String>(
+      onSelected: (value) => _onRoleAction(value, memberUserId),
+      itemBuilder: (context) {
+        if (TripMemberRoles.isCoAdmin(memberRole)) {
+          return [
+            const PopupMenuItem(
+              value: 'member',
+              child: Text('Remove co-admin'),
+            ),
+          ];
+        }
+        return [
+          const PopupMenuItem(
+            value: 'co-admin',
+            child: Text('Make co-admin'),
+          ),
+        ];
+      },
+    );
+  }
+
+  Future<void> _onRoleAction(String role, String userId) async {
+    setState(() => _roleBusyUserId = userId);
+    try {
+      await ref.read(tripsRepositoryProvider).setMemberRole(
+            tripId: widget.tripId,
+            userId: userId,
+            role: role,
+          );
+      ref.invalidate(tripMembersForExpenseProvider(widget.tripId));
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'trip_home',
+        action: 'set_member_role',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _roleBusyUserId = null);
+    }
   }
 
   Future<void> _shareInvite() async {

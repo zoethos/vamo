@@ -140,6 +140,74 @@ Future<void> main() async {
         );
     results.add(_Check('B member upload (upsert)', true));
 
+    // --- S16 role cases (R1) — before B is removed from trip ---
+    await clientA
+        .from('trips')
+        .update({'destination': 'RLS baseline'})
+        .eq('id', tripId);
+
+    await clientB
+        .from('trips')
+        .update({'destination': 'Member edit'})
+        .eq('id', tripId);
+    final tripAfterMemberEdit = await clientB
+        .from('trips')
+        .select('destination')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check(
+      'B member cannot update trip',
+      tripAfterMemberEdit['destination'] == 'RLS baseline',
+    ));
+
+    await clientA.rpc('set_member_role', params: {
+      'p_trip_id': tripId,
+      'p_user_id': userB,
+      'p_role': 'co-admin',
+    });
+    final bRole = await clientA
+        .from('trip_members')
+        .select('role')
+        .eq('trip_id', tripId)
+        .eq('user_id', userB)
+        .single();
+    results.add(_Check('A promotes B to co-admin', bRole['role'] == 'co-admin'));
+
+    await clientB
+        .from('trips')
+        .update({'destination': 'Co-admin edit'})
+        .eq('id', tripId);
+    final tripAfterCoAdmin = await clientB
+        .from('trips')
+        .select('destination')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check(
+      'B co-admin can update trip fields',
+      tripAfterCoAdmin['destination'] == 'Co-admin edit',
+    ));
+
+    await clientB
+        .from('trip_members')
+        .update({'role': 'member'})
+        .eq('trip_id', tripId)
+        .eq('user_id', userA);
+    final ownerRoleAfter = await clientA
+        .from('trip_members')
+        .select('role')
+        .eq('trip_id', tripId)
+        .eq('user_id', userA)
+        .single();
+    results.add(_Check(
+      'B co-admin cannot change roles',
+      ownerRoleAfter['role'] == 'owner',
+    ));
+
+    await clientA
+        .from('trips')
+        .update({'destination': 'RLS baseline'})
+        .eq('id', tripId);
+
     await clientA
         .from('trip_members')
         .update({'status': 'left'})

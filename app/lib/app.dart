@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_core/app_core.dart';
 import 'package:app_links/app_links.dart';
+import 'package:feature_split/feature_split.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -25,6 +26,19 @@ class _VamoAppState extends ConsumerState<VamoApp> {
   void initState() {
     super.initState();
     _initDeepLinks();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pushNotificationRouteHandlerProvider.notifier).state =
+          _handlePushRoute;
+    });
+  }
+
+  void _handlePushRoute(String route) {
+    final token = inviteTokenFromLocation(route);
+    if (token != null) {
+      ref.read(routerProvider).go(InviteUrls.inAppJoinLocation(token));
+      return;
+    }
+    ref.read(routerProvider).go(route);
   }
 
   @override
@@ -61,6 +75,7 @@ class _VamoAppState extends ConsumerState<VamoApp> {
   Widget build(BuildContext context) {
     ref.watch(syncLifecycleProvider);
     ref.watch(analyticsLifecycleProvider);
+    ref.watch(pushLifecycleProvider);
     final router = ref.watch(routerProvider);
     final localeOverride = ref.watch(devLocaleOverrideProvider);
     final locale = resolveDevLocale(localeOverride);

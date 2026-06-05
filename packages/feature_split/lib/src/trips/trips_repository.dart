@@ -289,6 +289,20 @@ class TripsRepository {
     return id;
   }
 
+  /// Owner-only: grant or revoke co-admin (RPC `set_member_role`).
+  Future<void> setMemberRole({
+    required String tripId,
+    required String userId,
+    required String role,
+  }) async {
+    await _client.rpc('set_member_role', params: {
+      'p_trip_id': tripId,
+      'p_user_id': userId,
+      'p_role': role,
+    });
+    await syncTripFromRemote(tripId);
+  }
+
   String? _dateToIso(dynamic value) {
     if (value == null) return null;
     if (value is String) return value;

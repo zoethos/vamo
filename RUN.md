@@ -38,14 +38,59 @@ Log an expense in a currency other than the trip base → client fetches daily F
 
 ## Slice 5 — invite & join
 
-**Invite Vamigos** on Members → share `https://vamo.app/j/<token>` (+ `app.vamo://join?token=…`) or **Show QR** (`app.vamo://join?token=…` — system-camera safe until domain-owned share-pages, S25). Opener signs in → `join_trip` RPC → trip home. Fires `member_invited {channel: link|qr}`, `qr_shown` (when QR displayed), `invite_accepted {channel}`.
+**Invite Vamigos** on Members → share `https://vamo.world/j/<token>` (+ `app.vamo://join?token=…`) or **Show QR** (same web link — opens app via universal link / redirect page). Opener signs in → `join_trip` RPC → trip home. Fires `member_invited {channel: link|qr}`, `qr_shown` (when QR displayed), `invite_accepted {channel}`.
 
 ### Slice 15 — QR invite (R9)
 
 1. Phone A: trip → **Members** → **Show QR** (full-screen sheet with brand header).
-2. Phone B: scan with the **system camera** (or in-app **Scan a Vamo QR**) → opens `app.vamo://join?token=…`.
+2. Phone B: scan with the **system camera** (or in-app **Scan a Vamo QR**) → `https://vamo.world/j/<token>` → app opens.
 3. Phone B lands in the trip. PostHog: `invite_accepted` with `channel: qr` (no token in properties).
 4. Link share still fires `member_invited` with `channel: link`. Web hides scan entry; invite links still work.
+
+## Slice 16 — roles + push + scheduled jobs (R1, R2, Wave 2)
+
+### Roles (migration `0012_trip_roles.sql`)
+
+- `trip_members.role`: `owner` | `co-admin` | `member`
+- **Co-admin** can edit trip content (name, dates, …) — same RLS as owner for `trips` update; cannot grant roles, transfer ownership, or (in S17) cancel/close.
+- **Owner** → Members tab → ⋮ on a Vamigo → **Make co-admin** / **Remove co-admin** (`set_member_role` RPC).
+
+```bash
+supabase db push   # applies 0012 + 0013
+dart run tool/rls_smoke.dart   # incl. co-admin update / role-grant denial cases
+```
+
+### Push (migration `0013`, T10.5)
+
+1. **Firebase:** create Android app `com.example.vamo`, download `google-services.json` → `app/android/app/` (replace placeholder).
+2. **Supabase secrets:** set the full service-account JSON as one secret (minify to one line):
+
+```bash
+npx supabase secrets set FIREBASE_SERVICE_ACCOUNT='{"type":"service_account","project_id":"...",...}'
+```
+
+   Firebase console → Project settings → Service accounts → **Generate new private key**.
+3. **Deploy:** `npx supabase functions deploy send-push`
+4. **Device test (Android, app backgrounded):**
+   - Sign in → token registers via `register_push_device` RPC (`push_devices` table).
+   - From a REST client or curl with your JWT:
+
+```bash
+curl -X POST "$SUPABASE_URL/functions/v1/send-push" \
+  -H "Authorization: Bearer $USER_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Vamo","body":"Test push","route":"/trips/<trip-id>"}'
+```
+
+   - Tap notification → app opens on the trip route (same handler as deep links).
+
+### Scheduled jobs (decision + proof)
+
+See `docs/SCHEDULED_JOBS.md`. Check pg_cron in SQL editor; if unavailable, schedule Edge Function `scheduled-heartbeat` (hourly cron). Heartbeats land in `job_heartbeats`.
+
+### vamo.world site (`web/apps/site`)
+
+Public Next.js on Vercel: landing, `/privacy`, `/terms`, `/j/[token]` redirect, `/.well-known/assetlinks.json`.
 
 ### 1. Backend
 
@@ -176,7 +221,7 @@ After one online fetch, foreign expenses work offline using the last cached rate
 3. Balances tab appears once 2+ members; add expenses and settle.
 4. Debug: `member_invited`, `invite_accepted`.
 
-**Deep links:** configure `app.vamo` + `https://vamo.app/j/*` in platform manifests when you `flutter create` the app project (see `app/README_DEEP_LINKS.md`).
+**Deep links:** configure `app.vamo` + `https://vamo.world/j/*` in platform manifests when you `flutter create` the app project (see `app/README_DEEP_LINKS.md`).
 
 ### 14. Slice 1 demo
 
