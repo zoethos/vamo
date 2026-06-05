@@ -117,17 +117,17 @@ a:hover {
   justify-content: center;
   text-align: center;
   padding: 2rem 1.25rem;
-  /* pattern_dark not in docs/brand yet — indigo base + brand gradient fallback */
+  color: var(--ink);
   background:
-    var(--brand-gradient),
-    var(--indigo);
-  background-blend-mode: normal, normal;
+    url("/brand/pattern_light.png") center / cover no-repeat,
+    var(--warm-white);
+  background-blend-mode: soft-light, normal;
 }
 
 .landing-mark {
-  width: min(120px, 28vw);
+  width: min(320px, 72vw);
   height: auto;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .landing-wordmark {
@@ -135,17 +135,18 @@ a:hover {
   font-weight: 800;
   letter-spacing: 0.12em;
   margin: 0 0 0.5rem;
+  color: var(--ink);
 }
 
 .landing-tagline {
   font-size: 1.25rem;
-  color: rgba(250, 250, 251, 0.92);
+  color: var(--ink);
   margin: 0 0 2rem;
 }
 
 .landing-soon {
   font-size: 0.95rem;
-  color: rgba(250, 250, 251, 0.75);
+  color: var(--graphite);
   margin: 0;
 }
 

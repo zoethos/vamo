@@ -4,10 +4,10 @@ export default function HomePage() {
   return (
     <main className="landing">
       <Image
-        src="/brand/mark_white.png"
+        src="/brand/journey_mark.png"
         alt="Vamo mark"
-        width={120}
-        height={120}
+        width={320}
+        height={320}
         className="landing-mark"
         priority
       />
