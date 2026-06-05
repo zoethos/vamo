@@ -21,7 +21,10 @@ enum VamoEvent {
   mapInterestTapped('map_interest_tapped'),
   notifyMeOptedIn('notify_me_opted_in'),
 
-  suggestionSubmitted('suggestion_submitted');
+  suggestionSubmitted('suggestion_submitted'),
+
+  ocrSuggestionEdited('ocr_suggestion_edited'),
+  placeResolved('place_resolved');
 
   const VamoEvent(this.name);
   final String name;
@@ -49,6 +52,8 @@ enum VamoEvent {
     mapInterestTapped,
     notifyMeOptedIn,
     suggestionSubmitted,
+        ocrSuggestionEdited,
+        placeResolved,
   ];
 }
 

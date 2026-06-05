@@ -15,6 +15,7 @@ part 'app_database.g.dart';
   LocalSettlements,
   LocalTripNotes,
   LocalTripPhotos,
+  LocalPlaces,
   LocalSyncOutbox,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -24,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -56,6 +57,13 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(localExpenses, localExpenses.capturedLat);
             await m.addColumn(localExpenses, localExpenses.capturedLng);
             await m.addColumn(localExpenses, localExpenses.capturedAt);
+          }
+          if (from < 7) {
+            await m.addColumn(localExpenses, localExpenses.placeLabel);
+          }
+          if (from < 8) {
+            await m.createTable(localPlaces);
+            await m.addColumn(localExpenses, localExpenses.placeId);
           }
         },
       );
@@ -108,21 +116,74 @@ class AppDatabase extends _$AppDatabase {
   Future<({int photos, int notes, int receipts})> countTripMedia(
     String tripId,
   ) async {
-    final photos = await (select(localTripPhotos)
-          ..where((p) => p.tripId.equals(tripId)))
-        .get();
-    final notes = await (select(localTripNotes)
-          ..where((n) => n.tripId.equals(tripId)))
-        .get();
-    final receipts = await (select(localExpenses)
-          ..where((e) => e.tripId.equals(tripId))
-          ..where(
-            (e) =>
-                e.receiptPath.isNotNull() |
-                e.localReceiptPath.isNotNull(),
-          ))
-        .get();
-    return (photos: photos.length, notes: notes.length, receipts: receipts.length);
+    final counts = await watchTripMediaCounts(tripId).first;
+    return counts;
+  }
+
+  /// Live photo/note/receipt counts for trip cards (Drift watch).
+  Stream<({int photos, int notes, int receipts})> watchTripMediaCounts(
+    String tripId,
+  ) {
+    final photos$ = watchTripPhotos(tripId);
+    final notes$ = watchTripNotes(tripId);
+    final expenses$ = watchTripExpenses(tripId);
+
+    return Stream.multi((controller) {
+      var photos = 0;
+      var notes = 0;
+      var receipts = 0;
+
+      void emit() {
+        controller.add((photos: photos, notes: notes, receipts: receipts));
+      }
+
+      final subs = [
+        photos$.listen((rows) {
+          photos = rows.length;
+          emit();
+        }),
+        notes$.listen((rows) {
+          notes = rows.length;
+          emit();
+        }),
+        expenses$.listen((rows) {
+          receipts = rows
+              .where(
+                (e) =>
+                    e.receiptPath != null ||
+                    e.localReceiptPath != null,
+              )
+              .length;
+          emit();
+        }),
+      ];
+
+      controller.onCancel = () async {
+        for (final sub in subs) {
+          await sub.cancel();
+        }
+      };
+    });
+  }
+
+  Stream<List<LocalPlace>> watchTripPlaces(String tripId) {
+    return (select(localPlaces)
+          ..where((p) => p.tripId.equals(tripId))
+          ..orderBy([(p) => OrderingTerm.desc(p.createdAt)]))
+        .watch();
+  }
+
+  Future<LocalPlace?> getPlace(String id) {
+    return (select(localPlaces)..where((p) => p.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  Future<List<LocalPlace>> listTripPlaces(String tripId) {
+    return (select(localPlaces)..where((p) => p.tripId.equals(tripId))).get();
+  }
+
+  Future<void> upsertPlace(LocalPlacesCompanion row) {
+    return into(localPlaces).insertOnConflictUpdate(row);
   }
 
   Future<void> upsertTrip(LocalTripsCompanion trip) {
@@ -211,6 +272,7 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTripNotes)..where((n) => n.tripId.equals(tripId))).go();
     await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId)))
         .go();
+    await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();
     await (delete(localTrips)..where((t) => t.id.equals(tripId))).go();

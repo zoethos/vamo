@@ -227,6 +227,7 @@ class _ExpensesTab extends ConsumerWidget {
               tripId: e.tripId,
               receiptPath: e.receiptPath,
               localReceiptPath: e.localReceiptPath,
+              placeLabel: e.placeLabel,
             );
           },
         );

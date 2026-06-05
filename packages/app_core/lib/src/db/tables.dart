@@ -47,6 +47,25 @@ class LocalExpenses extends Table {
   RealColumn get capturedLat => real().nullable()();
   RealColumn get capturedLng => real().nullable()();
   DateTimeColumn get capturedAt => dateTime().nullable()();
+  TextColumn get placeLabel => text().nullable()();
+  TextColumn get placeId => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Local mirror of `places` (receipt/EXIF resolved locations).
+class LocalPlaces extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get label => text()();
+  TextColumn get address => text().nullable()();
+  RealColumn get lat => real().nullable()();
+  RealColumn get lng => real().nullable()();
+  TextColumn get source => text()();
+  RealColumn get confidence => real()();
+  TextColumn get createdBy => text()();
+  DateTimeColumn get createdAt => dateTime()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

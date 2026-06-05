@@ -27,6 +27,7 @@ class TripExpenseListTile extends ConsumerWidget {
     this.receiptPath,
     this.localReceiptPath,
     this.receiptThumbnailPath,
+    this.placeLabel,
   });
 
   final String description;
@@ -42,6 +43,7 @@ class TripExpenseListTile extends ConsumerWidget {
   final String? receiptPath;
   final String? localReceiptPath;
   final String? receiptThumbnailPath;
+  final String? placeLabel;
 
   bool get _hasReceipt =>
       receiptThumbnailPath != null ||
@@ -59,11 +61,15 @@ class TripExpenseListTile extends ConsumerWidget {
         spentAt: spentAt,
         receiptPath: receiptPath,
         localReceiptPath: localReceiptPath,
+        placeLabel: placeLabel,
       );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final when = formatShortDate(spentAt, locale: locale);
+    final subtitle = (placeLabel != null && placeLabel!.isNotEmpty)
+        ? '$placeLabel · $payer · $when'
+        : '$payer · $when';
     Widget? leading;
     if (_hasReceipt) {
       leading = _ReceiptThumbnail(
@@ -82,7 +88,31 @@ class TripExpenseListTile extends ConsumerWidget {
       child: ListTile(
         leading: leading,
         title: Text(description),
-        subtitle: Text('$payer · $when'),
+        subtitle: placeLabel != null && placeLabel!.isNotEmpty
+            ? Row(
+                children: [
+                  const Icon(
+                    Icons.place_outlined,
+                    size: 14,
+                    color: AppColors.graphite,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.graphite,
+                          ),
+                    ),
+                  ),
+                ],
+              )
+            : Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.graphite,
+                    ),
+              ),
         trailing: Text(
           formatExpenseTrailing(
             baseCents: baseCents,
