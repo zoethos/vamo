@@ -1,13 +1,17 @@
+import 'dart:io';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'expense_models.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
 import 'money_format.dart';
+import 'receipt_metadata.dart';
 import '../trips/trips_providers.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
@@ -35,6 +39,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   String? _fxPreview;
   bool _previewLoading = false;
   bool _saving = false;
+  final _picker = ImagePicker();
+  String? _receiptSourcePath;
+  ReceiptCaptureMetadata? _receiptMetadata;
 
   @override
   void initState() {
@@ -247,6 +254,48 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       },
                     ),
                     const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _pickReceipt,
+                      icon: const Icon(Icons.document_scanner_outlined),
+                      label: const Text('Scan receipt'),
+                    ),
+                    if (_receiptSourcePath != null) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_receiptSourcePath!),
+                              width: 72,
+                              height: 72,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Receipt attached (optional evidence)',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: AppColors.muted),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove receipt',
+                            onPressed: _saving
+                                ? null
+                                : () => setState(() {
+                                      _receiptSourcePath = null;
+                                      _receiptMetadata = null;
+                                    }),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: _payerId,
                       decoration: const InputDecoration(labelText: 'Who paid?'),
@@ -273,22 +322,25 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    FilledButton(
-                      onPressed: _saving
-                          ? null
-                          : () => _save(
-                                tripBaseCurrency: tripBase,
-                              ),
-                      child: _saving
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Save expense'),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: FilledButton(
+                        onPressed: _saving
+                            ? null
+                            : () => _save(
+                                  tripBaseCurrency: tripBase,
+                                ),
+                        child: _saving
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Save expense'),
+                      ),
                     ),
                   ],
                 ),
@@ -298,6 +350,45 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         );
       },
     );
+  }
+
+  Future<void> _pickReceipt() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picked = await _picker.pickImage(
+      source: source,
+      maxWidth: 2000,
+      maxHeight: 2000,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    final metadata = await resolveReceiptMetadata(picked.path);
+    if (!mounted) return;
+    setState(() {
+      _receiptSourcePath = picked.path;
+      _receiptMetadata = metadata;
+    });
   }
 
   Future<void> _save({required String tripBaseCurrency}) async {
@@ -322,6 +413,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               amountCents: cents,
               expenseCurrency: _expenseCurrency,
               payerId: payerId,
+              receiptSourcePath: _receiptSourcePath,
+              capturedLat: _receiptMetadata?.lat,
+              capturedLng: _receiptMetadata?.lng,
+              capturedAt: _receiptMetadata?.capturedAt,
             ),
             baseCurrency: tripBaseCurrency,
           );

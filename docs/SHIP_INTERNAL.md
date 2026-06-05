@@ -13,7 +13,8 @@ melos run analyze
 
 - [ ] `app/.env` production values (Supabase URL + anon key only — never service role).
 - [ ] `POSTHOG_API_KEY` set for analytics QA ([RUN.md](../RUN.md) Slice 10).
-- [ ] RLS QA complete ([RLS_QA.md](RLS_QA.md)).
+- [ ] **`dart run tool/rls_smoke.dart` PASS** on cloud ([RLS_QA.md](RLS_QA.md)) — required before any store upload.
+- [ ] RLS QA manual appendix complete if needed ([RLS_QA.md](RLS_QA.md)).
 - [ ] Deep links configured per `app/README_DEEP_LINKS.md` (optional for first internal).
 - [ ] iOS photo permission string in `app/README_PLATFORM.md`.
 

@@ -42,6 +42,11 @@ class LocalExpenses extends Table {
   DateTimeColumn get spentAt => dateTime()();
   TextColumn get createdBy => text()();
   DateTimeColumn get createdAt => dateTime()();
+  TextColumn get receiptPath => text().nullable()();
+  TextColumn get localReceiptPath => text().nullable()();
+  RealColumn get capturedLat => real().nullable()();
+  RealColumn get capturedLng => real().nullable()();
+  DateTimeColumn get capturedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

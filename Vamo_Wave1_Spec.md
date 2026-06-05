@@ -104,7 +104,7 @@ Drift mirrors `trips`, `trip_members`, `expenses`, `expense_shares` locally and 
 
 ## 8. Non-functional
 
-- **Privacy:** all trips `visibility='private'` by default; RLS enforced; verify with Supabase's RLS tester. Snapshot images in a private bucket, shared via signed URL only when the user chooses to.
+- **Privacy:** all trips `visibility='private'` by default; RLS enforced; verify with Supabase's RLS tester. Snapshot images in a private bucket, shared via signed URL only when the user chooses to. Capture metadata (EXIF location/time on receipt and trip photos) is trip-scoped and shared with trip members like the expense itself — never public.
 - **Billing principle (carry from day one):** upgrade anytime, downgrade/cancel at end of cycle, no dark patterns. (Paid tiers arrive later; wire the entitlement check now.)
 - **Analytics (the growth metrics):** PostHog events `trip_created, member_invited, invite_accepted, expense_added, settle_marked, settle_confirmed, snapshot_shared`. These are your North-Star loop instrumentation.
 - **i18n:** externalise strings from the start.

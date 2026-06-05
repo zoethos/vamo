@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Vamo uses the camera to scan receipts and capture trip photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Vamo needs access to your photos to attach memories to a trip.</string>
 	<key>CFBundleURLTypes</key>

@@ -7,3 +7,5 @@ environment:
 
 dev_dependencies:
   melos: ^6.1.0
+  http: ^1.2.2
+  supabase: ^2.5.3

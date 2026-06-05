@@ -9,6 +9,11 @@ class ExpenseSummary {
     required this.currency,
     required this.payerId,
     required this.spentAt,
+    this.receiptPath,
+    this.localReceiptPath,
+    this.capturedLat,
+    this.capturedLng,
+    this.capturedAt,
   });
 
   final String id;
@@ -25,6 +30,15 @@ class ExpenseSummary {
   final String currency;
   final String payerId;
   final DateTime spentAt;
+  final String? receiptPath;
+  final String? localReceiptPath;
+  final double? capturedLat;
+  final double? capturedLng;
+  final DateTime? capturedAt;
+
+  bool get hasReceipt =>
+      (receiptPath != null && receiptPath!.isNotEmpty) ||
+      (localReceiptPath != null && localReceiptPath!.isNotEmpty);
 }
 
 /// Active trip member for payer picker and equal split.
@@ -49,6 +63,10 @@ class AddExpenseInput {
     required this.payerId,
     this.category,
     this.spentAt,
+    this.receiptSourcePath,
+    this.capturedLat,
+    this.capturedLng,
+    this.capturedAt,
   });
 
   final String tripId;
@@ -58,4 +76,15 @@ class AddExpenseInput {
   final String payerId;
   final String? category;
   final DateTime? spentAt;
+  final String? receiptSourcePath;
+  final double? capturedLat;
+  final double? capturedLng;
+  final DateTime? capturedAt;
+}
+
+/// Result of [ExpensesRepository.addExpense].
+class AddExpenseResult {
+  const AddExpenseResult({required this.expenseId});
+
+  final String expenseId;
 }

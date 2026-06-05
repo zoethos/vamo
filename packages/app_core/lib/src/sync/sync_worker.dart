@@ -1,7 +1,13 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../analytics/action_failure.dart';
+import '../analytics/analytics.dart';
 import '../db/app_database.dart';
+import '../storage/storage_paths.dart';
 import 'sync_operation.dart';
 import 'sync_queue.dart';
 
@@ -10,15 +16,21 @@ class SyncWorker {
   SyncWorker({
     required SyncQueue queue,
     required SupabaseClient client,
+    AppDatabase? db,
+    Analytics? analytics,
     @visibleForTesting Future<void> Function(LocalSyncOutboxData)? testExecute,
     @visibleForTesting bool flushWithoutSession = false,
   })  : _queue = queue,
         _client = client,
+        _db = db,
+        _analytics = analytics,
         _testExecute = testExecute,
         _flushWithoutSession = flushWithoutSession;
 
   final SyncQueue _queue;
   final SupabaseClient _client;
+  final AppDatabase? _db;
+  final Analytics? _analytics;
   final Future<void> Function(LocalSyncOutboxData)? _testExecute;
   final bool _flushWithoutSession;
 
@@ -39,10 +51,7 @@ class SyncWorker {
         var madeProgress = false;
         for (final op in batch) {
           if (op.attempts >= SyncQueue.maxAttempts) {
-            await _queue.remove(op.id);
-            if (kDebugMode) {
-              debugPrint('[sync] dead-letter ${op.kind} ${op.id}');
-            }
+            await _deadLetter(op);
             madeProgress = true;
             continue;
           }
@@ -61,7 +70,7 @@ class SyncWorker {
             }
             final attempts = await _queue.recordFailure(op.id, e.toString());
             if (attempts != null && attempts >= SyncQueue.maxAttempts) {
-              await _queue.remove(op.id);
+              await _deadLetter(op);
               madeProgress = true;
             }
           }
@@ -72,6 +81,22 @@ class SyncWorker {
       _flushing = false;
     }
     return processed;
+  }
+
+  Future<void> _deadLetter(LocalSyncOutboxData op) async {
+    final kind = SyncKind.parse(op.kind);
+    final analytics = _analytics;
+    if (kind == SyncKind.receiptUpload && analytics != null) {
+      analytics.reportActionFailed(
+        screen: 'sync',
+        action: 'attach_receipt',
+        error: Exception(op.lastError ?? 'receipt_upload_dead_letter'),
+      );
+    }
+    await _queue.remove(op.id);
+    if (kDebugMode) {
+      debugPrint('[sync] dead-letter ${op.kind} ${op.id}');
+    }
   }
 
   Future<void> _execute(LocalSyncOutboxData op) async {
@@ -98,6 +123,33 @@ class SyncWorker {
           await _client.from('expense_shares').upsert(shares, onConflict: 'id');
         }
         break;
+      case SyncKind.receiptUpload:
+        final expenseId = payload['expense_id'] as String;
+        final localPath = payload['local_path'] as String;
+        final storagePath = payload['storage_path'] as String;
+        final bytes = await File(localPath).readAsBytes();
+        await _client.storage.from(StoragePaths.capturesBucket).uploadBinary(
+              storagePath,
+              bytes,
+              fileOptions: FileOptions(
+                contentType: _contentTypeForPath(localPath),
+                upsert: true,
+              ),
+            );
+        await _client.from('expenses').upsert(
+              {'id': expenseId, 'receipt_path': storagePath},
+              onConflict: 'id',
+            );
+        final db = _db;
+        if (db != null) {
+          await db.upsertExpense(
+            LocalExpensesCompanion(
+              id: Value(expenseId),
+              receiptPath: Value(storagePath),
+            ),
+          );
+        }
+        break;
       case SyncKind.settlementInsert:
         await _client.from('settlements').upsert(
               Map<String, dynamic>.from(payload),
@@ -116,6 +168,21 @@ class SyncWorker {
               onConflict: 'id',
             );
         break;
+    }
+  }
+
+  static String _contentTypeForPath(String path) {
+    final ext = path.contains('.') ? '.${path.split('.').last.toLowerCase()}' : '.jpg';
+    switch (ext) {
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.heic':
+      case '.heif':
+        return 'image/heic';
+      default:
+        return 'image/jpeg';
     }
   }
 

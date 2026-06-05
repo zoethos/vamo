@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../capture/capture_storage.dart';
 import 'expense_models.dart';
 import 'expense_split.dart';
 
@@ -20,7 +22,7 @@ final expensesRepositoryProvider = Provider<ExpensesRepository>((ref) {
   );
 });
 
-/// Slice 2 + 9: Drift-first; remote via sync outbox when offline.
+/// Slice 2 + 9 + 14: Drift-first; remote via sync outbox when offline.
 class ExpensesRepository {
   ExpensesRepository({
     required AppDatabase db,
@@ -44,24 +46,29 @@ class ExpensesRepository {
   final SyncWorker _syncWorker;
   final _uuid = const Uuid();
 
+  static const _capturesBucket = StoragePaths.capturesBucket;
+
   Stream<List<ExpenseSummary>> watchTripExpenses(String tripId) {
     return _db.watchTripExpenses(tripId).map(
-          (rows) => rows
-              .map(
-                (r) => ExpenseSummary(
-                  id: r.id,
-                  tripId: r.tripId,
-                  description: r.description,
-                  amountCents: r.amountCents,
-                  baseCents: r.baseCents,
-                  currency: r.currency,
-                  payerId: r.payerId,
-                  spentAt: r.spentAt,
-                ),
-              )
-              .toList(),
+          (rows) => rows.map(_toSummary).toList(),
         );
   }
+
+  ExpenseSummary _toSummary(LocalExpense r) => ExpenseSummary(
+        id: r.id,
+        tripId: r.tripId,
+        description: r.description,
+        amountCents: r.amountCents,
+        baseCents: r.baseCents,
+        currency: r.currency,
+        payerId: r.payerId,
+        spentAt: r.spentAt,
+        receiptPath: r.receiptPath,
+        localReceiptPath: r.localReceiptPath,
+        capturedLat: r.capturedLat,
+        capturedLng: r.capturedLng,
+        capturedAt: r.capturedAt,
+      );
 
   Stream<List<TripMemberView>> watchActiveMembers(String tripId) {
     return _db.watchActiveMembers(tripId).map(
@@ -77,7 +84,46 @@ class ExpensesRepository {
         );
   }
 
-  Future<String> addExpense({
+  Future<StorageAttachmentLoadResult> loadReceiptAttachment(
+    ExpenseSummary expense,
+  ) async {
+    final local = expense.localReceiptPath;
+    if (local != null && local.isNotEmpty && await File(local).exists()) {
+      return StorageAttachmentLoadResult.local(local);
+    }
+
+    final remote = expense.receiptPath;
+    if (remote == null || remote.isEmpty) {
+      if (local != null && local.isNotEmpty && await File(local).exists()) {
+        return StorageAttachmentLoadResult.local(local);
+      }
+      return const StorageAttachmentLoadResult.none();
+    }
+
+    final result = await CaptureStorage.cacheReceiptFromStorage(
+      client: _client,
+      tripId: expense.tripId,
+      expenseId: expense.id,
+      storagePath: remote,
+    );
+    if (result.isSuccess) {
+      await _db.upsertExpense(
+        LocalExpensesCompanion(
+          id: Value(expense.id),
+          localReceiptPath: Value(result.localPath),
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// Back-compat alias for callers that only need a local path.
+  Future<String?> resolveReceiptDisplayPath(ExpenseSummary expense) async {
+    final result = await loadReceiptAttachment(expense);
+    return result.localPath;
+  }
+
+  Future<AddExpenseResult> addExpense({
     required AddExpenseInput input,
     required String baseCurrency,
   }) async {
@@ -123,6 +169,45 @@ class ExpensesRepository {
     final spentAt = (input.spentAt ?? DateTime.now()).toUtc();
     final now = DateTime.now().toUtc();
 
+    String? localReceiptPath;
+    String? receiptPath;
+    if (input.receiptSourcePath != null &&
+        input.receiptSourcePath!.isNotEmpty) {
+      localReceiptPath = await CaptureStorage.persistReceipt(
+        tripId: input.tripId,
+        expenseId: expenseId,
+        sourcePath: input.receiptSourcePath!,
+      );
+      final receiptExt = CaptureStorage.normalizeExt(
+        localReceiptPath.contains('.')
+            ? '.${localReceiptPath.split('.').last}'
+            : '.jpg',
+      );
+      final targetStoragePath = StoragePaths.expenseReceipt(
+        userId: userId,
+        tripId: input.tripId,
+        expenseId: expenseId,
+        ext: receiptExt,
+      );
+      try {
+        receiptPath = await _uploadReceipt(
+          userId: userId,
+          tripId: input.tripId,
+          expenseId: expenseId,
+          localPath: localReceiptPath,
+        );
+      } catch (_) {
+        await _syncQueue.enqueue(
+          kind: SyncKind.receiptUpload,
+          payload: {
+            'expense_id': expenseId,
+            'local_path': localReceiptPath,
+            'storage_path': targetStoragePath,
+          },
+        );
+      }
+    }
+
     await _db.upsertExpense(
       LocalExpensesCompanion(
         id: Value(expenseId),
@@ -137,6 +222,11 @@ class ExpensesRepository {
         spentAt: Value(spentAt),
         createdBy: Value(userId),
         createdAt: Value(now),
+        receiptPath: Value(receiptPath),
+        localReceiptPath: Value(localReceiptPath),
+        capturedLat: Value(input.capturedLat),
+        capturedLng: Value(input.capturedLng),
+        capturedAt: Value(input.capturedAt?.toUtc()),
       ),
     );
 
@@ -159,22 +249,29 @@ class ExpensesRepository {
       });
     }
 
+    final expensePayload = <String, dynamic>{
+      'id': expenseId,
+      'trip_id': input.tripId,
+      'payer_id': input.payerId,
+      'amount_cents': input.amountCents,
+      'currency': expenseCurrency,
+      'base_cents': baseCents,
+      'fx_rate': fxRate,
+      'description': input.description.trim(),
+      'category': input.category,
+      'spent_at': spentAt.toIso8601String(),
+      'created_by': userId,
+      if (receiptPath != null) 'receipt_path': receiptPath,
+      if (input.capturedLat != null) 'captured_lat': input.capturedLat,
+      if (input.capturedLng != null) 'captured_lng': input.capturedLng,
+      if (input.capturedAt != null)
+        'captured_at': input.capturedAt!.toUtc().toIso8601String(),
+    };
+
     await _syncQueue.enqueue(
       kind: SyncKind.expenseInsert,
       payload: {
-        'expense': {
-          'id': expenseId,
-          'trip_id': input.tripId,
-          'payer_id': input.payerId,
-          'amount_cents': input.amountCents,
-          'currency': expenseCurrency,
-          'base_cents': baseCents,
-          'fx_rate': fxRate,
-          'description': input.description.trim(),
-          'category': input.category,
-          'spent_at': spentAt.toIso8601String(),
-          'created_by': userId,
-        },
+        'expense': expensePayload,
         'shares': sharePayloads,
       },
     );
@@ -189,11 +286,39 @@ class ExpensesRepository {
         'member_count': members.length,
         'expense_currency': expenseCurrency,
         'fx_rate': fxRate,
+        'has_receipt': receiptPath != null,
         if (fxStale) 'fx_stale': true,
       },
     );
 
-    return expenseId;
+    return AddExpenseResult(expenseId: expenseId);
+  }
+
+  Future<String> _uploadReceipt({
+    required String userId,
+    required String tripId,
+    required String expenseId,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    final ext = CaptureStorage.normalizeExt(
+      localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
+    );
+    final path = StoragePaths.expenseReceipt(
+      userId: userId,
+      tripId: tripId,
+      expenseId: expenseId,
+      ext: ext,
+    );
+    await _client.storage.from(_capturesBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: CaptureStorage.contentTypeForPath(localPath),
+            upsert: true,
+          ),
+        );
+    return path;
   }
 
   Future<void> syncExpensesForTrips(
@@ -203,20 +328,44 @@ class ExpensesRepository {
     final ids = tripIds.toList();
     if (ids.isEmpty) return;
 
+    const selectCols =
+        'id, trip_id, payer_id, amount_cents, currency, base_cents, fx_rate, '
+        'description, category, spent_at, created_by, created_at, '
+        'receipt_path, captured_lat, captured_lng, captured_at';
+
     final expenseRows = await _client
         .from('expenses')
-        .select(
-          'id, trip_id, payer_id, amount_cents, currency, base_cents, fx_rate, '
-          'description, category, spent_at, created_by, created_at',
-        )
+        .select(selectCols)
         .inFilter('trip_id', ids)
         .order('spent_at', ascending: false);
 
     for (final row in (expenseRows as List).cast<Map<String, dynamic>>()) {
+      final expenseId = row['id'] as String;
+      final tripId = row['trip_id'] as String;
+      final remoteReceiptPath = row['receipt_path'] as String?;
+
+      final existing = await (_db.select(_db.localExpenses)
+            ..where((e) => e.id.equals(expenseId)))
+          .getSingleOrNull();
+
+      var localReceiptPath = existing?.localReceiptPath;
+      if (remoteReceiptPath != null &&
+          remoteReceiptPath.isNotEmpty &&
+          (localReceiptPath == null ||
+              !await File(localReceiptPath).exists())) {
+        final cached = await CaptureStorage.cacheReceiptFromStorage(
+          client: _client,
+          tripId: tripId,
+          expenseId: expenseId,
+          storagePath: remoteReceiptPath,
+        );
+        localReceiptPath = cached.localPath;
+      }
+
       await _db.upsertExpense(
         LocalExpensesCompanion(
-          id: Value(row['id'] as String),
-          tripId: Value(row['trip_id'] as String),
+          id: Value(expenseId),
+          tripId: Value(tripId),
           payerId: Value(row['payer_id'] as String),
           amountCents: Value((row['amount_cents'] as num).toInt()),
           currency: Value(row['currency'] as String),
@@ -227,6 +376,15 @@ class ExpensesRepository {
           spentAt: Value(DateTime.parse(row['spent_at'] as String)),
           createdBy: Value(row['created_by'] as String),
           createdAt: Value(DateTime.parse(row['created_at'] as String)),
+          receiptPath: Value(remoteReceiptPath),
+          localReceiptPath: Value(localReceiptPath),
+          capturedLat: Value(_nullableDouble(row['captured_lat'])),
+          capturedLng: Value(_nullableDouble(row['captured_lng'])),
+          capturedAt: Value(
+            row['captured_at'] == null
+                ? null
+                : DateTime.parse(row['captured_at'] as String),
+          ),
         ),
       );
     }
@@ -265,5 +423,10 @@ class ExpensesRepository {
         excludeIds: excludeExpenseIds,
       );
     }
+  }
+
+  double? _nullableDouble(Object? value) {
+    if (value == null) return null;
+    return (value as num).toDouble();
   }
 }
