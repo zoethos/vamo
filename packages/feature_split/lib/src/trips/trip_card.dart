@@ -132,9 +132,9 @@ class TripBalanceChipData {
 }
 
 final tripMediaCountsProvider =
-    FutureProvider.family<({int photos, int notes, int receipts}), String>(
+    StreamProvider.family<({int photos, int notes, int receipts}), String>(
         (ref, tripId) {
-  return ref.watch(appDatabaseProvider).countTripMedia(tripId);
+  return ref.watch(appDatabaseProvider).watchTripMediaCounts(tripId);
 });
 
 final tripBalanceChipProvider =
