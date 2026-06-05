@@ -11,7 +11,7 @@ Inside the main `<activity>`:
   <action android:name="android.intent.action.VIEW" />
   <category android:name="android.intent.category.DEFAULT" />
   <category android:name="android.intent.category.BROWSABLE" />
-  <data android:scheme="https" android:host="vamo.app" android:pathPrefix="/j" />
+  <data android:scheme="https" android:host="vamo.world" android:pathPrefix="/j" />
 </intent-filter>
 <intent-filter>
   <action android:name="android.intent.action.VIEW" />
@@ -20,6 +20,8 @@ Inside the main `<activity>`:
   <data android:scheme="app.vamo" android:host="join" />
 </intent-filter>
 ```
+
+Host `/.well-known/assetlinks.json` on **vamo.world** (see `web/apps/site/public/.well-known/`).
 
 ## iOS (`ios/Runner/Info.plist`)
 
@@ -33,7 +35,7 @@ Inside the main `<activity>`:
 </array>
 ```
 
-Add Associated Domains capability: `applinks:vamo.app` for universal links.
+Add Associated Domains capability: `applinks:vamo.world` for universal links.
 
 ## Manual test without universal links
 
@@ -44,3 +46,5 @@ After creating an invite, open in-app route (replace TOKEN):
 ```
 
 Or run: `adb shell am start -a android.intent.action.VIEW -d "app.vamo://join?token=TOKEN"`
+
+Or open in browser: `https://vamo.world/j/TOKEN`

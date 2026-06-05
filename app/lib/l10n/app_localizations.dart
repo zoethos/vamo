@@ -402,7 +402,7 @@ abstract class AppLocalizations {
   /// No description provided for @invitePasteHint.
   ///
   /// In en, this message translates to:
-  /// **'https://vamo.app/j/…'**
+  /// **'https://vamo.world/j/…'**
   String get invitePasteHint;
 
   /// No description provided for @invitePasteJoin.

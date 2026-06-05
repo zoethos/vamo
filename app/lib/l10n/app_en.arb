@@ -69,7 +69,7 @@
   "inviteNotVamoQr": "That's not a Vamo invite",
   "inviteCameraDenied": "Camera access is needed to scan. Paste the invite link below instead.",
   "invitePasteLink": "Paste invite link",
-  "invitePasteHint": "https://vamo.app/j/…",
+  "invitePasteHint": "https://vamo.world/j/…",
   "invitePasteJoin": "Join from link",
   "inviteScannerTitle": "Scan invite QR",
   "profileTitle": "Profile",
