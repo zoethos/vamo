@@ -179,7 +179,15 @@ After one online fetch, foreign expenses work offline using the last cached rate
 4. Force-quit the app → reopen → trip still in the list (Drift + remote).
 5. Debug console shows `[analytics] trip_created`.
 
-### 15. Tests
+### 15. Slice 14 demo
+
+1. `supabase db push` (incl. `0008_expense_receipts.sql`).
+2. **Add expense** → **Scan receipt** → camera or gallery → attach optional photo.
+3. Save (manual fields unchanged) → expense list shows receipt thumbnail.
+4. Tap thumbnail → full-screen viewer (signed URL after sync, local file offline).
+5. Debug: `[analytics] expense_added` with `has_receipt: true`; failed upload → `action_failed` (`attach_receipt`) but expense still saves.
+
+### 16. Tests
 
 ```bash
 melos run test
@@ -187,13 +195,24 @@ melos run test
 
 `app/test/smoke_test.dart` covers the auth-redirect rule.
 
+**i18n maintenance**
+
+```bash
+# Pseudo-locale ARB (en_XA) from English template
+dart run tool/gen_pseudo_arb.dart
+cd app && flutter gen-l10n
+
+# RTL + snapshot theme goldens (Noto fonts loaded via flutter_test_config.dart)
+cd packages/feature_split && flutter test --update-goldens test/i18n_rtl_golden_test.dart test/snapshot_card_golden_test.dart
+```
+
 ## Slice 10 — settings, polish, analytics, ship prep
 
 **Settings** (trips list → gear): edit display name and default trip currency (`profiles` table). Billing shows a **Vamo Plus** placeholder (Wave 2+). Sign out clears local Drift + capture cache.
 
 **PostHog:** set `POSTHOG_API_KEY` in `app/.env`. Without it, events print to the debug console. On sign-in the SDK calls `identify(userId)`.
 
-### 16. Slice 10 demo
+### 17. Slice 10 demo
 
 1. Trips list → **Settings** → change display name → **Save**.
 2. Create trip — base currency defaults to your profile currency.

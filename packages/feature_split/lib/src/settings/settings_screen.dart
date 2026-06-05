@@ -1,4 +1,5 @@
 import 'package:app_core/app_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -108,7 +109,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         .bodySmall
                         ?.copyWith(color: AppColors.muted),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: Icon(
+                    Directionality.of(context) == TextDirection.rtl
+                        ? Icons.chevron_left
+                        : Icons.chevron_right,
+                  ),
                   onTap: () => showComingSoonSheet(
                     context: context,
                     ref: ref,
@@ -128,11 +133,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: AppColors.teal),
                   title: const Text('Suggest a feature'),
                   subtitle: const Text('We read every submission'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: Icon(
+                    Directionality.of(context) == TextDirection.rtl
+                        ? Icons.chevron_left
+                        : Icons.chevron_right,
+                  ),
                   onTap: () => context.push(AppRoutes.suggestFeature),
                 ),
               ),
               const SizedBox(height: 32),
+              if (kDebugMode) ...[
+                Text(
+                  DevLocaleLabels.section,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.tealDark,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<DevLocaleOverride>(
+                  segments: const [
+                    ButtonSegment(
+                      value: DevLocaleOverride.system,
+                      label: Text('System'),
+                    ),
+                    ButtonSegment(
+                      value: DevLocaleOverride.rtlArabic,
+                      label: Text('RTL'),
+                    ),
+                    ButtonSegment(
+                      value: DevLocaleOverride.pseudoLocale,
+                      label: Text('Pseudo'),
+                    ),
+                  ],
+                  selected: {ref.watch(devLocaleOverrideProvider)},
+                  onSelectionChanged: (selection) {
+                    ref.read(devLocaleOverrideProvider.notifier).state =
+                        selection.first;
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '${DevLocaleLabels.system} · ${DevLocaleLabels.rtl} · '
+                    '${DevLocaleLabels.pseudo}',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: AppColors.muted),
+                  ),
+                ),
+                const SizedBox(height: 32),
+              ],
               Text(
                 'Analytics',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(

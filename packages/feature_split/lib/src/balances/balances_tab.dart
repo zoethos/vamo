@@ -165,8 +165,14 @@ class BalancesTab extends ConsumerWidget {
                             children: [
                               CircleAvatar(
                                 backgroundColor: AppColors.sand,
-                                child: Icon(Icons.arrow_forward,
-                                    color: AppColors.tealDark, size: 20),
+                                child: Icon(
+                                  Directionality.of(context) ==
+                                          TextDirection.rtl
+                                      ? Icons.arrow_back
+                                      : Icons.arrow_forward,
+                                  color: AppColors.tealDark,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(

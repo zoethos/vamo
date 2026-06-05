@@ -19,7 +19,7 @@ Future<void> showComingSoonSheet({
     showDragHandle: true,
     builder: (ctx) {
       return Padding(
-        padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+        padding: const EdgeInsetsDirectional.fromSTEB(24, 8, 24, 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

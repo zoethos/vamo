@@ -11,6 +11,7 @@ Future<void> main() async {
 
   await Env.load();
   await initPostHog();
+  await initializeVamoDateFormatting();
   // detectSessionInUri defaults true — supabase_flutter exchanges PKCE from
   // app.vamo://login-callback; AuthCallbackScreen only waits for signedIn.
   await Supabase.initialize(

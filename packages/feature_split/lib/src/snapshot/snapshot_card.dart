@@ -7,6 +7,9 @@ import 'snapshot_models.dart';
 import 'snapshot_themes.dart';
 
 /// Fixed-size branded card rasterized for the share sheet (1080×1350 @ 3×).
+///
+/// Wordmark row stays LTR (T13.4); other layout uses directional alignment so
+/// it mirrors correctly under RTL locales.
 class SnapshotBrandedCard extends StatelessWidget {
   const SnapshotBrandedCard({
     super.key,
@@ -36,14 +39,14 @@ class SnapshotBrandedCard extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: AlignmentDirectional.topStart,
+            end: AlignmentDirectional.bottomEnd,
             colors: theme.gradient,
           ),
           borderRadius: const BorderRadius.all(Radius.circular(24)),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+          padding: const EdgeInsetsDirectional.fromSTEB(28, 32, 28, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -83,7 +86,8 @@ class SnapshotBrandedCard extends StatelessWidget {
               ],
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: theme.statBackground.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(16),
@@ -128,7 +132,9 @@ class SnapshotBrandedCard extends StatelessWidget {
                     children: [
                       for (var i = 0; i < data.capture.photoPaths.length; i++)
                         Padding(
-                          padding: EdgeInsets.only(right: i < 2 ? 6 : 0),
+                          padding: EdgeInsetsDirectional.only(
+                            end: i < 2 ? 6 : 0,
+                          ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(8),
                             child: Image.file(
@@ -174,7 +180,7 @@ class SnapshotBrandedCard extends StatelessWidget {
                   children: [
                     for (final m in visibleMembers)
                       Padding(
-                        padding: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsetsDirectional.only(end: 6),
                         child: _MemberBubble(
                           initial: m.initial,
                           fill: theme.memberBubble,
@@ -193,40 +199,43 @@ class SnapshotBrandedCard extends StatelessWidget {
                   ],
                 ),
               const Spacer(),
-              Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: theme.accent,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Vamo',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      theme.tagline,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.accent,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Vamo',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        theme.tagline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 14,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

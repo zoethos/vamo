@@ -30,6 +30,9 @@ pubspec.lock
 supabase/.branches/
 supabase/.temp/
 
+# Flutter test failure artifacts
+**/test/failures/
+
 # Lock files left by office apps
 .~lock.*#
 

@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:app_core/app_core.dart';
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'l10n/app_localizations.dart';
 import 'router.dart';
 
 class VamoApp extends ConsumerStatefulWidget {
@@ -59,11 +62,55 @@ class _VamoAppState extends ConsumerState<VamoApp> {
     ref.watch(syncLifecycleProvider);
     ref.watch(analyticsLifecycleProvider);
     final router = ref.watch(routerProvider);
+    final localeOverride = ref.watch(devLocaleOverrideProvider);
+    final locale = resolveDevLocale(localeOverride);
+
     return MaterialApp.router(
       title: 'Vamo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      locale: locale,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocales.supported,
       routerConfig: router,
+      builder: (context, child) {
+        if (!kDebugMode ||
+            localeOverride != DevLocaleOverride.pseudoLocale ||
+            child == null) {
+          return child ?? const SizedBox.shrink();
+        }
+        return _PseudoLocaleWrapper(child: child);
+      },
+    );
+  }
+}
+
+/// Elongates visible text to surface layout overflow issues (dev pseudo-locale).
+class _PseudoLocaleWrapper extends StatelessWidget {
+  const _PseudoLocaleWrapper({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Localizations.override(
+      context: context,
+      locale: AppLocales.pseudo,
+      child: Builder(
+        builder: (context) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              boldText: true,
+            ),
+            child: child,
+          );
+        },
+      ),
     );
   }
 }
