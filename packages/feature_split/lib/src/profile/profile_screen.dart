@@ -16,12 +16,25 @@ class ProfileScreenLabels {
     required this.licenses,
     required this.privacyPolicy,
     required this.tagline,
+    required this.loadError,
+    required this.profileSection,
+    required this.displayName,
+    required this.displayNameHint,
+    required this.defaultCurrency,
+    required this.defaultCurrencyHelper,
+    required this.billingSection,
     required this.plusTitle,
     required this.plusSubtitle,
+    required this.plusSheetDescription,
     required this.suggestTitle,
     required this.suggestSubtitle,
+    required this.devLocaleSection,
+    required this.devLocaleSystem,
+    required this.devLocaleRtl,
+    required this.devLocalePseudo,
     required this.analyticsSection,
     required this.analyticsHint,
+    required this.posthogActive,
     required this.signOut,
     required this.saveChanges,
     required this.profileSaved,
@@ -33,12 +46,25 @@ class ProfileScreenLabels {
   final String licenses;
   final String privacyPolicy;
   final String tagline;
+  final String loadError;
+  final String profileSection;
+  final String displayName;
+  final String displayNameHint;
+  final String defaultCurrency;
+  final String defaultCurrencyHelper;
+  final String billingSection;
   final String plusTitle;
   final String plusSubtitle;
+  final String plusSheetDescription;
   final String suggestTitle;
   final String suggestSubtitle;
+  final String devLocaleSection;
+  final String devLocaleSystem;
+  final String devLocaleRtl;
+  final String devLocalePseudo;
   final String analyticsSection;
   final String analyticsHint;
+  final String posthogActive;
   final String signOut;
   final String saveChanges;
   final String profileSaved;
@@ -86,7 +112,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AppErrorState(
           screen: 'profile',
-          message: 'Could not load your profile.',
+          message: widget.labels.loadError,
           onRetry: () => ref.invalidate(userProfileProvider),
         ),
         data: (p) {
@@ -109,7 +135,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Profile',
+                widget.labels.profileSection,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.ink,
                       fontWeight: FontWeight.w700,
@@ -118,9 +144,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Display name',
-                  hintText: 'How Vamigos see you',
+                decoration: InputDecoration(
+                  labelText: widget.labels.displayName,
+                  hintText: widget.labels.displayNameHint,
                 ),
                 textCapitalization: TextCapitalization.words,
                 onChanged: (_) => setState(() => _dirty = true),
@@ -128,9 +154,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: currency,
-                decoration: const InputDecoration(
-                  labelText: 'Default trip currency',
-                  helperText: 'Used when you create a new trip',
+                decoration: InputDecoration(
+                  labelText: widget.labels.defaultCurrency,
+                  helperText: widget.labels.defaultCurrencyHelper,
                 ),
                 items: [
                   for (final c in kProfileCurrencies)
@@ -146,7 +172,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Billing',
+                widget.labels.billingSection,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.ink,
                       fontWeight: FontWeight.w700,
@@ -176,9 +202,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     interestEvent: VamoEvent.plusInterestTapped,
                     feature: 'plus',
                     title: widget.labels.plusTitle,
-                    description:
-                        'Upgrade anytime; downgrade or cancel at the end of '
-                        'your billing cycle — no dark patterns.',
+                    description: widget.labels.plusSheetDescription,
                   ),
                 ),
               ),
@@ -200,7 +224,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (kDebugMode) ...[
                 const SizedBox(height: 24),
                 Text(
-                  DevLocaleLabels.section,
+                  widget.labels.devLocaleSection,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppColors.ink,
                         fontWeight: FontWeight.w700,
@@ -208,18 +232,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 SegmentedButton<DevLocaleOverride>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: DevLocaleOverride.system,
-                      label: Text('System'),
+                      label: Text(widget.labels.devLocaleSystem),
                     ),
                     ButtonSegment(
                       value: DevLocaleOverride.rtlArabic,
-                      label: Text('RTL'),
+                      label: Text(widget.labels.devLocaleRtl),
                     ),
                     ButtonSegment(
                       value: DevLocaleOverride.pseudoLocale,
-                      label: Text('Pseudo'),
+                      label: Text(widget.labels.devLocalePseudo),
                     ),
                   ],
                   selected: {ref.watch(devLocaleOverrideProvider)},
@@ -241,7 +265,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Text(
                 Env.posthogApiKey.isEmpty
                     ? widget.labels.analyticsHint
-                    : 'PostHog is active.',
+                    : widget.labels.posthogActive,
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -331,7 +355,6 @@ class _AboutBlock extends StatelessWidget {
             Image.asset(
               BrandAssets.primaryMark,
               height: 56,
-              package: 'vamo',
             ),
             const SizedBox(height: 8),
             Text(

@@ -88,7 +88,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             opacity: 0.35,
             child: Image.asset(
               BrandAssets.patternLight,
-              package: 'vamo',
               fit: BoxFit.cover,
             ),
           ),
@@ -107,7 +106,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       Image.asset(
                         BrandAssets.primaryMark,
                         height: 72,
-                        package: 'vamo',
                       ),
                       const SizedBox(height: 12),
                       Text(

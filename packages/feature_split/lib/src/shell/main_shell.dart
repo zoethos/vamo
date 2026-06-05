@@ -23,15 +23,9 @@ class MainShell extends ConsumerWidget {
     navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
   }
 
-  void _onFab(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    final tripMatch = RegExp(r'^/trips/([^/]+)$').firstMatch(location);
-    if (tripMatch != null) {
-      context.push(AppRoutes.tripAddExpense(tripMatch.group(1)!));
-      return;
-    }
-    context.push(AppRoutes.tripCreate);
-  }
+  /// New trip from any shell tab. Trip detail is a full-screen route with its
+  /// own add-expense FAB ([TripHomeScreen]).
+  void _onFab(BuildContext context) => context.push(AppRoutes.tripCreate);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -55,7 +55,6 @@ class _AppEmptyStateState extends ConsumerState<AppEmptyState> {
                 child: Image.asset(
                   BrandAssets.markInk,
                   height: 56,
-                  package: 'vamo',
                 ),
               )
             else

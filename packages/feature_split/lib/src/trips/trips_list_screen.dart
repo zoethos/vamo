@@ -87,7 +87,6 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
             Image.asset(
               BrandAssets.primaryMark,
               height: 28,
-              package: 'vamo',
             ),
             const SizedBox(width: 10),
             Expanded(child: Text(widget.labels.title)),

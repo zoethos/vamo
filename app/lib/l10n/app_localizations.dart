@@ -375,6 +375,60 @@ abstract class AppLocalizations {
   /// **'Profile saved.'**
   String get profileSaved;
 
+  /// No description provided for @profileLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your profile.'**
+  String get profileLoadError;
+
+  /// No description provided for @profileSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileSection;
+
+  /// No description provided for @profileDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get profileDisplayName;
+
+  /// No description provided for @profileDisplayNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How Vamigos see you'**
+  String get profileDisplayNameHint;
+
+  /// No description provided for @profileDefaultCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Default trip currency'**
+  String get profileDefaultCurrency;
+
+  /// No description provided for @profileDefaultCurrencyHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Used when you create a new trip'**
+  String get profileDefaultCurrencyHelper;
+
+  /// No description provided for @profileBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get profileBilling;
+
+  /// No description provided for @profilePlusSheetDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade anytime; downgrade or cancel at the end of your billing cycle — no dark patterns.'**
+  String get profilePlusSheetDescription;
+
+  /// No description provided for @profilePosthogActive.
+  ///
+  /// In en, this message translates to:
+  /// **'PostHog is active.'**
+  String get profilePosthogActive;
+
   /// No description provided for @authTagline.
   ///
   /// In en, this message translates to:

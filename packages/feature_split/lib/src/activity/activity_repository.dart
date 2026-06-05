@@ -66,21 +66,7 @@ Future<List<ActivityItem>> _buildFeed(AppDatabase db) async {
     );
   }
 
-  final members = await db.select(db.localTripMembers).get();
-  for (final m in members) {
-    if (m.status != 'active') continue;
-    items.add(
-      ActivityItem(
-        id: 'member_${m.tripId}_${m.userId}',
-        tripId: m.tripId,
-        tripName: tripNames[m.tripId] ?? 'Trip',
-        kind: ActivityKind.memberJoined,
-        title: m.displayName ?? 'Vamigo',
-        subtitle: 'Joined trip',
-        occurredAt: DateTime.now().toUtc(),
-      ),
-    );
-  }
+  // Member-joined events omitted until joined_at is mirrored locally (v1).
 
   items.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
   return items;

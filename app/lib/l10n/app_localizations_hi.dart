@@ -151,5 +151,33 @@ class AppLocalizationsHi extends AppLocalizations {
   String get profileSaved => 'Profile saved.';
 
   @override
+  String get profileLoadError => 'Could not load your profile.';
+
+  @override
+  String get profileSection => 'Profile';
+
+  @override
+  String get profileDisplayName => 'Display name';
+
+  @override
+  String get profileDisplayNameHint => 'How Vamigos see you';
+
+  @override
+  String get profileDefaultCurrency => 'Default trip currency';
+
+  @override
+  String get profileDefaultCurrencyHelper => 'Used when you create a new trip';
+
+  @override
+  String get profileBilling => 'Billing';
+
+  @override
+  String get profilePlusSheetDescription =>
+      'Upgrade anytime; downgrade or cancel at the end of your billing cycle — no dark patterns.';
+
+  @override
+  String get profilePosthogActive => 'PostHog is active.';
+
+  @override
   String get authTagline => 'Let\'s go. Together.';
 }

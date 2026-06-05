@@ -54,5 +54,14 @@
   "profileSignOut": "Sign out",
   "profileSave": "Save changes",
   "profileSaved": "Profile saved.",
+  "profileLoadError": "Could not load your profile.",
+  "profileSection": "Profile",
+  "profileDisplayName": "Display name",
+  "profileDisplayNameHint": "How Vamigos see you",
+  "profileDefaultCurrency": "Default trip currency",
+  "profileDefaultCurrencyHelper": "Used when you create a new trip",
+  "profileBilling": "Billing",
+  "profilePlusSheetDescription": "Upgrade anytime; downgrade or cancel at the end of your billing cycle — no dark patterns.",
+  "profilePosthogActive": "PostHog is active.",
   "authTagline": "Let's go. Together."
 }
