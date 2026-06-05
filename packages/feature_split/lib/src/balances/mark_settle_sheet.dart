@@ -13,6 +13,7 @@ Future<void> showMarkSettleSheet({
   required WidgetRef ref,
   required String tripId,
   required SettlementDisplay display,
+  List<String> consentLabels = const [],
 }) {
   final methods = paymentMethodsForTrip(display.currency);
 
@@ -52,6 +53,16 @@ Future<void> showMarkSettleSheet({
                       .bodySmall
                       ?.copyWith(color: AppColors.graphite),
                 ),
+                for (final label in consentLabels) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                ],
               ],
             ),
           ),

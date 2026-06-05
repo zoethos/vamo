@@ -181,6 +181,30 @@ class SyncWorker {
               onConflict: 'id',
             );
         break;
+      case SyncKind.planItemUpsert:
+        await _client.from('trip_plan_items').upsert(
+              Map<String, dynamic>.from(payload),
+              onConflict: 'id',
+            );
+        break;
+      case SyncKind.planItemDelete:
+        await _client
+            .from('trip_plan_items')
+            .delete()
+            .eq('id', payload['id'] as String);
+        break;
+      case SyncKind.listItemUpsert:
+        await _client.from('trip_list_items').upsert(
+              Map<String, dynamic>.from(payload),
+              onConflict: 'id',
+            );
+        break;
+      case SyncKind.listItemDelete:
+        await _client
+            .from('trip_list_items')
+            .delete()
+            .eq('id', payload['id'] as String);
+        break;
     }
   }
 

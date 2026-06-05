@@ -260,6 +260,79 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authTagline => 'Let\'s go. Together.';
+
+  @override
+  String get planTabTitle => 'Plan';
+
+  @override
+  String get planEmptyTitle => 'Nothing on the board yet';
+
+  @override
+  String get planEmptySubtitle =>
+      'Add lodging, transport, or activities for the group.';
+
+  @override
+  String get planUndatedSection => 'No date';
+
+  @override
+  String get planChecklistsSection => 'Checklists';
+
+  @override
+  String get planAddItem => 'Add to plan';
+
+  @override
+  String get planAddListItemHint => 'New checklist item';
+
+  @override
+  String get planDefaultListName => 'Packing';
+
+  @override
+  String get planDeleteItem => 'Delete';
+
+  @override
+  String get planEditItem => 'Edit';
+
+  @override
+  String get planKindLodging => 'Lodging';
+
+  @override
+  String get planKindFlight => 'Flight';
+
+  @override
+  String get planKindTrain => 'Train';
+
+  @override
+  String get planKindActivity => 'Activity';
+
+  @override
+  String get planKindOther => 'Other';
+
+  @override
+  String get planSheetTitleAdd => 'Add plan item';
+
+  @override
+  String get planSheetTitleEdit => 'Edit plan item';
+
+  @override
+  String get planFieldTitle => 'Title';
+
+  @override
+  String get planFieldNotes => 'Notes';
+
+  @override
+  String get planFieldStart => 'Starts';
+
+  @override
+  String get planFieldEnd => 'Ends';
+
+  @override
+  String get planSave => 'Save';
+
+  @override
+  String get planLoadError => 'Could not load the plan.';
+
+  @override
+  String get planChecklistsLoadError => 'Could not load checklists.';
 }
 
 /// The translations for English (`en_XA`).

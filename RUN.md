@@ -108,6 +108,34 @@ smoke) trip `closed` → add expense blocked, settlement still allowed → owner
 Lifecycle RPCs: `request_trip_close`, `mark_trip_member_complete`, `accept_trip_close`,
 `object_to_trip_close`, `withdraw_close_objection`, `force_close_trip`, `cancel_trip`.
 
+## Slice 18 — TripBoard plan items (R4, Wave 2)
+
+Spec: `docs/slices/S18_PROMPT.md` · depends on S17 (`is_trip_writable`).
+
+```bash
+supabase db push   # applies 0016_trip_plan_items.sql
+dart run tool/rls_smoke.dart   # plan insert + closed-trip write block + checklist check
+melos run ci
+```
+
+**Demo:** open trip → **Plan** tab → add lodging + flight with dates → reorder →
+checklist **Packing: sunscreen** → second device sees sync → close trip → board
+read-only (add/edit/delete disabled).
+
+## Slice 19 — money governance I (R5, Wave 2)
+
+Contract: `docs/workflows/expense-consent.md` · constitution D1 + A1 (dispute after close; settlement-confirm gate deferred to S22).
+
+```bash
+supabase db push   # applies 0017 + 0018 (share guard + dispute sync touch)
+dart run tool/rls_smoke.dart   # propose/commit net + dispute-on-closed + forged-insert guard
+melos run ci
+```
+
+**Online-only governance RPCs (S19):** `propose_expense`, `commit_expense`, `void_expense`, and `respond_to_share` are direct Supabase RPC calls — no outbox `SyncKind`, no offline queue. That is intentional for deliberate consent acts. **Born-committed expense logging** (add expense flow) stays offline-first as before.
+
+**Demo:** owner **proposes** a cost (ghost row, net unchanged) → **commits** → balances update → member **disputes** own share (net unchanged, flag visible on all devices) → close trip → dispute still allowed → cancelled trip blocks dispute.
+
 ### vamo.world site (`web/apps/site`)
 
 Public Next.js on Vercel: landing, `/privacy`, `/terms`, `/j/[token]` redirect, `/.well-known/assetlinks.json`.

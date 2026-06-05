@@ -7,6 +7,7 @@ import '../settle/settle_up.dart';
 import '../settle/settlements_repository.dart';
 import '../trips/trips_models.dart';
 import '../trips/trips_providers.dart';
+import 'expense_governance.dart';
 import 'expense_models.dart';
 import 'expenses_overview.dart';
 
@@ -90,6 +91,7 @@ class ExpensesOverviewRepository {
             capturedAt: r.capturedAt,
             placeLabel: r.placeLabel,
             placeId: r.placeId,
+            status: ExpenseStatus.parse(r.status),
           ),
         )
         .toList();

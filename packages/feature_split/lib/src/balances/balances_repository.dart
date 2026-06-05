@@ -30,6 +30,7 @@ class BalancesRepository {
     final updates = StreamController<void>.broadcast();
     final subs = <StreamSubscription<dynamic>>[
       _db.watchTripExpenses(tripId).listen((_) => updates.add(null)),
+      _db.watchTripExpenseShares(tripId).listen((_) => updates.add(null)),
       _db.watchTripSettlements(tripId).listen((_) => updates.add(null)),
     ];
 
@@ -60,7 +61,8 @@ class BalancesRepository {
         .get();
 
     final expenses = await (_db.select(_db.localExpenses)
-          ..where((e) => e.tripId.equals(tripId)))
+          ..where((e) => e.tripId.equals(tripId))
+          ..where((e) => e.status.equals('committed')))
         .get();
 
     final expenseIds = expenses.map((e) => e.id).toList();

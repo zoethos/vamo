@@ -4,6 +4,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'expense_governance.dart';
 import 'expense_models.dart';
 import 'expense_receipt_viewer.dart';
 import 'expenses_repository.dart';
@@ -28,6 +29,9 @@ class TripExpenseListTile extends ConsumerWidget {
     this.localReceiptPath,
     this.receiptThumbnailPath,
     this.placeLabel,
+    this.status = ExpenseStatus.committed,
+    this.consentLabel,
+    this.onTap,
   });
 
   final String description;
@@ -44,6 +48,9 @@ class TripExpenseListTile extends ConsumerWidget {
   final String? localReceiptPath;
   final String? receiptThumbnailPath;
   final String? placeLabel;
+  final ExpenseStatus status;
+  final String? consentLabel;
+  final VoidCallback? onTap;
 
   bool get _hasReceipt =>
       receiptThumbnailPath != null ||
@@ -59,6 +66,7 @@ class TripExpenseListTile extends ConsumerWidget {
         currency: expenseCurrency,
         payerId: payer,
         spentAt: spentAt,
+        status: status,
         receiptPath: receiptPath,
         localReceiptPath: localReceiptPath,
         placeLabel: placeLabel,
@@ -67,9 +75,16 @@ class TripExpenseListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final when = formatShortDate(spentAt, locale: locale);
-    final subtitle = (placeLabel != null && placeLabel!.isNotEmpty)
+    var detailLine = (placeLabel != null && placeLabel!.isNotEmpty)
         ? '$placeLabel · $payer · $when'
         : '$payer · $when';
+    if (consentLabel != null && consentLabel!.isNotEmpty) {
+      detailLine = '$detailLine · $consentLabel';
+    }
+    if (status == ExpenseStatus.proposed) {
+      detailLine = 'Proposal · $detailLine';
+    }
+
     Widget? leading;
     if (_hasReceipt) {
       leading = _ReceiptThumbnail(
@@ -85,9 +100,29 @@ class TripExpenseListTile extends ConsumerWidget {
     }
 
     return Card(
+      shape: status == ExpenseStatus.proposed
+          ? RoundedRectangleBorder(
+              side: BorderSide(
+                color: AppColors.graphite.withValues(alpha: 0.4),
+                style: BorderStyle.solid,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            )
+          : null,
+      color: status == ExpenseStatus.proposed
+          ? AppColors.graphite.withValues(alpha: 0.04)
+          : null,
       child: ListTile(
         leading: leading,
-        title: Text(description),
+        title: Text(
+          description,
+          style: status == ExpenseStatus.proposed
+              ? Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.graphite,
+                    fontStyle: FontStyle.italic,
+                  )
+              : null,
+        ),
         subtitle: placeLabel != null && placeLabel!.isNotEmpty
             ? Row(
                 children: [
@@ -99,7 +134,7 @@ class TripExpenseListTile extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      subtitle,
+                      detailLine,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.graphite,
                           ),
@@ -108,7 +143,7 @@ class TripExpenseListTile extends ConsumerWidget {
                 ],
               )
             : Text(
-                subtitle,
+                detailLine,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.graphite,
                     ),
@@ -127,13 +162,14 @@ class TripExpenseListTile extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
         ),
-        onTap: leading == null
-            ? null
-            : () => openExpenseReceiptViewer(
-                  context,
-                  ref,
-                  expense: _expense,
-                ),
+        onTap: onTap ??
+            (leading == null
+                ? null
+                : () => openExpenseReceiptViewer(
+                      context,
+                      ref,
+                      expense: _expense,
+                    )),
       ),
     );
   }

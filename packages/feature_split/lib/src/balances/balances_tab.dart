@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../expenses/expense_consent_providers.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
 import '../settle/settlements_providers.dart';
@@ -37,6 +38,9 @@ class BalancesTab extends ConsumerWidget {
         final nameById = members.valueOrNull == null
             ? <String, String>{}
             : {for (final m in members.requireValue) m.userId: m.displayName};
+        final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
+        final consentLabels =
+            consentFlags.map((f) => f.label).toSet().toList(growable: false);
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -213,6 +217,7 @@ class BalancesTab extends ConsumerWidget {
                                   ref: ref,
                                   tripId: tripId,
                                   display: s,
+                                  consentLabels: consentLabels,
                                 ),
                                 child: const Text('Mark as settled'),
                               ),
@@ -239,6 +244,7 @@ class BalancesTab extends ConsumerWidget {
               tripId: tripId,
               nameById: nameById,
               currency: currency,
+              consentFlags: ref.watch(tripShareConsentFlagsProvider(tripId)),
             ),
           ],
         );
@@ -317,11 +323,13 @@ class _NetBalancesSection extends ConsumerWidget {
     required this.tripId,
     required this.nameById,
     required this.currency,
+    required this.consentFlags,
   });
 
   final String tripId;
   final Map<String, String> nameById;
   final String currency;
+  final List<({String userId, String label, String expenseId})> consentFlags;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -350,6 +358,17 @@ class _NetBalancesSection extends ConsumerWidget {
               '${e.value > 0 ? 'is owed' : 'owes'} '
               '${formatMoneyFromCents(e.value.abs(), currency)}',
               style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        for (final flag in consentFlags)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              flag.label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.graphite,
+                    fontStyle: FontStyle.italic,
+                  ),
             ),
           ),
       ],

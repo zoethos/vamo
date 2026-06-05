@@ -150,6 +150,7 @@ List<TripExpenseRollup> buildTripRollups({
 }) {
   final expensesByTrip = <String, List<ExpenseSummary>>{};
   for (final e in expenses) {
+    if (!e.status.affectsBalances) continue;
     expensesByTrip.putIfAbsent(e.tripId, () => []).add(e);
   }
 

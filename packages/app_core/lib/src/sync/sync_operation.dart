@@ -8,7 +8,11 @@ enum SyncKind {
   receiptUpload('receipt_upload'),
   settlementInsert('settlement_insert'),
   settlementUpdate('settlement_update'),
-  tripNoteInsert('trip_note_insert');
+  tripNoteInsert('trip_note_insert'),
+  planItemUpsert('plan_item_upsert'),
+  planItemDelete('plan_item_delete'),
+  listItemUpsert('list_item_upsert'),
+  listItemDelete('list_item_delete');
 
   const SyncKind(this.value);
   final String value;

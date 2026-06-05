@@ -65,7 +65,7 @@ class TripRealtimeSubscriber {
   }
 
   static const _tablesWithTripId = [
-    'expenses',
+    'expenses', // also receives touch updates from respond_to_share (S19 rule 4)
     'settlements',
     'trip_members',
     'trip_notes',

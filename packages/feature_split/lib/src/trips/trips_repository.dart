@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../capture/capture_repository.dart';
 import '../capture/capture_storage.dart';
 import '../expenses/expenses_repository.dart';
+import '../plan/plan_repository.dart';
 import '../places/places_repository.dart';
 import '../settle/settlements_repository.dart';
 import 'trips_models.dart';
@@ -20,6 +21,7 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
     settlements: ref.watch(settlementsRepositoryProvider),
     capture: ref.watch(captureRepositoryProvider),
     places: ref.watch(placesRepositoryProvider),
+    plan: ref.watch(planRepositoryProvider),
     syncQueue: ref.watch(syncQueueProvider),
   );
 });
@@ -35,6 +37,7 @@ class TripsRepository {
     required SettlementsRepository settlements,
     required CaptureRepository capture,
     required PlacesRepository places,
+    required PlanRepository plan,
     required SyncQueue syncQueue,
   })  : _db = db,
         _client = client,
@@ -43,6 +46,7 @@ class TripsRepository {
         _settlements = settlements,
         _capture = capture,
         _places = places,
+        _plan = plan,
         _syncQueue = syncQueue;
 
   final AppDatabase _db;
@@ -52,6 +56,7 @@ class TripsRepository {
   final SettlementsRepository _settlements;
   final CaptureRepository _capture;
   final PlacesRepository _places;
+  final PlanRepository _plan;
   final SyncQueue _syncQueue;
   final _uuid = const Uuid();
 
@@ -117,6 +122,8 @@ class TripsRepository {
     await _db.delete(_db.localExpenses).go();
     await _db.delete(_db.localTripMembers).go();
     await _db.delete(_db.localPlaces).go();
+    await _db.delete(_db.localPlanItems).go();
+    await _db.delete(_db.localTripListItems).go();
     await _db.delete(_db.localTrips).go();
   }
 
@@ -135,6 +142,11 @@ class TripsRepository {
       excludeSettlementIds: pending.settlementIds,
     );
     await _capture.syncCaptureForTrips([tripId]);
+    await _plan.syncPlanForTrips(
+      [tripId],
+      excludePlanIds: pending.planItemIds,
+      excludeListIds: pending.listItemIds,
+    );
   }
 
   Future<void> syncFromRemote() async {
@@ -165,6 +177,11 @@ class TripsRepository {
       excludeSettlementIds: pending.settlementIds,
     );
     await _capture.syncCaptureForTrips(remoteIds);
+    await _plan.syncPlanForTrips(
+      remoteIds,
+      excludePlanIds: pending.planItemIds,
+      excludeListIds: pending.listItemIds,
+    );
   }
 
   Future<void> _pullTripsAndMembers({
