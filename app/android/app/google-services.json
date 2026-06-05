@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "vamo-dev-placeholder",
-    "storage_bucket": "vamo-dev-placeholder.appspot.com"
+    "project_number": "377402850436",
+    "project_id": "vamo-world",
+    "storage_bucket": "vamo-world.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+        "mobilesdk_app_id": "1:377402850436:android:94a5baf4b5134754cc96d1",
         "android_client_info": {
-          "package_name": "com.example.vamo"
+          "package_name": "app.vamo"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "REPLACE_WITH_FIREBASE_ANDROID_KEY"
+          "current_key": "AIzaSyCRvvFNbRlWyOdrdl6_s2cs0iiw9rC5rfM"
         }
       ],
       "services": {
