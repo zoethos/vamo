@@ -22,6 +22,7 @@ export 'src/db/app_database.dart';
 export 'src/db/database_provider.dart';
 export 'src/design/app_colors.dart';
 export 'src/design/app_theme.dart';
+export 'src/design/brand_assets.dart';
 export 'src/env/env.dart';
 export 'src/fx/fx_math.dart';
 export 'src/fx/fx_providers.dart';

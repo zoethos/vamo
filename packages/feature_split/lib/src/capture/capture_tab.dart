@@ -117,18 +117,18 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: AppColors.muted),
+                    ?.copyWith(color: AppColors.graphite),
               ),
               if (empty) ...[
                 const SizedBox(height: 48),
                 const Icon(Icons.auto_stories_outlined,
-                    size: 56, color: AppColors.teal),
+                    size: 56, color: AppColors.jadeTeal),
                 const SizedBox(height: 16),
                 Text(
                   'Capture your trip',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                       ),
                 ),
                 const SizedBox(height: 8),
@@ -138,7 +138,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: AppColors.muted),
+                      ?.copyWith(color: AppColors.graphite),
                 ),
               ],
               if (photoList.isNotEmpty) ...[
@@ -146,7 +146,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                 Text(
                   'Photos',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -175,7 +175,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                 Text(
                   'Notes',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -285,9 +285,9 @@ class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: AppColors.sandLight,
+        color: AppColors.blush,
         child: Center(
-          child: Icon(Icons.photo_outlined, color: AppColors.muted),
+          child: Icon(Icons.photo_outlined, color: AppColors.graphite),
         ),
       ),
     );

@@ -54,6 +54,12 @@ class ExpensesRepository {
         );
   }
 
+  Stream<List<ExpenseSummary>> watchAllExpenses() {
+    return _db.watchAllExpenses().map(
+          (rows) => rows.map(_toSummary).toList(),
+        );
+  }
+
   ExpenseSummary _toSummary(LocalExpense r) => ExpenseSummary(
         id: r.id,
         tripId: r.tripId,

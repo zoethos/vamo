@@ -5,6 +5,7 @@ import '../analytics/analytics.dart';
 import '../analytics/analytics_providers.dart';
 import '../analytics/error_kind.dart';
 import 'app_colors.dart';
+import 'brand_assets.dart';
 
 /// Consistent empty state; fires [VamoEvent.emptyStateShown] once (Slice 11).
 class AppEmptyState extends ConsumerStatefulWidget {
@@ -14,12 +15,14 @@ class AppEmptyState extends ConsumerStatefulWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.useBrandMark = false,
   });
 
   final String screen;
   final IconData icon;
   final String title;
   final String? subtitle;
+  final bool useBrandMark;
 
   @override
   ConsumerState<AppEmptyState> createState() => _AppEmptyStateState();
@@ -42,17 +45,27 @@ class _AppEmptyStateState extends ConsumerState<AppEmptyState> {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsetsDirectional.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(widget.icon, size: 56, color: AppColors.teal),
+            if (widget.useBrandMark)
+              Opacity(
+                opacity: 0.85,
+                child: Image.asset(
+                  BrandAssets.markInk,
+                  height: 56,
+                  package: 'vamo',
+                ),
+              )
+            else
+              Icon(widget.icon, size: 56, color: AppColors.jadeTeal),
             const SizedBox(height: 16),
             Text(
               widget.title,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
-                color: AppColors.tealDark,
+                color: AppColors.ink,
               ),
             ),
             if (widget.subtitle != null) ...[
@@ -61,7 +74,7 @@ class _AppEmptyStateState extends ConsumerState<AppEmptyState> {
                 widget.subtitle!,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
+                  color: AppColors.graphite,
                 ),
               ),
             ],
@@ -112,12 +125,12 @@ class _AppErrorStateState extends ConsumerState<AppErrorState> {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsetsDirectional.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.cloud_off_outlined,
-                size: 48, color: AppColors.muted),
+                size: 48, color: AppColors.graphite),
             const SizedBox(height: 12),
             Text(widget.message, textAlign: TextAlign.center),
             if (widget.onRetry != null) ...[

@@ -93,7 +93,7 @@ class TripExpenseListTile extends ConsumerWidget {
           ),
           textAlign: TextAlign.end,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.tealDark,
+                color: AppColors.ink,
                 fontWeight: FontWeight.w600,
               ),
         ),

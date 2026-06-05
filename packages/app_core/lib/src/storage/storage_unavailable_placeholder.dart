@@ -29,10 +29,10 @@ class StorageUnavailablePlaceholder extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AppColors.sandLight,
+                color: AppColors.blush,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: AppColors.muted.withValues(alpha: 0.35),
+                  color: AppColors.graphite.withValues(alpha: 0.35),
                 ),
               ),
               child: Column(
@@ -41,13 +41,13 @@ class StorageUnavailablePlaceholder extends StatelessWidget {
                   Icon(
                     Icons.broken_image_outlined,
                     size: 18,
-                    color: AppColors.muted,
+                    color: AppColors.graphite,
                   ),
                   if (onRetry != null)
                     Icon(
                       Icons.refresh,
                       size: 12,
-                      color: AppColors.teal,
+                      color: AppColors.jadeTeal,
                     ),
                 ],
               ),
@@ -63,13 +63,13 @@ class StorageUnavailablePlaceholder extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.broken_image_outlined, size: 48, color: AppColors.muted),
+            Icon(Icons.broken_image_outlined, size: 48, color: AppColors.graphite),
             const SizedBox(height: 12),
             Text(
               label,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.muted,
+                    color: AppColors.graphite,
                   ),
             ),
             if (onRetry != null) ...[
@@ -78,7 +78,7 @@ class StorageUnavailablePlaceholder extends StatelessWidget {
                 tooltip: 'Retry',
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                color: AppColors.teal,
+                color: AppColors.jadeTeal,
               ),
             ],
           ],

@@ -145,8 +145,8 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
           floatingActionButton: hideExpenseFab
               ? null
               : FloatingActionButton.extended(
-                  backgroundColor: AppColors.teal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.goLime,
+                  foregroundColor: AppColors.ink,
                   onPressed: () =>
                       context.push(AppRoutes.tripAddExpense(widget.tripId)),
                   icon: const Icon(Icons.add),

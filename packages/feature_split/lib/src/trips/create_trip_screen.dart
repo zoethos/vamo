@@ -74,7 +74,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             Text(
               'Si va?',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.tealDark,
+                    color: AppColors.ink,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -84,7 +84,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: AppColors.muted),
+                  ?.copyWith(color: AppColors.graphite),
             ),
             const SizedBox(height: 24),
             TextFormField(

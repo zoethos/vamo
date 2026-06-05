@@ -25,12 +25,20 @@ dependencies:
   supabase_flutter: ^2.5.6
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.3
   flutter_lints: ^4.0.0
   flutter_test:
     sdk: flutter
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/brand/app_icon.png
+  remove_alpha_ios: true
 
 flutter:
   generate: true
   uses-material-design: true
   assets:
     - .env
+    - assets/brand/

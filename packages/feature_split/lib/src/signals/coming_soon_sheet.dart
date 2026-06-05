@@ -27,7 +27,7 @@ Future<void> showComingSoonSheet({
             Text(
               title,
               style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                    color: AppColors.tealDark,
+                    color: AppColors.ink,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -37,13 +37,13 @@ Future<void> showComingSoonSheet({
               style: Theme.of(ctx)
                   .textTheme
                   .bodyMedium
-                  ?.copyWith(color: AppColors.muted),
+                  ?.copyWith(color: AppColors.graphite),
             ),
             const SizedBox(height: 8),
             Text(
               'Coming soon — we are building this for a later wave.',
               style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                    color: AppColors.muted,
+                    color: AppColors.graphite,
                     fontStyle: FontStyle.italic,
                   ),
             ),

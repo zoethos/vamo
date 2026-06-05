@@ -1,0 +1,275 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">VAMO brand board proposal 1</title>
+  <desc id="desc">A clean brand board for VAMO with a geometric road and sun mark, vibrant travel palette, app icon, subtle UI patterns, and a sample mobile trip-card screen.</desc>
+  <defs>
+    <linearGradient id="sunsetGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD166"/>
+      <stop offset="0.34" stop-color="#FF8A3D"/>
+      <stop offset="0.68" stop-color="#FF5D73"/>
+      <stop offset="1" stop-color="#21B7D7"/>
+    </linearGradient>
+    <linearGradient id="skyGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF7EA"/>
+      <stop offset="0.44" stop-color="#FFE4D5"/>
+      <stop offset="1" stop-color="#BEEBFF"/>
+    </linearGradient>
+    <linearGradient id="deepGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123D43"/>
+      <stop offset="0.55" stop-color="#07595C"/>
+      <stop offset="1" stop-color="#172326"/>
+    </linearGradient>
+    <linearGradient id="actionGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#30E3A6"/>
+      <stop offset="1" stop-color="#21B7D7"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#123D43" flood-opacity="0.14"/>
+    </filter>
+    <filter id="tinyShadow" x="-25%" y="-25%" width="150%" height="160%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#123D43" flood-opacity="0.12"/>
+    </filter>
+    <clipPath id="phoneClip">
+      <rect x="1040" y="300" width="304" height="626" rx="42"/>
+    </clipPath>
+    <pattern id="lightPattern" width="132" height="132" patternUnits="userSpaceOnUse">
+      <rect width="132" height="132" fill="#FFF7EA"/>
+      <path d="M-18 102C38 32 84 148 150 54" stroke="#FF8A3D" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 14" opacity="0.28"/>
+      <path d="M20 32C44 10 88 12 112 34" stroke="#07595C" stroke-width="3" stroke-linecap="round" opacity="0.16"/>
+      <circle cx="104" cy="92" r="5" fill="#21B7D7" opacity="0.2"/>
+      <circle cx="30" cy="74" r="3" fill="#FF5D73" opacity="0.22"/>
+    </pattern>
+    <pattern id="darkPattern" width="140" height="140" patternUnits="userSpaceOnUse">
+      <rect width="140" height="140" fill="#172326"/>
+      <path d="M-10 30C30 98 78 8 150 90" stroke="#30E3A6" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 12" opacity="0.22"/>
+      <path d="M30 106C54 82 94 82 116 106" stroke="#FFD166" stroke-width="4" stroke-linecap="round" opacity="0.18"/>
+      <circle cx="110" cy="40" r="7" fill="#FF8A3D" opacity="0.2"/>
+      <circle cx="42" cy="48" r="3" fill="#21B7D7" opacity="0.26"/>
+    </pattern>
+    <symbol id="vamoMarkColor" viewBox="0 0 96 96">
+      <circle cx="66" cy="27" r="18" fill="#FF8A3D"/>
+      <path d="M20 28C31 53 41 73 48 82C55 73 65 53 76 28" stroke="#07595C" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M48 82C50 64 54 49 59 37" stroke="#FFF7EA" stroke-width="5" stroke-linecap="round" opacity="0.82"/>
+    </symbol>
+    <symbol id="vamoMarkLight" viewBox="0 0 96 96">
+      <circle cx="66" cy="27" r="18" fill="#FFD166"/>
+      <path d="M20 28C31 53 41 73 48 82C55 73 65 53 76 28" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M48 82C50 64 54 49 59 37" stroke="#07595C" stroke-width="5" stroke-linecap="round" opacity="0.55"/>
+    </symbol>
+    <style>
+      .label { fill: #6D7774; font: 500 18px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .eyebrow { fill: #73817C; font: 700 15px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+      .h1 { fill: #172326; font: 760 76px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .h2 { fill: #172326; font: 740 31px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .h3 { fill: #172326; font: 720 23px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0; }
+      .body { fill: #52625E; font: 470 19px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .small { fill: #6D7774; font: 560 14px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .tiny { fill: #77847F; font: 600 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .phoneTitle { fill: #172326; font: 750 21px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .phoneBody { fill: #62716C; font: 540 12px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .phoneSmall { fill: #7D8985; font: 650 10px Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .card { fill: #FFFFFF; stroke: #EEF1EB; stroke-width: 1.5; }
+      .panel { fill: #FFFFFF; stroke: #ECEFE8; stroke-width: 1.5; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#FBFAF6"/>
+  <circle cx="1386" cy="-70" r="230" fill="#FFE4D5" opacity="0.75"/>
+  <circle cx="74" cy="896" r="220" fill="#D9F4EC" opacity="0.72"/>
+
+  <g transform="translate(84 74)">
+    <text class="eyebrow" x="0" y="0">Brand board proposal 1</text>
+    <text class="h1" x="0" y="86">VAMO</text>
+    <text class="body" x="4" y="127">Si va? A warm, mobile-first travel brand for shared costs, captured journeys, and stories in motion.</text>
+  </g>
+
+  <g transform="translate(1120 70)">
+    <rect x="0" y="0" width="420" height="92" rx="28" fill="#FFFFFF" stroke="#ECEFE8" stroke-width="1.5"/>
+    <use href="#vamoMarkColor" x="30" y="20" width="54" height="54"/>
+    <text x="104" y="41" class="h3">Road / sun / go</text>
+    <text x="104" y="66" class="small">Minimum geometry, readable as a 24px mark.</text>
+  </g>
+
+  <g transform="translate(84 222)">
+    <rect class="panel" x="0" y="0" width="456" height="346" rx="34"/>
+    <text class="eyebrow" x="34" y="48">Logo mark</text>
+    <text class="h2" x="34" y="90">Motion without the noise</text>
+    <g transform="translate(54 126)">
+      <rect x="0" y="0" width="164" height="164" rx="42" fill="#FFF7EA"/>
+      <use href="#vamoMarkColor" x="32" y="32" width="100" height="100"/>
+      <text x="82" y="206" class="small" text-anchor="middle">Primary mark</text>
+    </g>
+    <g transform="translate(244 126)">
+      <rect x="0" y="0" width="92" height="92" rx="28" fill="#172326"/>
+      <use href="#vamoMarkLight" x="18" y="18" width="56" height="56"/>
+      <rect x="128" y="22" width="24" height="24" rx="7" fill="#FFF7EA" stroke="#E7E7DF"/>
+      <use href="#vamoMarkColor" x="131" y="25" width="18" height="18"/>
+      <rect x="128" y="58" width="32" height="32" rx="9" fill="url(#sunsetGradient)"/>
+      <use href="#vamoMarkLight" x="134" y="64" width="20" height="20"/>
+      <text x="0" y="132" class="small">Small-size friendly.</text>
+      <text x="0" y="158" class="small">Sun = joy. Curve = route. V = Vamo.</text>
+    </g>
+  </g>
+
+  <g transform="translate(568 222)">
+    <rect class="panel" x="0" y="0" width="446" height="376" rx="34"/>
+    <text class="eyebrow" x="34" y="48">Color system</text>
+    <text class="h2" x="34" y="90">Golden-hour, not corporate</text>
+
+    <g transform="translate(34 104)">
+      <g transform="translate(0 0)">
+        <rect width="74" height="74" rx="20" fill="#FF8A3D"/>
+        <text class="tiny" x="0" y="94">Sunrise</text>
+        <text class="tiny" x="0" y="110">#FF8A3D</text>
+      </g>
+      <g transform="translate(98 0)">
+        <rect width="74" height="74" rx="20" fill="#FF5D73"/>
+        <text class="tiny" x="0" y="94">Coral</text>
+        <text class="tiny" x="0" y="110">#FF5D73</text>
+      </g>
+      <g transform="translate(196 0)">
+        <rect width="74" height="74" rx="20" fill="#FFD166"/>
+        <text class="tiny" x="0" y="94">Mango</text>
+        <text class="tiny" x="0" y="110">#FFD166</text>
+      </g>
+      <g transform="translate(294 0)">
+        <rect width="74" height="74" rx="20" fill="#07595C"/>
+        <text class="tiny" x="0" y="94">Deep teal</text>
+        <text class="tiny" x="0" y="110">#07595C</text>
+      </g>
+      <g transform="translate(0 146)">
+        <rect width="74" height="74" rx="20" fill="#21B7D7"/>
+        <text class="tiny" x="0" y="94">Sky</text>
+        <text class="tiny" x="0" y="110">#21B7D7</text>
+      </g>
+      <g transform="translate(98 146)">
+        <rect width="74" height="74" rx="20" fill="#FFF7EA" stroke="#E8E0D4"/>
+        <text class="tiny" x="0" y="94">Cream</text>
+        <text class="tiny" x="0" y="110">#FFF7EA</text>
+      </g>
+      <g transform="translate(196 146)">
+        <rect width="74" height="74" rx="20" fill="#172326"/>
+        <text class="tiny" x="0" y="94">Ink</text>
+        <text class="tiny" x="0" y="110">#172326</text>
+      </g>
+      <g transform="translate(294 146)">
+        <rect width="74" height="74" rx="20" fill="url(#actionGradient)"/>
+        <text class="tiny" x="0" y="94">Action</text>
+        <text class="tiny" x="0" y="110">#30E3A6</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(1042 222)">
+    <rect class="panel" x="0" y="0" width="456" height="346" rx="34"/>
+    <text class="eyebrow" x="34" y="48">App icon</text>
+    <text class="h2" x="34" y="90">A little burst of go</text>
+    <g transform="translate(58 122)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="178" height="178" rx="46" fill="url(#sunsetGradient)"/>
+      <circle cx="142" cy="32" r="52" fill="#FFFFFF" opacity="0.18"/>
+      <path d="M20 148C72 70 102 126 168 36" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" opacity="0.18"/>
+      <use href="#vamoMarkLight" x="43" y="40" width="94" height="94"/>
+    </g>
+    <g transform="translate(276 144)">
+      <rect x="0" y="0" width="72" height="72" rx="20" fill="url(#sunsetGradient)"/>
+      <use href="#vamoMarkLight" x="15" y="15" width="42" height="42"/>
+      <rect x="104" y="16" width="40" height="40" rx="11" fill="url(#sunsetGradient)"/>
+      <use href="#vamoMarkLight" x="113" y="25" width="22" height="22"/>
+      <text x="0" y="116" class="small">Gradient carries warmth.</text>
+      <text x="0" y="141" class="small">The mark stays crisp small.</text>
+    </g>
+  </g>
+
+  <g transform="translate(84 612)">
+    <rect class="panel" x="0" y="0" width="456" height="312" rx="34"/>
+    <text class="eyebrow" x="34" y="48">Backgrounds</text>
+    <text class="h2" x="34" y="90">Quiet route texture</text>
+    <g transform="translate(34 126)">
+      <rect x="0" y="0" width="188" height="142" rx="28" fill="url(#lightPattern)" stroke="#ECE7DA"/>
+      <text x="20" y="40" class="h3" fill="#172326">Light</text>
+      <path d="M22 98C66 58 106 122 162 64" stroke="#07595C" stroke-width="7" stroke-linecap="round" opacity="0.2"/>
+      <circle cx="162" cy="64" r="10" fill="#FF8A3D"/>
+      <text x="0" y="176" class="small">For cards and empty states</text>
+    </g>
+    <g transform="translate(244 126)">
+      <rect x="0" y="0" width="188" height="142" rx="28" fill="url(#darkPattern)" stroke="#203437"/>
+      <text x="20" y="40" class="h3" fill="#FFFFFF">Dark</text>
+      <path d="M24 102C74 44 100 126 166 56" stroke="#30E3A6" stroke-width="7" stroke-linecap="round" opacity="0.36"/>
+      <circle cx="166" cy="56" r="10" fill="#FFD166"/>
+      <text x="0" y="176" class="small">For story covers and headers</text>
+    </g>
+  </g>
+
+  <g transform="translate(568 612)">
+    <rect class="panel" x="0" y="0" width="446" height="312" rx="34"/>
+    <text class="eyebrow" x="34" y="48">In use</text>
+    <text class="h2" x="34" y="90">Swatches behaving like UI</text>
+    <g transform="translate(34 126)">
+      <rect x="0" y="0" width="176" height="68" rx="22" fill="#172326"/>
+      <use href="#vamoMarkLight" x="18" y="15" width="38" height="38"/>
+      <text x="68" y="31" fill="#FFFFFF" font-family="Inter, ui-sans-serif, system-ui" font-size="16" font-weight="740">Start trip</text>
+      <text x="68" y="50" fill="#B8C9C3" font-family="Inter, ui-sans-serif, system-ui" font-size="11" font-weight="620">Si va?</text>
+      <rect x="198" y="0" width="176" height="68" rx="22" fill="url(#actionGradient)"/>
+      <text x="222" y="42" fill="#123D43" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="780">Settle up</text>
+      <rect x="0" y="94" width="374" height="72" rx="24" fill="url(#skyGradient)"/>
+      <circle cx="42" cy="130" r="18" fill="#FF8A3D"/>
+      <circle cx="64" cy="130" r="18" fill="#FF5D73"/>
+      <circle cx="86" cy="130" r="18" fill="#07595C"/>
+      <text x="118" y="127" fill="#172326" font-family="Inter, ui-sans-serif, system-ui" font-size="17" font-weight="760">Dolomites crew</text>
+      <text x="118" y="148" fill="#52625E" font-family="Inter, ui-sans-serif, system-ui" font-size="12" font-weight="580">8 receipts, 42 captures, 5 places</text>
+    </g>
+  </g>
+
+  <g transform="translate(1068 608)">
+    <rect x="-34" y="-72" width="456" height="384" rx="34" fill="#FFFFFF" stroke="#ECEFE8" stroke-width="1.5"/>
+    <text class="eyebrow" x="0" y="-24">Mobile sample</text>
+    <text class="h2" x="0" y="18">Trip cards</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="1228" y="584" width="246" height="356" rx="44" fill="#172326"/>
+    <rect x="1240" y="594" width="222" height="336" rx="34" fill="#FBFAF6"/>
+  </g>
+  <g>
+    <clipPath id="phoneClipCompact">
+      <rect x="1240" y="594" width="222" height="336" rx="34"/>
+    </clipPath>
+    <g clip-path="url(#phoneClipCompact)">
+      <rect x="1240" y="594" width="222" height="336" fill="#FBFAF6"/>
+      <rect x="1240" y="594" width="222" height="112" fill="url(#skyGradient)"/>
+      <path d="M1228 696C1292 620 1346 722 1472 624" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" opacity="0.6"/>
+      <path d="M1252 688C1302 646 1350 710 1442 640" stroke="#FF8A3D" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 11" opacity="0.58"/>
+      <use href="#vamoMarkColor" x="1258" y="614" width="34" height="34"/>
+      <text x="1300" y="634" class="phoneTitle">VAMO</text>
+      <text x="1300" y="652" class="phoneBody">Si va?</text>
+      <text x="1260" y="682" class="phoneTitle">Trips</text>
+
+      <g filter="url(#tinyShadow)">
+        <rect x="1254" y="724" width="194" height="70" rx="20" fill="#FFFFFF"/>
+        <rect x="1266" y="736" width="40" height="40" rx="13" fill="url(#sunsetGradient)"/>
+        <circle cx="1296" cy="746" r="9" fill="#FFF7EA" opacity="0.9"/>
+        <path d="M1274 773C1288 756 1294 778 1304 760" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+        <text x="1318" y="750" class="phoneSmall" fill="#172326">Lisbon weekend</text>
+        <text x="1318" y="769" class="phoneSmall">4 people · €284</text>
+        <circle cx="1428" cy="759" r="14" fill="#172326"/>
+        <use href="#vamoMarkLight" x="1419" y="750" width="18" height="18"/>
+      </g>
+
+      <g filter="url(#tinyShadow)">
+        <rect x="1254" y="808" width="194" height="70" rx="20" fill="#FFFFFF"/>
+        <rect x="1266" y="820" width="40" height="40" rx="13" fill="#07595C"/>
+        <circle cx="1290" cy="830" r="10" fill="#FFD166"/>
+        <path d="M1274 853C1288 834 1296 860 1304 840" stroke="#30E3A6" stroke-width="4" stroke-linecap="round"/>
+        <text x="1318" y="834" class="phoneSmall" fill="#172326">Dolomites van</text>
+        <text x="1318" y="853" class="phoneSmall">9 receipts · story</text>
+        <circle cx="1428" cy="843" r="14" fill="url(#actionGradient)"/>
+        <text x="1423" y="847" fill="#123D43" font-family="Inter, ui-sans-serif, system-ui" font-size="12" font-weight="900">→</text>
+      </g>
+    </g>
+  </g>
+  <rect x="1314" y="606" width="72" height="4" rx="2" fill="#172326" opacity="0.92"/>
+
+  <g transform="translate(112 948)">
+    <circle cx="0" cy="0" r="8" fill="#FF8A3D"/>
+    <text class="small" x="20" y="5">Local deterministic concept. Ready for iteration before the next image-generation pass.</text>
+  </g>
+</svg>

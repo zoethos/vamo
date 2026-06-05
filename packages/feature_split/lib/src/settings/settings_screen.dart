@@ -55,7 +55,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Text(
                 'Profile',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.tealDark,
+                      color: AppColors.ink,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -92,7 +92,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Text(
                 'Billing',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.tealDark,
+                      color: AppColors.ink,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -100,14 +100,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.workspace_premium_outlined,
-                      color: AppColors.teal),
+                      color: AppColors.jadeTeal),
                   title: const Text('Vamo Plus'),
                   subtitle: Text(
                     'Coming soon. Tap to register interest.',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
-                        ?.copyWith(color: AppColors.muted),
+                        ?.copyWith(color: AppColors.graphite),
                   ),
                   trailing: Icon(
                     Directionality.of(context) == TextDirection.rtl
@@ -130,7 +130,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.lightbulb_outline,
-                      color: AppColors.teal),
+                      color: AppColors.jadeTeal),
                   title: const Text('Suggest a feature'),
                   subtitle: const Text('We read every submission'),
                   trailing: Icon(
@@ -146,7 +146,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 Text(
                   DevLocaleLabels.section,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -180,7 +180,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
-                        ?.copyWith(color: AppColors.muted),
+                        ?.copyWith(color: AppColors.graphite),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -188,7 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               Text(
                 'Analytics',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.tealDark,
+                      color: AppColors.ink,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -201,7 +201,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: AppColors.muted),
+                    ?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 8),
               ...VamoEvent.northStar.map(

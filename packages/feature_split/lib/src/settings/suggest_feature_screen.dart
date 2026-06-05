@@ -35,13 +35,13 @@ class _SuggestFeatureScreenState extends ConsumerState<SuggestFeatureScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.favorite_outline,
-                    size: 56, color: AppColors.teal),
+                    size: 56, color: AppColors.jadeTeal),
                 const SizedBox(height: 16),
                 Text(
                   'Thank you — we read every one',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                       ),
                 ),
                 const SizedBox(height: 8),
@@ -52,7 +52,7 @@ class _SuggestFeatureScreenState extends ConsumerState<SuggestFeatureScreen> {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: AppColors.muted),
+                      ?.copyWith(color: AppColors.graphite),
                 ),
               ],
             ),
@@ -69,7 +69,7 @@ class _SuggestFeatureScreenState extends ConsumerState<SuggestFeatureScreen> {
           Text(
             'What should Vamo do next?',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.tealDark,
+                  color: AppColors.ink,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -80,7 +80,7 @@ class _SuggestFeatureScreenState extends ConsumerState<SuggestFeatureScreen> {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: AppColors.muted),
+                ?.copyWith(color: AppColors.graphite),
           ),
           const SizedBox(height: 20),
           TextField(

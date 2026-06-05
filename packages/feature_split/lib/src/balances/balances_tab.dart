@@ -48,12 +48,12 @@ class BalancesTab extends ConsumerWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: AppColors.muted),
+                    ?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 12),
               ...pending.map(
                 (s) => Card(
-                  color: AppColors.sandLight,
+                  color: AppColors.blush,
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -67,7 +67,7 @@ class BalancesTab extends ConsumerWidget {
                           formatMoneyFromCents(s.amountCents, s.currency),
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                color: AppColors.teal,
+                                color: AppColors.jadeTeal,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -109,7 +109,7 @@ class BalancesTab extends ConsumerWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: AppColors.muted),
+                    ?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 12),
               ...payerAwaiting.map(
@@ -149,7 +149,7 @@ class BalancesTab extends ConsumerWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: AppColors.muted),
+                    ?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 16),
               ...lines.map(
@@ -164,13 +164,13 @@ class BalancesTab extends ConsumerWidget {
                           Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: AppColors.sand,
+                                backgroundColor: AppColors.blush,
                                 child: Icon(
                                   Directionality.of(context) ==
                                           TextDirection.rtl
                                       ? Icons.arrow_back
                                       : Icons.arrow_forward,
-                                  color: AppColors.tealDark,
+                                  color: AppColors.ink,
                                   size: 20,
                                 ),
                               ),
@@ -194,7 +194,7 @@ class BalancesTab extends ConsumerWidget {
                                           .textTheme
                                           .titleLarge
                                           ?.copyWith(
-                                            color: AppColors.teal,
+                                            color: AppColors.jadeTeal,
                                             fontWeight: FontWeight.w700,
                                           ),
                                     ),
@@ -225,7 +225,7 @@ class BalancesTab extends ConsumerWidget {
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(color: AppColors.muted),
+                                    ?.copyWith(color: AppColors.graphite),
                               ),
                             ),
                         ],
@@ -250,7 +250,7 @@ class BalancesTab extends ConsumerWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppColors.tealDark,
+            color: AppColors.ink,
             fontWeight: FontWeight.w700,
           ),
     );
@@ -338,7 +338,7 @@ class _NetBalancesSection extends ConsumerWidget {
         Text(
           'Net balances',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.muted,
+                color: AppColors.graphite,
               ),
         ),
         const SizedBox(height: 8),

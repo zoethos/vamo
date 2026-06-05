@@ -27,7 +27,7 @@ void main() {
       MaterialApp(
         theme: goldenTestTheme(),
         home: Scaffold(
-          backgroundColor: AppColors.sandLight,
+          backgroundColor: AppColors.blush,
           body: Center(
             child: SnapshotBrandedCard(
               data: data,
@@ -64,7 +64,7 @@ void main() {
       MaterialApp(
         theme: goldenTestTheme(),
         home: Scaffold(
-          backgroundColor: AppColors.sandLight,
+          backgroundColor: AppColors.blush,
           body: Center(
             child: SnapshotBrandedCard(
               data: data,

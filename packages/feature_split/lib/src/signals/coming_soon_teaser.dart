@@ -37,7 +37,7 @@ class ComingSoonTeaser extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.teal, size: 22),
+              Icon(icon, color: AppColors.jadeTeal, size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -54,7 +54,7 @@ class ComingSoonTeaser extends ConsumerWidget {
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(color: AppColors.muted),
+                          ?.copyWith(color: AppColors.graphite),
                     ),
                   ],
                 ),
@@ -63,7 +63,7 @@ class ComingSoonTeaser extends ConsumerWidget {
                 Directionality.of(context) == TextDirection.rtl
                     ? Icons.chevron_left
                     : Icons.chevron_right,
-                color: AppColors.muted,
+                color: AppColors.graphite,
               ),
             ],
           ),

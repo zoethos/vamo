@@ -32,7 +32,7 @@ Future<void> showMarkSettleSheet({
                 Text(
                   'Pay ${display.toName}',
                   style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        color: AppColors.tealDark,
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -42,7 +42,7 @@ Future<void> showMarkSettleSheet({
                   style: Theme.of(ctx)
                       .textTheme
                       .bodyLarge
-                      ?.copyWith(color: AppColors.teal),
+                      ?.copyWith(color: AppColors.jadeTeal),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -50,14 +50,14 @@ Future<void> showMarkSettleSheet({
                   style: Theme.of(ctx)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: AppColors.muted),
+                      ?.copyWith(color: AppColors.graphite),
                 ),
               ],
             ),
           ),
           for (final method in methods)
             ListTile(
-              leading: Icon(_iconFor(method), color: AppColors.teal),
+              leading: Icon(_iconFor(method), color: AppColors.jadeTeal),
               title: Text(method.label),
               subtitle: Text(
                 paymentHandoffSubtitle(
