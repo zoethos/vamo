@@ -34,6 +34,7 @@ export 'src/invites/invite_urls.dart';
 export 'src/locale/app_locales.dart';
 export 'src/locale/locale_providers.dart';
 export 'src/router/app_router.dart';
+export 'src/router/route_not_found.dart';
 export 'src/storage/storage_attachment_load.dart';
 export 'src/storage/storage_paths.dart';
 export 'src/storage/storage_unavailable_placeholder.dart';

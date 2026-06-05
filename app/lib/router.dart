@@ -5,6 +5,7 @@ import 'package:feature_split/feature_split.dart';
 import 'package:go_router/go_router.dart';
 
 import 'l10n/app_localizations.dart';
+import 'router_redirect.dart';
 import 'split_labels.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -21,32 +22,28 @@ final routerProvider = Provider<GoRouter>((ref) {
     observers: [VamoNavigationObserver(analytics)],
     refreshListenable: GoRouterRefreshStream(authRepo.authStateChanges),
     redirect: (context, state) {
-      if (AuthUrls.isAuthCallback(state.uri)) {
-        return AuthUrls.inAppLoginCallbackLocation(state.uri);
-      }
-      final location = state.matchedLocation;
-      if (location.startsWith('${AuthUrls.appScheme}://')) {
-        final parsed = Uri.tryParse(location);
-        if (parsed != null && AuthUrls.isAuthCallback(parsed)) {
-          return AuthUrls.inAppLoginCallbackLocation(parsed);
-        }
-      }
-
-      final token = inviteTokenFromLocation(
-        state.matchedLocation,
-        query: state.uri.queryParameters,
-      );
-      if (token != null && !authRepo.isSignedIn) {
-        ref.read(pendingInviteTokenProvider.notifier).state = token;
-        ref.read(pendingInviteChannelProvider.notifier).state =
-            InviteChannel.link;
-        return AppRoutes.auth;
-      }
-
-      return authRedirect(
+      return resolveRouterRedirect(
+        uri: state.uri,
+        matchedLocation: state.matchedLocation,
+        queryParameters: state.uri.queryParameters,
         isSignedIn: authRepo.isSignedIn,
-        location: state.matchedLocation,
+        onPendingInvite: (token) {
+          ref.read(pendingInviteTokenProvider.notifier).state = token;
+          ref.read(pendingInviteChannelProvider.notifier).state =
+              InviteChannel.link;
+        },
       );
+    },
+    onException: (context, state, router) {
+      final shape = routeNotFoundLocationShape(state);
+      analytics.capture(
+        VamoEvent.routeNotFound,
+        properties: {'location_shape': shape},
+      );
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text(routeNotFoundUserMessage)),
+      );
+      router.go(AppRoutes.trips);
     },
     routes: [
       GoRoute(

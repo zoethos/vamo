@@ -23,6 +23,13 @@ void main() {
     expect(token, 'xyz123');
   });
 
+  test('parses app invite scheme with dash path segment', () {
+    final token = InviteUrls.parseToken(
+      Uri.parse('app.vamo://join/-?token=x'),
+    );
+    expect(token, 'x');
+  });
+
   test('parses web invite from raw string', () {
     expect(
       InviteUrls.parseTokenFromString('https://vamo.world/j/tok-99'),
