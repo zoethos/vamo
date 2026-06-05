@@ -40,9 +40,15 @@ Bottom nav, 5 slots: **Trips · Activity · [+ FAB, goLime, Ink +] · Expenses �
   All/Upcoming/Past/Drafts.
 - **Activity**: v1 = chronological feed from existing local data (expenses
   added, members joined, settlements) across my trips. Wave 2 events enrich it.
-- **+ FAB**: context-aware — new expense inside a trip, new trip elsewhere.
-- **Expenses**: cross-trip expense list (existing data, new query) with
-  receipt thumbnails; filter by trip.
+- **+ FAB**: context-aware — on **Expenses** tab, new expense via trip picker
+  (recent non-closed trips, last-used highlighted; single open trip goes direct);
+  on other tabs, new trip.
+- **Expenses**: money overview (not a flat cross-trip list). **Balance header**
+  (you owe / you're owed across non-settled trips, expandable per-trip rows →
+  Balances tab). **Trip rollups** (one row per trip: dates, total spent, my
+  share, unsettled/settled badge; recent first; past trips under collapsed
+  “Earlier” by year). **Period strip** (this month / this year — Tally seed).
+  Receipt thumbnails stay inside each trip's Expenses tab.
 - **Profile**: profile + settings + About (version via package_info_plus,
   brand block with mark + "Si va?", licenses page, privacy policy link) +
   Vamo Plus placeholder + suggest-a-feature + dev locale toggle (debug).
