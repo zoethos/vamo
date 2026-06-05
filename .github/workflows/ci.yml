@@ -16,6 +16,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Create env asset (gitignored; pubspec declares it as an asset)
+        run: cp .env.example app/.env
+
       - name: Install melos
         run: dart pub global activate melos
 

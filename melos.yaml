@@ -23,10 +23,7 @@ scripts:
 
   ci:
     description: Codegen then analyze and test (required ordering for Drift)
-    run: |
-      melos run build_runner
-      melos run analyze
-      melos run test
+    run: melos run build_runner && melos run analyze && melos run test
 
   android:
     description: Run the app on the first connected Android device
