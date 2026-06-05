@@ -10,11 +10,15 @@ class OutboxEntityIds {
     this.expenseIds = const {},
     this.settlementIds = const {},
     this.tripNoteIds = const {},
+    this.planItemIds = const {},
+    this.listItemIds = const {},
   });
 
   final Set<String> expenseIds;
   final Set<String> settlementIds;
   final Set<String> tripNoteIds;
+  final Set<String> planItemIds;
+  final Set<String> listItemIds;
 }
 
 /// Appends optimistic writes for the background sync worker.
@@ -88,6 +92,8 @@ class SyncQueue {
     final expenseIds = <String>{};
     final settlementIds = <String>{};
     final tripNoteIds = <String>{};
+    final planItemIds = <String>{};
+    final listItemIds = <String>{};
 
     for (final row in rows) {
       if (row.attempts >= maxAttempts) continue;
@@ -116,6 +122,14 @@ class SyncQueue {
           }
         case SyncKind.tripNoteInsert:
           if (payload['id'] is String) tripNoteIds.add(payload['id'] as String);
+        case SyncKind.planItemUpsert:
+          if (payload['id'] is String) planItemIds.add(payload['id'] as String);
+        case SyncKind.planItemDelete:
+          if (payload['id'] is String) planItemIds.add(payload['id'] as String);
+        case SyncKind.listItemUpsert:
+          if (payload['id'] is String) listItemIds.add(payload['id'] as String);
+        case SyncKind.listItemDelete:
+          if (payload['id'] is String) listItemIds.add(payload['id'] as String);
       }
     }
 
@@ -123,6 +137,8 @@ class SyncQueue {
       expenseIds: expenseIds,
       settlementIds: settlementIds,
       tripNoteIds: tripNoteIds,
+      planItemIds: planItemIds,
+      listItemIds: listItemIds,
     );
   }
 }

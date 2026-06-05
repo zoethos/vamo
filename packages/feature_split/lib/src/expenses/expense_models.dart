@@ -1,3 +1,5 @@
+import 'expense_governance.dart';
+
 /// Expense row for the trip home list (from Drift).
 class ExpenseSummary {
   const ExpenseSummary({
@@ -9,6 +11,7 @@ class ExpenseSummary {
     required this.currency,
     required this.payerId,
     required this.spentAt,
+    required this.status,
     this.receiptPath,
     this.localReceiptPath,
     this.capturedLat,
@@ -32,6 +35,7 @@ class ExpenseSummary {
   final String currency;
   final String payerId;
   final DateTime spentAt;
+  final ExpenseStatus status;
   final String? receiptPath;
   final String? localReceiptPath;
   final double? capturedLat;

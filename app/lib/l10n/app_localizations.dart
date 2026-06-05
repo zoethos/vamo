@@ -572,6 +572,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Let\'s go. Together.'**
   String get authTagline;
+
+  /// No description provided for @planTabTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan'**
+  String get planTabTitle;
+
+  /// No description provided for @planEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing on the board yet'**
+  String get planEmptyTitle;
+
+  /// No description provided for @planEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add lodging, transport, or activities for the group.'**
+  String get planEmptySubtitle;
+
+  /// No description provided for @planUndatedSection.
+  ///
+  /// In en, this message translates to:
+  /// **'No date'**
+  String get planUndatedSection;
+
+  /// No description provided for @planChecklistsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Checklists'**
+  String get planChecklistsSection;
+
+  /// No description provided for @planAddItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to plan'**
+  String get planAddItem;
+
+  /// No description provided for @planAddListItemHint.
+  ///
+  /// In en, this message translates to:
+  /// **'New checklist item'**
+  String get planAddListItemHint;
+
+  /// No description provided for @planDefaultListName.
+  ///
+  /// In en, this message translates to:
+  /// **'Packing'**
+  String get planDefaultListName;
+
+  /// No description provided for @planDeleteItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get planDeleteItem;
+
+  /// No description provided for @planEditItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get planEditItem;
+
+  /// No description provided for @planKindLodging.
+  ///
+  /// In en, this message translates to:
+  /// **'Lodging'**
+  String get planKindLodging;
+
+  /// No description provided for @planKindFlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Flight'**
+  String get planKindFlight;
+
+  /// No description provided for @planKindTrain.
+  ///
+  /// In en, this message translates to:
+  /// **'Train'**
+  String get planKindTrain;
+
+  /// No description provided for @planKindActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get planKindActivity;
+
+  /// No description provided for @planKindOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get planKindOther;
+
+  /// No description provided for @planSheetTitleAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add plan item'**
+  String get planSheetTitleAdd;
+
+  /// No description provided for @planSheetTitleEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit plan item'**
+  String get planSheetTitleEdit;
+
+  /// No description provided for @planFieldTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get planFieldTitle;
+
+  /// No description provided for @planFieldNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get planFieldNotes;
+
+  /// No description provided for @planFieldStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts'**
+  String get planFieldStart;
+
+  /// No description provided for @planFieldEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Ends'**
+  String get planFieldEnd;
+
+  /// No description provided for @planSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get planSave;
+
+  /// No description provided for @planLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the plan.'**
+  String get planLoadError;
+
+  /// No description provided for @planChecklistsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load checklists.'**
+  String get planChecklistsLoadError;
 }
 
 class _AppLocalizationsDelegate

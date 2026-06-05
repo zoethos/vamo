@@ -20,7 +20,7 @@ void main() {
   });
 
   test('VamoEvent.productSignals lists layer 2–4 events', () {
-    expect(VamoEvent.productSignals, hasLength(20));
+    expect(VamoEvent.productSignals, hasLength(29));
     expect(
       VamoEvent.productSignals.map((e) => e.name),
       containsAll([
@@ -44,6 +44,15 @@ void main() {
         'close_objected',
         'trip_cancelled',
         'trip_unresolved',
+        'plan_item_created',
+        'plan_item_updated',
+        'plan_item_deleted',
+        'list_item_added',
+        'list_item_checked',
+        'proposal_created',
+        'proposal_committed',
+        'proposal_cancelled',
+        'share_response',
       ]),
     );
   });

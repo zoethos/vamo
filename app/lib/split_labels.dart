@@ -65,6 +65,33 @@ class SplitLabels {
         pickerLastUsed: l10n.expensesPickerLastUsed,
       );
 
+  static PlanTabLabels plan(AppLocalizations l10n) => PlanTabLabels(
+        tabTitle: l10n.planTabTitle,
+        emptyTitle: l10n.planEmptyTitle,
+        emptySubtitle: l10n.planEmptySubtitle,
+        undatedSection: l10n.planUndatedSection,
+        checklistsSection: l10n.planChecklistsSection,
+        addPlanItem: l10n.planAddItem,
+        addListItemHint: l10n.planAddListItemHint,
+        defaultListName: l10n.planDefaultListName,
+        deleteItem: l10n.planDeleteItem,
+        editItem: l10n.planEditItem,
+        kindLodging: l10n.planKindLodging,
+        kindFlight: l10n.planKindFlight,
+        kindTrain: l10n.planKindTrain,
+        kindActivity: l10n.planKindActivity,
+        kindOther: l10n.planKindOther,
+        sheetTitleAdd: l10n.planSheetTitleAdd,
+        sheetTitleEdit: l10n.planSheetTitleEdit,
+        fieldTitle: l10n.planFieldTitle,
+        fieldNotes: l10n.planFieldNotes,
+        fieldStart: l10n.planFieldStart,
+        fieldEnd: l10n.planFieldEnd,
+        save: l10n.planSave,
+        loadError: l10n.planLoadError,
+        checklistsLoadError: l10n.planChecklistsLoadError,
+      );
+
   static InviteLabels invite(AppLocalizations l10n) => InviteLabels(
         showQr: l10n.inviteShowQr,
         scanQr: l10n.inviteScanQr,

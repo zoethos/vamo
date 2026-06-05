@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../capture/capture_storage.dart';
+import 'expense_governance.dart';
 import 'expense_models.dart';
 import 'expense_split.dart';
 
@@ -119,8 +120,26 @@ class ExpensesRepository {
       capturedAt: r.capturedAt,
       placeLabel: placeLabel,
       placeId: r.placeId,
+      status: ExpenseStatus.parse(r.status),
     );
   }
+
+  Stream<List<ExpenseShareSummary>> watchTripExpenseShares(String tripId) {
+    return _db.watchTripExpenseShares(tripId).map(
+          (rows) => rows.map(_toShareSummary).toList(),
+        );
+  }
+
+  ExpenseShareSummary _toShareSummary(LocalExpenseShare row) =>
+      ExpenseShareSummary(
+        id: row.id,
+        expenseId: row.expenseId,
+        userId: row.userId,
+        shareCents: row.shareCents,
+        response: ShareResponse.parse(row.response),
+        responseReason: row.responseReason,
+        respondedAt: row.respondedAt,
+      );
 
   Stream<List<TripMemberView>> watchActiveMembers(String tripId) {
     return _db.watchActiveMembers(tripId).map(
@@ -281,6 +300,7 @@ class ExpensesRepository {
         capturedAt: Value(input.capturedAt?.toUtc()),
         placeLabel: Value(input.placeLabel?.trim()),
         placeId: Value(input.placeId),
+        status: const Value('committed'),
       ),
     );
 
@@ -293,6 +313,7 @@ class ExpensesRepository {
           expenseId: Value(expenseId),
           userId: Value(line.userId),
           shareCents: Value(line.shareCents),
+          response: const Value('accepted'),
         ),
       );
       sharePayloads.add({
@@ -300,6 +321,7 @@ class ExpensesRepository {
         'expense_id': expenseId,
         'user_id': line.userId,
         'share_cents': line.shareCents,
+        'response': 'accepted',
       });
     }
 
@@ -315,6 +337,7 @@ class ExpensesRepository {
       'category': input.category,
       'spent_at': spentAt.toIso8601String(),
       'created_by': userId,
+      'status': 'committed',
       if (receiptPath != null) 'receipt_path': receiptPath,
       if (input.capturedLat != null) 'captured_lat': input.capturedLat,
       if (input.capturedLng != null) 'captured_lng': input.capturedLng,
@@ -389,7 +412,7 @@ class ExpensesRepository {
 
     const selectCols =
         'id, trip_id, payer_id, amount_cents, currency, base_cents, fx_rate, '
-        'description, category, spent_at, created_by, created_at, '
+        'description, category, spent_at, created_by, created_at, status, '
         'receipt_path, captured_lat, captured_lng, captured_at, place_label, '
         'place_id';
 
@@ -447,6 +470,7 @@ class ExpensesRepository {
           ),
           placeLabel: Value(row['place_label'] as String?),
           placeId: Value(row['place_id'] as String?),
+          status: Value((row['status'] as String?) ?? 'committed'),
         ),
       );
     }
@@ -459,7 +483,9 @@ class ExpensesRepository {
 
     final shareRows = await _client
         .from('expense_shares')
-        .select('id, expense_id, user_id, share_cents')
+        .select(
+          'id, expense_id, user_id, share_cents, response, response_reason, responded_at',
+        )
         .inFilter('expense_id', expenseIds);
 
     for (final row in (shareRows as List).cast<Map<String, dynamic>>()) {
@@ -469,6 +495,9 @@ class ExpensesRepository {
           expenseId: Value(row['expense_id'] as String),
           userId: Value(row['user_id'] as String),
           shareCents: Value((row['share_cents'] as num).toInt()),
+          response: Value((row['response'] as String?) ?? 'accepted'),
+          responseReason: Value(row['response_reason'] as String?),
+          respondedAt: Value(_nullableDate(row['responded_at'])),
         ),
       );
     }
@@ -490,5 +519,149 @@ class ExpensesRepository {
   double? _nullableDouble(Object? value) {
     if (value == null) return null;
     return (value as num).toDouble();
+  }
+
+  DateTime? _nullableDate(Object? value) {
+    if (value == null) return null;
+    if (value is DateTime) return value.toUtc();
+    return DateTime.tryParse(value as String)?.toUtc();
+  }
+
+  Future<String> proposeExpense({
+    required String tripId,
+    required String payerId,
+    required String description,
+    required int amountCents,
+    required String currency,
+    required int baseCents,
+    required double fxRate,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw StateError('Must be signed in');
+
+    final members = await (_db.select(_db.localTripMembers)
+          ..where((m) => m.tripId.equals(tripId))
+          ..where((m) => m.status.equals('active')))
+        .get();
+    if (members.isEmpty) throw StateError('Trip has no active members');
+
+    final shareLines = equalSplit(
+      baseCents: baseCents,
+      memberIds: members.map((m) => m.userId).toList(),
+    );
+    assertSharesSumToBase(
+      baseCents: baseCents,
+      shareCents: shareLines.map((s) => s.shareCents),
+    );
+
+    final expenseId = _uuid.v4();
+
+    await _client.rpc('propose_expense', params: {
+      'p_id': expenseId,
+      'p_trip_id': tripId,
+      'p_payer_id': payerId,
+      'p_amount_cents': amountCents,
+      'p_currency': currency,
+      'p_base_cents': baseCents,
+      'p_fx_rate': fxRate,
+      'p_description': description.trim(),
+    });
+
+    await syncExpensesForTrips([tripId]);
+
+    _analytics.capture(
+      VamoEvent.proposalCreated,
+      properties: {'trip_id': tripId},
+    );
+
+    return expenseId;
+  }
+
+  Future<void> commitExpense(String expenseId) async {
+    final existing = await (_db.select(_db.localExpenses)
+          ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    if (existing == null) return;
+
+    await _client.rpc('commit_expense', params: {'p_expense_id': expenseId});
+    await _db.upsertExpense(
+      LocalExpensesCompanion(
+        id: Value(expenseId),
+        status: const Value('committed'),
+      ),
+    );
+
+    _analytics.capture(
+      VamoEvent.proposalCommitted,
+      properties: {'trip_id': existing.tripId},
+    );
+  }
+
+  Future<void> voidExpense(String expenseId) async {
+    final existing = await (_db.select(_db.localExpenses)
+          ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    if (existing == null) return;
+
+    await _client.rpc('void_expense', params: {'p_expense_id': expenseId});
+    await _db.upsertExpense(
+      LocalExpensesCompanion(
+        id: Value(expenseId),
+        status: const Value('cancelled'),
+      ),
+    );
+
+    _analytics.capture(
+      VamoEvent.proposalCancelled,
+      properties: {'trip_id': existing.tripId},
+    );
+  }
+
+  Future<void> respondToShare({
+    required String expenseId,
+    required bool accept,
+    String? reason,
+  }) async {
+    final existing = await (_db.select(_db.localExpenses)
+          ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    if (existing == null) return;
+
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw StateError('Must be signed in');
+
+    await _client.rpc('respond_to_share', params: {
+      'p_expense_id': expenseId,
+      'p_accept': accept,
+      'p_reason': reason,
+    });
+
+    final share = await (_db.select(_db.localExpenseShares)
+          ..where((s) => s.expenseId.equals(expenseId))
+          ..where((s) => s.userId.equals(userId)))
+        .getSingleOrNull();
+    if (share == null) {
+      await syncExpensesForTrips([existing.tripId]);
+      return;
+    }
+
+    final now = DateTime.now().toUtc();
+    await _db.upsertExpenseShare(
+      LocalExpenseSharesCompanion(
+        id: Value(share.id),
+        response: Value(accept ? 'accepted' : 'rejected'),
+        responseReason: accept ? const Value(null) : Value(reason?.trim()),
+        respondedAt: Value(now),
+      ),
+    );
+
+    _analytics.capture(
+      VamoEvent.shareResponse,
+      properties: {
+        'trip_id': existing.tripId,
+        'response': accept ? 'accepted' : 'rejected',
+        'has_reason': !accept && (reason?.trim().isNotEmpty ?? false),
+      },
+    );
   }
 }

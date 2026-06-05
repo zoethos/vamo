@@ -71,7 +71,35 @@ void main() {
       expect(settleUp(nets), isEmpty);
     });
 
-    test('matches trip_balances formula for payers and shares', () {
+    test('proposed expenses are excluded when caller filters before computeNetBalances', () {
+      final nets = computeNetBalances(
+        activeMemberIds: ['a', 'b'],
+        expenses: [(payerId: 'a', baseCents: 3000)],
+        shares: [
+          (userId: 'a', shareCents: 1500),
+          (userId: 'b', shareCents: 1500),
+        ],
+      );
+      expect(nets['b'], -1500);
+
+      final unfiltered = computeNetBalances(
+        activeMemberIds: ['a', 'b'],
+        expenses: [
+          (payerId: 'a', baseCents: 3000),
+          (payerId: 'b', baseCents: 9999),
+        ],
+        shares: [
+          (userId: 'a', shareCents: 1500),
+          (userId: 'b', shareCents: 1500),
+          (userId: 'a', shareCents: 4999),
+          (userId: 'b', shareCents: 5000),
+        ],
+      );
+      expect(unfiltered['b'], isNot(nets['b']),
+          reason: 'BalancesRepository must pass committed expenses only');
+    });
+
+    test('rejected share still counts in owed', () {
       final nets = computeNetBalances(
         activeMemberIds: ['a', 'b', 'c'],
         expenses: [(payerId: 'a', baseCents: 3000)],

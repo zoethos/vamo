@@ -55,6 +55,7 @@ class LocalExpenses extends Table {
   DateTimeColumn get capturedAt => dateTime().nullable()();
   TextColumn get placeLabel => text().nullable()();
   TextColumn get placeId => text().nullable()();
+  TextColumn get status => text().withDefault(const Constant('committed'))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -83,6 +84,9 @@ class LocalExpenseShares extends Table {
   TextColumn get expenseId => text()();
   TextColumn get userId => text()();
   IntColumn get shareCents => integer()();
+  TextColumn get response => text().withDefault(const Constant('accepted'))();
+  TextColumn get responseReason => text().nullable()();
+  DateTimeColumn get respondedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -126,6 +130,43 @@ class LocalTripPhotos extends Table {
   TextColumn get storagePath => text().nullable()();
   TextColumn get caption => text().nullable()();
   DateTimeColumn get capturedAt => dateTime()();
+  TextColumn get createdBy => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// S18 — TripBoard plan items (mirrors trip_plan_items).
+class LocalPlanItems extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get kind => text()();
+  TextColumn get title => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get startsAt => dateTime().nullable()();
+  DateTimeColumn get endsAt => dateTime().nullable()();
+  TextColumn get externalRef => text().nullable()();
+  TextColumn get attachmentPath => text().nullable()();
+  IntColumn get position => integer().withDefault(const Constant(0))();
+  TextColumn get createdBy => text()();
+  TextColumn get updatedBy => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// S18 — shared checklist rows (mirrors trip_list_items).
+class LocalTripListItems extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get listName => text()();
+  TextColumn get label => text()();
+  TextColumn get checkedBy => text().nullable()();
+  DateTimeColumn get checkedAt => dateTime().nullable()();
+  IntColumn get position => integer().withDefault(const Constant(0))();
   TextColumn get createdBy => text()();
   DateTimeColumn get createdAt => dateTime()();
 

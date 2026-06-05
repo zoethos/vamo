@@ -7,21 +7,27 @@ import '../balances/balances_tab.dart';
 import '../capture/capture_tab.dart';
 import '../sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
+import '../expenses/expense_consent_providers.dart';
+import '../expenses/expense_detail_sheet.dart';
+import '../expenses/expense_governance.dart';
 import '../expenses/expenses_providers.dart';
 import '../invites/invite_labels.dart';
 import '../signals/coming_soon_teaser.dart';
+import '../plan/plan_labels.dart';
+import '../plan/plan_tab.dart';
 import 'members_tab.dart';
 import 'trip_lifecycle_banner.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
 
-/// Trip hub — Expenses, Capture (solo), Balances, Members.
+/// Trip hub — Expenses, Plan, Capture (solo), Balances, Members.
 class TripHomeScreen extends ConsumerStatefulWidget {
   const TripHomeScreen({
     super.key,
     required this.tripId,
     this.initialTab,
     required this.inviteLabels,
+    required this.planLabels,
   });
 
   final String tripId;
@@ -29,6 +35,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
   /// Optional deep-link tab: `balances` opens the Balances tab when available.
   final String? initialTab;
   final InviteLabels inviteLabels;
+  final PlanTabLabels planLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -80,7 +87,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         final showBalances = count > 1;
         final showCapture = !showBalances;
 
-        final tabCount = 2 + (showCapture ? 1 : 0) + (showBalances ? 1 : 0);
+        final tabCount = 3 + (showCapture ? 1 : 0) + (showBalances ? 1 : 0);
         if (_tabController == null || _tabController!.length != tabCount) {
           _tabController?.dispose();
           _tabController = TabController(length: tabCount, vsync: this)
@@ -96,11 +103,13 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
           _initialTabApplied = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || _tabController == null) return;
-            _tabController!.index = 1;
+            _tabController!.index = showCapture ? 3 : 2;
           });
         }
 
-        final hideExpenseFab = showCapture && _tabController!.index == 1;
+        final captureTabIndex = 2;
+        final hideExpenseFab =
+            showCapture && _tabController!.index == captureTabIndex;
         final postTrip = _isPostTrip(detail);
         final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
 
@@ -119,6 +128,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
               controller: _tabController,
               tabs: [
                 const Tab(text: 'Expenses'),
+                Tab(text: widget.planLabels.tabTitle),
                 if (showCapture) const Tab(text: 'Capture'),
                 if (showBalances) const Tab(text: 'Balances'),
                 const Tab(text: 'Members'),
@@ -159,6 +169,12 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                     _ExpensesTab(
                       tripId: widget.tripId,
                       baseCurrency: detail.baseCurrency,
+                      readOnly: readOnly,
+                    ),
+                    PlanTab(
+                      tripId: widget.tripId,
+                      labels: widget.planLabels,
+                      readOnly: readOnly,
                     ),
                     if (showCapture) CaptureTab(tripId: widget.tripId),
                     if (showBalances) BalancesTab(tripId: widget.tripId),
@@ -202,15 +218,24 @@ class _ExpensesTab extends ConsumerWidget {
   const _ExpensesTab({
     required this.tripId,
     required this.baseCurrency,
+    required this.readOnly,
   });
 
   final String tripId;
   final String baseCurrency;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expenses = ref.watch(tripExpensesProvider(tripId));
     final members = ref.watch(tripMembersForExpenseProvider(tripId));
+    final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
+    final currentUserId = ref.watch(currentUserProvider)?.id;
+    final role = ref.watch(
+      currentMemberRoleProvider((tripId: tripId, userId: currentUserId)),
+    );
+    final canManageProposals =
+        !readOnly && role != null && canEditTripProposals(role);
 
     return expenses.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -235,12 +260,19 @@ class _ExpensesTab extends ConsumerWidget {
                 for (final m in members.requireValue) m.userId: m.displayName,
               };
 
+        final consentByExpense = {
+          for (final flag in consentFlags) flag.expenseId: flag.label,
+        };
+
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: list.length,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (context, i) {
             final e = list[i];
+            if (e.status == ExpenseStatus.cancelled) {
+              return const SizedBox.shrink();
+            }
             final payer = nameByUserId[e.payerId] ?? 'Someone';
             final locale = Localizations.localeOf(context).toString();
             return TripExpenseListTile(
@@ -257,6 +289,15 @@ class _ExpensesTab extends ConsumerWidget {
               receiptPath: e.receiptPath,
               localReceiptPath: e.localReceiptPath,
               placeLabel: e.placeLabel,
+              status: e.status,
+              consentLabel: consentByExpense[e.id],
+              onTap: () => showExpenseDetailSheet(
+                context: context,
+                ref: ref,
+                expense: e,
+                readOnly: readOnly,
+                canManageProposals: canManageProposals,
+              ),
             );
           },
         );

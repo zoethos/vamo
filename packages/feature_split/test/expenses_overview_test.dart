@@ -2,6 +2,7 @@ import 'package:feature_split/src/expenses/expenses_overview.dart';
 import 'package:feature_split/src/trips/trips_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:feature_split/src/expenses/expense_governance.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 
 void main() {
@@ -37,6 +38,7 @@ void main() {
           currency: 'EUR',
           payerId: 'u2',
           spentAt: DateTime.utc(2026, 5, 3),
+          status: ExpenseStatus.committed,
         ),
         ExpenseSummary(
           id: 'e2',
@@ -47,6 +49,7 @@ void main() {
           currency: 'EUR',
           payerId: 'u1',
           spentAt: DateTime.utc(2026, 5, 4),
+          status: ExpenseStatus.committed,
         ),
       ];
 

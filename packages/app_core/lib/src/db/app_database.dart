@@ -16,6 +16,8 @@ part 'app_database.g.dart';
   LocalTripNotes,
   LocalTripPhotos,
   LocalPlaces,
+  LocalPlanItems,
+  LocalTripListItems,
   LocalSyncOutbox,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -25,7 +27,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,6 +85,22 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
               localTripMembers,
               localTripMembers.closeObjectionReason,
+            );
+          }
+          if (from < 10) {
+            await m.createTable(localPlanItems);
+            await m.createTable(localTripListItems);
+          }
+          if (from < 11) {
+            await m.addColumn(localExpenses, localExpenses.status);
+            await m.addColumn(localExpenseShares, localExpenseShares.response);
+            await m.addColumn(
+              localExpenseShares,
+              localExpenseShares.responseReason,
+            );
+            await m.addColumn(
+              localExpenseShares,
+              localExpenseShares.respondedAt,
             );
           }
         },
@@ -225,8 +243,27 @@ class AppDatabase extends _$AppDatabase {
     return into(localExpenses).insertOnConflictUpdate(expense);
   }
 
-  Future<void> upsertExpenseShare(LocalExpenseSharesCompanion share) {
-    return into(localExpenseShares).insertOnConflictUpdate(share);
+  Stream<List<LocalExpenseShare>> watchTripExpenseShares(String tripId) {
+    return (select(localExpenseShares)
+          ..where(
+            (s) => s.expenseId.isInQuery(
+              selectOnly(localExpenses)
+                ..addColumns([localExpenses.id])
+                ..where(localExpenses.tripId.equals(tripId)),
+            ),
+          ))
+        .watch();
+  }
+
+  Future<void> upsertExpenseShare(LocalExpenseSharesCompanion share) async {
+    assert(share.id.present, 'upsertExpenseShare requires id');
+    final id = share.id.value;
+    final updated =
+        await (update(localExpenseShares)..where((s) => s.id.equals(id)))
+            .write(share);
+    if (updated == 0) {
+      await into(localExpenseShares).insertOnConflictUpdate(share);
+    }
   }
 
   Future<void> deleteExpense(String expenseId) async {
@@ -278,6 +315,85 @@ class AppDatabase extends _$AppDatabase {
     return (delete(localTripNotes)..where((n) => n.id.equals(id))).go();
   }
 
+  Stream<List<LocalPlanItem>> watchTripPlanItems(String tripId) {
+    return (select(localPlanItems)
+          ..where((p) => p.tripId.equals(tripId))
+          ..orderBy([
+            (p) => OrderingTerm.asc(p.startsAt),
+            (p) => OrderingTerm.asc(p.position),
+          ]))
+        .watch();
+  }
+
+  Stream<List<LocalTripListItem>> watchTripListItems(String tripId) {
+    return (select(localTripListItems)
+          ..where((l) => l.tripId.equals(tripId))
+          ..orderBy([
+            (l) => OrderingTerm.asc(l.listName),
+            (l) => OrderingTerm.asc(l.position),
+          ]))
+        .watch();
+  }
+
+  Future<void> upsertPlanItem(LocalPlanItemsCompanion row) async {
+    assert(row.id.present, 'upsertPlanItem requires id');
+    final id = row.id.value;
+    final updated =
+        await (update(localPlanItems)..where((p) => p.id.equals(id))).write(row);
+    if (updated == 0) {
+      await into(localPlanItems).insertOnConflictUpdate(row);
+    }
+  }
+
+  Future<void> upsertListItem(LocalTripListItemsCompanion row) async {
+    assert(row.id.present, 'upsertListItem requires id');
+    final id = row.id.value;
+    final updated =
+        await (update(localTripListItems)..where((l) => l.id.equals(id)))
+            .write(row);
+    if (updated == 0) {
+      await into(localTripListItems).insertOnConflictUpdate(row);
+    }
+  }
+
+  Future<void> deletePlanItem(String id) {
+    return (delete(localPlanItems)..where((p) => p.id.equals(id))).go();
+  }
+
+  Future<void> deleteListItem(String id) {
+    return (delete(localTripListItems)..where((l) => l.id.equals(id))).go();
+  }
+
+  Future<void> prunePlanItemsForTrip(
+    String tripId,
+    Set<String> remoteIds, {
+    Set<String> excludeIds = const {},
+  }) async {
+    final local = await (select(localPlanItems)
+          ..where((p) => p.tripId.equals(tripId)))
+        .get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id) && !excludeIds.contains(row.id)) {
+        await deletePlanItem(row.id);
+      }
+    }
+  }
+
+  Future<void> pruneListItemsForTrip(
+    String tripId,
+    Set<String> remoteIds, {
+    Set<String> excludeIds = const {},
+  }) async {
+    final local = await (select(localTripListItems)
+          ..where((l) => l.tripId.equals(tripId)))
+        .get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id) && !excludeIds.contains(row.id)) {
+        await deleteListItem(row.id);
+      }
+    }
+  }
+
   /// Removes a trip and all dependent rows from the local cache.
   Future<void> deleteTripCascade(String tripId) async {
     final photos = await (select(localTripPhotos)
@@ -300,6 +416,9 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId)))
         .go();
     await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
+        .go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();
     await (delete(localTrips)..where((t) => t.id.equals(tripId))).go();

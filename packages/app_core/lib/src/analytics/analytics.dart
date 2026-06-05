@@ -32,7 +32,16 @@ enum VamoEvent {
   closeAccepted('close_accepted'),
   closeObjected('close_objected'),
   tripCancelled('trip_cancelled'),
-  tripUnresolved('trip_unresolved');
+  tripUnresolved('trip_unresolved'),
+  planItemCreated('plan_item_created'),
+  planItemUpdated('plan_item_updated'),
+  planItemDeleted('plan_item_deleted'),
+  listItemAdded('list_item_added'),
+  listItemChecked('list_item_checked'),
+  proposalCreated('proposal_created'),
+  proposalCommitted('proposal_committed'),
+  proposalCancelled('proposal_cancelled'),
+  shareResponse('share_response');
 
   const VamoEvent(this.name);
   final String name;
@@ -70,7 +79,16 @@ enum VamoEvent {
         closeObjected,
         tripCancelled,
         tripUnresolved,
-  ];
+        planItemCreated,
+        planItemUpdated,
+        planItemDeleted,
+        listItemAdded,
+        listItemChecked,
+        proposalCreated,
+        proposalCommitted,
+        proposalCancelled,
+        shareResponse,
+      ];
 }
 
 /// Thin analytics seam. Slice 0 ships a debug-print implementation; the

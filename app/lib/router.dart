@@ -162,6 +162,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             tripId: id,
             initialTab: state.uri.queryParameters['tab'],
             inviteLabels: SplitLabels.invite(l10n),
+            planLabels: SplitLabels.plan(l10n),
           );
         },
         routes: [
