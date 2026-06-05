@@ -189,7 +189,7 @@ class _SnapshotShareScreenState extends ConsumerState<SnapshotShareScreen> {
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
-                          ?.copyWith(color: AppColors.muted),
+                          ?.copyWith(color: AppColors.graphite),
                     ),
                     const SizedBox(height: 8),
                     Align(
@@ -201,7 +201,7 @@ class _SnapshotShareScreenState extends ConsumerState<SnapshotShareScreen> {
                           color: theme.statPrimary,
                         ),
                         label: Text('${theme.label} theme'),
-                        side: BorderSide(color: AppColors.muted.withValues(alpha: 0.3)),
+                        side: BorderSide(color: AppColors.graphite.withValues(alpha: 0.3)),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -220,7 +220,7 @@ class _SnapshotShareScreenState extends ConsumerState<SnapshotShareScreen> {
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(color: AppColors.muted),
+                          ?.copyWith(color: AppColors.graphite),
                     ),
                     const SizedBox(height: 28),
                     Builder(

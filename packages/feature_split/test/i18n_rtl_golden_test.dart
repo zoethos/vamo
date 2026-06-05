@@ -27,7 +27,7 @@ void main() {
         home: Directionality(
           textDirection: TextDirection.rtl,
           child: Scaffold(
-            backgroundColor: AppColors.sandLight,
+            backgroundColor: AppColors.blush,
             body: Center(child: child),
           ),
         ),

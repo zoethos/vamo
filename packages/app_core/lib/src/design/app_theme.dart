@@ -7,38 +7,48 @@ import 'app_colors.dart';
 abstract final class AppTheme {
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.teal,
-      primary: AppColors.teal,
-      secondary: AppColors.sunset,
+      seedColor: AppColors.sunsetCoral,
+      primary: AppColors.goLime,
+      onPrimary: AppColors.ink,
+      secondary: AppColors.jadeTeal,
       surface: AppColors.surface,
+      onSurface: AppColors.ink,
     );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: AppColors.sandLight,
+      scaffoldBackgroundColor: AppColors.warmWhite,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.sandLight,
-        foregroundColor: AppColors.tealDark,
+        backgroundColor: AppColors.warmWhite,
+        foregroundColor: AppColors.ink,
         elevation: 0,
         centerTitle: false,
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.teal,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.goLime,
+          foregroundColor: AppColors.ink,
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.ink,
+          ),
         ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.goLime,
+        foregroundColor: AppColors.ink,
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.tealDark,
+          foregroundColor: AppColors.ink,
           minimumSize: const Size.fromHeight(52),
-          side: const BorderSide(color: AppColors.teal),
+          side: const BorderSide(color: AppColors.graphite),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
@@ -46,11 +56,18 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.mistGray,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.sand),
+          borderSide: BorderSide.none,
         ),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: AppColors.ink),
+        bodyMedium: TextStyle(color: AppColors.ink),
+        bodySmall: TextStyle(color: AppColors.graphite),
+        titleLarge: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w600),
       ),
     );
   }

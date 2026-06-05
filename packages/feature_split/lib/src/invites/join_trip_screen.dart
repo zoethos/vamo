@@ -84,23 +84,23 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
                 Text(
                   'Joining trip…',
                   style: theme.textTheme.titleMedium
-                      ?.copyWith(color: AppColors.tealDark),
+                      ?.copyWith(color: AppColors.ink),
                 ),
               ] else if (_error != null) ...[
                 const Icon(Icons.error_outline,
-                    size: 48, color: AppColors.sunset),
+                    size: 48, color: AppColors.sunsetCoral),
                 const SizedBox(height: 16),
                 Text(
                   'Could not join',
                   style: theme.textTheme.titleLarge
-                      ?.copyWith(color: AppColors.tealDark),
+                      ?.copyWith(color: AppColors.ink),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: AppColors.muted),
+                      ?.copyWith(color: AppColors.graphite),
                 ),
                 const SizedBox(height: 20),
                 FilledButton(

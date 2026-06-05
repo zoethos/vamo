@@ -93,6 +93,38 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<LocalExpense>> watchAllExpenses() {
+    return (select(localExpenses)
+          ..orderBy([(e) => OrderingTerm.desc(e.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<LocalSettlement>> watchAllSettlements() {
+    return (select(localSettlements)
+          ..orderBy([(s) => OrderingTerm.desc(s.createdAt)]))
+        .watch();
+  }
+
+  Future<({int photos, int notes, int receipts})> countTripMedia(
+    String tripId,
+  ) async {
+    final photos = await (select(localTripPhotos)
+          ..where((p) => p.tripId.equals(tripId)))
+        .get();
+    final notes = await (select(localTripNotes)
+          ..where((n) => n.tripId.equals(tripId)))
+        .get();
+    final receipts = await (select(localExpenses)
+          ..where((e) => e.tripId.equals(tripId))
+          ..where(
+            (e) =>
+                e.receiptPath.isNotNull() |
+                e.localReceiptPath.isNotNull(),
+          ))
+        .get();
+    return (photos: photos.length, notes: notes.length, receipts: receipts.length);
+  }
+
   Future<void> upsertTrip(LocalTripsCompanion trip) {
     return into(localTrips).insertOnConflictUpdate(trip);
   }

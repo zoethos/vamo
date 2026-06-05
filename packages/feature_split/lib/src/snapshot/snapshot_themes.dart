@@ -39,16 +39,15 @@ abstract final class SnapshotThemes {
     label: 'Vamo',
     keywords: [],
     gradient: [
-      AppColors.tealDark,
-      AppColors.teal,
-      Color(0xFF1A6B6A),
+      AppColors.sunsetCoral,
+      AppColors.deepPlum,
     ],
-    statBackground: AppColors.sandLight,
-    statPrimary: AppColors.tealDark,
-    statMuted: AppColors.muted,
-    accent: AppColors.sunset,
-    memberBubble: AppColors.sand,
-    memberInitial: AppColors.tealDark,
+    statBackground: AppColors.blush,
+    statPrimary: AppColors.ink,
+    statMuted: AppColors.graphite,
+    accent: AppColors.sunsetCoral,
+    memberBubble: AppColors.blush,
+    memberInitial: AppColors.ink,
   );
 
   static const rome = SnapshotThemePack(

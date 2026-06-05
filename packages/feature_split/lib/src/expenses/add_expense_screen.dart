@@ -170,7 +170,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     Text(
                       detail.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.tealDark,
+                            color: AppColors.ink,
                           ),
                     ),
                     const SizedBox(height: 4),
@@ -179,7 +179,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(color: AppColors.muted),
+                          ?.copyWith(color: AppColors.graphite),
                     ),
                     const SizedBox(height: 20),
                     DropdownButtonFormField<String>(
@@ -235,7 +235,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
-                              ?.copyWith(color: AppColors.teal),
+                              ?.copyWith(color: AppColors.jadeTeal),
                         ),
                     ],
                     const SizedBox(height: 16),
@@ -279,7 +279,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(color: AppColors.muted),
+                                  ?.copyWith(color: AppColors.graphite),
                             ),
                           ),
                           IconButton(

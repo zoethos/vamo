@@ -140,6 +140,246 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pseudo-locale (long strings)'**
   String get settingsDevLocalePseudo;
+
+  /// No description provided for @navTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips'**
+  String get navTrips;
+
+  /// No description provided for @navActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get navActivity;
+
+  /// No description provided for @navExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get navExpenses;
+
+  /// No description provided for @navProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get navProfile;
+
+  /// No description provided for @tripsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your trips'**
+  String get tripsTitle;
+
+  /// No description provided for @tripsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No trips yet'**
+  String get tripsEmptyTitle;
+
+  /// No description provided for @tripsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + to start one.'**
+  String get tripsEmptySubtitle;
+
+  /// No description provided for @tripsSyncPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 change waiting to sync} other{{count} changes waiting to sync}}'**
+  String tripsSyncPending(int count);
+
+  /// No description provided for @tripsSyncSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Will upload when you are back online'**
+  String get tripsSyncSubtitle;
+
+  /// No description provided for @tripsFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get tripsFilterAll;
+
+  /// No description provided for @tripsFilterUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get tripsFilterUpcoming;
+
+  /// No description provided for @tripsFilterPast.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get tripsFilterPast;
+
+  /// No description provided for @tripsFilterDrafts.
+  ///
+  /// In en, this message translates to:
+  /// **'Drafts'**
+  String get tripsFilterDrafts;
+
+  /// No description provided for @tripsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your trips.'**
+  String get tripsLoadError;
+
+  /// No description provided for @tripsSyncError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not sync your trips.'**
+  String get tripsSyncError;
+
+  /// No description provided for @activityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get activityTitle;
+
+  /// No description provided for @activityEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing yet'**
+  String get activityEmptyTitle;
+
+  /// No description provided for @activityEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses and settlements will show up here.'**
+  String get activityEmptySubtitle;
+
+  /// No description provided for @activityLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load activity.'**
+  String get activityLoadError;
+
+  /// No description provided for @expensesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get expensesTitle;
+
+  /// No description provided for @expensesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses yet'**
+  String get expensesEmptyTitle;
+
+  /// No description provided for @expensesEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add one from a trip or tap +.'**
+  String get expensesEmptySubtitle;
+
+  /// No description provided for @expensesLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load expenses.'**
+  String get expensesLoadError;
+
+  /// No description provided for @expensesAllTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'All trips'**
+  String get expensesAllTrips;
+
+  /// No description provided for @profileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// No description provided for @profileAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get profileAbout;
+
+  /// No description provided for @profileVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get profileVersion;
+
+  /// No description provided for @profileLicenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Licenses'**
+  String get profileLicenses;
+
+  /// No description provided for @profilePrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy'**
+  String get profilePrivacy;
+
+  /// No description provided for @brandTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Si va?'**
+  String get brandTagline;
+
+  /// No description provided for @profilePlusTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vamo Plus'**
+  String get profilePlusTitle;
+
+  /// No description provided for @profilePlusSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon. Tap to register interest.'**
+  String get profilePlusSubtitle;
+
+  /// No description provided for @profileSuggestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggest a feature'**
+  String get profileSuggestTitle;
+
+  /// No description provided for @profileSuggestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We read every submission'**
+  String get profileSuggestSubtitle;
+
+  /// No description provided for @profileAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Analytics'**
+  String get profileAnalytics;
+
+  /// No description provided for @profileAnalyticsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'PostHog key not set — events log to the debug console.'**
+  String get profileAnalyticsHint;
+
+  /// No description provided for @profileSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get profileSignOut;
+
+  /// No description provided for @profileSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get profileSave;
+
+  /// No description provided for @profileSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile saved.'**
+  String get profileSaved;
+
+  /// No description provided for @authTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Let\'s go. Together.'**
+  String get authTagline;
 }
 
 class _AppLocalizationsDelegate

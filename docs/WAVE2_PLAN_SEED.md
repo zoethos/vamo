@@ -32,9 +32,25 @@ Not a spec yet — estimates are rough, sequencing TBD at planning.
    `trip_balances` and open settlements → one push per member, once
    ("2 open balances — si salda?"). Deep-links to Balances. Anti-nag rule:
    max 1 nudge per trip, ever, unless a new expense lands after it.
-9. **OCR scan-to-fill** (from Slice 14's receipt work) — on-device ML Kit text
-   recognition pre-fills amount/currency/title from the receipt photo; user
-   confirms. Offline-capable, zero cloud cost. Cloud fallback deferred.
+9. **OCR scan-to-fill + place** — **PROMOTED to first Wave-2 slice alongside
+   QR invite (founder decision 2026-06-05).** On-device ML Kit text recognition
+   pre-fills amount/currency/title AND extracts the merchant/place name into a
+   new `place_label` on expenses (shown on the expense row — the first visible
+   "where" in the product, pre-TripMap). User always confirms before save.
+   Retroactive backfill command over already-stored receipts (Slice 14 stored
+   the images + EXIF precisely to enable this). Offline-capable, zero cloud
+   cost. Cloud fallback deferred.
+
+## Identity pass (critical path, runs with the name decision)
+
+Founder review 2026-06-05: current UI is engineering-built and identity-free —
+palette clashes with the colorful brand vision, logo appears nowhere, gear-only
+navigation reads amateur. Scope: design critique from screenshots + founder
+references → design brief → app_core token overhaul (single point, propagates) →
+bottom navigation (Trips / + / Profile&Settings; Events joins in Wave 2) →
+logo/wordmark placement (app bar, empty states, splash, launcher icon).
+**Blocked by and forces the name decision** (logo/wordmark = the name).
+Slice 15 (About: version, brand block, licenses, privacy policy URL) folds in.
 
 ## Carried context
 

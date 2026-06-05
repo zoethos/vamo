@@ -48,7 +48,7 @@ class _MembersTabState extends ConsumerState<MembersTab> {
             Text(
               'Vamigos',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.tealDark,
+                    color: AppColors.ink,
                     fontWeight: FontWeight.w700,
                   ),
             ),
@@ -60,19 +60,19 @@ class _MembersTabState extends ConsumerState<MembersTab> {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: AppColors.muted),
+                  ?.copyWith(color: AppColors.graphite),
             ),
             const SizedBox(height: 16),
             ...list.map(
               (m) => Card(
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.sand,
+                    backgroundColor: AppColors.blush,
                     child: Text(
                       m.displayName.isNotEmpty
                           ? m.displayName[0].toUpperCase()
                           : '?',
-                      style: const TextStyle(color: AppColors.tealDark),
+                      style: const TextStyle(color: AppColors.ink),
                     ),
                   ),
                   title: Text(m.displayName),
@@ -106,7 +106,7 @@ class _MembersTabState extends ConsumerState<MembersTab> {
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
-                  ?.copyWith(color: AppColors.muted),
+                  ?.copyWith(color: AppColors.graphite),
             ),
           ],
         );

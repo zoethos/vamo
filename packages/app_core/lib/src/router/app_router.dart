@@ -7,8 +7,11 @@ import 'package:flutter/foundation.dart';
 abstract final class AppRoutes {
   static const auth = '/auth';
   static const trips = '/trips';
-  static const settings = '/settings';
-  static const suggestFeature = '/settings/suggest';
+  static const activity = '/activity';
+  static const expenses = '/expenses';
+  static const profile = '/profile';
+  static const settings = '/profile';
+  static const suggestFeature = '/profile/suggest';
   static const tripCreate = '/trips/create';
 
   static String trip(String id) => '/trips/$id';

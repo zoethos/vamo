@@ -7,5 +7,52 @@
   "settingsDevLocaleSection": "Developer — locale preview",
   "settingsDevLocaleSystem": "System default",
   "settingsDevLocaleRtl": "RTL preview (Arabic layout)",
-  "settingsDevLocalePseudo": "Pseudo-locale (long strings)"
+  "settingsDevLocalePseudo": "Pseudo-locale (long strings)",
+  "navTrips": "Trips",
+  "navActivity": "Activity",
+  "navExpenses": "Expenses",
+  "navProfile": "Profile",
+  "tripsTitle": "Your trips",
+  "tripsEmptyTitle": "No trips yet",
+  "tripsEmptySubtitle": "Tap + to start one.",
+  "tripsSyncPending": "{count, plural, =1{1 change waiting to sync} other{{count} changes waiting to sync}}",
+  "@tripsSyncPending": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tripsSyncSubtitle": "Will upload when you are back online",
+  "tripsFilterAll": "All",
+  "tripsFilterUpcoming": "Upcoming",
+  "tripsFilterPast": "Past",
+  "tripsFilterDrafts": "Drafts",
+  "tripsLoadError": "Could not load your trips.",
+  "tripsSyncError": "Could not sync your trips.",
+  "activityTitle": "Activity",
+  "activityEmptyTitle": "Nothing yet",
+  "activityEmptySubtitle": "Expenses and settlements will show up here.",
+  "activityLoadError": "Could not load activity.",
+  "expensesTitle": "Expenses",
+  "expensesEmptyTitle": "No expenses yet",
+  "expensesEmptySubtitle": "Add one from a trip or tap +.",
+  "expensesLoadError": "Could not load expenses.",
+  "expensesAllTrips": "All trips",
+  "profileTitle": "Profile",
+  "profileAbout": "About",
+  "profileVersion": "Version",
+  "profileLicenses": "Licenses",
+  "profilePrivacy": "Privacy policy",
+  "brandTagline": "Si va?",
+  "profilePlusTitle": "Vamo Plus",
+  "profilePlusSubtitle": "Coming soon. Tap to register interest.",
+  "profileSuggestTitle": "Suggest a feature",
+  "profileSuggestSubtitle": "We read every submission",
+  "profileAnalytics": "Analytics",
+  "profileAnalyticsHint": "PostHog key not set — events log to the debug console.",
+  "profileSignOut": "Sign out",
+  "profileSave": "Save changes",
+  "profileSaved": "Profile saved.",
+  "authTagline": "Let's go. Together."
 }

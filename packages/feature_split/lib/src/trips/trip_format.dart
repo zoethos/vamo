@@ -15,3 +15,8 @@ String? formatTripDateRange(String? start, String? end) {
   }
   return null;
 }
+
+DateTime? parseTripDate(String? iso) {
+  if (iso == null || iso.isEmpty) return null;
+  return DateTime.tryParse(iso);
+}

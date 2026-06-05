@@ -1,7 +1,13 @@
 import 'package:app_core/app_core.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:feature_split/feature_split.dart';
 import 'package:go_router/go_router.dart';
+
+import 'l10n/app_localizations.dart';
+import 'split_labels.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// The app's GoRouter. Lives in the app shell (not app_core) so it can wire
 /// feature screens to paths while app_core stays feature-agnostic.
@@ -10,6 +16,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final analytics = ref.watch(analyticsProvider);
 
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutes.trips,
     observers: [VamoNavigationObserver(analytics)],
     refreshListenable: GoRouterRefreshStream(authRepo.authStateChanges),
@@ -43,6 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.join,
         name: 'join',
+        parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final token = inviteTokenFromLocation(
             state.matchedLocation,
@@ -54,68 +62,123 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.auth,
         name: 'auth',
+        parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const AuthScreen(),
       ),
       GoRoute(
         path: AppRoutes.loginCallback,
         name: 'login_callback',
+        parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const AuthCallbackScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.settings,
-        name: 'settings',
-        builder: (context, state) => const SettingsScreen(),
-        routes: [
-          GoRoute(
-            path: 'suggest',
-            name: 'suggest_feature',
-            builder: (context, state) => const SuggestFeatureScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          final l10n = AppLocalizations.of(context);
+          return MainShell(
+            navigationShell: navigationShell,
+            labels: SplitLabels.shell(l10n),
+          );
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.trips,
+                name: 'trips',
+                builder: (context, state) {
+                  final l10n = AppLocalizations.of(context);
+                  return TripsListScreen(labels: SplitLabels.trips(l10n));
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.activity,
+                name: 'activity',
+                builder: (context, state) {
+                  final l10n = AppLocalizations.of(context);
+                  return ActivityScreen(labels: SplitLabels.activity(l10n));
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.expenses,
+                name: 'expenses',
+                builder: (context, state) {
+                  final l10n = AppLocalizations.of(context);
+                  return ExpensesListScreen(labels: SplitLabels.expenses(l10n));
+                },
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                name: 'profile',
+                builder: (context, state) {
+                  final l10n = AppLocalizations.of(context);
+                  return ProfileScreen(labels: SplitLabels.profile(l10n));
+                },
+                routes: [
+                  GoRoute(
+                    path: 'suggest',
+                    name: 'suggest_feature',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) => const SuggestFeatureScreen(),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
       GoRoute(
-        path: AppRoutes.trips,
-        name: 'trips',
-        builder: (context, state) => const TripsListScreen(),
+        path: AppRoutes.tripCreate,
+        name: 'create_trip',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CreateTripScreen(),
+      ),
+      GoRoute(
+        path: '/trips/:tripId',
+        name: 'trip_home',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final id = state.pathParameters['tripId']!;
+          return TripHomeScreen(tripId: id);
+        },
         routes: [
           GoRoute(
-            path: 'create',
-            name: 'create_trip',
-            builder: (context, state) => const CreateTripScreen(),
-          ),
-          GoRoute(
-            path: ':tripId',
-            name: 'trip_home',
+            path: 'expenses/new',
+            name: 'add_expense',
+            parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) {
               final id = state.pathParameters['tripId']!;
-              return TripHomeScreen(tripId: id);
+              return AddExpenseScreen(tripId: id);
             },
-            routes: [
-              GoRoute(
-                path: 'expenses/new',
-                name: 'add_expense',
-                builder: (context, state) {
-                  final id = state.pathParameters['tripId']!;
-                  return AddExpenseScreen(tripId: id);
-                },
-              ),
-              GoRoute(
-                path: 'snapshot',
-                name: 'snapshot',
-                builder: (context, state) {
-                  final id = state.pathParameters['tripId']!;
-                  return SnapshotShareScreen(tripId: id);
-                },
-              ),
-              GoRoute(
-                path: 'capture/note',
-                name: 'capture_note',
-                builder: (context, state) {
-                  final id = state.pathParameters['tripId']!;
-                  return AddCaptureNoteScreen(tripId: id);
-                },
-              ),
-            ],
+          ),
+          GoRoute(
+            path: 'snapshot',
+            name: 'snapshot',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              return SnapshotShareScreen(tripId: id);
+            },
+          ),
+          GoRoute(
+            path: 'capture/note',
+            name: 'capture_note',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              return AddCaptureNoteScreen(tripId: id);
+            },
           ),
         ],
       ),
