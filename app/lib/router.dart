@@ -38,6 +38,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       );
       if (token != null && !authRepo.isSignedIn) {
         ref.read(pendingInviteTokenProvider.notifier).state = token;
+        ref.read(pendingInviteChannelProvider.notifier).state =
+            InviteChannel.link;
         return AppRoutes.auth;
       }
 
@@ -56,14 +58,21 @@ final routerProvider = Provider<GoRouter>((ref) {
             state.matchedLocation,
             query: state.uri.queryParameters,
           );
-          return JoinTripScreen(token: token ?? '');
+          final l10n = AppLocalizations.of(context);
+          return JoinTripScreen(
+            token: token ?? '',
+            labels: SplitLabels.invite(l10n),
+          );
         },
       ),
       GoRoute(
         path: AppRoutes.auth,
         name: 'auth',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const AuthScreen(),
+        builder: (context, state) {
+          final l10n = AppLocalizations.of(context);
+          return AuthScreen(inviteLabels: SplitLabels.invite(l10n));
+        },
       ),
       GoRoute(
         path: AppRoutes.loginCallback,
@@ -77,6 +86,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return MainShell(
             navigationShell: navigationShell,
             labels: SplitLabels.shell(l10n),
+            expensesFabLabels: SplitLabels.expensesFab(l10n),
           );
         },
         branches: [
@@ -150,7 +160,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final id = state.pathParameters['tripId']!;
-          return TripHomeScreen(tripId: id);
+          final l10n = AppLocalizations.of(context);
+          return TripHomeScreen(
+            tripId: id,
+            initialTab: state.uri.queryParameters['tab'],
+            inviteLabels: SplitLabels.invite(l10n),
+          );
         },
         routes: [
           GoRoute(

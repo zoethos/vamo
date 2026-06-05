@@ -20,7 +20,7 @@ void main() {
   });
 
   test('VamoEvent.productSignals lists layer 2–4 events', () {
-    expect(VamoEvent.productSignals, hasLength(12));
+    expect(VamoEvent.productSignals, hasLength(14));
     expect(
       VamoEvent.productSignals.map((e) => e.name),
       containsAll([
@@ -36,6 +36,8 @@ void main() {
         'suggestion_submitted',
         'ocr_suggestion_edited',
         'place_resolved',
+        'trip_rollup_opened',
+        'qr_shown',
       ]),
     );
   });

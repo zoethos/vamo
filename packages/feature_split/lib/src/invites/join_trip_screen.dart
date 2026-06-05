@@ -4,14 +4,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../trips/trips_providers.dart';
+import 'invite_channel.dart';
+import 'invite_labels.dart';
+import 'invite_qr_scanner.dart';
 import 'invites_repository.dart';
 import 'pending_invite.dart';
 
 /// Handles `/join?token=…` — joins via RPC when signed in, otherwise stores token.
 class JoinTripScreen extends ConsumerStatefulWidget {
-  const JoinTripScreen({super.key, required this.token});
+  const JoinTripScreen({
+    super.key,
+    required this.token,
+    this.labels,
+  });
 
   final String token;
+  final InviteLabels? labels;
 
   @override
   ConsumerState<JoinTripScreen> createState() => _JoinTripScreenState();
@@ -35,6 +43,7 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
 
     if (!ref.read(isSignedInProvider)) {
       ref.read(pendingInviteTokenProvider.notifier).state = widget.token;
+      ref.read(pendingInviteChannelProvider.notifier).state = InviteChannel.link;
       return;
     }
 
@@ -47,9 +56,13 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
       _error = null;
     });
     try {
-      final tripId =
-          await ref.read(invitesRepositoryProvider).joinTrip(widget.token);
+      final channel =
+          ref.read(pendingInviteChannelProvider) ?? InviteChannel.link;
+      final tripId = await ref
+          .read(invitesRepositoryProvider)
+          .joinTrip(widget.token, channel: channel);
       ref.read(pendingInviteTokenProvider.notifier).state = null;
+      ref.read(pendingInviteChannelProvider.notifier).state = null;
       ref.invalidate(tripsSyncProvider);
       await ref.read(syncCoordinatorProvider).syncNow();
       if (!mounted) return;
@@ -68,9 +81,22 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
     }
   }
 
+  void _scanQr() {
+    final labels = widget.labels;
+    if (labels == null || !isInviteQrScanSupported) return;
+    showInviteQrScannerSheet(
+      context: context,
+      ref: ref,
+      labels: labels,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labels = widget.labels;
+    final canScan = labels != null && isInviteQrScanSupported;
+
     return Scaffold(
       body: Center(
         child: Padding(
@@ -109,6 +135,14 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
                 ),
               ] else
                 const CircularProgressIndicator(),
+              if (canScan) ...[
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: _scanQr,
+                  icon: const Icon(Icons.qr_code_scanner_outlined),
+                  label: Text(labels.scanQr),
+                ),
+              ],
             ],
           ),
         ),

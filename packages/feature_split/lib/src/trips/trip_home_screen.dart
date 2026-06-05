@@ -8,6 +8,7 @@ import '../capture/capture_tab.dart';
 import '../sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
 import '../expenses/expenses_providers.dart';
+import '../invites/invite_labels.dart';
 import '../signals/coming_soon_teaser.dart';
 import 'members_tab.dart';
 import 'trips_models.dart';
@@ -15,9 +16,18 @@ import 'trips_providers.dart';
 
 /// Trip hub — Expenses, Capture (solo), Balances, Members.
 class TripHomeScreen extends ConsumerStatefulWidget {
-  const TripHomeScreen({super.key, required this.tripId});
+  const TripHomeScreen({
+    super.key,
+    required this.tripId,
+    this.initialTab,
+    required this.inviteLabels,
+  });
 
   final String tripId;
+
+  /// Optional deep-link tab: `balances` opens the Balances tab when available.
+  final String? initialTab;
+  final InviteLabels inviteLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -26,6 +36,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
 class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     with SingleTickerProviderStateMixin {
   TabController? _tabController;
+  bool _initialTabApplied = false;
 
   @override
   void dispose() {
@@ -75,6 +86,17 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             ..addListener(() {
               if (mounted) setState(() {});
             });
+          _initialTabApplied = false;
+        }
+
+        if (!_initialTabApplied &&
+            widget.initialTab == 'balances' &&
+            showBalances) {
+          _initialTabApplied = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _tabController == null) return;
+            _tabController!.index = 1;
+          });
         }
 
         final hideExpenseFab = showCapture && _tabController!.index == 1;
@@ -136,7 +158,10 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                     ),
                     if (showCapture) CaptureTab(tripId: widget.tripId),
                     if (showBalances) BalancesTab(tripId: widget.tripId),
-                    MembersTab(tripId: widget.tripId),
+                    MembersTab(
+                      tripId: widget.tripId,
+                      inviteLabels: widget.inviteLabels,
+                    ),
                   ],
                 ),
               ),

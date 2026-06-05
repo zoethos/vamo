@@ -42,7 +42,38 @@ class SplitLabels {
         emptyTitle: l10n.expensesEmptyTitle,
         emptySubtitle: l10n.expensesEmptySubtitle,
         loadError: l10n.expensesLoadError,
-        allTrips: l10n.expensesAllTrips,
+        balanceAllSettled: l10n.expensesBalanceAllSettled,
+        balanceYouOwe: l10n.expensesBalanceYouOwe,
+        balanceYouAreOwed: l10n.expensesBalanceYouAreOwed,
+        balanceAcrossTrips: l10n.expensesBalanceAcrossTrips,
+        periodThisMonth: l10n.expensesPeriodThisMonth,
+        periodThisYear: l10n.expensesPeriodThisYear,
+        earlierSection: l10n.expensesEarlierSection,
+        totalSpent: l10n.expensesTotalSpent,
+        myShare: l10n.expensesMyShare,
+        settlementUnsettled: l10n.expensesSettlementUnsettled,
+        settlementSettled: l10n.expensesSettlementSettled,
+        settlementAllSettled: l10n.expensesSettlementAllSettled,
+        pickerTitle: l10n.expensesPickerTitle,
+        pickerLastUsed: l10n.expensesPickerLastUsed,
+      );
+
+  static ExpensesFabLabels expensesFab(AppLocalizations l10n) =>
+      ExpensesFabLabels(
+        pickerTitle: l10n.expensesPickerTitle,
+        pickerLastUsed: l10n.expensesPickerLastUsed,
+      );
+
+  static InviteLabels invite(AppLocalizations l10n) => InviteLabels(
+        showQr: l10n.inviteShowQr,
+        scanQr: l10n.inviteScanQr,
+        qrCaption: l10n.inviteQrCaption,
+        notVamoInvite: l10n.inviteNotVamoQr,
+        cameraDenied: l10n.inviteCameraDenied,
+        pasteLink: l10n.invitePasteLink,
+        pasteHint: l10n.invitePasteHint,
+        pasteJoin: l10n.invitePasteJoin,
+        scannerTitle: l10n.inviteScannerTitle,
       );
 
   static ProfileScreenLabels profile(AppLocalizations l10n) =>

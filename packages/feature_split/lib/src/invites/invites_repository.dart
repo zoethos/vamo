@@ -2,6 +2,9 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'invite_analytics.dart';
+import 'invite_channel.dart';
+
 final invitesRepositoryProvider = Provider<InvitesRepository>((ref) {
   return InvitesRepository(
     client: ref.watch(supabaseClientProvider),
@@ -50,21 +53,14 @@ class InvitesRepository {
         .select('token')
         .single();
 
-    final token = inserted['token'] as String;
-
-    _analytics.capture(
-      VamoEvent.memberInvited,
-      properties: {
-        'trip_id': tripId,
-        'invite_token': token,
-      },
-    );
-
-    return token;
+    return inserted['token'] as String;
   }
 
   /// Calls `join_trip` and returns the trip id. Mid-trip join supported.
-  Future<String> joinTrip(String token) async {
+  Future<String> joinTrip(
+    String token, {
+    required InviteChannel channel,
+  }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
       throw StateError('Must be signed in to join a trip');
@@ -77,12 +73,10 @@ class InvitesRepository {
 
     final id = tripId as String;
 
-    _analytics.capture(
-      VamoEvent.inviteAccepted,
-      properties: {
-        'trip_id': id,
-        'invite_token': token,
-      },
+    captureInviteAccepted(
+      _analytics,
+      tripId: id,
+      channel: channel,
     );
 
     return id;

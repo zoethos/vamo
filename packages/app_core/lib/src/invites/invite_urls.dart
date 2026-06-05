@@ -16,9 +16,25 @@ abstract final class InviteUrls {
         queryParameters: {'token': token},
       );
 
+  /// QR payload for in-person invite (R9). Encodes the app deep link so system
+  /// cameras route to the installed app — never [webInviteLink], which would hit
+  /// a domain we do not own.
+  ///
+  /// TODO(S25): switch to [webInviteLink] when domain-owned share-pages ship.
+  static String qrInvitePayload(String token) => appInviteUri(token).toString();
+
   /// In-app route used by GoRouter after [parseToken].
   static String inAppJoinLocation(String token) =>
       '/join?token=${Uri.encodeQueryComponent(token)}';
+
+  /// Extracts invite token from a scanned or pasted invite URL string.
+  static String? parseTokenFromString(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return null;
+    return parseToken(uri);
+  }
 
   /// Extracts invite token from web or app invite URIs.
   static String? parseToken(Uri uri) {

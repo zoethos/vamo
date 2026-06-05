@@ -35,10 +35,43 @@
   "activityEmptySubtitle": "Expenses and settlements will show up here.",
   "activityLoadError": "Could not load activity.",
   "expensesTitle": "Expenses",
-  "expensesEmptyTitle": "No expenses yet",
-  "expensesEmptySubtitle": "Add one from a trip or tap +.",
+  "expensesEmptyTitle": "No trips yet",
+  "expensesEmptySubtitle": "Start a trip to track spending.",
   "expensesLoadError": "Could not load expenses.",
-  "expensesAllTrips": "All trips",
+  "expensesBalanceAllSettled": "All settled across your trips",
+  "expensesBalanceYouOwe": "You owe {amount} across {tripCount, plural, =1{1 trip} other{{tripCount} trips}}",
+  "@expensesBalanceYouOwe": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "tripCount": {"type": "int"}
+    }
+  },
+  "expensesBalanceYouAreOwed": "You're owed {amount}",
+  "@expensesBalanceYouAreOwed": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "expensesBalanceAcrossTrips": "By trip",
+  "expensesPeriodThisMonth": "This month",
+  "expensesPeriodThisYear": "This year",
+  "expensesEarlierSection": "Earlier",
+  "expensesTotalSpent": "Total spent",
+  "expensesMyShare": "My share",
+  "expensesSettlementUnsettled": "Unsettled",
+  "expensesSettlementSettled": "Settled",
+  "expensesSettlementAllSettled": "All settled",
+  "expensesPickerTitle": "Add expense to which trip?",
+  "expensesPickerLastUsed": "Last used",
+  "inviteShowQr": "Show QR",
+  "inviteScanQr": "Scan a Vamo QR",
+  "inviteQrCaption": "Point a camera at this to join",
+  "inviteNotVamoQr": "That's not a Vamo invite",
+  "inviteCameraDenied": "Camera access is needed to scan. Paste the invite link below instead.",
+  "invitePasteLink": "Paste invite link",
+  "invitePasteHint": "https://vamo.app/j/…",
+  "invitePasteJoin": "Join from link",
+  "inviteScannerTitle": "Scan invite QR",
   "profileTitle": "Profile",
   "profileAbout": "About",
   "profileVersion": "Version",
