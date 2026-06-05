@@ -9,3 +9,4 @@ if (-not $android) {
 Write-Host "Running on $($android.name) ($($android.id))" -ForegroundColor Cyan
 Set-Location (Join-Path $PSScriptRoot '..\app')
 flutter run -d $android.id
+exit $LASTEXITCODE
