@@ -23,6 +23,12 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- One deep-link channel: app_links in app.dart handles URIs.
+                 Disable Flutter engine deep linking (same doctrine as the
+                 single-PKCE exchanger waiting room — one event, one handler). -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

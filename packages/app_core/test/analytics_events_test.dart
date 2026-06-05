@@ -20,7 +20,7 @@ void main() {
   });
 
   test('VamoEvent.productSignals lists layer 2–4 events', () {
-    expect(VamoEvent.productSignals, hasLength(14));
+    expect(VamoEvent.productSignals, hasLength(15));
     expect(
       VamoEvent.productSignals.map((e) => e.name),
       containsAll([
@@ -38,6 +38,7 @@ void main() {
         'place_resolved',
         'trip_rollup_opened',
         'qr_shown',
+        'route_not_found',
       ]),
     );
   });
