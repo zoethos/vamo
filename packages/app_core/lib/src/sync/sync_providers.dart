@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analytics/analytics_providers.dart';
 import '../auth/auth_providers.dart';
 import '../db/database_provider.dart';
 import '../supabase/supabase_providers.dart';
@@ -19,6 +20,8 @@ final syncWorkerProvider = Provider<SyncWorker>((ref) {
   return SyncWorker(
     queue: ref.watch(syncQueueProvider),
     client: ref.watch(supabaseClientProvider),
+    db: ref.watch(appDatabaseProvider),
+    analytics: ref.watch(analyticsProvider),
   );
 });
 

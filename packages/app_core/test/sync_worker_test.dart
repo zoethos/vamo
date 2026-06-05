@@ -101,4 +101,99 @@ void main() {
     expect(await queue.pending(), isEmpty);
     expect(await queue.countPending(), 0);
   });
+
+  test('receipt_upload succeeds after retry', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final queue = SyncQueue(db);
+
+    await queue.enqueue(
+      kind: SyncKind.receiptUpload,
+      payload: {
+        'expense_id': 'e1',
+        'local_path': '/tmp/receipt.jpg',
+        'storage_path': 'u1/t1/receipts/e1.jpg',
+      },
+    );
+
+    final client = SupabaseClient('http://localhost', 'anon-key');
+    var attempts = 0;
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        if (op.kind == SyncKind.receiptUpload.value) {
+          attempts++;
+          if (attempts == 1) throw Exception('network blip');
+        }
+      },
+    );
+
+    await worker.flush();
+    expect(attempts, 1);
+    expect(await queue.pending(), isNotEmpty);
+
+    final processed = await worker.flush();
+    expect(processed, 1);
+    expect(attempts, 2);
+    expect(await queue.pending(), isEmpty);
+  });
+
+  test('receipt_upload dead-letter fires action_failed', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final queue = SyncQueue(db);
+    final analytics = _RecordingAnalytics();
+
+    await queue.enqueue(
+      kind: SyncKind.receiptUpload,
+      payload: {
+        'expense_id': 'e2',
+        'local_path': '/tmp/receipt2.jpg',
+        'storage_path': 'u1/t1/receipts/e2.jpg',
+      },
+    );
+
+    final client = SupabaseClient('http://localhost', 'anon-key');
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: analytics,
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        if (op.kind == SyncKind.receiptUpload.value) {
+          throw Exception('permanent storage error');
+        }
+      },
+    );
+
+    for (var i = 0; i < SyncQueue.maxAttempts; i++) {
+      await worker.flush();
+    }
+
+    expect(await queue.pending(), isEmpty);
+    expect(
+      analytics.events.where((e) => e['event'] == VamoEvent.actionFailed),
+      hasLength(1),
+    );
+    final props =
+        analytics.events.first['properties']! as Map<String, Object?>;
+    expect(props['action'], 'attach_receipt');
+  });
+}
+
+class _RecordingAnalytics implements Analytics {
+  final events = <Map<String, Object?>>[];
+
+  @override
+  void capture(VamoEvent event, {Map<String, Object?> properties = const {}}) {
+    events.add({'event': event, 'properties': properties});
+  }
+
+  @override
+  Future<void> identify(String userId) async {}
+
+  @override
+  Future<void> reset() async {}
 }

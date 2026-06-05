@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import 'capture_models.dart';
 import 'capture_providers.dart';
 import 'capture_repository.dart';
 
@@ -161,12 +162,10 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                   itemCount: photoList.length,
                   itemBuilder: (context, i) {
                     final photo = photoList[i];
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        File(photo.displayPath),
-                        fit: BoxFit.cover,
-                      ),
+                    return CapturePhotoCell(
+                      key: ValueKey(photo.id),
+                      tripId: widget.tripId,
+                      photo: photo,
                     );
                   },
                 ),
@@ -200,6 +199,96 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class CapturePhotoCell extends ConsumerStatefulWidget {
+  const CapturePhotoCell({
+    super.key,
+    required this.tripId,
+    required this.photo,
+  });
+
+  final String tripId;
+  final TripPhotoView photo;
+
+  @override
+  ConsumerState<CapturePhotoCell> createState() => _CapturePhotoCellState();
+}
+
+class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
+  late TripPhotoView _photo;
+  Object? _lastReportedError;
+
+  @override
+  void initState() {
+    super.initState();
+    _photo = widget.photo;
+    _reportLoadFailure(_photo.loadError);
+  }
+
+  @override
+  void didUpdateWidget(covariant CapturePhotoCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.photo.id != widget.photo.id ||
+        oldWidget.photo.loadError != widget.photo.loadError) {
+      _photo = widget.photo;
+      _reportLoadFailure(_photo.loadError);
+    }
+  }
+
+  void _reportLoadFailure(Object? error) {
+    if (error == null ||
+        !widget.photo.hasRemoteStoragePath ||
+        identical(error, _lastReportedError)) {
+      return;
+    }
+    _lastReportedError = error;
+    ref.read(analyticsProvider).reportActionFailed(
+          screen: 'trip_home',
+          action: 'load_photo',
+          error: error,
+        );
+  }
+
+  Future<void> _retry() async {
+    final loaded =
+        await ref.read(captureRepositoryProvider).retryPhotoLoad(_photo.id);
+    if (!mounted) return;
+    setState(() => _photo = loaded);
+    _reportLoadFailure(loaded.loadError);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = _photo.displayPath;
+    if (path != null && path.isNotEmpty && File(path).existsSync()) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(File(path), fit: BoxFit.cover),
+      );
+    }
+
+    if (_photo.loadError != null && _photo.hasRemoteStoragePath) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: StorageUnavailablePlaceholder(
+          compact: true,
+          label: 'Photo unavailable',
+          onRetry: _retry,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ColoredBox(
+        color: AppColors.sandLight,
+        child: Center(
+          child: Icon(Icons.photo_outlined, color: AppColors.muted),
+        ),
       ),
     );
   }

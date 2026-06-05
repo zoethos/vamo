@@ -41,14 +41,25 @@ class TripExpenseListTile extends ConsumerWidget {
   final String? tripId;
   final String? receiptPath;
   final String? localReceiptPath;
-
-  /// Test override — skips async resolution.
   final String? receiptThumbnailPath;
 
   bool get _hasReceipt =>
       receiptThumbnailPath != null ||
       (receiptPath != null && receiptPath!.isNotEmpty) ||
       (localReceiptPath != null && localReceiptPath!.isNotEmpty);
+
+  ExpenseSummary get _expense => ExpenseSummary(
+        id: expenseId ?? 'test',
+        tripId: tripId ?? 'test',
+        description: description,
+        amountCents: amountCents,
+        baseCents: baseCents,
+        currency: expenseCurrency,
+        payerId: payer,
+        spentAt: spentAt,
+        receiptPath: receiptPath,
+        localReceiptPath: localReceiptPath,
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,20 +68,13 @@ class TripExpenseListTile extends ConsumerWidget {
     if (_hasReceipt) {
       leading = _ReceiptThumbnail(
         key: const Key('expense_receipt_thumbnail'),
-        expense: ExpenseSummary(
-          id: expenseId ?? 'test',
-          tripId: tripId ?? 'test',
-          description: description,
-          amountCents: amountCents,
-          baseCents: baseCents,
-          currency: expenseCurrency,
-          payerId: payer,
-          spentAt: spentAt,
-          receiptPath: receiptPath,
-          localReceiptPath: localReceiptPath,
-        ),
+        expense: _expense,
         thumbnailOverride: receiptThumbnailPath,
-        onOpen: (path) => openExpenseReceiptViewer(context, imagePath: path),
+        onOpen: () => openExpenseReceiptViewer(
+          context,
+          ref,
+          expense: _expense,
+        ),
       );
     }
 
@@ -95,32 +99,11 @@ class TripExpenseListTile extends ConsumerWidget {
         ),
         onTap: leading == null
             ? null
-            : () async {
-                if (receiptThumbnailPath != null) {
-                  await openExpenseReceiptViewer(
-                    context,
-                    imagePath: receiptThumbnailPath!,
-                  );
-                  return;
-                }
-                final expense = ExpenseSummary(
-                  id: expenseId!,
-                  tripId: tripId!,
-                  description: description,
-                  amountCents: amountCents,
-                  baseCents: baseCents,
-                  currency: expenseCurrency,
-                  payerId: payer,
-                  spentAt: spentAt,
-                  receiptPath: receiptPath,
-                  localReceiptPath: localReceiptPath,
-                );
-                final path = await ref
-                    .read(expensesRepositoryProvider)
-                    .resolveReceiptDisplayPath(expense);
-                if (!context.mounted || path == null) return;
-                await openExpenseReceiptViewer(context, imagePath: path);
-              },
+            : () => openExpenseReceiptViewer(
+                  context,
+                  ref,
+                  expense: _expense,
+                ),
       ),
     );
   }
@@ -135,7 +118,7 @@ class _ReceiptThumbnail extends ConsumerStatefulWidget {
   });
 
   final ExpenseSummary expense;
-  final void Function(String path) onOpen;
+  final VoidCallback onOpen;
   final String? thumbnailOverride;
 
   @override
@@ -143,7 +126,8 @@ class _ReceiptThumbnail extends ConsumerStatefulWidget {
 }
 
 class _ReceiptThumbnailState extends ConsumerState<_ReceiptThumbnail> {
-  String? _path;
+  StorageAttachmentLoadResult? _result;
+  Object? _lastReportedError;
 
   @override
   void initState() {
@@ -151,21 +135,52 @@ class _ReceiptThumbnailState extends ConsumerState<_ReceiptThumbnail> {
     _resolve();
   }
 
+  @override
+  void didUpdateWidget(covariant _ReceiptThumbnail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expense.receiptPath != widget.expense.receiptPath ||
+        oldWidget.expense.localReceiptPath != widget.expense.localReceiptPath ||
+        oldWidget.thumbnailOverride != widget.thumbnailOverride) {
+      _result = null;
+      _lastReportedError = null;
+      _resolve();
+    }
+  }
+
   Future<void> _resolve() async {
     if (widget.thumbnailOverride != null) {
-      setState(() => _path = widget.thumbnailOverride);
+      setState(
+        () => _result = StorageAttachmentLoadResult.local(widget.thumbnailOverride!),
+      );
       return;
     }
-    final path = await ref
+    final result = await ref
         .read(expensesRepositoryProvider)
-        .resolveReceiptDisplayPath(widget.expense);
-    if (mounted) setState(() => _path = path);
+        .loadReceiptAttachment(widget.expense);
+    if (!mounted) return;
+    setState(() => _result = result);
+    _reportLoadFailure(result);
+  }
+
+  void _reportLoadFailure(StorageAttachmentLoadResult result) {
+    final error = result.error;
+    if (error == null ||
+        !result.hadRemoteAttachment ||
+        identical(error, _lastReportedError)) {
+      return;
+    }
+    _lastReportedError = error;
+    ref.read(analyticsProvider).reportActionFailed(
+          screen: 'trip_home',
+          action: 'load_receipt',
+          error: error,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    final path = _path;
-    if (path != null && File(path).existsSync()) {
+    final path = _result?.localPath;
+    if (path != null && path.isNotEmpty && File(path).existsSync()) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Image.file(
@@ -176,17 +191,19 @@ class _ReceiptThumbnailState extends ConsumerState<_ReceiptThumbnail> {
         ),
       );
     }
-    return Container(
+
+    if (_result?.error != null && (_result?.hadRemoteAttachment ?? false)) {
+      return StorageUnavailablePlaceholder(
+        compact: true,
+        label: 'Receipt unavailable',
+        onRetry: _resolve,
+      );
+    }
+
+    return const SizedBox(
       width: 48,
       height: 48,
-      decoration: BoxDecoration(
-        color: AppColors.sandLight,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(
-        Icons.receipt_long_outlined,
-        color: AppColors.teal,
-      ),
+      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
     );
   }
 }

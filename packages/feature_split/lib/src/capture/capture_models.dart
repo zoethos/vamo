@@ -15,21 +15,27 @@ class TripNoteView {
   final DateTime capturedAt;
 }
 
-/// Photo for solo trip capture — [displayPath] is local file when available.
+/// Photo for solo trip capture — local path when cached; [loadError] when remote exists but fetch failed.
 class TripPhotoView {
   const TripPhotoView({
     required this.id,
     required this.tripId,
-    required this.displayPath,
+    this.displayPath,
     this.caption,
     required this.capturedAt,
+    this.loadError,
+    this.hasRemoteStoragePath = false,
+    this.storagePath,
   });
 
   final String id;
   final String tripId;
-  final String displayPath;
+  final String? displayPath;
   final String? caption;
   final DateTime capturedAt;
+  final Object? loadError;
+  final bool hasRemoteStoragePath;
+  final String? storagePath;
 }
 
 /// Highlights for the branded snapshot card.
@@ -53,7 +59,11 @@ CaptureSnapshotHighlight buildCaptureSnapshotHighlight({
   return CaptureSnapshotHighlight(
     noteTitle: latest?.title,
     noteExcerpt: latest != null ? _noteExcerpt(latest.body) : null,
-    photoPaths: photos.take(3).map((p) => p.displayPath).toList(),
+    photoPaths: photos
+        .where((p) => p.displayPath != null)
+        .map((p) => p.displayPath!)
+        .take(3)
+        .toList(),
   );
 }
 

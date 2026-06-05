@@ -98,6 +98,10 @@ class SyncQueue {
         case SyncKind.expenseInsert:
           final expense = payload['expense'] as Map<String, dynamic>?;
           if (expense?['id'] is String) expenseIds.add(expense!['id'] as String);
+        case SyncKind.receiptUpload:
+          if (payload['expense_id'] is String) {
+            expenseIds.add(payload['expense_id'] as String);
+          }
         case SyncKind.settlementInsert:
           if (payload['id'] is String) {
             settlementIds.add(payload['id'] as String);

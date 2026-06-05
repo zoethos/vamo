@@ -55,12 +55,13 @@ The sprints above are horizontal capacity buckets (backend, then core, then grow
 | 10 | Hardening | TestFlight / Play internal |
 | 11 | Signals | Product signals — friction, intention doors, suggestions (AC7) |
 | 12 | Themes | Snapshot theme packs — keyword-matched, free (Wave 2 seed) |
+| 14 | Evidence | Scan receipt on add expense → thumbnail on list → full-screen viewer |
 
 **Spine (slices 0–4) is the first shippable story** — a solo or in-person group can create a trip, split costs, and settle up. That's the milestone to aim the first internal build at. **Slice 5 is the inflection point**: it turns the app multiplayer via invite links.
 
 Two tagging notes worth keeping straight. The analytics task **T2.6** sits in Slice 0 — it's the debug/stub seam (already present in `analytics.dart` with all seven events enumerated); the *PostHog QA* that verifies events actually fire is its own task, **T10.3**, in Slice 10. And **T2.7** (i18n) is in Slice 0 because the spec wants strings externalized from day one, and it's cheapest to do while the first screens are being written.
 
-**Slice 11 (milestone Signals, backlog T11.1–T11.6)** implements spec **§8b** after ship prep: UX friction events (`screen_viewed`, `error_shown`, `empty_state_shown`, `flow_abandoned`, `action_failed`), three intention doors (Plus, trip map, recap video), and suggest-a-feature (`0006_suggestions.sql`). Acceptance criterion **AC7** depends on this slice; **T11.6 (Signals QA)** stays open until PostHog and cloud RLS checks pass. **Slice 12 — Themes** (T12.1–T12.3) follows: keyword-matched snapshot theme packs (first Wave 2 work, tracked in the Wave-1 backlog for continuity).
+**Slice 11 (milestone Signals, backlog T11.1–T11.6)** implements spec **§8b** after ship prep: UX friction events (`screen_viewed`, `error_shown`, `empty_state_shown`, `flow_abandoned`, `action_failed`), three intention doors (Plus, trip map, recap video), and suggest-a-feature (`0006_suggestions.sql`). Acceptance criterion **AC7** depends on this slice; **T11.6 (Signals QA)** stays open until PostHog and cloud RLS checks pass. **Slice 12 — Themes** (T12.1–T12.3) follows: keyword-matched snapshot theme packs (first Wave 2 work, tracked in the Wave-1 backlog for continuity). **Slice 14 — Receipt attachment** (T14.1–T14.3): optional receipt photo on add expense (`0008_expense_receipts.sql`), EXIF/device capture metadata, list thumbnail + signed-URL viewer, sync + `has_receipt` analytics. Parked for later waves: OCR scan-to-fill, receipt→TripMap stops, place-photo matching.
 
 One milestone gap to flag: the slice proposal labelled Spine (0–4), Multiplayer (5), Growth (7–8), Hardening (9–10) and left **Slice 6 (multi-currency)** unassigned. I've grouped it under **Growth (6–8)**, since multi-currency is what unlocks international trips rather than part of the single-currency spine demo. Easy to move if you'd rather it read differently.
 

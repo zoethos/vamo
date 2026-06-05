@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
@@ -22,7 +24,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -47,6 +49,13 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(localSyncOutbox);
+          }
+          if (from < 6) {
+            await m.addColumn(localExpenses, localExpenses.receiptPath);
+            await m.addColumn(localExpenses, localExpenses.localReceiptPath);
+            await m.addColumn(localExpenses, localExpenses.capturedLat);
+            await m.addColumn(localExpenses, localExpenses.capturedLng);
+            await m.addColumn(localExpenses, localExpenses.capturedAt);
           }
         },
       );
@@ -101,6 +110,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> deleteExpense(String expenseId) async {
+    final expense = await (select(localExpenses)
+          ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    await _deleteLocalFileBestEffort(expense?.localReceiptPath);
+
     await (delete(localExpenseShares)
           ..where((s) => s.expenseId.equals(expenseId)))
         .go();
@@ -146,6 +160,13 @@ class AppDatabase extends _$AppDatabase {
 
   /// Removes a trip and all dependent rows from the local cache.
   Future<void> deleteTripCascade(String tripId) async {
+    final photos = await (select(localTripPhotos)
+          ..where((p) => p.tripId.equals(tripId)))
+        .get();
+    for (final photo in photos) {
+      await _deleteLocalFileBestEffort(photo.localPath);
+    }
+
     final expenseIds = await (select(localExpenses)
           ..where((e) => e.tripId.equals(tripId)))
         .map((e) => e.id)
@@ -194,6 +215,16 @@ class AppDatabase extends _$AppDatabase {
             .go();
       }
     }
+  }
+
+  Future<void> _deleteLocalFileBestEffort(String? path) async {
+    if (path == null || path.isEmpty) return;
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
   }
 }
 

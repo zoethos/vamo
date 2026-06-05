@@ -37,7 +37,7 @@ class CaptureRepository {
   final SyncWorker _syncWorker;
   final _uuid = const Uuid();
 
-  static const _capturesBucket = 'captures';
+  static const _capturesBucket = StoragePaths.capturesBucket;
 
   Stream<List<TripNoteView>> watchTripNotes(String tripId) {
     return _db.watchTripNotes(tripId).map(
@@ -59,47 +59,81 @@ class CaptureRepository {
     await for (final rows in _db.watchTripPhotos(tripId)) {
       final views = <TripPhotoView>[];
       for (final row in rows) {
-        final path = await _resolveDisplayPath(row);
-        if (path != null && path.isNotEmpty) {
-          views.add(
-            TripPhotoView(
-              id: row.id,
-              tripId: row.tripId,
-              displayPath: path,
-              caption: row.caption,
-              capturedAt: row.capturedAt,
-            ),
-          );
+        final loaded = await loadPhotoAttachment(row);
+        if (loaded.displayPath != null ||
+            loaded.loadError != null ||
+            loaded.hasRemoteStoragePath) {
+          views.add(loaded);
         }
       }
       yield views;
     }
   }
 
-  Future<String?> _resolveDisplayPath(LocalTripPhoto row) async {
+  Future<TripPhotoView> loadPhotoAttachment(LocalTripPhoto row) async {
     final local = row.localPath;
     if (local != null && local.isNotEmpty && await File(local).exists()) {
-      return local;
+      return TripPhotoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: local,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+        storagePath: row.storagePath,
+      );
     }
-    final remote = row.storagePath;
-    if (remote == null || remote.isEmpty) return local;
 
-    final cached = await CaptureStorage.cacheFromStorage(
+    final remote = row.storagePath;
+    if (remote == null || remote.isEmpty) {
+      return TripPhotoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: local,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+      );
+    }
+
+    final result = await CaptureStorage.cachePhotoFromStorage(
       client: _client,
-      bucket: _capturesBucket,
       tripId: row.tripId,
       photoId: row.id,
       storagePath: remote,
     );
-    if (cached != null) {
+    if (result.isSuccess) {
       await _db.upsertTripPhoto(
         LocalTripPhotosCompanion(
           id: Value(row.id),
-          localPath: Value(cached),
+          localPath: Value(result.localPath),
         ),
       );
+      return TripPhotoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: result.localPath,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+        storagePath: remote,
+      );
     }
-    return cached ?? local;
+
+    return TripPhotoView(
+      id: row.id,
+      tripId: row.tripId,
+      displayPath: local,
+      caption: row.caption,
+      capturedAt: row.capturedAt,
+      loadError: result.error,
+      hasRemoteStoragePath: true,
+      storagePath: remote,
+    );
+  }
+
+  Future<TripPhotoView> retryPhotoLoad(String photoId) async {
+    final row = await (_db.select(_db.localTripPhotos)
+          ..where((p) => p.id.equals(photoId)))
+        .getSingle();
+    return loadPhotoAttachment(row);
   }
 
   Future<String> addNote({
@@ -215,7 +249,12 @@ class CaptureRepository {
     final ext = CaptureStorage.normalizeExt(
       localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
     );
-    final path = '$userId/$tripId/$photoId$ext';
+    final path = StoragePaths.capturePhoto(
+      userId: userId,
+      tripId: tripId,
+      photoId: photoId,
+      ext: ext,
+    );
     await _client.storage.from(_capturesBucket).uploadBinary(
           path,
           bytes,
@@ -271,13 +310,13 @@ class CaptureRepository {
       final storagePath = row['storage_path'] as String;
       var localPath = existing?.localPath;
       if (localPath == null || !await File(localPath).exists()) {
-        localPath = await CaptureStorage.cacheFromStorage(
+        final cached = await CaptureStorage.cachePhotoFromStorage(
           client: _client,
-          bucket: _capturesBucket,
           tripId: tripId,
           photoId: id,
           storagePath: storagePath,
         );
+        localPath = cached.localPath;
       }
 
       await _db.upsertTripPhoto(
