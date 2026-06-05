@@ -71,11 +71,19 @@ definition) + pass-through flags. Share invariant untouched.
 - Anyone can reject/dispute with reason; nothing blocks.
 - **Cancel trip** (organizer only, BEFORE start_date): consensus on payments
   failed → whole-trip cancel with notification to all.
-- After start: trip can be **closed but not deleted** until every active
-  member accepts the close. If acceptance never completes: **auto-resolve
-  after 6 months** — closed/archived as `unresolved`, all members notified.
-  (Needs one scheduled job — pg_cron/Edge schedule; same infra as the
-  settle nudge.)
+- **Close = deemed acceptance** (amended 2026-06-05 per
+  `CLOSURE_PATTERNS.md` cross-industry review; supersedes the original
+  active-unanimity design): close request (owner, or auto when all members
+  mark complete) starts a **14-day window**. Members may explicitly accept
+  (all-accept closes early) or **object with reason** — objection is the
+  only interrupt; **silence deems acceptance**. The close report lists
+  deemed vs. explicit acceptance (consent exposed, never merged). An
+  objection holds the trip in `closing` until resolved, withdrawn, or the
+  owner force-closes (objection survives into the report, flagged — the
+  squeeze-out-with-appraisal-rights pattern). Only objected/stuck trips
+  reach **auto-`unresolved` at 6 months**. One reminder at day 7
+  (`close_warned_at`, anti-nag). Scheduler: Edge cron (S16 infra) with
+  CRON_SECRET. Diagrams: `docs/workflows/trip-closure.md`.
 
 ## D3 — roles & budget formality (founder)
 
@@ -118,10 +126,12 @@ adjusting entries. The group reads, talks, and settles like adults.
 |---|---|
 | Dispute after trip closed | Allowed until settlement confirmed; report regenerates |
 | Proposal pending at close | Auto-cancelled, listed in report |
+| Member silent through close window | Deemed accepted; listed as deemed (not merged with explicit) in report |
+| Objection during close window | Holds `closing`; resolve / withdraw / owner force (objection flagged in report) |
 | Budget exceeded (formal) | Flag on proposal; commit still allowed (D2) |
 | Rate refresh mid-trip | New expenses only; never retroactive |
 | Member leaves with rejected shares | Shares remain (debt survives membership); report lists them |
-| 6-month unresolved | Auto-close `unresolved`, notify, settle math frozen as-is |
+| 6-month unresolved | **Objected/stuck trips only** — auto-close `unresolved`, notify, settle math frozen as-is |
 
 ## Refinements (adversarial review, accepted 2026-06-05)
 
@@ -134,10 +144,12 @@ adjusting entries. The group reads, talks, and settles like adults.
 - **R5 consent**: Leave & purge warns when the leaver has unsettled balances
   or open disputes — leaving freezes their responses as-is (RLS makes
   post-leave disputing impossible by design; the warning makes it informed).
-- **R6 operations**: 6-month clock starts at close request; warning
-  notification at month 5; unresolved trips remain visible in the Expenses
+- **R6 operations** (amended with deemed acceptance): day-7 single reminder
+  during the 14-day close window (`close_warned_at`, anti-nag); the 6-month
+  clock starts at close request but only **objected/stuck** trips ride it
+  (warn at month 5); unresolved trips remain visible in the Expenses
   "Earlier" section with an `unresolved` badge. All R6/cancel/close
-  notifications depend on push plumbing (T10.5) — sequence it first.
+  notifications depend on push plumbing (T10.5) — shipped in S16.
 - **R4 confirmation**: offline expenses snapshot their rate at creation
   on-device (outbox already carries fx_rate), so post-refresh syncs keep
   honest history with no extra work.
