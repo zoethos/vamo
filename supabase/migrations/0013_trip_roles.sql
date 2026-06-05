@@ -1,8 +1,7 @@
 -- S16 / R1 — trip member roles: owner | co-admin | member
 -- co-admin: edit trip content (same RLS as owner today); NOT role grants,
 -- trip delete/cancel/close (guarded when those columns land in S17).
-
-alter type member_role add value if not exists 'co-admin';
+-- Requires 0012_add_co_admin_value.sql committed first.
 
 -- ---------- role helpers (security definer — safe under RLS) ----------
 create or replace function is_trip_owner(p_trip uuid) returns boolean

@@ -34,7 +34,7 @@ select * from job_heartbeats where job_name = 'pg_cron' order by ran_at desc lim
 
 ## 2. Scheduled Edge Function (fallback / recommended for dev)
 
-Migration `0013_push_devices_and_jobs.sql` creates `job_heartbeats` and
+Migration `0014_push_devices_and_jobs.sql` creates `job_heartbeats` and
 `record_job_heartbeat()` (service_role only).
 
 1. Deploy: `supabase functions deploy scheduled-heartbeat --no-verify-jwt`

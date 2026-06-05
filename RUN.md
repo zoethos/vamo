@@ -49,18 +49,18 @@ Log an expense in a currency other than the trip base → client fetches daily F
 
 ## Slice 16 — roles + push + scheduled jobs (R1, R2, Wave 2)
 
-### Roles (migration `0012_trip_roles.sql`)
+### Roles (migrations `0012_add_co_admin_value.sql` + `0013_trip_roles.sql`)
 
 - `trip_members.role`: `owner` | `co-admin` | `member`
 - **Co-admin** can edit trip content (name, dates, …) — same RLS as owner for `trips` update; cannot grant roles, transfer ownership, or (in S17) cancel/close.
 - **Owner** → Members tab → ⋮ on a Vamigo → **Make co-admin** / **Remove co-admin** (`set_member_role` RPC).
 
 ```bash
-supabase db push   # applies 0012 + 0013
+supabase db push   # applies 0012, 0013, 0014 in sequence
 dart run tool/rls_smoke.dart   # incl. co-admin update / role-grant denial cases
 ```
 
-### Push (migration `0013`, T10.5)
+### Push (migration `0014`, T10.5)
 
 1. **Firebase:** create Android app `com.example.vamo`, download `google-services.json` → `app/android/app/` (replace placeholder).
 2. **Supabase secrets:** set the full service-account JSON as one secret (minify to one line):

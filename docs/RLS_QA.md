@@ -14,14 +14,14 @@ dart pub get
 dart run tool/rls_smoke.dart
 ```
 
-The script creates a throwaway trip, verifies member vs outsider access (including **captures** bucket receipt paths with four segments), suggestions isolation, `trip_members` self-insert denial (`0007`), and **S16 role cases** (`0012`: member cannot edit trip, co-admin can, co-admin cannot grant roles), then cleans up storage. Exit code `0` = all checks PASS.
+The script creates a throwaway trip, verifies member vs outsider access (including **captures** bucket receipt paths with four segments), suggestions isolation, `trip_members` self-insert denial (`0007`), and **S16 role cases** (`0012`/`0013`: member cannot edit trip, co-admin can, co-admin cannot grant roles), then cleans up storage. Exit code `0` = all checks PASS.
 
 Use this as the primary storage + RLS gate; manual steps below remain as an appendix.
 
 ## Setup
 
 1. Two test accounts: **Owner** (creates trip) and **Outsider** (not a member). The smoke script uses three users (A/B/C).
-2. `supabase db push` — all migrations applied, including storage policies `0005`, security hardening `0007`, roles `0012`, push devices `0013`.
+2. `supabase db push` — all migrations applied, including storage policies `0005`, security hardening `0007`, roles `0012`/`0013`, push devices `0014`.
 
 ## Trip privacy
 

@@ -8,7 +8,7 @@ final pushDevicesRepositoryProvider = Provider<PushDevicesRepository>((ref) {
   );
 });
 
-/// Upserts FCM tokens via `register_push_device` RPC (migration 0013).
+/// Upserts FCM tokens via `register_push_device` RPC (migration 0014).
 class PushDevicesRepository {
   PushDevicesRepository({required SupabaseClient client}) : _client = client;
 
