@@ -62,7 +62,7 @@ dart run tool/rls_smoke.dart   # incl. co-admin update / role-grant denial cases
 
 ### Push (migration `0014`, T10.5)
 
-1. **Firebase:** create Android app `com.example.vamo`, download `google-services.json` → `app/android/app/` (replace placeholder).
+1. **Firebase:** Android app **`app.vamo`** (matches `applicationId`) — `google-services.json` → `app/android/app/`.
 2. **Supabase secrets:** set the full service-account JSON as one secret (minify to one line):
 
 ```bash

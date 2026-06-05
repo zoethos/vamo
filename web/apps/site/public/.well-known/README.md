@@ -3,7 +3,7 @@
 Served at `https://vamo.world/.well-known/assetlinks.json`.
 
 - `package_name` must match `applicationId` in `app/android/app/build.gradle.kts`
-  (currently `com.example.vamo`).
+  (currently `app.vamo`, must match `applicationId` in `app/android/app/build.gradle.kts`).
 - `sha256_cert_fingerprints`: replace `DEBUG_FINGERPRINT` with the **upload key**
   SHA-256 for local/debug builds, then **add** the Play App Signing certificate
   fingerprint at store setup — Google Play rewrites release signatures; both
