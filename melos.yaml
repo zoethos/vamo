@@ -29,6 +29,10 @@ scripts:
     description: Run the app on the first connected Android device
     run: powershell -ExecutionPolicy Bypass -File tool/run_android.ps1
 
+  backfill_receipt_ocr:
+    description: OCR backfill place_label from stored receipts (Android/iOS device)
+    run: cd app && flutter run -t lib/dev/backfill_receipt_ocr.dart
+
   chrome:
     description: Run the app in Chrome on the Supabase-redirect-listed port
     run: cd app && flutter run -d chrome --web-port 3000

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../capture/capture_repository.dart';
 import '../capture/capture_storage.dart';
 import '../expenses/expenses_repository.dart';
+import '../places/places_repository.dart';
 import '../settle/settlements_repository.dart';
 import 'trips_models.dart';
 
@@ -18,6 +19,7 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
     expenses: ref.watch(expensesRepositoryProvider),
     settlements: ref.watch(settlementsRepositoryProvider),
     capture: ref.watch(captureRepositoryProvider),
+    places: ref.watch(placesRepositoryProvider),
     syncQueue: ref.watch(syncQueueProvider),
   );
 });
@@ -32,6 +34,7 @@ class TripsRepository {
     required ExpensesRepository expenses,
     required SettlementsRepository settlements,
     required CaptureRepository capture,
+    required PlacesRepository places,
     required SyncQueue syncQueue,
   })  : _db = db,
         _client = client,
@@ -39,6 +42,7 @@ class TripsRepository {
         _expenses = expenses,
         _settlements = settlements,
         _capture = capture,
+        _places = places,
         _syncQueue = syncQueue;
 
   final AppDatabase _db;
@@ -47,6 +51,7 @@ class TripsRepository {
   final ExpensesRepository _expenses;
   final SettlementsRepository _settlements;
   final CaptureRepository _capture;
+  final PlacesRepository _places;
   final SyncQueue _syncQueue;
   final _uuid = const Uuid();
 
@@ -98,6 +103,7 @@ class TripsRepository {
     await _db.delete(_db.localExpenseShares).go();
     await _db.delete(_db.localExpenses).go();
     await _db.delete(_db.localTripMembers).go();
+    await _db.delete(_db.localPlaces).go();
     await _db.delete(_db.localTrips).go();
   }
 
@@ -106,6 +112,7 @@ class TripsRepository {
     if (_client.auth.currentUser?.id == null) return;
     final pending = await _syncQueue.collectPendingEntityIds();
     await _pullTripsAndMembers(remoteTripIds: {tripId}, onlyTripId: tripId);
+    await _places.syncPlacesForTrips([tripId]);
     await _expenses.syncExpensesForTrips(
       [tripId],
       excludeExpenseIds: pending.expenseIds,
@@ -137,6 +144,7 @@ class TripsRepository {
     await _pruneLocalTrips(remoteIds);
 
     final pending = await _syncQueue.collectPendingEntityIds();
+    await _places.syncPlacesForTrips(remoteIds);
     await _expenses.syncExpensesForTrips(
       remoteIds,
       excludeExpenseIds: pending.expenseIds,

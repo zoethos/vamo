@@ -164,6 +164,7 @@ class _ExpenseRow extends ConsumerWidget {
               expenseCurrency: expense.currency,
               receiptPath: expense.receiptPath,
               localReceiptPath: expense.localReceiptPath,
+              placeLabel: expense.placeLabel,
             ),
           ],
         );

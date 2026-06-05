@@ -11,7 +11,11 @@ import 'expense_models.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
 import 'money_format.dart';
+import 'ocr_suggestion_chip.dart';
 import 'receipt_metadata.dart';
+import 'receipt_ocr.dart';
+import 'receipt_ocr_form_prefill.dart';
+import '../places/places_repository.dart';
 import '../trips/trips_providers.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
@@ -42,6 +46,14 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   final _picker = ImagePicker();
   String? _receiptSourcePath;
   ReceiptCaptureMetadata? _receiptMetadata;
+  String? _placeLabel;
+  String? _resolvedPlaceId;
+  bool _ocrLoading = false;
+  Future<void>? _pendingOcr;
+  bool _ocrUsed = false;
+  bool _currencyUserTouched = false;
+  final Set<OcrSuggestionField> _ocrSuggested = {};
+  final Map<OcrSuggestionField, String> _ocrOriginal = {};
 
   @override
   void initState() {
@@ -199,10 +211,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           ? null
                           : (v) {
                               if (v == null) return;
-                              setState(() => _expenseCurrency = v);
+                              setState(() {
+                                _expenseCurrency = v;
+                                _currencyUserTouched = true;
+                                _onUserEdited(OcrSuggestionField.currency);
+                              });
                               _refreshFxPreview(tripBase);
                             },
                     ),
+                    if (_ocrSuggested.contains(OcrSuggestionField.currency))
+                      const OcrSuggestionChip(),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _amountController,
@@ -217,7 +235,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           RegExp(r'[\d.,]'),
                         ),
                       ],
-                      onChanged: (_) => _refreshFxPreview(tripBase),
+                      onChanged: (_) {
+                        _onUserEdited(OcrSuggestionField.amount);
+                        _refreshFxPreview(tripBase);
+                      },
                       validator: (v) {
                         if (parseAmountToCents(v ?? '') == null) {
                           return 'Enter a valid amount';
@@ -238,6 +259,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ?.copyWith(color: AppColors.jadeTeal),
                         ),
                     ],
+                    if (_ocrSuggested.contains(OcrSuggestionField.amount))
+                      const OcrSuggestionChip(),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _descriptionController,
@@ -246,6 +269,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         hintText: 'Dinner',
                       ),
                       textCapitalization: TextCapitalization.sentences,
+                      onChanged: (_) => _onUserEdited(OcrSuggestionField.title),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return 'Add a short description';
@@ -253,12 +277,57 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         return null;
                       },
                     ),
+                    if (_ocrSuggested.contains(OcrSuggestionField.title))
+                      const OcrSuggestionChip(),
+                    if (_placeLabel != null && _placeLabel!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Place',
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 18,
+                              color: AppColors.graphite,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _placeLabel!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: AppColors.graphite),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_ocrSuggested.contains(OcrSuggestionField.placeLabel))
+                        const OcrSuggestionChip(),
+                    ],
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
-                      onPressed: _saving ? null : _pickReceipt,
+                      onPressed: (_saving || _ocrLoading) ? null : _pickReceipt,
                       icon: const Icon(Icons.document_scanner_outlined),
                       label: const Text('Scan receipt'),
                     ),
+                    if (_ocrLoading) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(minHeight: 2),
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(top: 8),
+                        child: Text(
+                          'Reading receipt…',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: AppColors.graphite),
+                        ),
+                      ),
+                    ],
                     if (_receiptSourcePath != null) ...[
                       const SizedBox(height: 12),
                       Row(
@@ -284,11 +353,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           ),
                           IconButton(
                             tooltip: 'Remove receipt',
-                            onPressed: _saving
+                            onPressed: (_saving || _ocrLoading)
                                 ? null
                                 : () => setState(() {
                                       _receiptSourcePath = null;
                                       _receiptMetadata = null;
+                                      _placeLabel = null;
+                                      _resolvedPlaceId = null;
+                                      _ocrSuggested.clear();
+                                      _ocrOriginal.clear();
+                                      _ocrUsed = false;
                                     }),
                             icon: const Icon(Icons.close),
                           ),
@@ -325,7 +399,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: FilledButton(
-                        onPressed: _saving
+                        onPressed: (_saving || _ocrLoading)
                             ? null
                             : () => _save(
                                   tripBaseCurrency: tripBase,
@@ -388,10 +462,118 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     setState(() {
       _receiptSourcePath = picked.path;
       _receiptMetadata = metadata;
+      _placeLabel = null;
+      _resolvedPlaceId = null;
+      _ocrSuggested.clear();
+      _ocrOriginal.clear();
+      _ocrUsed = false;
+      _currencyUserTouched = false;
+    });
+
+    if (receiptOcrSupported) {
+      _pendingOcr = _runReceiptOcr(picked.path);
+      await _pendingOcr;
+    }
+  }
+
+  Future<void> _runReceiptOcr(String path) async {
+    setState(() => _ocrLoading = true);
+    try {
+      final suggestion = await scanReceiptImage(path);
+      if (!mounted || suggestion == null || !suggestion.hasAnySuggestion) {
+        return;
+      }
+      _applyOcrSuggestion(suggestion);
+      await _resolvePlaceFromReceipt(suggestion);
+    } catch (e) {
+      if (!mounted) return;
+      ref.read(analyticsProvider).reportActionFailed(
+            screen: 'add_expense',
+            action: 'ocr_scan',
+            error: e,
+          );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _ocrLoading = false;
+          _pendingOcr = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _resolvePlaceFromReceipt(ReceiptParseResult suggestion) async {
+    if (!placeResolutionSupported) return;
+    final result = await ref.read(placesRepositoryProvider).resolveFromReceipt(
+          tripId: widget.tripId,
+          parse: suggestion,
+          exif: _receiptMetadata,
+        );
+    if (!mounted) return;
+    if (result.placeId != null) {
+      setState(() => _resolvedPlaceId = result.placeId);
+    }
+  }
+
+  void _applyOcrSuggestion(ReceiptParseResult suggestion) {
+    final prefill = applyReceiptOcrPrefill(
+      suggestion: suggestion,
+      supportedCurrencies: _currencies,
+      currencyUserTouched: _currencyUserTouched,
+      currentDescription: _descriptionController.text,
+    );
+    if (!prefill.ocrUsed) return;
+
+    setState(() {
+      _ocrUsed = true;
+      if (prefill.amountText != null) {
+        _amountController.text = prefill.amountText!;
+        _ocrSuggested.add(OcrSuggestionField.amount);
+        _ocrOriginal[OcrSuggestionField.amount] = prefill.amountText!;
+      }
+      if (prefill.currency != null) {
+        _expenseCurrency = prefill.currency!;
+        _ocrSuggested.add(OcrSuggestionField.currency);
+        _ocrOriginal[OcrSuggestionField.currency] = prefill.currency!;
+      }
+      if (prefill.description != null) {
+        _descriptionController.text = prefill.description!;
+        _ocrSuggested.add(OcrSuggestionField.title);
+        _ocrOriginal[OcrSuggestionField.title] = prefill.description!;
+      }
+      if (prefill.placeLabel != null) {
+        _placeLabel = prefill.placeLabel;
+        _ocrSuggested.add(OcrSuggestionField.placeLabel);
+        _ocrOriginal[OcrSuggestionField.placeLabel] = prefill.placeLabel!;
+      }
     });
   }
 
+  void _onUserEdited(OcrSuggestionField field) {
+    if (!_ocrSuggested.contains(field)) return;
+    final original = _ocrOriginal[field];
+    if (original == null) return;
+
+    final changed = switch (field) {
+      OcrSuggestionField.amount =>
+        _amountController.text.trim() != original,
+      OcrSuggestionField.currency => _expenseCurrency != original,
+      OcrSuggestionField.title =>
+        _descriptionController.text.trim() != original,
+      OcrSuggestionField.placeLabel => _placeLabel != original,
+    };
+
+    if (changed) {
+      ref.read(analyticsProvider).capture(
+            VamoEvent.ocrSuggestionEdited,
+            properties: {'field': field.name},
+          );
+      setState(() => _ocrSuggested.remove(field));
+    }
+  }
+
   Future<void> _save({required String tripBaseCurrency}) async {
+    if (_pendingOcr != null) await _pendingOcr;
     if (!_formKey.currentState!.validate()) return;
     final payerId = _payerId;
     if (payerId == null) {
@@ -417,6 +599,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               capturedLat: _receiptMetadata?.lat,
               capturedLng: _receiptMetadata?.lng,
               capturedAt: _receiptMetadata?.capturedAt,
+              placeLabel: _placeLabel,
+              placeId: _resolvedPlaceId,
+              ocrUsed: _ocrUsed,
             ),
             baseCurrency: tripBaseCurrency,
           );

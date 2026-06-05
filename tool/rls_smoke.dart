@@ -86,6 +86,25 @@ Future<void> main() async {
     final joinedTrip = await clientB.rpc('join_trip', params: {'p_token': token});
     results.add(_Check('B join_trip', joinedTrip == tripId));
 
+    final placeId = _uuid();
+    await clientA.from('places').insert({
+      'id': placeId,
+      'trip_id': tripId,
+      'label': 'RLS smoke cafe',
+      'source': 'receipt',
+      'confidence': 0.6,
+      'created_by': userA,
+    });
+    results.add(_Check('A insert place', true));
+
+    final cPlaces =
+        await clientC.from('places').select('id').eq('trip_id', tripId);
+    results.add(_Check('C zero places rows', (cPlaces as List).isEmpty));
+
+    final bPlaces =
+        await clientB.from('places').select('id').eq('trip_id', tripId);
+    results.add(_Check('B reads trip places', (bPlaces as List).length == 1));
+
     final expenseId = _uuid();
     storagePath = expenseReceiptPath(
       userId: userA,

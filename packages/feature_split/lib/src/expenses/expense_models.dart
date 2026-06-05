@@ -14,6 +14,8 @@ class ExpenseSummary {
     this.capturedLat,
     this.capturedLng,
     this.capturedAt,
+    this.placeLabel,
+    this.placeId,
   });
 
   final String id;
@@ -35,6 +37,10 @@ class ExpenseSummary {
   final double? capturedLat;
   final double? capturedLng;
   final DateTime? capturedAt;
+  final String? placeLabel;
+  final String? placeId;
+
+  String? get displayPlaceLabel => placeLabel;
 
   bool get hasReceipt =>
       (receiptPath != null && receiptPath!.isNotEmpty) ||
@@ -67,6 +73,9 @@ class AddExpenseInput {
     this.capturedLat,
     this.capturedLng,
     this.capturedAt,
+    this.placeLabel,
+    this.placeId,
+    this.ocrUsed = false,
   });
 
   final String tripId;
@@ -80,6 +89,9 @@ class AddExpenseInput {
   final double? capturedLat;
   final double? capturedLng;
   final DateTime? capturedAt;
+  final String? placeLabel;
+  final String? placeId;
+  final bool ocrUsed;
 }
 
 /// Result of [ExpensesRepository.addExpense].

@@ -123,6 +123,19 @@ class SyncWorker {
           await _client.from('expense_shares').upsert(shares, onConflict: 'id');
         }
         break;
+      case SyncKind.expenseUpdate:
+        final patch = Map<String, dynamic>.from(payload);
+        final id = patch.remove('id') as String;
+        if (patch.isNotEmpty) {
+          await _client.from('expenses').update(patch).eq('id', id);
+        }
+        break;
+      case SyncKind.placeInsert:
+        await _client.from('places').upsert(
+              Map<String, dynamic>.from(payload),
+              onConflict: 'id',
+            );
+        break;
       case SyncKind.receiptUpload:
         final expenseId = payload['expense_id'] as String;
         final localPath = payload['local_path'] as String;

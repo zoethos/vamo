@@ -49,32 +49,78 @@ class ExpensesRepository {
   static const _capturesBucket = StoragePaths.capturesBucket;
 
   Stream<List<ExpenseSummary>> watchTripExpenses(String tripId) {
-    return _db.watchTripExpenses(tripId).map(
-          (rows) => rows.map(_toSummary).toList(),
-        );
+    return _watchEnrichedExpenses(
+      _db.watchTripExpenses(tripId),
+      _db.watchTripPlaces(tripId),
+    );
   }
 
   Stream<List<ExpenseSummary>> watchAllExpenses() {
-    return _db.watchAllExpenses().map(
-          (rows) => rows.map(_toSummary).toList(),
-        );
+    return _watchEnrichedExpenses(
+      _db.watchAllExpenses(),
+      _db.select(_db.localPlaces).watch(),
+    );
   }
 
-  ExpenseSummary _toSummary(LocalExpense r) => ExpenseSummary(
-        id: r.id,
-        tripId: r.tripId,
-        description: r.description,
-        amountCents: r.amountCents,
-        baseCents: r.baseCents,
-        currency: r.currency,
-        payerId: r.payerId,
-        spentAt: r.spentAt,
-        receiptPath: r.receiptPath,
-        localReceiptPath: r.localReceiptPath,
-        capturedLat: r.capturedLat,
-        capturedLng: r.capturedLng,
-        capturedAt: r.capturedAt,
-      );
+  Stream<List<ExpenseSummary>> _watchEnrichedExpenses(
+    Stream<List<LocalExpense>> expenses$,
+    Stream<List<LocalPlace>> places$,
+  ) {
+    return Stream.multi((controller) {
+      List<LocalExpense> expenses = [];
+      Map<String, LocalPlace> placesById = {};
+
+      void emit() {
+        controller.add(
+          expenses
+              .map((r) => _toSummary(r, placesById: placesById))
+              .toList(),
+        );
+      }
+
+      final subs = [
+        expenses$.listen((rows) {
+          expenses = rows;
+          emit();
+        }),
+        places$.listen((rows) {
+          placesById = {for (final p in rows) p.id: p};
+          emit();
+        }),
+      ];
+
+      controller.onCancel = () async {
+        for (final sub in subs) {
+          await sub.cancel();
+        }
+      };
+    });
+  }
+
+  ExpenseSummary _toSummary(
+    LocalExpense r, {
+    Map<String, LocalPlace> placesById = const {},
+  }) {
+    final linked = r.placeId == null ? null : placesById[r.placeId!];
+    final placeLabel = linked?.label ?? r.placeLabel;
+    return ExpenseSummary(
+      id: r.id,
+      tripId: r.tripId,
+      description: r.description,
+      amountCents: r.amountCents,
+      baseCents: r.baseCents,
+      currency: r.currency,
+      payerId: r.payerId,
+      spentAt: r.spentAt,
+      receiptPath: r.receiptPath,
+      localReceiptPath: r.localReceiptPath,
+      capturedLat: r.capturedLat,
+      capturedLng: r.capturedLng,
+      capturedAt: r.capturedAt,
+      placeLabel: placeLabel,
+      placeId: r.placeId,
+    );
+  }
 
   Stream<List<TripMemberView>> watchActiveMembers(String tripId) {
     return _db.watchActiveMembers(tripId).map(
@@ -233,6 +279,8 @@ class ExpensesRepository {
         capturedLat: Value(input.capturedLat),
         capturedLng: Value(input.capturedLng),
         capturedAt: Value(input.capturedAt?.toUtc()),
+        placeLabel: Value(input.placeLabel?.trim()),
+        placeId: Value(input.placeId),
       ),
     );
 
@@ -272,6 +320,10 @@ class ExpensesRepository {
       if (input.capturedLng != null) 'captured_lng': input.capturedLng,
       if (input.capturedAt != null)
         'captured_at': input.capturedAt!.toUtc().toIso8601String(),
+      if (input.placeLabel != null && input.placeLabel!.trim().isNotEmpty)
+        'place_label': input.placeLabel!.trim(),
+      if (input.placeId != null && input.placeId!.isNotEmpty)
+        'place_id': input.placeId,
     };
 
     await _syncQueue.enqueue(
@@ -293,6 +345,7 @@ class ExpensesRepository {
         'expense_currency': expenseCurrency,
         'fx_rate': fxRate,
         'has_receipt': receiptPath != null,
+        'ocr_used': input.ocrUsed,
         if (fxStale) 'fx_stale': true,
       },
     );
@@ -337,7 +390,8 @@ class ExpensesRepository {
     const selectCols =
         'id, trip_id, payer_id, amount_cents, currency, base_cents, fx_rate, '
         'description, category, spent_at, created_by, created_at, '
-        'receipt_path, captured_lat, captured_lng, captured_at';
+        'receipt_path, captured_lat, captured_lng, captured_at, place_label, '
+        'place_id';
 
     final expenseRows = await _client
         .from('expenses')
@@ -391,6 +445,8 @@ class ExpensesRepository {
                 ? null
                 : DateTime.parse(row['captured_at'] as String),
           ),
+          placeLabel: Value(row['place_label'] as String?),
+          placeId: Value(row['place_id'] as String?),
         ),
       );
     }

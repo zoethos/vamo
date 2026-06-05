@@ -3,6 +3,8 @@ import 'dart:convert';
 /// Outbox operation kinds — remote side executed by [SyncWorker].
 enum SyncKind {
   expenseInsert('expense_insert'),
+  expenseUpdate('expense_update'),
+  placeInsert('place_insert'),
   receiptUpload('receipt_upload'),
   settlementInsert('settlement_insert'),
   settlementUpdate('settlement_update'),
