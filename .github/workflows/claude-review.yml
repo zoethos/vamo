@@ -21,7 +21,9 @@ jobs:
         with:
           fetch-depth: 0     # need history to diff the pushed range
 
-      - uses: anthropics/claude-code-action@v1
+      - id: claude-review
+        uses: anthropics/claude-code-action@v1
+        continue-on-error: true
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Avoid Claude GitHub App workflow-file validation on PRs that edit
@@ -54,3 +56,8 @@ jobs:
             If the diff is docs/assets only, post "CLEAN — docs only" and stop.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Warn if Claude review did not complete
+        if: steps.claude-review.outcome == 'failure'
+        run: |
+          echo "::warning::Claude code review failed. Check the ANTHROPIC_API_KEY repository secret and the Claude action logs."
