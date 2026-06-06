@@ -3,6 +3,23 @@
 *.env.local
 tool/rls-smoke.local.ps1
 
+# Service-account / credential keys — NEVER commit. Canonical home is the
+# Supabase secret store / Vault, never on disk in the repo.
+*-adminsdk-*.json
+*service-account*.json
+*serviceaccount*.json
+*-credentials*.json
+secrets/
+*.pem
+*.p8
+*.p12
+*.key
+
+# Android release signing — keystore + passwords stay local, never in the repo
+key.properties
+*.jks
+*.keystore
+
 # npm (supabase CLI dev-dependency)
 node_modules/
 
@@ -14,7 +31,10 @@ node_modules/
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
+# Lockfiles: commit app/ + root pubspec.lock (reproducible builds + vuln scan);
+# ignore internal package locks — they resolve via the app. See docs/SECURITY_PATCHING.md §12.
+packages/*/pubspec.lock
+Vamo/app/pubspec.lock
 
 # Generated code
 *.g.dart

@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # Flutter/Dart melos monorepo — root + app + every package
+  - package-ecosystem: "pub"
+    directories: ["/", "/app", "/packages/*"]
+    schedule:
+      interval: "weekly"
+    groups:
+      dart-minor-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+
+  # npm — repo root + web tier
+  - package-ecosystem: "npm"
+    directories: ["/", "/web"]
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # Android Gradle plugins (AGP, Kotlin, Google Services) in settings.gradle.kts
+  - package-ecosystem: "gradle"
+    directory: "/app/android"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Edge functions — enable AFTER supabase/functions/deno.json exists with an
+  # exact-version import map (Dependabot reads the manifest, not raw .ts URLs).
+  # See docs/SECURITY_PATCHING.md §2.1.
+  # - package-ecosystem: "deno"
+  #   directory: "/supabase/functions"
+  #   schedule:
+  #     interval: "weekly"
