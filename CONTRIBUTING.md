@@ -14,8 +14,13 @@ into an operational git/stash/merge checklist.
   git tag -a v0.1.0 -m "Wave 1 code-complete"
   git push origin v0.1.0
   ```
-- Bump `version:` in `app/pubspec.yaml` in the same commit as the tag
-  (build number `+N` increments on every store upload).
+- Tester-visible app versions use **major.minor.build.release**. The
+  `app/pubspec.yaml` value owns this: `version: 0.2.0+7` builds as Android
+  `versionName 0.2.0.7` and `versionCode 7`.
+- Bump the `+N` release counter by **exactly 1** for every tester/store build,
+  even when the semantic version stays the same. This is how Profile/About,
+  screenshots, support reports, and Play uploads identify the exact build under
+  test.
 - Minor (0.X) = a slice or feature lands; patch (0.x.Y) = fixes only.
   1.0.0 = first public store release.
 

@@ -33,7 +33,12 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        // Tester-visible versioning: major.minor.build.release.
+        // `app/pubspec.yaml` owns the semantic part and the release counter:
+        //   version: 0.2.0+7 -> Android versionName 0.2.0.7, versionCode 7
+        // Bump `+N` by 1 for every tester/store build so screenshots and
+        // support reports identify the exact build under test.
+        versionName = "${flutter.versionName}.${flutter.versionCode}"
     }
 
     signingConfigs {

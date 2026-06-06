@@ -1,6 +1,8 @@
 # Ship to TestFlight & Play internal
 
-Wave 1 internal build after Slice 10 polish. Version in `app/pubspec.yaml` (`version: 0.1.0+1` — bump `+build` each upload).
+Wave 1 internal build after Slice 10 polish. Version in `app/pubspec.yaml`
+(`version: 0.1.0+1` — bump `+build` by exactly 1 each upload). Android
+renders this as tester-visible `versionName 0.1.0.1`.
 
 ## Pre-flight
 
@@ -70,6 +72,8 @@ Verify in PostHog **Live events** (or debug console if key unset).
 
 First internal build carrying QR invite, roles+push, trip lifecycle, TripBoard,
 and money governance I. Bump `app/pubspec.yaml` to `0.2.0+N` (Wave-2 line).
+Each upload increments `+N` by exactly 1; Android/Profile show it as
+`0.2.0.N` so tester screenshots and reports identify the exact build.
 
 ## Gate (all required before upload)
 - [ ] `main` CI green at the build commit (build_runner + analyze + test).
