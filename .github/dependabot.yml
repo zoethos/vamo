@@ -30,10 +30,15 @@ updates:
     schedule:
       interval: "weekly"
 
-  # Edge functions — enable AFTER supabase/functions/deno.json exists with an
-  # exact-version import map (Dependabot reads the manifest, not raw .ts URLs).
+  # Edge functions — Dependabot reads function-local deno.json manifests, not
+  # raw .ts import URLs. Keep each function isolated for Supabase deployment.
   # See docs/SECURITY_PATCHING.md §2.1.
-  # - package-ecosystem: "deno"
-  #   directory: "/supabase/functions"
-  #   schedule:
-  #     interval: "weekly"
+  - package-ecosystem: "deno"
+    directories:
+      - "/supabase/functions/fx-rates"
+      - "/supabase/functions/scheduled-heartbeat"
+      - "/supabase/functions/send-auth-email"
+      - "/supabase/functions/send-push"
+      - "/supabase/functions/trip-lifecycle-jobs"
+    schedule:
+      interval: "weekly"

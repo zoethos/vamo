@@ -57,39 +57,25 @@ a production emergency — confirm before you sprint.
   Vercel, Firebase, Brevo, PostHog) — these live in *no lockfile*, so scanners
   never see them. Subscribe to their status/security pages and changelogs. See §8.
 
-### 2.1 Edge functions are the real coverage gap — and they're under-controlled
+### 2.1 Edge functions — exact manifests, frozen locks
 
-Honest current state (do not overstate this): the Supabase edge functions
-import from **mixed raw sources** with **no central manifest and no lockfile**:
+Current target state: every Supabase edge function has its own
+function-local `deno.json` plus committed `deno.lock`.
 
-- `send-push` → `npm:jose@5`, `npm:@supabase/supabase-js@2`
-- others → `https://esm.sh/@supabase/supabase-js@2.49.1`,
-  `https://esm.sh/standardwebhooks@1.0.0`
-- no `deno.json` / `deno.jsonc`, no committed `deno.lock`.
-
-Two problems this creates:
-
-1. **Not visible to any scanner.** Dependabot reads `deno.json`/`deno.jsonc`
-   (it does **not** parse `import` URLs inside `.ts`), and OSV-Scanner has no
-   Deno support at all. So today these deps are invisible to automation.
-2. **Not actually pinned.** `npm:jose@5` and `npm:@supabase/supabase-js@2` are
-   **major ranges**, not exact versions. "We standardized on `npm:`" is *not*
-   the same as pinned — Deno's own supply-chain guidance is **exact versions
-   for applications + a committed/frozen `deno.lock`**.
-
-**Target state (tracked action — its own small chore, deploy + invoke-once per
-§5):**
-
-- Add `supabase/functions/deno.json` with an **import map of exact versions**
-  (e.g. `jose@5.x.y`, `@supabase/supabase-js@2.x.y`, `standardwebhooks@1.0.0`);
-  migrate functions to the map's bare specifiers.
-- Commit `deno.lock` and run CI with `deno cache --frozen` (or
-  `--lock --lock-write` discipline) so resolution can't drift.
-- Enable Dependabot `package-ecosystem: "deno"` once `deno.json` exists.
-- OSV stays **"no Deno lockfile coverage"** — accept it; the import map + lock
-  + Dependabot `deno` is the real control. Until that lands, the interim
-  mitigation is the only honest one: **manually review the handful of edge
-  imports each quarterly cycle**, and treat the surface as un-automated.
+- Supabase recommends **one `deno.json` per function directory** for deployment
+  isolation; do not replace this with a single global `/supabase/functions`
+  manifest.
+- Imports in `.ts` files use bare specifiers such as `@supabase/supabase-js`,
+  `jose`, and `standardwebhooks`; the function-local manifest maps those to
+  exact `npm:` versions.
+- CI runs `deno install --frozen --entrypoint index.ts` and `deno check index.ts`
+  for every function, so dependency resolution cannot drift silently.
+- Dependabot `package-ecosystem: "deno"` is enabled against the function
+  directories. Dependabot reads `deno.json` / `deno.jsonc`, not raw `.ts`
+  import URLs.
+- OSV stays **"no Deno lockfile coverage"** — accept it; the controls are exact
+  manifests, frozen locks, Dependabot Deno, and quarterly manual review of the
+  small edge import surface.
 
 ---
 
@@ -221,9 +207,10 @@ own infrastructure; scanners never see them. Our duties:
 
 **Soon (own small chore, not "someday"):**
 
-- [ ] **Edge-function supply chain (§2.1):** `supabase/functions/deno.json`
-      import map with **exact** versions + committed `deno.lock`; enable
-      Dependabot `deno`. Deploy + invoke-once each function after migrating.
+- [ ] **Edge-function supply chain (§2.1):** function-local `deno.json`
+      manifests with **exact** versions + committed `deno.lock` files; keep
+      Dependabot `deno` enabled. Deploy + invoke-once each function after
+      migrating.
 
 **Later (W3, when there's reason):**
 
@@ -263,9 +250,15 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
-  # - package-ecosystem: "deno"        # enable AFTER supabase/functions/deno.json
-  #   directory: "/supabase/functions" #   exists (§2.1) — Dependabot reads the
-  #   schedule: { interval: "weekly" } #   import map, not raw .ts URLs
+  # Edge functions — function-local deno.json manifests (§2.1)
+  - package-ecosystem: "deno"
+    directories:
+      - "/supabase/functions/fx-rates"
+      - "/supabase/functions/scheduled-heartbeat"
+      - "/supabase/functions/send-auth-email"
+      - "/supabase/functions/send-push"
+      - "/supabase/functions/trip-lifecycle-jobs"
+    schedule: { interval: "weekly" }
 ```
 
 > Verified against the actual tree: pubspecs at `/`, `/app`,
@@ -354,7 +347,7 @@ not become a blanket "commit every lock anywhere":
   by default: path-dep packages resolve through the app's lock, so their own
   locks add noise without much signal. Reconsider only if a package is consumed
   independently.
-- **`deno.lock`** (once created, §2.1) — **commit** + run CI frozen.
+- **Edge `deno.lock` files** (§2.1) — **commit** + run CI frozen.
 
 **Action:** un-ignore `pubspec.lock` for the app (and root), keep package locks
 ignored. Then `git add app/pubspec.lock` (+ root) in your terminal.

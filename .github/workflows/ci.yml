@@ -11,6 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.8.2
+
+      - name: Check Supabase Edge Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for fn in fx-rates scheduled-heartbeat send-auth-email send-push trip-lifecycle-jobs; do
+            pushd "supabase/functions/$fn"
+            deno install --frozen --entrypoint index.ts
+            deno check index.ts
+            popd
+          done
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "standardwebhooks": "npm:standardwebhooks@1.0.0"
+  },
+  "lock": {
+    "path": "./deno.lock",
+    "frozen": true
+  }
+}

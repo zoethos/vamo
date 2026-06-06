@@ -4,7 +4,7 @@
 //
 // Unlike scheduled-heartbeat, this MUST validate CRON_SECRET on every request.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "@supabase/supabase-js";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {

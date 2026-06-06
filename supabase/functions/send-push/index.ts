@@ -10,8 +10,8 @@
 //
 // Requires Authorization: Bearer <user JWT>. Never log device or invite tokens.
 
-import { importPKCS8, SignJWT } from "npm:jose@5";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
+import { importPKCS8, SignJWT } from "jose";
 
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";

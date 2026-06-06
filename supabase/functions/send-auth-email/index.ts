@@ -9,7 +9,7 @@
 //
 // Deploy: supabase functions deploy send-auth-email --no-verify-jwt
 
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
+import { Webhook } from "standardwebhooks";
 
 const HOOK_SECRET = (Deno.env.get("SEND_EMAIL_HOOK_SECRET") ?? "").replace(
   "v1,whsec_",

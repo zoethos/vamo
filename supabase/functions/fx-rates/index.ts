@@ -3,8 +3,6 @@
 //         supabase functions deploy fx-rates
 // Client: FX_RATES_FUNCTION_URL + same key in app/.env for direct fallback.
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-
 const HOST = 'https://api.exchangerate.host/latest';
 const PIVOT = 'EUR';
 
@@ -12,7 +10,7 @@ const PIVOT = 'EUR';
 let memoryCache: { body: Record<string, unknown>; at: number } | null = null;
 const MEMORY_CACHE_MS = 60 * 60 * 1000; // 1h within a warm isolate
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       headers: {

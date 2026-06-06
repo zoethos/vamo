@@ -3,7 +3,7 @@
 // Schedule in Dashboard → Edge Functions → scheduled-heartbeat → Cron: 0 * * * *
 // (hourly). Uses service role to write job_heartbeats.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { createClient } from "@supabase/supabase-js";
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
