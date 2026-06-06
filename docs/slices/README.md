@@ -10,10 +10,12 @@ Updated: 2026-06-05.
 | S17 | W2·R3 (lifecycle) | ✅ merged | review P1s fixed; smoke 34/34 on cloud; `trip-lifecycle-jobs` deployed with CRON_SECRET but **unscheduled** — activates with S22 push ("no notice, no deemed consent") |
 | S18 | W2·R4 (TripBoard) | ✅ merged | smoke green incl. closed-trip + ex-member plan cases; schema S21-ready (events = kind:activity) |
 | S19 | W2·R5 (money governance I) | ✅ merged | smoke 51/51; forged-dispute guard (0018) + realtime parent-touch; 2 invariants verified |
-| S19.1 | W2·R5 finish | ✅ merged | propose UI + governance ARB; 5 second-review fixes in; CI 189 tests; **internal-build gate cleared** |
-| — | **Wave 2 internal build (S15–S19)** | 🔶 cutting | go/no-go in `docs/SHIP_INTERNAL.md`; S16 manual tail + assetlinks fingerprint, then Play internal track |
-| S20 | W2·R6 (money governance II) | 🔶 approved, pre-push | budget + FX table; D4 satisfied; fixed spend-leak (definer aggregate). Then db push + cloud smoke (needs exchangerate key in vault) → merge. Follow-ups: expense conversion→constant table (D4 OCR clause); FX fetch→Edge Function |
-| S21 | W2·R8 (EventList) | ⬜ | |
+| S19.1 | W2·R5 finish | ✅ merged | propose UI + governance ARB; 5 second-review fixes in; CI 189 tests |
+| S20 | W2·R6 (money governance II) | ✅ merged | budget + FX constant-rate; smoke 62/62; FX endpoint `/live` (0020) + service-writer smoke (0021); provider-resilience standard. Follow-ups: expense conversion→constant table (D4 OCR clause); FX fetch→Edge Function + throttle handling |
+| S17.1 | lifecycle UX fix | 🔶 in review — uncommitted on `main` | phase-aware gating + quiet overflow; closing banner kept. P1 UTC-phase fix applied; pending: Request-close confirm dialog + tooltip→ARB; then branch + commit |
+| S21 | W2·R8 (EventList) | 📋 prompt ready (`S21_PROMPT.md`) | events = plan items kind:activity (S18 reuse) + RSVP own-row |
+| — | **Wave 2 internal build (S15–S20)** | ⏸ paused | `SHIP_INTERNAL.md` step 3 (rebuild) blocked on S17.1 commit; then heartbeat cron + push test → assetlinks + Play internal. NOTE: `pubspec 0.2.0+1` bump is build-prep, commit separately from S17.1 |
+| — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
 | S22 | W2·R7 (close report) + P1 nudge | ⬜ | + FCM UNREGISTERED pruning (S16 finding) |
 | S23 | W2·R10 (AI theme resolver) | ⬜ | |
 | S24 | P1 retention basics | ⬜ | |

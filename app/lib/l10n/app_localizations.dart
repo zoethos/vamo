@@ -986,6 +986,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ask an admin to add this currency in trip settings'**
   String get tripCurrencyMissingAdmin;
+
+  /// No description provided for @tripLifecycleMarkDone.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m done'**
+  String get tripLifecycleMarkDone;
+
+  /// No description provided for @tripLifecycleRequestClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Request close'**
+  String get tripLifecycleRequestClose;
+
+  /// No description provided for @tripLifecycleCancelTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel trip'**
+  String get tripLifecycleCancelTrip;
+
+  /// No description provided for @tripLifecycleAcceptClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept close'**
+  String get tripLifecycleAcceptClose;
+
+  /// No description provided for @tripLifecycleObject.
+  ///
+  /// In en, this message translates to:
+  /// **'Object…'**
+  String get tripLifecycleObject;
+
+  /// No description provided for @tripLifecycleWithdrawObjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw objection'**
+  String get tripLifecycleWithdrawObjection;
+
+  /// No description provided for @tripLifecycleCloseAnyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Close anyway'**
+  String get tripLifecycleCloseAnyway;
+
+  /// No description provided for @tripLifecycleCancelledBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip cancelled — no further activity.'**
+  String get tripLifecycleCancelledBanner;
+
+  /// No description provided for @tripLifecycleClosedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip closed — settling still open.'**
+  String get tripLifecycleClosedBanner;
+
+  /// No description provided for @tripLifecycleClosingGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip is closing — review balances and respond.'**
+  String get tripLifecycleClosingGeneric;
+
+  /// No description provided for @tripLifecycleClosingCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip closes in {days} days unless someone objects.'**
+  String tripLifecycleClosingCountdown(int days);
+
+  /// No description provided for @tripLifecycleObjectionNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'A member objected to closing — discuss or owner may close anyway.'**
+  String get tripLifecycleObjectionNotice;
+
+  /// No description provided for @tripLifecycleMarkDoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark yourself done?'**
+  String get tripLifecycleMarkDoneTitle;
+
+  /// No description provided for @tripLifecycleMarkDoneBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You can still log expenses until the trip closes. When everyone is done, the close review starts.'**
+  String get tripLifecycleMarkDoneBody;
+
+  /// No description provided for @tripLifecycleMarkDoneConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m done'**
+  String get tripLifecycleMarkDoneConfirm;
+
+  /// No description provided for @tripLifecycleNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet'**
+  String get tripLifecycleNotYet;
+
+  /// No description provided for @tripLifecycleCancelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel this trip?'**
+  String get tripLifecycleCancelTitle;
+
+  /// No description provided for @tripLifecycleCancelBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Only possible before the start date. Members will be notified.'**
+  String get tripLifecycleCancelBody;
+
+  /// No description provided for @tripLifecycleKeepTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get tripLifecycleKeepTrip;
+
+  /// No description provided for @tripLifecycleRequestCloseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request trip close?'**
+  String get tripLifecycleRequestCloseTitle;
+
+  /// No description provided for @tripLifecycleRequestCloseBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Members get 14 days to review balances and accept or object. You can still log expenses during the review.'**
+  String get tripLifecycleRequestCloseBody;
+
+  /// No description provided for @tripLifecycleRequestCloseConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Request close'**
+  String get tripLifecycleRequestCloseConfirm;
+
+  /// No description provided for @tripLifecycleTripActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip actions'**
+  String get tripLifecycleTripActions;
+
+  /// No description provided for @tripLifecycleCloseAnywayTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Close anyway?'**
+  String get tripLifecycleCloseAnywayTitle;
+
+  /// No description provided for @tripLifecycleCloseAnywayBody.
+  ///
+  /// In en, this message translates to:
+  /// **'An objection is on record. Force-close keeps it visible in the close report.'**
+  String get tripLifecycleCloseAnywayBody;
+
+  /// No description provided for @tripLifecycleCloseAnywayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type CLOSE to confirm'**
+  String get tripLifecycleCloseAnywayHint;
+
+  /// No description provided for @tripLifecycleCloseAnywayPhrase.
+  ///
+  /// In en, this message translates to:
+  /// **'CLOSE'**
+  String get tripLifecycleCloseAnywayPhrase;
+
+  /// No description provided for @tripLifecycleCloseTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Close trip'**
+  String get tripLifecycleCloseTrip;
+
+  /// No description provided for @tripLifecycleBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get tripLifecycleBack;
+
+  /// No description provided for @tripLifecycleObjectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Object to closing'**
+  String get tripLifecycleObjectTitle;
+
+  /// No description provided for @tripLifecycleObjectReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (required)'**
+  String get tripLifecycleObjectReasonLabel;
+
+  /// No description provided for @tripLifecycleObjectReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What still needs resolving?'**
+  String get tripLifecycleObjectReasonHint;
+
+  /// No description provided for @tripLifecycleSubmitObjection.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit objection'**
+  String get tripLifecycleSubmitObjection;
 }
 
 class _AppLocalizationsDelegate

@@ -19,9 +19,13 @@ import '../plan/plan_labels.dart';
 import '../plan/plan_tab.dart';
 import 'members_tab.dart';
 import 'trip_lifecycle_banner.dart';
+import 'trip_lifecycle_actions.dart';
+import 'trip_lifecycle_labels.dart';
+import 'trip_lifecycle_menu.dart';
 import 'trip_budget_labels.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
+import 'trips_repository.dart';
 
 /// Trip hub — Expenses, Plan, Capture (solo), Balances, Members.
 class TripHomeScreen extends ConsumerStatefulWidget {
@@ -33,6 +37,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
     required this.planLabels,
     required this.governanceLabels,
     required this.budgetLabels,
+    required this.lifecycleLabels,
   });
 
   final String tripId;
@@ -43,6 +48,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
   final PlanTabLabels planLabels;
   final ExpenseGovernanceLabels governanceLabels;
   final TripBudgetLabels budgetLabels;
+  final TripLifecycleLabels lifecycleLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -119,11 +125,48 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             showCapture && _tabController!.index == captureTabIndex;
         final postTrip = _isPostTrip(detail);
         final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
+        final lifecycle = TripLifecycle.parse(detail.lifecycle);
+        final phase = resolveTripPhase(
+          lifecycle: lifecycle,
+          startDateIso: detail.startDate,
+          now: DateTime.now(), // local — date-only phase vs a date-only start (P1: UTC misclassified "today" near midnight)
+        );
+        final userId = ref.watch(authRepositoryProvider).currentUser?.id;
+        final isOwner = userId != null && userId == detail.ownerId;
+        final myMember = ref.watch(tripMyMemberProvider(widget.tripId)).valueOrNull;
+        final menuActions = tripLifecycleMenuActions(
+          phase: phase,
+          isOwner: isOwner,
+          memberAlreadyDone: myMember?.completedAt != null,
+        );
+        final repo = ref.read(tripsRepositoryProvider);
 
         return Scaffold(
           appBar: AppBar(
             title: Text(detail.name),
             actions: [
+              if (menuActions.isNotEmpty)
+                PopupMenuButton<TripLifecycleMenuAction>(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: widget.lifecycleLabels.tripActions,
+                  onSelected: (action) => TripLifecycleActions.handleMenuAction(
+                    context: context,
+                    ref: ref,
+                    tripId: widget.tripId,
+                    action: action,
+                    labels: widget.lifecycleLabels,
+                    repo: repo,
+                  ),
+                  itemBuilder: (context) => [
+                    for (final action in menuActions)
+                      PopupMenuItem(
+                        value: action,
+                        child: Text(
+                          lifecycleMenuLabel(action, widget.lifecycleLabels),
+                        ),
+                      ),
+                  ],
+                ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: 'Trip settings',
@@ -155,7 +198,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                 padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
                 child: Column(
                   children: [
-                    TripLifecycleBanner(tripId: widget.tripId, detail: detail),
+                    TripLifecycleBanner(
+                      tripId: widget.tripId,
+                      detail: detail,
+                      labels: widget.lifecycleLabels,
+                    ),
                     const SizedBox(height: 8),
                     ComingSoonTeaser(
                       interestEvent: VamoEvent.mapInterestTapped,

@@ -108,6 +108,19 @@ smoke) trip `closed` → add expense blocked, settlement still allowed → owner
 Lifecycle RPCs: `request_trip_close`, `mark_trip_member_complete`, `accept_trip_close`,
 `object_to_trip_close`, `withdraw_close_objection`, `force_close_trip`, `cancel_trip`.
 
+## Slice 17.1 — lifecycle UX fix (phase-aware + quiet)
+
+Spec: `docs/slices/S17_1_PROMPT.md` · UI only (no schema/RPC change).
+
+Active trips no longer show a lifecycle button wall. **Pre-start** owner gets
+**Cancel trip** in the app-bar overflow only — not "I'm done" or "Request close".
+**Ongoing** owner/member get **I'm done** (and owner **Request close**) in overflow;
+cancel is hidden. **Closing** keeps the prominent Accept / Object banner.
+
+```bash
+melos run ci   # widget tests assert phase gating + overflow placement
+```
+
 ## Slice 18 — TripBoard plan items (R4, Wave 2)
 
 Spec: `docs/slices/S18_PROMPT.md` · depends on S17 (`is_trip_writable`).

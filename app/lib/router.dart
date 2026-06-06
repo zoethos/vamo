@@ -165,6 +165,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             planLabels: SplitLabels.plan(l10n),
             governanceLabels: SplitLabels.governance(l10n),
             budgetLabels: SplitLabels.budget(l10n),
+            lifecycleLabels: SplitLabels.lifecycle(l10n),
           );
         },
         routes: [
