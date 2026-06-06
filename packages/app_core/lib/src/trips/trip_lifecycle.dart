@@ -33,3 +33,36 @@ int? closeReviewDaysRemaining(DateTime? closeRequestedAt, DateTime now) {
   final remaining = deadline.difference(now).inDays;
   return remaining < 0 ? 0 : remaining;
 }
+
+/// UI phase for lifecycle controls (S17.1 — distinct from [TripLifecycle] enum).
+enum TripPhase {
+  preStart,
+  ongoing,
+  closing,
+  readOnly,
+}
+
+DateTime? _parseDateOnly(String? iso) {
+  if (iso == null || iso.isEmpty) return null;
+  final parsed = DateTime.tryParse(iso);
+  if (parsed == null) return null;
+  return DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+/// Resolves which lifecycle chrome to show (S17.1).
+///
+/// Undated active trips are treated as [TripPhase.ongoing].
+TripPhase resolveTripPhase({
+  required TripLifecycle lifecycle,
+  required String? startDateIso,
+  required DateTime now,
+}) {
+  if (lifecycle.isReadOnly) return TripPhase.readOnly;
+  if (lifecycle == TripLifecycle.closing) return TripPhase.closing;
+  final start = _parseDateOnly(startDateIso);
+  if (start != null) {
+    final today = DateTime(now.year, now.month, now.day);
+    if (start.isAfter(today)) return TripPhase.preStart;
+  }
+  return TripPhase.ongoing;
+}

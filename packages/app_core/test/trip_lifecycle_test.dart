@@ -28,4 +28,55 @@ void main() {
       );
     });
   });
+
+  group('resolveTripPhase', () {
+    test('pre-start when active and start date is in the future', () {
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-12-01',
+          now: DateTime.utc(2026, 6, 5),
+        ),
+        TripPhase.preStart,
+      );
+    });
+
+    test('ongoing when active and start date is today or past', () {
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-06-05',
+          now: DateTime.utc(2026, 6, 5, 12),
+        ),
+        TripPhase.ongoing,
+      );
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.active,
+          startDateIso: null,
+          now: DateTime.utc(2026, 6, 5),
+        ),
+        TripPhase.ongoing,
+      );
+    });
+
+    test('closing and read-only follow lifecycle', () {
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.closing,
+          startDateIso: '2026-12-01',
+          now: DateTime.utc(2026, 6, 5),
+        ),
+        TripPhase.closing,
+      );
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.closed,
+          startDateIso: null,
+          now: DateTime.utc(2026, 6, 5),
+        ),
+        TripPhase.readOnly,
+      );
+    });
+  });
 }

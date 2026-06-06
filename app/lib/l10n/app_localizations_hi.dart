@@ -488,4 +488,112 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get tripCurrencyMissingAdmin =>
       'Ask an admin to add this currency in trip settings';
+
+  @override
+  String get tripLifecycleMarkDone => 'I\'m done';
+
+  @override
+  String get tripLifecycleRequestClose => 'Request close';
+
+  @override
+  String get tripLifecycleCancelTrip => 'Cancel trip';
+
+  @override
+  String get tripLifecycleAcceptClose => 'Accept close';
+
+  @override
+  String get tripLifecycleObject => 'Object…';
+
+  @override
+  String get tripLifecycleWithdrawObjection => 'Withdraw objection';
+
+  @override
+  String get tripLifecycleCloseAnyway => 'Close anyway';
+
+  @override
+  String get tripLifecycleCancelledBanner =>
+      'Trip cancelled — no further activity.';
+
+  @override
+  String get tripLifecycleClosedBanner => 'Trip closed — settling still open.';
+
+  @override
+  String get tripLifecycleClosingGeneric =>
+      'Trip is closing — review balances and respond.';
+
+  @override
+  String tripLifecycleClosingCountdown(int days) {
+    return 'Trip closes in $days days unless someone objects.';
+  }
+
+  @override
+  String get tripLifecycleObjectionNotice =>
+      'A member objected to closing — discuss or owner may close anyway.';
+
+  @override
+  String get tripLifecycleMarkDoneTitle => 'Mark yourself done?';
+
+  @override
+  String get tripLifecycleMarkDoneBody =>
+      'You can still log expenses until the trip closes. When everyone is done, the close review starts.';
+
+  @override
+  String get tripLifecycleMarkDoneConfirm => 'I\'m done';
+
+  @override
+  String get tripLifecycleNotYet => 'Not yet';
+
+  @override
+  String get tripLifecycleCancelTitle => 'Cancel this trip?';
+
+  @override
+  String get tripLifecycleCancelBody =>
+      'Only possible before the start date. Members will be notified.';
+
+  @override
+  String get tripLifecycleKeepTrip => 'Keep';
+
+  @override
+  String get tripLifecycleRequestCloseTitle => 'Request trip close?';
+
+  @override
+  String get tripLifecycleRequestCloseBody =>
+      'Members get 14 days to review balances and accept or object. You can still log expenses during the review.';
+
+  @override
+  String get tripLifecycleRequestCloseConfirm => 'Request close';
+
+  @override
+  String get tripLifecycleTripActions => 'Trip actions';
+
+  @override
+  String get tripLifecycleCloseAnywayTitle => 'Close anyway?';
+
+  @override
+  String get tripLifecycleCloseAnywayBody =>
+      'An objection is on record. Force-close keeps it visible in the close report.';
+
+  @override
+  String get tripLifecycleCloseAnywayHint => 'Type CLOSE to confirm';
+
+  @override
+  String get tripLifecycleCloseAnywayPhrase => 'CLOSE';
+
+  @override
+  String get tripLifecycleCloseTrip => 'Close trip';
+
+  @override
+  String get tripLifecycleBack => 'Back';
+
+  @override
+  String get tripLifecycleObjectTitle => 'Object to closing';
+
+  @override
+  String get tripLifecycleObjectReasonLabel => 'Reason (required)';
+
+  @override
+  String get tripLifecycleObjectReasonHint => 'What still needs resolving?';
+
+  @override
+  String get tripLifecycleSubmitObjection => 'Submit objection';
 }

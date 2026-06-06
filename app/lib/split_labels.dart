@@ -148,6 +148,43 @@ class SplitLabels {
         currencyMissingAdmin: l10n.tripCurrencyMissingAdmin,
       );
 
+  static TripLifecycleLabels lifecycle(AppLocalizations l10n) =>
+      TripLifecycleLabels(
+        markDone: l10n.tripLifecycleMarkDone,
+        requestClose: l10n.tripLifecycleRequestClose,
+        cancelTrip: l10n.tripLifecycleCancelTrip,
+        acceptClose: l10n.tripLifecycleAcceptClose,
+        objectToClose: l10n.tripLifecycleObject,
+        withdrawObjection: l10n.tripLifecycleWithdrawObjection,
+        closeAnyway: l10n.tripLifecycleCloseAnyway,
+        cancelledBanner: l10n.tripLifecycleCancelledBanner,
+        closedBanner: l10n.tripLifecycleClosedBanner,
+        closingBannerGeneric: l10n.tripLifecycleClosingGeneric,
+        closingBannerDays: l10n.tripLifecycleClosingCountdown,
+        objectionNotice: l10n.tripLifecycleObjectionNotice,
+        markDoneTitle: l10n.tripLifecycleMarkDoneTitle,
+        markDoneBody: l10n.tripLifecycleMarkDoneBody,
+        markDoneConfirm: l10n.tripLifecycleMarkDoneConfirm,
+        notYet: l10n.tripLifecycleNotYet,
+        cancelTripTitle: l10n.tripLifecycleCancelTitle,
+        cancelTripBody: l10n.tripLifecycleCancelBody,
+        keepTrip: l10n.tripLifecycleKeepTrip,
+        requestCloseTitle: l10n.tripLifecycleRequestCloseTitle,
+        requestCloseBody: l10n.tripLifecycleRequestCloseBody,
+        requestCloseConfirm: l10n.tripLifecycleRequestCloseConfirm,
+        tripActions: l10n.tripLifecycleTripActions,
+        closeAnywayTitle: l10n.tripLifecycleCloseAnywayTitle,
+        closeAnywayBody: l10n.tripLifecycleCloseAnywayBody,
+        closeAnywayHint: l10n.tripLifecycleCloseAnywayHint,
+        closeAnywayPhrase: l10n.tripLifecycleCloseAnywayPhrase,
+        closeTrip: l10n.tripLifecycleCloseTrip,
+        back: l10n.tripLifecycleBack,
+        objectTitle: l10n.tripLifecycleObjectTitle,
+        objectReasonLabel: l10n.tripLifecycleObjectReasonLabel,
+        objectReasonHint: l10n.tripLifecycleObjectReasonHint,
+        submitObjection: l10n.tripLifecycleSubmitObjection,
+      );
+
   static InviteLabels invite(AppLocalizations l10n) => InviteLabels(
         showQr: l10n.inviteShowQr,
         scanQr: l10n.inviteScanQr,
