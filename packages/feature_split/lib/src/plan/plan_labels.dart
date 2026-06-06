@@ -33,6 +33,7 @@ class PlanTabLabels {
     required this.rsvpSummary,
     required this.eventRsvpHint,
     required this.eventRsvpSection,
+    required this.eventRsvpUpdateFailed,
   });
 
   final String emptyTitle;
@@ -63,9 +64,10 @@ class PlanTabLabels {
   final String rsvpGoing;
   final String rsvpMaybe;
   final String rsvpDeclined;
-  final String Function(int going, int maybe) rsvpSummary;
+  final String Function(int going, int maybe, int declined) rsvpSummary;
   final String eventRsvpHint;
   final String eventRsvpSection;
+  final String eventRsvpUpdateFailed;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
         PlanItemKind.lodging => kindLodging,

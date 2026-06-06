@@ -99,9 +99,11 @@ class SplitLabels {
         rsvpGoing: l10n.eventRsvpGoing,
         rsvpMaybe: l10n.eventRsvpMaybe,
         rsvpDeclined: l10n.eventRsvpDeclined,
-        rsvpSummary: (going, maybe) => l10n.eventRsvpSummary(going, maybe),
+        rsvpSummary: (going, maybe, declined) =>
+            l10n.eventRsvpSummary(going, maybe, declined),
         eventRsvpHint: l10n.planEventRsvpHint,
         eventRsvpSection: l10n.planEventRsvpSection,
+        eventRsvpUpdateFailed: l10n.eventRsvpUpdateFailed,
       );
 
   static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>

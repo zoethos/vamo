@@ -744,8 +744,8 @@ abstract class AppLocalizations {
   /// No description provided for @eventRsvpSummary.
   ///
   /// In en, this message translates to:
-  /// **'{going} going · {maybe} maybe'**
-  String eventRsvpSummary(int going, int maybe);
+  /// **'{going} going · {maybe} maybe · {declined} declined'**
+  String eventRsvpSummary(int going, int maybe, int declined);
 
   /// No description provided for @planEventRsvpHint.
   ///
@@ -758,6 +758,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'RSVP'**
   String get planEventRsvpSection;
+
+  /// No description provided for @eventRsvpUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update RSVP. Try again.'**
+  String get eventRsvpUpdateFailed;
 
   /// No description provided for @activityEventCreatedSubtitle.
   ///

@@ -581,13 +581,23 @@ Future<void> main() async {
 
     // --- S21 event RSVP (R8) — before close ---
     final eventActivityId = _uuid();
-    await clientB.from('trip_plan_items').insert({
+    await clientA.from('trip_plan_items').insert({
       'id': eventActivityId,
       'trip_id': tripId,
       'kind': 'activity',
       'title': 'RLS smoke dinner',
-      'created_by': userB,
+      'created_by': userA,
     });
+    final eventActivitySeenByB = await clientB
+        .from('trip_plan_items')
+        .select('id, kind')
+        .eq('id', eventActivityId)
+        .maybeSingle();
+    results.add(_Check(
+      'B reads A activity event',
+      eventActivitySeenByB?['id'] == eventActivityId &&
+          eventActivitySeenByB?['kind'] == 'activity',
+    ));
 
     await clientB.rpc('set_event_rsvp', params: {
       'p_plan_item_id': eventActivityId,
@@ -602,6 +612,16 @@ Future<void> main() async {
     results.add(_Check(
       'B set own RSVP going',
       rsvpGoing?['status'] == 'going',
+    ));
+    final rsvpGoingSeenByA = await clientA
+        .from('trip_plan_item_rsvps')
+        .select('status')
+        .eq('plan_item_id', eventActivityId)
+        .eq('user_id', userB)
+        .maybeSingle();
+    results.add(_Check(
+      'A reads B RSVP going',
+      rsvpGoingSeenByA?['status'] == 'going',
     ));
 
     await clientB.rpc('set_event_rsvp', params: {
@@ -1090,7 +1110,8 @@ Future<void> main() async {
     } catch (_) {
       rsvpOnCancelledBlocked = true;
     }
-    results.add(_Check('RSVP on cancelled trip blocked', rsvpOnCancelledBlocked));
+    results
+        .add(_Check('RSVP on cancelled trip blocked', rsvpOnCancelledBlocked));
 
     var budgetOnCancelledBlocked = false;
     try {

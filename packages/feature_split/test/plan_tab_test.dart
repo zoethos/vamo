@@ -38,9 +38,11 @@ void main() {
     rsvpGoing: 'Going',
     rsvpMaybe: 'Maybe',
     rsvpDeclined: 'Declined',
-    rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
+    rsvpSummary: (going, maybe, declined) =>
+        '$going going · $maybe maybe · $declined declined',
     eventRsvpHint: 'RSVP after save',
     eventRsvpSection: 'RSVP',
+    eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
   );
 
   testWidgets('read-only plan tab hides add controls', (tester) async {
@@ -89,6 +91,61 @@ void main() {
 
     expect(find.text(labels.addPlanItem), findsNothing);
     expect(find.text(labels.emptyTitle), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await db.close();
+  });
+
+  testWidgets('hosted plan tab can hide its inline add action', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          analyticsProvider.overrideWithValue(DebugAnalytics()),
+          appDatabaseProvider.overrideWithValue(db),
+          supabaseClientProvider.overrideWithValue(client),
+          planRepositoryProvider.overrideWith((ref) => repo),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: PlanTab(
+              tripId: 'trip-1',
+              labels: labels,
+              readOnly: false,
+              showInlineAddAction: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(labels.emptyTitle), findsOneWidget);
+    expect(find.text(labels.addPlanItem), findsNothing);
+    expect(find.byType(FilledButton), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

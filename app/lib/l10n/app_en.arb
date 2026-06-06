@@ -126,7 +126,7 @@
   "eventRsvpGoing": "Going",
   "eventRsvpMaybe": "Maybe",
   "eventRsvpDeclined": "Declined",
-  "eventRsvpSummary": "{going} going · {maybe} maybe",
+  "eventRsvpSummary": "{going} going · {maybe} maybe · {declined} declined",
   "@eventRsvpSummary": {
     "placeholders": {
       "going": {
@@ -134,11 +134,15 @@
       },
       "maybe": {
         "type": "int"
+      },
+      "declined": {
+        "type": "int"
       }
     }
   },
   "planEventRsvpHint": "After you save, you and other Vamigos can RSVP on the plan board.",
   "planEventRsvpSection": "RSVP",
+  "eventRsvpUpdateFailed": "Could not update RSVP. Try again.",
   "activityEventCreatedSubtitle": "Event added",
   "activityEventRsvpSubtitle": "RSVP: {status}",
   "@activityEventRsvpSubtitle": {

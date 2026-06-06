@@ -22,6 +22,7 @@ import 'package:feature_split/src/trips/trips_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _StubAuthRepository extends AuthRepository {
@@ -142,7 +143,8 @@ const _lifecycleLabels = TripLifecycleLabels(
   closedBanner: 'Trip closed — settling still open.',
   closingBannerGeneric: 'Trip is closing — review balances and respond.',
   closingBannerDays: _mockClosingDays,
-  objectionNotice: 'A member objected to closing — discuss or owner may close anyway.',
+  objectionNotice:
+      'A member objected to closing — discuss or owner may close anyway.',
   markDoneTitle: 'Mark yourself done?',
   markDoneBody: 'Body',
   markDoneConfirm: "I'm done",
@@ -166,7 +168,8 @@ const _lifecycleLabels = TripLifecycleLabels(
   submitObjection: 'Submit objection',
 );
 
-String _mockClosingDays(int days) => 'Trip closes in $days days unless someone objects.';
+String _mockClosingDays(int days) =>
+    'Trip closes in $days days unless someone objects.';
 
 final _planLabels = PlanTabLabels(
   tabTitle: 'Plan',
@@ -197,9 +200,11 @@ final _planLabels = PlanTabLabels(
   rsvpGoing: 'Going',
   rsvpMaybe: 'Maybe',
   rsvpDeclined: 'Declined',
-  rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
+  rsvpSummary: (going, maybe, declined) =>
+      '$going going · $maybe maybe · $declined declined',
   eventRsvpHint: 'RSVP after save',
   eventRsvpSection: 'RSVP',
+  eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
 );
 
 const _inviteLabels = InviteLabels(
@@ -374,10 +379,80 @@ Widget _tripHome({
   );
 }
 
+Widget _tripHomeRouter({
+  required String tripId,
+  required List<Override> overrides,
+}) {
+  final router = GoRouter(
+    initialLocation: '/trips/$tripId',
+    routes: [
+      GoRoute(
+        path: AppRoutes.trips,
+        builder: (context, state) => const Scaffold(
+          body: Center(child: Text('Trips list')),
+        ),
+      ),
+      GoRoute(
+        path: '/trips/:tripId',
+        builder: (context, state) => TripHomeScreen(
+          tripId: state.pathParameters['tripId']!,
+          inviteLabels: _inviteLabels,
+          planLabels: _planLabels,
+          governanceLabels: _governanceLabels,
+          budgetLabels: _budgetLabels,
+          lifecycleLabels: _lifecycleLabels,
+        ),
+      ),
+    ],
+  );
+
+  return ProviderScope(
+    overrides: overrides,
+    child: MaterialApp.router(
+      theme: AppTheme.light,
+      routerConfig: router,
+    ),
+  );
+}
+
 void main() {
   const tripId = 'trip-lifecycle-ui';
 
-  testWidgets('pre-start owner overflow has cancel only; no done or request close in body',
+  testWidgets('trip header back falls back to trips list when no pop stack',
+      (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await tester.pumpWidget(
+      _tripHomeRouter(
+        tripId: tripId,
+        overrides: _tripHomeOverrides(
+          tripId: tripId,
+          db: db,
+          currentUserId: 'owner',
+          memberRole: 'owner',
+          detail: const TripDetail(
+            id: tripId,
+            name: 'Direct trip',
+            baseCurrency: 'EUR',
+            ownerId: 'owner',
+            lifecycle: 'active',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Direct trip'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Trips list'), findsOneWidget);
+  });
+
+  testWidgets(
+      'pre-start owner overflow has cancel only; no done or request close in body',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -416,7 +491,8 @@ void main() {
     expect(find.text("I'm done"), findsNothing);
   });
 
-  testWidgets('ongoing owner overflow has request close and done; cancel absent',
+  testWidgets(
+      'ongoing owner overflow has request close and done; cancel absent',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);

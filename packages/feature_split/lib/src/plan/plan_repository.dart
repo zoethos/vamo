@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -26,18 +27,41 @@ class PlanRepository {
     required Analytics analytics,
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
+    @visibleForTesting
+    Future<void> Function(
+      String functionName,
+      Map<String, dynamic> params,
+    )? rpcOverride,
+    @visibleForTesting String? currentUserIdOverride,
   })  : _db = db,
         _client = client,
         _analytics = analytics,
         _syncQueue = syncQueue,
-        _syncWorker = syncWorker;
+        _syncWorker = syncWorker,
+        _rpcOverride = rpcOverride,
+        _currentUserIdOverride = currentUserIdOverride;
 
   final AppDatabase _db;
   final SupabaseClient _client;
   final Analytics _analytics;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
+  final Future<void> Function(String functionName, Map<String, dynamic> params)?
+      _rpcOverride;
+  final String? _currentUserIdOverride;
   final _uuid = const Uuid();
+
+  String? get _currentUserId =>
+      _currentUserIdOverride ?? _client.auth.currentUser?.id;
+
+  Future<void> _rpc(String functionName, Map<String, dynamic> params) async {
+    final override = _rpcOverride;
+    if (override != null) {
+      await override(functionName, params);
+      return;
+    }
+    await _client.rpc(functionName, params: params);
+  }
 
   Stream<List<PlanItemSummary>> watchPlanItems(String tripId) {
     return _db.watchTripPlanItems(tripId).map(
@@ -109,7 +133,7 @@ class PlanRepository {
   Map<String, dynamic> _planPayload(Map<String, dynamic> row) => row;
 
   Future<String> addPlanItem(PlanItemInput input) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = _currentUserId;
     if (userId == null) throw StateError('Must be signed in');
 
     final id = _uuid.v4();
@@ -296,7 +320,7 @@ class PlanRepository {
     required String listName,
     required String label,
   }) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = _currentUserId;
     if (userId == null) throw StateError('Must be signed in');
 
     final trimmedList = listName.trim();
@@ -344,7 +368,7 @@ class PlanRepository {
   }
 
   Future<void> toggleListItem(String id) async {
-    final userId = _client.auth.currentUser?.id;
+    final userId = _currentUserId;
     if (userId == null) throw StateError('Must be signed in');
 
     final existing = await (_db.select(_db.localTripListItems)
@@ -403,11 +427,12 @@ class PlanRepository {
     required String planItemId,
     required EventRsvpStatus status,
   }) async {
-    if (_client.auth.currentUser?.id == null) {
+    if (_currentUserId == null) {
       throw StateError('Must be signed in');
     }
 
-    await _client.rpc('set_event_rsvp', params: {
+    await _flushPendingPlanItem(planItemId);
+    await _rpc('set_event_rsvp', {
       'p_plan_item_id': planItemId,
       'p_status': status.name,
     });
@@ -425,11 +450,12 @@ class PlanRepository {
   }
 
   Future<void> clearEventRsvp({required String planItemId}) async {
-    if (_client.auth.currentUser?.id == null) {
+    if (_currentUserId == null) {
       throw StateError('Must be signed in');
     }
 
-    await _client.rpc('clear_event_rsvp', params: {
+    await _flushPendingPlanItem(planItemId);
+    await _rpc('clear_event_rsvp', {
       'p_plan_item_id': planItemId,
     });
     _analytics.capture(
@@ -450,7 +476,7 @@ class PlanRepository {
     Set<String> excludePlanIds = const {},
     Set<String> excludeListIds = const {},
   }) async {
-    if (_client.auth.currentUser?.id == null) return;
+    if (_currentUserId == null) return;
     final ids = tripIds.toList();
     if (ids.isEmpty) return;
 
@@ -568,6 +594,14 @@ class PlanRepository {
     if (value == null) return null;
     if (value is DateTime) return value.toUtc();
     return DateTime.tryParse(value as String)?.toUtc();
+  }
+
+  Future<void> _flushPendingPlanItem(String planItemId) async {
+    await _syncWorker.flush();
+    final pending = await _syncQueue.collectPendingEntityIds();
+    if (pending.planItemIds.contains(planItemId)) {
+      throw StateError('Plan item is still syncing');
+    }
   }
 }
 

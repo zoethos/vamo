@@ -112,14 +112,16 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
               TextField(
                 controller: _title,
                 readOnly: widget.readOnly,
-                decoration: InputDecoration(labelText: widget.labels.fieldTitle),
+                decoration:
+                    InputDecoration(labelText: widget.labels.fieldTitle),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: _notes,
                 readOnly: widget.readOnly,
                 maxLines: 3,
-                decoration: InputDecoration(labelText: widget.labels.fieldNotes),
+                decoration:
+                    InputDecoration(labelText: widget.labels.fieldNotes),
               ),
               const SizedBox(height: 8),
               ListTile(
@@ -136,7 +138,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                 trailing: const Icon(Icons.calendar_today_outlined),
                 onTap: widget.readOnly ? null : () => _pickDate(isStart: false),
               ),
-              if (_isActivity && widget.existing != null && eventView != null) ...[
+              if (_isActivity &&
+                  widget.existing != null &&
+                  eventView != null) ...[
                 const SizedBox(height: 12),
                 Text(
                   widget.labels.eventRsvpSection,
@@ -152,6 +156,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       widget.labels.rsvpSummary(
                         eventView.counts.going,
                         eventView.counts.maybe,
+                        eventView.counts.declined,
                       ),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.graphite,

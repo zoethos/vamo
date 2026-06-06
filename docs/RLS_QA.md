@@ -18,6 +18,16 @@ The script creates a throwaway trip, verifies member vs outsider access (includi
 
 Use this as the primary storage + RLS gate; manual steps below remain as an appendix.
 
+## Realtime / offline propagation
+
+For slices where one client writes and another client should see the result,
+direct RLS smoke is necessary but not sufficient. Add a propagation contract
+that mirrors the manual acceptance direction: writer creates the row, peer can
+read it, dependent actions read/write against that row, and the original writer
+can read the dependent row. Pair this with an app test that proves the remote
+pull reaches local Drift/providers/UI, because seeded Drift fixtures do not
+exercise the sync path.
+
 ## Setup
 
 1. Two test accounts: **Owner** (creates trip) and **Outsider** (not a member). The smoke script uses three users (A/B/C).

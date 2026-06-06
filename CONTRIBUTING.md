@@ -48,6 +48,12 @@ are few but enforced.
   calls prove the endpoint + secret path; invariants that need repeated states
   use deterministic stubs or service-role writers instead of hammering the
   upstream and burning quota.
+- **Realtime/offline slices need a propagation contract.** When one client
+  writes and another client should see it, tests must cover more than SQL/RLS:
+  prove remote data reaches local Drift, providers/UI render it, trip-scoped
+  bindings refresh on mount, unsubscribe on dispose, and refresh again on
+  remount. RLS smoke should mirror the user-facing direction from the manual
+  acceptance script; green direct SQL alone is not merge-ready.
 - **UI and SQL tests**: **Tests must assert the negative.** A UI/SQL test
   proves the control is hidden, the route bounces, the write is blocked, or
   the error path did not fire — not merely that a helper returns false or a

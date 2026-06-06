@@ -34,7 +34,11 @@ class PlanEventTile extends ConsumerWidget {
     final placeLabel = item.notes?.trim();
     final summary = view.counts.isEmpty
         ? null
-        : labels.rsvpSummary(view.counts.going, view.counts.maybe);
+        : labels.rsvpSummary(
+            view.counts.going,
+            view.counts.maybe,
+            view.counts.declined,
+          );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -75,9 +79,10 @@ class PlanEventTile extends ConsumerWidget {
                       if (dateLabel != null)
                         Text(
                           dateLabel,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.graphite,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.graphite,
+                                  ),
                         ),
                       if (placeLabel != null && placeLabel.isNotEmpty)
                         Text(
@@ -89,9 +94,10 @@ class PlanEventTile extends ConsumerWidget {
                           padding: const EdgeInsetsDirectional.only(top: 4),
                           child: Text(
                             summary,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppColors.graphite,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.graphite,
+                                    ),
                           ),
                         ),
                     ],
@@ -104,7 +110,8 @@ class PlanEventTile extends ConsumerWidget {
                       if (v == 'delete') onDelete();
                     },
                     itemBuilder: (ctx) => [
-                      PopupMenuItem(value: 'edit', child: Text(labels.editItem)),
+                      PopupMenuItem(
+                          value: 'edit', child: Text(labels.editItem)),
                       PopupMenuItem(
                         value: 'delete',
                         child: Text(labels.deleteItem),

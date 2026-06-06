@@ -97,7 +97,8 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
               screen: 'trip_home',
               icon: Icons.map_outlined,
               title: 'Trip not found',
-              subtitle: 'It may have been removed or you no longer have access.',
+              subtitle:
+                  'It may have been removed or you no longer have access.',
             ),
           );
         }
@@ -141,11 +142,13 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         final phase = resolveTripPhase(
           lifecycle: lifecycle,
           startDateIso: detail.startDate,
-          now: DateTime.now(), // local — date-only phase vs a date-only start (P1: UTC misclassified "today" near midnight)
+          now: DateTime
+              .now(), // local — date-only phase vs a date-only start (P1: UTC misclassified "today" near midnight)
         );
         final userId = ref.watch(authRepositoryProvider).currentUser?.id;
         final isOwner = userId != null && userId == detail.ownerId;
-        final myMember = ref.watch(tripMyMemberProvider(widget.tripId)).valueOrNull;
+        final myMember =
+            ref.watch(tripMyMemberProvider(widget.tripId)).valueOrNull;
         final menuActions = tripLifecycleMenuActions(
           phase: phase,
           isOwner: isOwner,
@@ -158,7 +161,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             leading: IconButton(
               icon: const Icon(Icons.arrow_back),
               tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              onPressed: () => context.pop(),
+              onPressed: () => _navigateBack(context),
             ),
             title: Text(detail.name),
             actions: [
@@ -255,6 +258,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       tripId: widget.tripId,
                       labels: widget.planLabels,
                       readOnly: readOnly,
+                      showInlineAddAction: false,
                     ),
                     if (showCapture) CaptureTab(tripId: widget.tripId),
                     if (showBalances)
@@ -292,7 +296,8 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                     }
                     context.push(AppRoutes.tripAddExpense(widget.tripId));
                   },
-                  icon: Icon(onMembersTab ? Icons.person_add_outlined : Icons.add),
+                  icon: Icon(
+                      onMembersTab ? Icons.person_add_outlined : Icons.add),
                   label: Text(
                     onPlanTab
                         ? widget.planLabels.addPlanItem
@@ -315,6 +320,21 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     final endDay = DateTime(parsed.year, parsed.month, parsed.day);
     final todayDay = DateTime(today.year, today.month, today.day);
     return endDay.isBefore(todayDay);
+  }
+
+  void _navigateBack(BuildContext context) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        router.go(AppRoutes.trips);
+      }
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
@@ -396,7 +416,8 @@ class _ExpensesTab extends ConsumerWidget {
             TripExpensesProposeAction(
               visible: canManageProposals,
               labels: governanceLabels,
-              onPressed: () => context.push(AppRoutes.tripProposeExpense(tripId)),
+              onPressed: () =>
+                  context.push(AppRoutes.tripProposeExpense(tripId)),
             ),
             Expanded(
               child: ListView.separated(
@@ -408,8 +429,8 @@ class _ExpensesTab extends ConsumerWidget {
                   if (e.status == ExpenseStatus.cancelled) {
                     return const SizedBox.shrink();
                   }
-                  final payer =
-                      nameByUserId[e.payerId] ?? governanceLabels.someoneFallback;
+                  final payer = nameByUserId[e.payerId] ??
+                      governanceLabels.someoneFallback;
                   final locale = Localizations.localeOf(context).toString();
                   return TripExpenseListTile(
                     description: e.description,

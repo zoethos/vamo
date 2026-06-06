@@ -347,8 +347,8 @@ class AppLocalizationsHi extends AppLocalizations {
   String get eventRsvpDeclined => 'Declined';
 
   @override
-  String eventRsvpSummary(int going, int maybe) {
-    return '$going going · $maybe maybe';
+  String eventRsvpSummary(int going, int maybe, int declined) {
+    return '$going going · $maybe maybe · $declined declined';
   }
 
   @override
@@ -357,6 +357,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get planEventRsvpSection => 'RSVP';
+
+  @override
+  String get eventRsvpUpdateFailed => 'Could not update RSVP. Try again.';
 
   @override
   String get activityEventCreatedSubtitle => 'Event added';

@@ -16,11 +16,13 @@ class PlanTab extends ConsumerStatefulWidget {
     required this.tripId,
     required this.labels,
     required this.readOnly,
+    this.showInlineAddAction = true,
   });
 
   final String tripId;
   final PlanTabLabels labels;
   final bool readOnly;
+  final bool showInlineAddAction;
 
   @override
   ConsumerState<PlanTab> createState() => PlanTabState();
@@ -76,7 +78,7 @@ class PlanTabState extends ConsumerState<PlanTab> {
                       title: widget.labels.emptyTitle,
                       subtitle: widget.labels.emptySubtitle,
                     ),
-                    if (!widget.readOnly) ...[
+                    if (!widget.readOnly && widget.showInlineAddAction) ...[
                       const SizedBox(height: 16),
                       FilledButton.icon(
                         onPressed: () => _openSheet(context, null),
@@ -92,7 +94,7 @@ class PlanTabState extends ConsumerState<PlanTab> {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (!widget.readOnly)
+                if (!widget.readOnly && widget.showInlineAddAction)
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: TextButton.icon(
@@ -277,7 +279,8 @@ class _PlanItemTile extends StatelessWidget {
                 },
                 itemBuilder: (ctx) => [
                   PopupMenuItem(value: 'edit', child: Text(labels.editItem)),
-                  PopupMenuItem(value: 'delete', child: Text(labels.deleteItem)),
+                  PopupMenuItem(
+                      value: 'delete', child: Text(labels.deleteItem)),
                 ],
               ),
         onTap: readOnly ? null : onEdit,

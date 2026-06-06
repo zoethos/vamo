@@ -39,9 +39,11 @@ final _planTabLabels = PlanTabLabels(
   rsvpGoing: 'Going',
   rsvpMaybe: 'Maybe',
   rsvpDeclined: 'Declined',
-  rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
+  rsvpSummary: (going, maybe, declined) =>
+      '$going going · $maybe maybe · $declined declined',
   eventRsvpHint: 'RSVP after save',
   eventRsvpSection: 'RSVP',
+  eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
 );
 
 void main() {
@@ -72,7 +74,7 @@ void main() {
   testWidgets('RSVP summary renders from aggregated counts', (tester) async {
     final db = await _seedEventPlan(withCounts: true);
     await _pumpPlanTab(tester, db: db, readOnly: false);
-    expect(find.text('3 going · 1 maybe'), findsOneWidget);
+    expect(find.text('3 going · 1 maybe · 1 declined'), findsOneWidget);
     expect(find.textContaining('4 going'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -80,7 +82,8 @@ void main() {
     await db.close();
   });
 
-  testWidgets('tapping selected RSVP chip withdraws via clearEventRsvp', (tester) async {
+  testWidgets('tapping selected RSVP chip withdraws via clearEventRsvp',
+      (tester) async {
     final db = await _seedEventPlan(myStatus: EventRsvpStatus.going);
     final client = SupabaseClient(
       'http://localhost',
@@ -140,6 +143,149 @@ void main() {
 
     expect(spy.clearCalls, 1);
     expect(spy.setCalls, 0);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await db.close();
+  });
+
+  testWidgets('tapping declined RSVP chip sets declined status',
+      (tester) async {
+    final db = await _seedEventPlan();
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final spy = _SpyPlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          analyticsProvider.overrideWithValue(DebugAnalytics()),
+          appDatabaseProvider.overrideWithValue(db),
+          supabaseClientProvider.overrideWithValue(client),
+          planRepositoryProvider.overrideWith((ref) => spy),
+          authRepositoryProvider.overrideWith(
+            (ref) => _StubAuthRepository(
+              User(
+                id: 'user-1',
+                appMetadata: const {},
+                userMetadata: const {},
+                aud: 'authenticated',
+                createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: PlanTab(
+              tripId: 'trip-1',
+              labels: _planTabLabels,
+              readOnly: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Declined'));
+    await tester.pumpAndSettle();
+
+    expect(spy.setCalls, 1);
+    expect(spy.clearCalls, 0);
+    expect(spy.lastSetStatus, EventRsvpStatus.declined);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await db.close();
+  });
+
+  testWidgets('failed RSVP update shows error and leaves chip unselected',
+      (tester) async {
+    final db = await _seedEventPlan();
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final spy = _SpyPlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+      setError: StateError('remote failed'),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          analyticsProvider.overrideWithValue(DebugAnalytics()),
+          appDatabaseProvider.overrideWithValue(db),
+          supabaseClientProvider.overrideWithValue(client),
+          planRepositoryProvider.overrideWith((ref) => spy),
+          authRepositoryProvider.overrideWith(
+            (ref) => _StubAuthRepository(
+              User(
+                id: 'user-1',
+                appMetadata: const {},
+                userMetadata: const {},
+                aud: 'authenticated',
+                createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
+              ),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: PlanTab(
+              tripId: 'trip-1',
+              labels: _planTabLabels,
+              readOnly: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Going'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(spy.setCalls, 1);
+    expect(find.text(_planTabLabels.eventRsvpUpdateFailed), findsOneWidget);
+    final chip = tester.widget<ChoiceChip>(
+      find.widgetWithText(ChoiceChip, 'Going'),
+    );
+    expect(chip.selected, isFalse);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -214,6 +360,15 @@ Future<AppDatabase> _seedEventPlan({
         planItemId: const Value('event-1'),
         userId: const Value('user-maybe'),
         status: const Value('maybe'),
+        respondedAt: Value(respondedAt),
+      ),
+    );
+    await db.upsertPlanItemRsvp(
+      LocalPlanItemRsvpsCompanion(
+        id: const Value('rsvp-declined'),
+        planItemId: const Value('event-1'),
+        userId: const Value('user-declined'),
+        status: const Value('declined'),
         respondedAt: Value(respondedAt),
       ),
     );
@@ -322,10 +477,13 @@ class _SpyPlanRepository extends PlanRepository {
     required super.analytics,
     required super.syncQueue,
     required super.syncWorker,
+    this.setError,
   });
 
   int clearCalls = 0;
   int setCalls = 0;
+  EventRsvpStatus? lastSetStatus;
+  final Object? setError;
 
   @override
   Future<void> clearEventRsvp({required String planItemId}) async {
@@ -338,5 +496,8 @@ class _SpyPlanRepository extends PlanRepository {
     required EventRsvpStatus status,
   }) async {
     setCalls++;
+    lastSetStatus = status;
+    final error = setError;
+    if (error != null) throw error;
   }
 }
