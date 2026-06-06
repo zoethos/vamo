@@ -19,6 +19,7 @@ import '../plan/plan_labels.dart';
 import '../plan/plan_tab.dart';
 import 'members_tab.dart';
 import 'trip_lifecycle_banner.dart';
+import 'trip_budget_labels.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
 
@@ -31,6 +32,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
     required this.inviteLabels,
     required this.planLabels,
     required this.governanceLabels,
+    required this.budgetLabels,
   });
 
   final String tripId;
@@ -40,6 +42,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
   final InviteLabels inviteLabels;
   final PlanTabLabels planLabels;
   final ExpenseGovernanceLabels governanceLabels;
+  final TripBudgetLabels budgetLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -122,6 +125,12 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             title: Text(detail.name),
             actions: [
               IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                tooltip: 'Trip settings',
+                onPressed: () =>
+                    context.push(AppRoutes.tripSettings(widget.tripId)),
+              ),
+              IconButton(
                 icon: const Icon(Icons.share_outlined),
                 tooltip: 'Share snapshot',
                 onPressed: () =>
@@ -175,6 +184,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       baseCurrency: detail.baseCurrency,
                       readOnly: readOnly,
                       governanceLabels: widget.governanceLabels,
+                      budgetLabels: widget.budgetLabels,
                     ),
                     PlanTab(
                       tripId: widget.tripId,
@@ -229,12 +239,14 @@ class _ExpensesTab extends ConsumerWidget {
     required this.baseCurrency,
     required this.readOnly,
     required this.governanceLabels,
+    required this.budgetLabels,
   });
 
   final String tripId;
   final String baseCurrency;
   final bool readOnly;
   final ExpenseGovernanceLabels governanceLabels;
+  final TripBudgetLabels budgetLabels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -336,6 +348,7 @@ class _ExpensesTab extends ConsumerWidget {
                       ref: ref,
                       expense: e,
                       labels: governanceLabels,
+                      budgetLabels: budgetLabels,
                       readOnly: readOnly,
                       canManageProposals: canManageProposals,
                     ),

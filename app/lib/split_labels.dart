@@ -119,6 +119,35 @@ class SplitLabels {
         splitSolo: l10n.expenseSplitSolo,
       );
 
+  static TripBudgetLabels budget(AppLocalizations l10n) => TripBudgetLabels(
+        settingsTitle: l10n.tripSettingsTitle,
+        budgetSectionTitle: l10n.tripBudgetSectionTitle,
+        budgetModeNone: l10n.tripBudgetModeNone,
+        budgetModeInformational: l10n.tripBudgetModeInformational,
+        budgetModeFormal: l10n.tripBudgetModeFormal,
+        budgetAmountLabel: l10n.tripBudgetAmountLabel,
+        saveBudget: l10n.tripBudgetSave,
+        burnDownRemaining: (remainingCents, currency) =>
+            l10n.tripBudgetRemaining(
+          formatMoneyFromCents(remainingCents, currency),
+          currency,
+        ),
+        burnDownOver: (currency) => l10n.tripBudgetOver(currency),
+        fxSectionTitle: l10n.tripFxSectionTitle,
+        fxAddCurrency: l10n.tripFxAddCurrency,
+        fxRefresh: l10n.tripFxRefresh,
+        fxCapturedAt: l10n.tripFxCapturedAt,
+        fxSource: l10n.tripFxSource,
+        fxRateReadOnly: l10n.tripFxRateReadOnly,
+        overBudgetCommitTitle: l10n.tripOverBudgetCommitTitle,
+        overBudgetCommitBody: l10n.tripOverBudgetCommitBody,
+        overBudgetConfirmHint: l10n.tripOverBudgetConfirmHint,
+        overBudgetConfirmPhrase: l10n.tripOverBudgetConfirmPhrase,
+        confirm: l10n.tripBudgetConfirm,
+        cancel: l10n.tripBudgetCancel,
+        currencyMissingAdmin: l10n.tripCurrencyMissingAdmin,
+      );
+
   static InviteLabels invite(AppLocalizations l10n) => InviteLabels(
         showQr: l10n.inviteShowQr,
         scanQr: l10n.inviteScanQr,

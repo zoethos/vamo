@@ -172,5 +172,48 @@
       }
     }
   },
-  "expenseSplitSolo": "All on you (solo)"
+  "expenseSplitSolo": "All on you (solo)",
+  "tripSettingsTitle": "Trip settings",
+  "tripBudgetSectionTitle": "Budget",
+  "tripBudgetModeNone": "No budget",
+  "tripBudgetModeInformational": "Informational burn-down",
+  "tripBudgetModeFormal": "Formal (over-budget flag)",
+  "tripBudgetAmountLabel": "Budget amount",
+  "tripBudgetSave": "Save budget",
+  "tripBudgetRemaining": "{amount} left in {currency}",
+  "@tripBudgetRemaining": {
+    "placeholders": {
+      "amount": { "type": "String" },
+      "currency": { "type": "String" }
+    }
+  },
+  "tripBudgetOver": "Over budget ({currency})",
+  "@tripBudgetOver": {
+    "placeholders": {
+      "currency": { "type": "String" }
+    }
+  },
+  "tripFxSectionTitle": "Trip exchange rates",
+  "tripFxAddCurrency": "Add currency",
+  "tripFxRefresh": "Refresh rate",
+  "tripFxCapturedAt": "Captured {capturedAt}",
+  "@tripFxCapturedAt": {
+    "placeholders": {
+      "capturedAt": { "type": "String" }
+    }
+  },
+  "tripFxSource": "Source",
+  "tripFxRateReadOnly": "Rates are captured from the market — not editable",
+  "tripOverBudgetCommitTitle": "Commit over budget?",
+  "tripOverBudgetCommitBody": "This commit would exceed the formal trip budget. You can still proceed after confirming.",
+  "tripOverBudgetConfirmHint": "Type {phrase} to confirm",
+  "@tripOverBudgetConfirmHint": {
+    "placeholders": {
+      "phrase": { "type": "String" }
+    }
+  },
+  "tripOverBudgetConfirmPhrase": "OVER BUDGET",
+  "tripBudgetConfirm": "Confirm",
+  "tripBudgetCancel": "Cancel",
+  "tripCurrencyMissingAdmin": "Ask an admin to add this currency in trip settings"
 }

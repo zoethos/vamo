@@ -42,6 +42,8 @@ class ExpensesRepository {
   final AppDatabase _db;
   final SupabaseClient _client;
   final Analytics _analytics;
+  // Kept for provider wiring; expense writes use trip constant-rate table (S20).
+  // ignore: unused_field
   final FxRatesClient _fxRates;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
@@ -216,15 +218,15 @@ class ExpensesRepository {
 
     double fxRate = 1.0;
     var baseCents = input.amountCents;
-    var fxStale = false;
     if (expenseCurrency != tripBase) {
-      final snapshot = await _fxRates.fetchForBase(tripBase);
-      fxStale = snapshot.isStale;
-      fxRate = snapshot.rateExpenseToBase(expenseCurrency);
-      baseCents = snapshot.toBaseCents(
-        amountCents: input.amountCents,
+      final resolved = await _resolveTripFxRate(
+        tripId: input.tripId,
         expenseCurrency: expenseCurrency,
+        tripBase: tripBase,
+        amountCents: input.amountCents,
       );
+      fxRate = resolved.fxRate;
+      baseCents = resolved.baseCents;
     }
 
     final shareLines = equalSplit(
@@ -369,7 +371,6 @@ class ExpensesRepository {
         'fx_rate': fxRate,
         'has_receipt': receiptPath != null,
         'ocr_used': input.ocrUsed,
-        if (fxStale) 'fx_stale': true,
       },
     );
 
@@ -526,6 +527,44 @@ class ExpensesRepository {
     if (value is DateTime) return value.toUtc();
     return DateTime.tryParse(value as String)?.toUtc();
   }
+
+  Future<({double fxRate, int baseCents})> _resolveTripFxRate({
+    required String tripId,
+    required String expenseCurrency,
+    required String tripBase,
+    required int amountCents,
+  }) async {
+    final expense = expenseCurrency.toUpperCase();
+    final base = tripBase.toUpperCase();
+    if (expense == base) {
+      return (fxRate: 1.0, baseCents: amountCents);
+    }
+    final row = await (_db.select(_db.localTripFxRates)
+          ..where((r) => r.tripId.equals(tripId))
+          ..where((r) => r.currency.equals(expense)))
+        .getSingleOrNull();
+    if (row == null) {
+      throw StateError('Trip FX rate missing for $expense');
+    }
+    final baseCents = convertExpenseCentsToBase(
+      amountCents: amountCents,
+      fxRate: row.rate,
+    );
+    return (fxRate: row.rate, baseCents: baseCents);
+  }
+
+  Future<({double fxRate, int baseCents})> resolveTripFxRateForExpense({
+    required String tripId,
+    required String expenseCurrency,
+    required String tripBase,
+    required int amountCents,
+  }) =>
+      _resolveTripFxRate(
+        tripId: tripId,
+        expenseCurrency: expenseCurrency,
+        tripBase: tripBase,
+        amountCents: amountCents,
+      );
 
   Future<String> proposeExpense({
     required String tripId,

@@ -136,6 +136,20 @@ melos run ci
 
 Born-committed logging still uses **Add expense** (offline-first outbox). Governance RPCs (`propose_expense`, `commit_expense`, `void_expense`, `respond_to_share`) require connectivity — no outbox queue.
 
+## Slice 20 — money governance II (R6, Wave 2)
+
+Contract: `docs/design/MONEY_GOVERNANCE.md` D3 + D4 + A3 · workflow note: `docs/workflows/budget-fx.md`
+
+```bash
+supabase db push   # applies 0019_budget_and_fx.sql
+dart run tool/rls_smoke.dart   # budget/FX role gates + forward-only FX + over-budget commit
+melos run ci
+```
+
+**Demo:** trip settings → set formal budget → capture USD rate (market, read-only) → refresh rate → existing expense `fx_rate` unchanged → propose over-budget cost → typed confirm on commit → DB still accepts.
+
+Trusted capture: client sends **trip + currency only** — never a rate number. Refresh is forward-only (D4).
+
 ### vamo.world site (`web/apps/site`)
 
 Public Next.js on Vercel: landing, `/privacy`, `/terms`, `/j/[token]` redirect, `/.well-known/assetlinks.json`.

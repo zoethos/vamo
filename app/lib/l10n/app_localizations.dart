@@ -854,6 +854,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'All on you (solo)'**
   String get expenseSplitSolo;
+
+  /// No description provided for @tripSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip settings'**
+  String get tripSettingsTitle;
+
+  /// No description provided for @tripBudgetSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get tripBudgetSectionTitle;
+
+  /// No description provided for @tripBudgetModeNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No budget'**
+  String get tripBudgetModeNone;
+
+  /// No description provided for @tripBudgetModeInformational.
+  ///
+  /// In en, this message translates to:
+  /// **'Informational burn-down'**
+  String get tripBudgetModeInformational;
+
+  /// No description provided for @tripBudgetModeFormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Formal (over-budget flag)'**
+  String get tripBudgetModeFormal;
+
+  /// No description provided for @tripBudgetAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget amount'**
+  String get tripBudgetAmountLabel;
+
+  /// No description provided for @tripBudgetSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save budget'**
+  String get tripBudgetSave;
+
+  /// No description provided for @tripBudgetRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} left in {currency}'**
+  String tripBudgetRemaining(String amount, String currency);
+
+  /// No description provided for @tripBudgetOver.
+  ///
+  /// In en, this message translates to:
+  /// **'Over budget ({currency})'**
+  String tripBudgetOver(String currency);
+
+  /// No description provided for @tripFxSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip exchange rates'**
+  String get tripFxSectionTitle;
+
+  /// No description provided for @tripFxAddCurrency.
+  ///
+  /// In en, this message translates to:
+  /// **'Add currency'**
+  String get tripFxAddCurrency;
+
+  /// No description provided for @tripFxRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh rate'**
+  String get tripFxRefresh;
+
+  /// No description provided for @tripFxCapturedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Captured {capturedAt}'**
+  String tripFxCapturedAt(String capturedAt);
+
+  /// No description provided for @tripFxSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get tripFxSource;
+
+  /// No description provided for @tripFxRateReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Rates are captured from the market — not editable'**
+  String get tripFxRateReadOnly;
+
+  /// No description provided for @tripOverBudgetCommitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Commit over budget?'**
+  String get tripOverBudgetCommitTitle;
+
+  /// No description provided for @tripOverBudgetCommitBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This commit would exceed the formal trip budget. You can still proceed after confirming.'**
+  String get tripOverBudgetCommitBody;
+
+  /// No description provided for @tripOverBudgetConfirmHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type {phrase} to confirm'**
+  String tripOverBudgetConfirmHint(String phrase);
+
+  /// No description provided for @tripOverBudgetConfirmPhrase.
+  ///
+  /// In en, this message translates to:
+  /// **'OVER BUDGET'**
+  String get tripOverBudgetConfirmPhrase;
+
+  /// No description provided for @tripBudgetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get tripBudgetConfirm;
+
+  /// No description provided for @tripBudgetCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get tripBudgetCancel;
+
+  /// No description provided for @tripCurrencyMissingAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask an admin to add this currency in trip settings'**
+  String get tripCurrencyMissingAdmin;
 }
 
 class _AppLocalizationsDelegate

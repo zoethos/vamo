@@ -92,14 +92,14 @@ definition) + pass-through flags. Share invariant untouched.
   role grants. Co-admin: edit trip, create/commit/cancel proposals, manage
   budget + FX table. Member: log own (born-committed) expenses, respond
   accept/reject, view everything.
-- Budget mode is a trip setting chosen by the owner and visible to all:
+- Budget mode is a trip setting managed by owner/co-admin and visible to all:
   **informational** (burn-down only) or **formal** (proposals exceeding
   remaining budget are flagged prominently — still not blocked; D2 rules).
 
 ## D4 — FX policy: constant market rate, never arbitrary (founder)
 
 - When a currency is added to a trip, its rate is captured from the market
-  reference (existing daily-cache infra) and becomes the trip's **constant
+  reference (server-side FX infra) and becomes the trip's **constant
   rate** for that currency.
 - Admins may **refresh** a rate mid-trip — refresh = re-capture from the
   market reference at that moment. **No manual rate entry, ever** (corporate
@@ -112,6 +112,21 @@ definition) + pass-through flags. Share invariant untouched.
   detected currency simply resolves against the trip's constant table, and
   a currency not yet in the table prompts an admin-visible "add currency"
   (captured at market, per above).
+
+**Scope boundary (clarified 2026-06-05, post-S20):** D4's "no manual rate,
+ever" governs the **trip constant table** (`trip_fx_rates`) — populated only
+by trusted server capture, never a client-typed number. This is distinct from
+the **per-expense `fx_rate` snapshot**, which is **A4** (on-device rate at
+creation, carried in the offline outbox for honest history). A client sending
+`fx_rate` on an expense is A4 by design, not a D4 breach; a dishonest
+per-expense rate is caught by the same consent/dispute machinery as a
+dishonest amount. **Open follow-up (S20 built the table, nothing consumes it
+yet):** converge new-expense `base_cents` to derive from the constant table
+(the "resolves against the trip's constant table" clause) so the client stops
+being the rate authority for in-table currencies. Until then expenses keep
+using their A4 snapshot. Second follow-up: retire the in-DB `http` fetch in
+favor of the `fx-rates` Edge Function (duplicate rebase math + blocking-RPC
+risk) before public launch.
 
 ## D5 — reconciliation: report-only at close (agreed)
 

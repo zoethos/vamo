@@ -39,6 +39,22 @@ are few but enforced.
 - Schema changes only as numbered files in `supabase/migrations/`, applied
   with `supabase db push`.
 
+## Testing
+
+- **RLS smoke** (`tool/rls_smoke.dart`): cases are state-based — **no error ≠
+  it worked**. Assert the post-condition (row absent, lifecycle unchanged, write
+  blocked), not merely that the RPC didn't throw.
+- **UI and SQL tests**: **Tests must assert the negative.** A UI/SQL test
+  proves the control is hidden, the route bounces, the write is blocked, or
+  the error path did not fire — not merely that a helper returns false or a
+  mock was called once. "CI green" only counts when the test would fail if the
+  guard were removed.
+- **`SECURITY DEFINER` re-checks membership.** A definer function bypasses RLS,
+  so any definer reader/aggregate granted to `authenticated` MUST re-check
+  `is_trip_member` (or tighter) internally — otherwise it leaks other trips'
+  data. Every definer reader gets an outsider-blocked smoke case. (S20 caught a
+  spend-totals leak from a definer aggregate that skipped this.)
+
 ## Run shortcuts
 
 ```

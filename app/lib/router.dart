@@ -164,9 +164,23 @@ final routerProvider = Provider<GoRouter>((ref) {
             inviteLabels: SplitLabels.invite(l10n),
             planLabels: SplitLabels.plan(l10n),
             governanceLabels: SplitLabels.governance(l10n),
+            budgetLabels: SplitLabels.budget(l10n),
           );
         },
         routes: [
+          GoRoute(
+            path: 'settings',
+            name: 'trip_settings',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripSettingsScreen(
+                tripId: id,
+                labels: SplitLabels.budget(l10n),
+              );
+            },
+          ),
           GoRoute(
             path: 'expenses/new',
             name: 'add_expense',

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../trips/trips_providers.dart';
 import 'expense_governance.dart';
 import 'expense_governance_labels.dart';
 import 'expense_models.dart';
@@ -19,7 +20,6 @@ import 'receipt_metadata.dart';
 import 'receipt_ocr.dart';
 import 'receipt_ocr_form_prefill.dart';
 import '../places/places_repository.dart';
-import '../trips/trips_providers.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
 class AddExpenseScreen extends ConsumerStatefulWidget {
@@ -95,25 +95,24 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
     setState(() => _previewLoading = true);
     try {
-      final snapshot =
-          await ref.read(fxRatesClientProvider).fetchForBase(tripBase);
-      final baseCents = snapshot.toBaseCents(
-        amountCents: cents,
-        expenseCurrency: expense,
-      );
+      final resolved = await ref
+          .read(expensesRepositoryProvider)
+          .resolveTripFxRateForExpense(
+            tripId: widget.tripId,
+            expenseCurrency: expense,
+            tripBase: tripBase,
+            amountCents: cents,
+          );
       if (!mounted) return;
       setState(() {
-        final amount =
-            formatMoneyFromCents(baseCents, tripBase);
-        _fxPreview = snapshot.isStale
-            ? '≈ $amount (rate may be stale)'
-            : '≈ $amount in trip currency';
+        final amount = formatMoneyFromCents(resolved.baseCents, tripBase);
+        _fxPreview = '≈ $amount in trip currency';
         _previewLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _fxPreview = 'Could not load FX rate';
+        _fxPreview = 'Add this currency in trip settings first';
         _previewLoading = false;
       });
     }
@@ -173,6 +172,14 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             final labels = widget.labels;
             final splitLabel = labels.splitLabel(memberList.length);
             final isPropose = widget.mode == AddExpenseMode.proposed;
+            final fxRows =
+                ref.watch(tripFxRatesProvider(widget.tripId)).valueOrNull ??
+                    [];
+            final availableCurrencies = {
+              tripBase.toUpperCase(),
+              ...fxRows.map((r) => r.currency.toUpperCase()),
+            }.toList()
+              ..sort();
 
             if (isPropose) {
               final currentUserId = ref.watch(currentUserProvider)?.id;
@@ -238,7 +245,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       decoration: const InputDecoration(
                         labelText: 'Spent in',
                       ),
-                      items: _currencies
+                      items: availableCurrencies
                           .map(
                             (c) => DropdownMenuItem(
                               value: c,
@@ -637,13 +644,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       double fxRate = 1.0;
       var baseCents = cents;
       if (_expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase()) {
-        final snapshot =
-            await ref.read(fxRatesClientProvider).fetchForBase(tripBaseCurrency);
-        fxRate = snapshot.rateExpenseToBase(_expenseCurrency);
-        baseCents = snapshot.toBaseCents(
-          amountCents: cents,
-          expenseCurrency: _expenseCurrency,
-        );
+        final resolved = await ref
+            .read(expensesRepositoryProvider)
+            .resolveTripFxRateForExpense(
+              tripId: widget.tripId,
+              expenseCurrency: _expenseCurrency,
+              tripBase: tripBaseCurrency,
+              amountCents: cents,
+            );
+        fxRate = resolved.fxRate;
+        baseCents = resolved.baseCents;
       }
 
       if (widget.mode == AddExpenseMode.proposed) {

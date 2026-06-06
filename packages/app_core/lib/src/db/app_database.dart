@@ -18,6 +18,7 @@ part 'app_database.g.dart';
   LocalPlaces,
   LocalPlanItems,
   LocalTripListItems,
+  LocalTripFxRates,
   LocalSyncOutbox,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -27,7 +28,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -35,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
-          if (from < 2) {
+          if (from < 2 && to >= 2) {
             await m.createTable(localExpenses);
             await m.createTable(localExpenseShares);
             await m.addColumn(
@@ -43,31 +44,31 @@ class AppDatabase extends _$AppDatabase {
               localTripMembers.displayName,
             );
           }
-          if (from < 3) {
+          if (from < 3 && to >= 3) {
             await m.createTable(localSettlements);
           }
-          if (from < 4) {
+          if (from < 4 && to >= 4) {
             await m.createTable(localTripNotes);
             await m.createTable(localTripPhotos);
           }
-          if (from < 5) {
+          if (from < 5 && to >= 5) {
             await m.createTable(localSyncOutbox);
           }
-          if (from < 6) {
+          if (from < 6 && to >= 6) {
             await m.addColumn(localExpenses, localExpenses.receiptPath);
             await m.addColumn(localExpenses, localExpenses.localReceiptPath);
             await m.addColumn(localExpenses, localExpenses.capturedLat);
             await m.addColumn(localExpenses, localExpenses.capturedLng);
             await m.addColumn(localExpenses, localExpenses.capturedAt);
           }
-          if (from < 7) {
+          if (from < 7 && to >= 7) {
             await m.addColumn(localExpenses, localExpenses.placeLabel);
           }
-          if (from < 8) {
+          if (from < 8 && to >= 8) {
             await m.createTable(localPlaces);
             await m.addColumn(localExpenses, localExpenses.placeId);
           }
-          if (from < 9) {
+          if (from < 9 && to >= 9) {
             await m.addColumn(localTrips, localTrips.lifecycle);
             await m.addColumn(localTrips, localTrips.closeRequestedAt);
             await m.addColumn(
@@ -87,11 +88,11 @@ class AppDatabase extends _$AppDatabase {
               localTripMembers.closeObjectionReason,
             );
           }
-          if (from < 10) {
+          if (from < 10 && to >= 10) {
             await m.createTable(localPlanItems);
             await m.createTable(localTripListItems);
           }
-          if (from < 11) {
+          if (from < 11 && to >= 11) {
             await m.addColumn(localExpenses, localExpenses.status);
             await m.addColumn(localExpenseShares, localExpenseShares.response);
             await m.addColumn(
@@ -102,6 +103,11 @@ class AppDatabase extends _$AppDatabase {
               localExpenseShares,
               localExpenseShares.respondedAt,
             );
+          }
+          if (from < 12 && to >= 12) {
+            await m.addColumn(localTrips, localTrips.budgetMode);
+            await m.addColumn(localTrips, localTrips.budgetCents);
+            await m.createTable(localTripFxRates);
           }
         },
       );
@@ -233,6 +239,29 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertTrip(LocalTripsCompanion trip) {
     return into(localTrips).insertOnConflictUpdate(trip);
+  }
+
+  Stream<List<LocalTripFxRate>> watchTripFxRates(String tripId) {
+    return (select(localTripFxRates)
+          ..where((r) => r.tripId.equals(tripId))
+          ..orderBy([(r) => OrderingTerm.asc(r.currency)]))
+        .watch();
+  }
+
+  Future<void> upsertTripFxRate(LocalTripFxRatesCompanion row) {
+    return into(localTripFxRates).insertOnConflictUpdate(row);
+  }
+
+  Future<void> pruneTripFxRates(String tripId, Set<String> remoteIds) async {
+    final local = await (select(localTripFxRates)
+          ..where((r) => r.tripId.equals(tripId)))
+        .get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id)) {
+        await (delete(localTripFxRates)..where((r) => r.id.equals(row.id)))
+            .go();
+      }
+    }
   }
 
   Future<void> upsertMember(LocalTripMembersCompanion member) {
@@ -419,6 +448,7 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
+    await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId))).go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();
     await (delete(localTrips)..where((t) => t.id.equals(tripId))).go();

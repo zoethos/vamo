@@ -8,6 +8,8 @@ class TripSummary {
     this.endDate,
     required this.baseCurrency,
     this.lifecycle = 'active',
+    this.budgetMode = 'none',
+    this.budgetCents,
   });
 
   final String id;
@@ -17,6 +19,8 @@ class TripSummary {
   final String? endDate;
   final String baseCurrency;
   final String lifecycle;
+  final String budgetMode;
+  final int? budgetCents;
 }
 
 /// Trip home header fields.
@@ -31,6 +35,8 @@ class TripDetail {
     required this.ownerId,
     this.lifecycle = 'active',
     this.closeRequestedAt,
+    this.budgetMode = 'none',
+    this.budgetCents,
   });
 
   final String id;
@@ -42,6 +48,8 @@ class TripDetail {
   final String ownerId;
   final String lifecycle;
   final DateTime? closeRequestedAt;
+  final String budgetMode;
+  final int? budgetCents;
 }
 
 class CreateTripInput {
