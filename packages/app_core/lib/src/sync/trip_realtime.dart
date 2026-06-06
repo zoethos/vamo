@@ -21,7 +21,7 @@ class TripRealtimeSubscriber {
     }
 
     final channel = _client.channel('trip:$tripId');
-    for (final table in _tablesWithTripId) {
+    for (final table in tablesFilteredByTripId) {
       channel.onPostgresChanges(
         event: PostgresChangeEvent.all,
         schema: 'public',
@@ -64,11 +64,13 @@ class TripRealtimeSubscriber {
     }
   }
 
-  static const _tablesWithTripId = [
+  static const tablesFilteredByTripId = [
     'expenses', // also receives touch updates from respond_to_share (S19 rule 4)
     'settlements',
     'trip_members',
     'trip_notes',
     'trip_photos',
+    'trip_plan_items', // also receives touch updates from set/clear_event_rsvp (S21)
+    'trip_list_items',
   ];
 }

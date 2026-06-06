@@ -176,6 +176,18 @@ class LocalTripListItems extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// S21 — event RSVP rows (mirrors trip_plan_item_rsvps).
+class LocalPlanItemRsvps extends Table {
+  TextColumn get id => text()();
+  TextColumn get planItemId => text()();
+  TextColumn get userId => text()();
+  TextColumn get status => text()();
+  DateTimeColumn get respondedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 /// S20 — per-trip constant FX rates (D4).
 class LocalTripFxRates extends Table {
   TextColumn get id => text()();

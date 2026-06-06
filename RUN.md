@@ -163,6 +163,18 @@ melos run ci
 
 Trusted capture: client sends **trip + currency only** — never a rate number. Refresh is forward-only (D4).
 
+## Slice 21 — EventList + RSVP + Activity enrichment (R8, Wave 2)
+
+Spec: `docs/slices/S21_PROMPT.md` · depends on S18 plan items (`kind=activity` events).
+
+```bash
+supabase db push   # applies 0022 + 0023 + 0024_event_rsvp_cascade_guard.sql
+dart run tool/rls_smoke.dart   # incl. cascade delete + owner trips DELETE no-op
+melos run ci
+```
+
+**Demo:** Plan tab → add **Activity** event → two devices tap Going / Maybe → summary counts update **without manual refresh** (realtime via parent touch) → Activity tab shows localized RSVP labels → tap selected chip to withdraw → close trip → RSVP frozen.
+
 ### vamo.world site (`web/apps/site`)
 
 Public Next.js on Vercel: landing, `/privacy`, `/terms`, `/j/[token]` redirect, `/.well-known/assetlinks.json`.

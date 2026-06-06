@@ -57,6 +57,8 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.mistGray,
+        labelStyle: const TextStyle(color: AppColors.graphite),
+        floatingLabelStyle: const TextStyle(color: AppColors.ink),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,

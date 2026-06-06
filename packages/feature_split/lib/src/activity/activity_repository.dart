@@ -17,6 +17,8 @@ Stream<List<ActivityItem>> _activityFeedStream(AppDatabase db) async* {
     db.watchAllExpenses().listen((_) => refresh.add(null)),
     db.watchAllSettlements().listen((_) => refresh.add(null)),
     db.watchAllTrips().listen((_) => refresh.add(null)),
+    db.select(db.localPlanItems).watch().listen((_) => refresh.add(null)),
+    db.select(db.localPlanItemRsvps).watch().listen((_) => refresh.add(null)),
   ];
   try {
     await for (final _ in refresh.stream) {
@@ -66,7 +68,40 @@ Future<List<ActivityItem>> _buildFeed(AppDatabase db) async {
     );
   }
 
-  // Member-joined events omitted until joined_at is mirrored locally (v1).
+  final planItems = await db.select(db.localPlanItems).get();
+  final planById = {for (final p in planItems) p.id: p};
+  for (final p in planItems) {
+    if (p.kind != 'activity') continue;
+    items.add(
+      ActivityItem(
+        id: 'event_created_${p.id}',
+        tripId: p.tripId,
+        tripName: tripNames[p.tripId] ?? 'Trip',
+        kind: ActivityKind.eventCreated,
+        title: p.title,
+        subtitle: 'Event added',
+        occurredAt: p.createdAt,
+      ),
+    );
+  }
+
+  final rsvps = await db.select(db.localPlanItemRsvps).get();
+  for (final r in rsvps) {
+    final plan = planById[r.planItemId];
+    if (plan == null || plan.kind != 'activity') continue;
+    items.add(
+      ActivityItem(
+        id: 'event_rsvp_${r.id}_${r.respondedAt.millisecondsSinceEpoch}',
+        tripId: plan.tripId,
+        tripName: tripNames[plan.tripId] ?? 'Trip',
+        kind: ActivityKind.eventRsvp,
+        title: plan.title,
+        subtitle: r.status,
+        occurredAt: r.respondedAt,
+        rsvpStatus: r.status,
+      ),
+    );
+  }
 
   items.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
   return items;

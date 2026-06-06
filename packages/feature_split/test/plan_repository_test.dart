@@ -1,8 +1,11 @@
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
+import 'package:feature_split/src/plan/event_rsvp_models.dart';
 import 'package:feature_split/src/plan/plan_models.dart';
+import 'package:feature_split/src/plan/plan_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   late AppDatabase db;
@@ -132,5 +135,97 @@ void main() {
     );
     row = await db.watchTripListItems(tripId).first;
     expect(row.single.checkedBy, isNull);
+  });
+
+  test('setEventRsvp flushes pending plan item before RPC', () async {
+    final calls = <String>[];
+    const planItemId = 'event-1';
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    await queue.enqueue(
+      kind: SyncKind.planItemUpsert,
+      payload: {'id': planItemId},
+    );
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        calls.add('flush:${op.kind}');
+      },
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+      rpcOverride: (functionName, params) async {
+        calls.add('rpc:$functionName:${params['p_plan_item_id']}');
+      },
+    );
+
+    await repo.setEventRsvp(
+      planItemId: planItemId,
+      status: EventRsvpStatus.going,
+    );
+
+    expect(calls, [
+      'flush:plan_item_upsert',
+      'rpc:set_event_rsvp:$planItemId',
+    ]);
+  });
+
+  test('setEventRsvp fails before RPC when target plan item stays pending',
+      () async {
+    final calls = <String>[];
+    const planItemId = 'event-1';
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    await queue.enqueue(
+      kind: SyncKind.planItemUpsert,
+      payload: {'id': planItemId},
+    );
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        calls.add('flush:${op.kind}');
+        throw StateError('still offline');
+      },
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+      rpcOverride: (functionName, params) async {
+        calls.add('rpc:$functionName');
+      },
+    );
+
+    await expectLater(
+      repo.setEventRsvp(
+        planItemId: planItemId,
+        status: EventRsvpStatus.going,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(calls, ['flush:plan_item_upsert']);
   });
 }

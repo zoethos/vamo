@@ -38,6 +38,7 @@ export 'src/expenses/receipt_ocr_backfill.dart';
 export 'src/places/place_geocode.dart';
 export 'src/places/place_resolve.dart';
 export 'src/places/places_repository.dart';
+export 'src/plan/event_rsvp_models.dart';
 export 'src/plan/plan_labels.dart';
 export 'src/plan/plan_models.dart';
 export 'src/plan/plan_providers.dart';

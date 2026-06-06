@@ -681,6 +681,12 @@ abstract class AppLocalizations {
   /// **'Title'**
   String get planFieldTitle;
 
+  /// No description provided for @planFieldKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get planFieldKind;
+
   /// No description provided for @planFieldNotes.
   ///
   /// In en, this message translates to:
@@ -716,6 +722,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load checklists.'**
   String get planChecklistsLoadError;
+
+  /// No description provided for @eventRsvpGoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Going'**
+  String get eventRsvpGoing;
+
+  /// No description provided for @eventRsvpMaybe.
+  ///
+  /// In en, this message translates to:
+  /// **'Maybe'**
+  String get eventRsvpMaybe;
+
+  /// No description provided for @eventRsvpDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Declined'**
+  String get eventRsvpDeclined;
+
+  /// No description provided for @eventRsvpSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{going} going · {maybe} maybe · {declined} declined'**
+  String eventRsvpSummary(int going, int maybe, int declined);
+
+  /// No description provided for @planEventRsvpHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After you save, you and other Vamigos can RSVP on the plan board.'**
+  String get planEventRsvpHint;
+
+  /// No description provided for @planEventRsvpSection.
+  ///
+  /// In en, this message translates to:
+  /// **'RSVP'**
+  String get planEventRsvpSection;
+
+  /// No description provided for @eventRsvpUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update RSVP. Try again.'**
+  String get eventRsvpUpdateFailed;
+
+  /// No description provided for @activityEventCreatedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Event added'**
+  String get activityEventCreatedSubtitle;
+
+  /// No description provided for @activityEventRsvpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'RSVP: {status}'**
+  String activityEventRsvpSubtitle(String status);
 
   /// No description provided for @expenseIncludedDisputedBy.
   ///

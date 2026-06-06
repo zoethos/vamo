@@ -45,8 +45,11 @@ String actionFailureUserMessage(Object error) {
 
 String _authUserMessage(AuthException error) {
   final code = error.code?.toLowerCase() ?? '';
+  if (code == 'otp_expired') {
+    return 'That code expired — tap Send me a new code.';
+  }
   if (_otpAuthCodes.contains(code) || code.contains('otp')) {
-    return "That code didn't match — try again";
+    return "That code didn't match — check it and re-enter, or resend.";
   }
   if (_flowStateAuthCodes.contains(code) ||
       error.message.toLowerCase().contains('flow state')) {
@@ -65,6 +68,12 @@ String formatActionFailureMessage(Object error) {
 
 String? _debugFailureSuffix(Object error) {
   if (!kDebugMode) return null;
+  if (error is AuthException) {
+    final code = error.code?.toLowerCase() ?? '';
+    if (_otpAuthCodes.contains(code) || code.contains('otp')) {
+      return null;
+    }
+  }
   final code = sanitizeActionFailureCode(error);
   if (code.toUpperCase().contains('PGRST') ||
       code.toLowerCase().contains('postgrest')) {

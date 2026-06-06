@@ -56,8 +56,13 @@ class TripHomeScreen extends ConsumerStatefulWidget {
 
 class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     with SingleTickerProviderStateMixin {
+  static const _expensesTabIndex = 0;
+  static const _planTabIndex = 1;
+
   TabController? _tabController;
   bool _initialTabApplied = false;
+  final _planTabKey = GlobalKey<PlanTabState>();
+  final _membersTabKey = GlobalKey<MembersTabState>();
 
   @override
   void dispose() {
@@ -92,7 +97,8 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
               screen: 'trip_home',
               icon: Icons.map_outlined,
               title: 'Trip not found',
-              subtitle: 'It may have been removed or you no longer have access.',
+              subtitle:
+                  'It may have been removed or you no longer have access.',
             ),
           );
         }
@@ -121,19 +127,28 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         }
 
         final captureTabIndex = 2;
-        final hideExpenseFab =
+        final onCaptureTab =
             showCapture && _tabController!.index == captureTabIndex;
+        final balancesTabIndex =
+            showBalances ? 2 + (showCapture ? 1 : 0) : null;
+        final membersTabIndex =
+            2 + (showCapture ? 1 : 0) + (showBalances ? 1 : 0);
+        final onExpensesTab = _tabController!.index == _expensesTabIndex;
+        final onPlanTab = _tabController!.index == _planTabIndex;
+        final onMembersTab = _tabController!.index == membersTabIndex;
         final postTrip = _isPostTrip(detail);
         final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
         final lifecycle = TripLifecycle.parse(detail.lifecycle);
         final phase = resolveTripPhase(
           lifecycle: lifecycle,
           startDateIso: detail.startDate,
-          now: DateTime.now(), // local — date-only phase vs a date-only start (P1: UTC misclassified "today" near midnight)
+          now: DateTime
+              .now(), // local — date-only phase vs a date-only start (P1: UTC misclassified "today" near midnight)
         );
         final userId = ref.watch(authRepositoryProvider).currentUser?.id;
         final isOwner = userId != null && userId == detail.ownerId;
-        final myMember = ref.watch(tripMyMemberProvider(widget.tripId)).valueOrNull;
+        final myMember =
+            ref.watch(tripMyMemberProvider(widget.tripId)).valueOrNull;
         final menuActions = tripLifecycleMenuActions(
           phase: phase,
           isOwner: isOwner,
@@ -143,6 +158,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
 
         return Scaffold(
           appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => _navigateBack(context),
+            ),
             title: Text(detail.name),
             actions: [
               if (menuActions.isNotEmpty)
@@ -234,9 +254,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       budgetLabels: widget.budgetLabels,
                     ),
                     PlanTab(
+                      key: _planTabKey,
                       tripId: widget.tripId,
                       labels: widget.planLabels,
                       readOnly: readOnly,
+                      showInlineAddAction: false,
                     ),
                     if (showCapture) CaptureTab(tripId: widget.tripId),
                     if (showBalances)
@@ -245,6 +267,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                         governanceLabels: widget.governanceLabels,
                       ),
                     MembersTab(
+                      key: _membersTabKey,
                       tripId: widget.tripId,
                       inviteLabels: widget.inviteLabels,
                     ),
@@ -253,15 +276,35 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
               ),
             ],
           ),
-          floatingActionButton: hideExpenseFab || readOnly
+          floatingActionButton: readOnly ||
+                  onCaptureTab ||
+                  (balancesTabIndex != null &&
+                      _tabController!.index == balancesTabIndex) ||
+                  (!onPlanTab && !onExpensesTab && !onMembersTab)
               ? null
               : FloatingActionButton.extended(
                   backgroundColor: AppColors.goLime,
                   foregroundColor: AppColors.ink,
-                  onPressed: () =>
-                      context.push(AppRoutes.tripAddExpense(widget.tripId)),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add expense'),
+                  onPressed: () {
+                    if (onPlanTab) {
+                      _planTabKey.currentState?.openAddPlanItem();
+                      return;
+                    }
+                    if (onMembersTab) {
+                      _membersTabKey.currentState?.openInviteFlow();
+                      return;
+                    }
+                    context.push(AppRoutes.tripAddExpense(widget.tripId));
+                  },
+                  icon: Icon(
+                      onMembersTab ? Icons.person_add_outlined : Icons.add),
+                  label: Text(
+                    onPlanTab
+                        ? widget.planLabels.addPlanItem
+                        : onMembersTab
+                            ? 'Invite Vamigos'
+                            : 'Add expense',
+                  ),
                 ),
         );
       },
@@ -277,6 +320,21 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     final endDay = DateTime(parsed.year, parsed.month, parsed.day);
     final todayDay = DateTime(today.year, today.month, today.day);
     return endDay.isBefore(todayDay);
+  }
+
+  void _navigateBack(BuildContext context) {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        router.go(AppRoutes.trips);
+      }
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 }
 
@@ -358,7 +416,8 @@ class _ExpensesTab extends ConsumerWidget {
             TripExpensesProposeAction(
               visible: canManageProposals,
               labels: governanceLabels,
-              onPressed: () => context.push(AppRoutes.tripProposeExpense(tripId)),
+              onPressed: () =>
+                  context.push(AppRoutes.tripProposeExpense(tripId)),
             ),
             Expanded(
               child: ListView.separated(
@@ -370,8 +429,8 @@ class _ExpensesTab extends ConsumerWidget {
                   if (e.status == ExpenseStatus.cancelled) {
                     return const SizedBox.shrink();
                   }
-                  final payer =
-                      nameByUserId[e.payerId] ?? governanceLabels.someoneFallback;
+                  final payer = nameByUserId[e.payerId] ??
+                      governanceLabels.someoneFallback;
                   final locale = Localizations.localeOf(context).toString();
                   return TripExpenseListTile(
                     description: e.description,

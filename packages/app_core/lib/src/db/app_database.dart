@@ -19,6 +19,7 @@ part 'app_database.g.dart';
   LocalPlanItems,
   LocalTripListItems,
   LocalTripFxRates,
+  LocalPlanItemRsvps,
   LocalSyncOutbox,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -28,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +109,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(localTrips, localTrips.budgetMode);
             await m.addColumn(localTrips, localTrips.budgetCents);
             await m.createTable(localTripFxRates);
+          }
+          if (from < 13 && to >= 13) {
+            await m.createTable(localPlanItemRsvps);
           }
         },
       );
@@ -385,8 +389,49 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
-  Future<void> deletePlanItem(String id) {
-    return (delete(localPlanItems)..where((p) => p.id.equals(id))).go();
+  Future<void> deletePlanItem(String id) async {
+    await (delete(localPlanItemRsvps)
+          ..where((r) => r.planItemId.equals(id)))
+        .go();
+    await (delete(localPlanItems)..where((p) => p.id.equals(id))).go();
+  }
+
+  Stream<List<LocalPlanItemRsvp>> watchTripPlanItemRsvps(String tripId) {
+    return (select(localPlanItemRsvps)
+          ..where(
+            (r) => r.planItemId.isInQuery(
+              selectOnly(localPlanItems)
+                ..addColumns([localPlanItems.id])
+                ..where(localPlanItems.tripId.equals(tripId)),
+            ),
+          )
+          ..orderBy([(r) => OrderingTerm.desc(r.respondedAt)]))
+        .watch();
+  }
+
+  Future<void> upsertPlanItemRsvp(LocalPlanItemRsvpsCompanion row) {
+    return into(localPlanItemRsvps).insertOnConflictUpdate(row);
+  }
+
+  Future<void> prunePlanItemRsvpsForTrip(
+    String tripId,
+    Set<String> remoteIds,
+  ) async {
+    final local = await (select(localPlanItemRsvps)
+          ..where(
+            (r) => r.planItemId.isInQuery(
+              selectOnly(localPlanItems)
+                ..addColumns([localPlanItems.id])
+                ..where(localPlanItems.tripId.equals(tripId)),
+            ),
+          ))
+        .get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id)) {
+        await (delete(localPlanItemRsvps)..where((r) => r.id.equals(row.id)))
+            .go();
+      }
+    }
   }
 
   Future<void> deleteListItem(String id) {
@@ -446,6 +491,15 @@ class AppDatabase extends _$AppDatabase {
         .go();
     await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localPlanItemRsvps)
+          ..where(
+            (r) => r.planItemId.isInQuery(
+              selectOnly(localPlanItems)
+                ..addColumns([localPlanItems.id])
+                ..where(localPlanItems.tripId.equals(tripId)),
+            ),
+          ))
+        .go();
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
     await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId))).go();

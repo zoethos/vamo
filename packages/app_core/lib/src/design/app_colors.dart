@@ -8,6 +8,8 @@ abstract final class AppColors {
   static const indigo = Color(0xFF0F1126);
   static const jadeTeal = Color(0xFF00C2A8);
   static const blush = Color(0xFFFFE6EC);
+  /// Action accent (FAB, primary buttons) — **Ink foreground only**.
+  /// Never use as text/icon/border on light surfaces (1.2:1 on white).
   static const goLime = Color(0xFFC6FF00);
   static const ink = Color(0xFF0C0E16);
   static const graphite = Color(0xFF2A2E3A);

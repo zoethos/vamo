@@ -34,6 +34,11 @@ class SplitLabels {
         emptyTitle: l10n.activityEmptyTitle,
         emptySubtitle: l10n.activityEmptySubtitle,
         loadError: l10n.activityLoadError,
+        eventCreatedSubtitle: l10n.activityEventCreatedSubtitle,
+        eventRsvpSubtitle: (status) => l10n.activityEventRsvpSubtitle(status),
+        rsvpGoing: l10n.eventRsvpGoing,
+        rsvpMaybe: l10n.eventRsvpMaybe,
+        rsvpDeclined: l10n.eventRsvpDeclined,
       );
 
   static ExpensesListScreenLabels expenses(AppLocalizations l10n) =>
@@ -84,12 +89,21 @@ class SplitLabels {
         sheetTitleAdd: l10n.planSheetTitleAdd,
         sheetTitleEdit: l10n.planSheetTitleEdit,
         fieldTitle: l10n.planFieldTitle,
+        fieldKind: l10n.planFieldKind,
         fieldNotes: l10n.planFieldNotes,
         fieldStart: l10n.planFieldStart,
         fieldEnd: l10n.planFieldEnd,
         save: l10n.planSave,
         loadError: l10n.planLoadError,
         checklistsLoadError: l10n.planChecklistsLoadError,
+        rsvpGoing: l10n.eventRsvpGoing,
+        rsvpMaybe: l10n.eventRsvpMaybe,
+        rsvpDeclined: l10n.eventRsvpDeclined,
+        rsvpSummary: (going, maybe, declined) =>
+            l10n.eventRsvpSummary(going, maybe, declined),
+        eventRsvpHint: l10n.planEventRsvpHint,
+        eventRsvpSection: l10n.planEventRsvpSection,
+        eventRsvpUpdateFailed: l10n.eventRsvpUpdateFailed,
       );
 
   static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>

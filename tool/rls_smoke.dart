@@ -579,6 +579,240 @@ Future<void> main() async {
       checkedRow['checked_by'] == userB,
     ));
 
+    // --- S21 event RSVP (R8) — before close ---
+    final eventActivityId = _uuid();
+    await clientA.from('trip_plan_items').insert({
+      'id': eventActivityId,
+      'trip_id': tripId,
+      'kind': 'activity',
+      'title': 'RLS smoke dinner',
+      'created_by': userA,
+    });
+    final eventActivitySeenByB = await clientB
+        .from('trip_plan_items')
+        .select('id, kind')
+        .eq('id', eventActivityId)
+        .maybeSingle();
+    results.add(_Check(
+      'B reads A activity event',
+      eventActivitySeenByB?['id'] == eventActivityId &&
+          eventActivitySeenByB?['kind'] == 'activity',
+    ));
+
+    await clientB.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': eventActivityId,
+      'p_status': 'going',
+    });
+    final rsvpGoing = await clientB
+        .from('trip_plan_item_rsvps')
+        .select('status')
+        .eq('plan_item_id', eventActivityId)
+        .eq('user_id', userB)
+        .maybeSingle();
+    results.add(_Check(
+      'B set own RSVP going',
+      rsvpGoing?['status'] == 'going',
+    ));
+    final rsvpGoingSeenByA = await clientA
+        .from('trip_plan_item_rsvps')
+        .select('status')
+        .eq('plan_item_id', eventActivityId)
+        .eq('user_id', userB)
+        .maybeSingle();
+    results.add(_Check(
+      'A reads B RSVP going',
+      rsvpGoingSeenByA?['status'] == 'going',
+    ));
+
+    await clientB.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': eventActivityId,
+      'p_status': 'maybe',
+    });
+    final rsvpRows = await clientB
+        .from('trip_plan_item_rsvps')
+        .select('status')
+        .eq('plan_item_id', eventActivityId)
+        .eq('user_id', userB);
+    results.add(_Check(
+      'B update RSVP (single row)',
+      (rsvpRows as List).length == 1 &&
+          (rsvpRows.first as Map)['status'] == 'maybe',
+    ));
+
+    var ownRowOnlyBlocked = false;
+    try {
+      await clientB.from('trip_plan_item_rsvps').insert({
+        'plan_item_id': eventActivityId,
+        'user_id': userA,
+        'status': 'going',
+      });
+    } catch (_) {
+      ownRowOnlyBlocked = true;
+    }
+    results.add(_Check('B cannot RSVP for another member', ownRowOnlyBlocked));
+
+    var outsiderRsvpBlocked = false;
+    try {
+      await clientC.rpc('set_event_rsvp', params: {
+        'p_plan_item_id': eventActivityId,
+        'p_status': 'going',
+      });
+    } catch (_) {
+      outsiderRsvpBlocked = true;
+    }
+    results.add(_Check('C outsider RSVP blocked', outsiderRsvpBlocked));
+
+    final outsiderRsvpRows = await clientC
+        .from('trip_plan_item_rsvps')
+        .select('id')
+        .eq('plan_item_id', eventActivityId);
+    results.add(_Check(
+      'C outsider cannot read RSVPs',
+      (outsiderRsvpRows as List).isEmpty,
+    ));
+
+    var lodgingRsvpRejected = false;
+    try {
+      await clientB.rpc('set_event_rsvp', params: {
+        'p_plan_item_id': planItemId,
+        'p_status': 'going',
+      });
+    } catch (_) {
+      lodgingRsvpRejected = true;
+    }
+    results.add(_Check('RSVP on lodging rejected', lodgingRsvpRejected));
+
+    // --- S21 cascade delete — active RSVP rows must not block plan/trip delete ---
+    final cascadeEventId = _uuid();
+    await clientB.from('trip_plan_items').insert({
+      'id': cascadeEventId,
+      'trip_id': tripId,
+      'kind': 'activity',
+      'title': 'RLS cascade dinner',
+      'created_by': userB,
+    });
+    await clientB.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': cascadeEventId,
+      'p_status': 'going',
+    });
+    final rsvpBeforeCascade = await clientB
+        .from('trip_plan_item_rsvps')
+        .select('id')
+        .eq('plan_item_id', cascadeEventId);
+    var planDeleteWithRsvpOk = false;
+    try {
+      await clientA.from('trip_plan_items').delete().eq('id', cascadeEventId);
+      planDeleteWithRsvpOk = true;
+    } catch (_) {}
+    final planAfterCascadeDelete = await clientA
+        .from('trip_plan_items')
+        .select('id')
+        .eq('id', cascadeEventId)
+        .maybeSingle();
+    final rsvpsAfterPlanDelete = await clientA
+        .from('trip_plan_item_rsvps')
+        .select('id')
+        .eq('plan_item_id', cascadeEventId);
+    results.add(_Check(
+      'delete activity with active RSVP cascades',
+      (rsvpBeforeCascade as List).isNotEmpty &&
+          planDeleteWithRsvpOk &&
+          planAfterCascadeDelete == null &&
+          (rsvpsAfterPlanDelete as List).isEmpty,
+    ));
+
+    final cascadeTripId = _uuid();
+    await clientA.rpc('create_trip', params: {
+      'p_id': cascadeTripId,
+      'p_name': 'RLS cascade trip',
+      'p_start_date': DateTime.now()
+          .toUtc()
+          .add(const Duration(days: 14))
+          .toIso8601String()
+          .substring(0, 10),
+    });
+    final cascadeTripEventId = _uuid();
+    await clientA.from('trip_plan_items').insert({
+      'id': cascadeTripEventId,
+      'trip_id': cascadeTripId,
+      'kind': 'activity',
+      'title': 'Cascade trip event',
+      'created_by': userA,
+    });
+    await clientA.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': cascadeTripEventId,
+      'p_status': 'maybe',
+    });
+    final cascadeTripRsvpBefore = await clientA
+        .from('trip_plan_item_rsvps')
+        .select('id')
+        .eq('plan_item_id', cascadeTripEventId);
+
+    // 0001 trips policy: read/insert/update only — users cancel, never hard-delete.
+    try {
+      await clientA.from('trips').delete().eq('id', cascadeTripId);
+    } catch (_) {}
+    final cascadeTripAfterUserDelete = await clientA
+        .from('trips')
+        .select('id')
+        .eq('id', cascadeTripId)
+        .maybeSingle();
+    results.add(_Check(
+      'owner trips DELETE is no-op (no hard delete policy)',
+      cascadeTripAfterUserDelete != null,
+    ));
+
+    var cascadeTripDeleteOk = false;
+    if (serviceClient != null) {
+      try {
+        await serviceClient.from('trips').delete().eq('id', cascadeTripId);
+        cascadeTripDeleteOk = true;
+      } catch (_) {}
+    }
+    final cascadeTripAfter = serviceClient == null
+        ? null
+        : await serviceClient
+            .from('trips')
+            .select('id')
+            .eq('id', cascadeTripId)
+            .maybeSingle();
+    final cascadeTripRsvpsAfter = serviceClient == null
+        ? const []
+        : await serviceClient
+            .from('trip_plan_item_rsvps')
+            .select('id')
+            .eq('plan_item_id', cascadeTripEventId);
+    results.add(_Check(
+      'delete trip with event + RSVP cascades',
+      serviceClient != null &&
+          (cascadeTripRsvpBefore as List).isNotEmpty &&
+          cascadeTripDeleteOk &&
+          cascadeTripAfter == null &&
+          (cascadeTripRsvpsAfter as List).isEmpty,
+      detail: serviceClient == null
+          ? 'set RLS_SERVICE_ROLE_KEY for cascade delete test'
+          : null,
+    ));
+
+    await clientB.rpc('clear_event_rsvp', params: {
+      'p_plan_item_id': eventActivityId,
+    });
+    final rsvpAfterWithdraw = await clientB
+        .from('trip_plan_item_rsvps')
+        .select('id')
+        .eq('plan_item_id', eventActivityId)
+        .eq('user_id', userB)
+        .maybeSingle();
+    results.add(_Check(
+      'B withdraw own RSVP via RPC',
+      rsvpAfterWithdraw == null,
+    ));
+
+    await clientB.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': eventActivityId,
+      'p_status': 'maybe',
+    });
+
     // --- S17 lifecycle (R3) — before B is removed ---
     await clientA.rpc('request_trip_close', params: {'p_trip_id': tripId});
     final closingRow = await clientA
@@ -657,6 +891,48 @@ Future<void> main() async {
       'B INSERT expense on closed trip blocked',
       closedRow['lifecycle'] == 'closed' && expenseOnClosedBlocked,
     ));
+
+    var rsvpOnClosedBlocked = false;
+    try {
+      await clientB.rpc('set_event_rsvp', params: {
+        'p_plan_item_id': eventActivityId,
+        'p_status': 'going',
+      });
+    } catch (_) {
+      rsvpOnClosedBlocked = true;
+    }
+    results.add(_Check(
+      'RSVP on closed trip blocked',
+      closedRow['lifecycle'] == 'closed' && rsvpOnClosedBlocked,
+    ));
+
+    var withdrawOnClosedBlocked = false;
+    if (closedRow['lifecycle'] == 'closed') {
+      final beforeWithdraw = await clientB
+          .from('trip_plan_item_rsvps')
+          .select('id')
+          .eq('plan_item_id', eventActivityId)
+          .eq('user_id', userB)
+          .maybeSingle();
+      try {
+        await clientB.rpc('clear_event_rsvp', params: {
+          'p_plan_item_id': eventActivityId,
+        });
+      } catch (_) {
+        withdrawOnClosedBlocked = true;
+      }
+      final afterWithdraw = await clientB
+          .from('trip_plan_item_rsvps')
+          .select('id')
+          .eq('plan_item_id', eventActivityId)
+          .eq('user_id', userB)
+          .maybeSingle();
+      results.add(_Check(
+        'withdraw RSVP on closed trip blocked',
+        beforeWithdraw != null &&
+            (withdrawOnClosedBlocked || afterWithdraw != null),
+      ));
+    }
 
     var disputeOnClosedOk = false;
     if (closedRow['lifecycle'] == 'closed') {
@@ -787,6 +1063,16 @@ Future<void> main() async {
           .toIso8601String()
           .substring(0, 10),
     });
+
+    final cancelEventId = _uuid();
+    await clientA.from('trip_plan_items').insert({
+      'id': cancelEventId,
+      'trip_id': cancelTripId,
+      'kind': 'activity',
+      'title': 'cancelled event',
+      'created_by': userA,
+    });
+
     await clientA.rpc('cancel_trip', params: {'p_trip_id': cancelTripId});
     final cancelled = await clientA
         .from('trips')
@@ -814,6 +1100,18 @@ Future<void> main() async {
     }
     results.add(
         _Check('write on cancelled trip blocked', writeOnCancelledBlocked));
+
+    var rsvpOnCancelledBlocked = false;
+    try {
+      await clientA.rpc('set_event_rsvp', params: {
+        'p_plan_item_id': cancelEventId,
+        'p_status': 'going',
+      });
+    } catch (_) {
+      rsvpOnCancelledBlocked = true;
+    }
+    results
+        .add(_Check('RSVP on cancelled trip blocked', rsvpOnCancelledBlocked));
 
     var budgetOnCancelledBlocked = false;
     try {
@@ -970,6 +1268,17 @@ Future<void> main() async {
       exMemberPlanBlocked = true;
     }
     results.add(_Check('B ex-member plan insert blocked', exMemberPlanBlocked));
+
+    var exMemberRsvpBlocked = false;
+    try {
+      await clientB.rpc('set_event_rsvp', params: {
+        'p_plan_item_id': eventActivityId,
+        'p_status': 'going',
+      });
+    } catch (_) {
+      exMemberRsvpBlocked = true;
+    }
+    results.add(_Check('B ex-member RSVP blocked', exMemberRsvpBlocked));
 
     // Storage remove() is silent on RLS deny — verify object survival, not throws.
     List<FileObject> bRemoveResult = [];

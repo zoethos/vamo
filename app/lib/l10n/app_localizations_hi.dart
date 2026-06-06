@@ -317,6 +317,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get planFieldTitle => 'Title';
 
   @override
+  String get planFieldKind => 'Type';
+
+  @override
   String get planFieldNotes => 'Notes';
 
   @override
@@ -333,6 +336,38 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get planChecklistsLoadError => 'Could not load checklists.';
+
+  @override
+  String get eventRsvpGoing => 'Going';
+
+  @override
+  String get eventRsvpMaybe => 'Maybe';
+
+  @override
+  String get eventRsvpDeclined => 'Declined';
+
+  @override
+  String eventRsvpSummary(int going, int maybe, int declined) {
+    return '$going going · $maybe maybe · $declined declined';
+  }
+
+  @override
+  String get planEventRsvpHint =>
+      'After you save, you and other Vamigos can RSVP on the plan board.';
+
+  @override
+  String get planEventRsvpSection => 'RSVP';
+
+  @override
+  String get eventRsvpUpdateFailed => 'Could not update RSVP. Try again.';
+
+  @override
+  String get activityEventCreatedSubtitle => 'Event added';
+
+  @override
+  String activityEventRsvpSubtitle(String status) {
+    return 'RSVP: $status';
+  }
 
   @override
   String expenseIncludedDisputedBy(String memberName) {

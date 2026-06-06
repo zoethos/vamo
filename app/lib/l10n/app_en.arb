@@ -116,12 +116,42 @@
   "planSheetTitleAdd": "Add plan item",
   "planSheetTitleEdit": "Edit plan item",
   "planFieldTitle": "Title",
+  "planFieldKind": "Type",
   "planFieldNotes": "Notes",
   "planFieldStart": "Starts",
   "planFieldEnd": "Ends",
   "planSave": "Save",
   "planLoadError": "Could not load the plan.",
   "planChecklistsLoadError": "Could not load checklists.",
+  "eventRsvpGoing": "Going",
+  "eventRsvpMaybe": "Maybe",
+  "eventRsvpDeclined": "Declined",
+  "eventRsvpSummary": "{going} going · {maybe} maybe · {declined} declined",
+  "@eventRsvpSummary": {
+    "placeholders": {
+      "going": {
+        "type": "int"
+      },
+      "maybe": {
+        "type": "int"
+      },
+      "declined": {
+        "type": "int"
+      }
+    }
+  },
+  "planEventRsvpHint": "After you save, you and other Vamigos can RSVP on the plan board.",
+  "planEventRsvpSection": "RSVP",
+  "eventRsvpUpdateFailed": "Could not update RSVP. Try again.",
+  "activityEventCreatedSubtitle": "Event added",
+  "activityEventRsvpSubtitle": "RSVP: {status}",
+  "@activityEventRsvpSubtitle": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
   "expenseIncludedDisputedBy": "included — disputed by {memberName}",
   "@expenseIncludedDisputedBy": {
     "placeholders": {
