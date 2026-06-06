@@ -19,7 +19,10 @@ class SuggestionsRepository {
 
   static Future<String> appVersionLabel() async {
     final info = await PackageInfo.fromPlatform();
-    return '${info.version}+${info.buildNumber}';
+    return formatAppVersionLabel(
+      version: info.version,
+      buildNumber: info.buildNumber,
+    );
   }
 
   Future<void> submit({
@@ -45,4 +48,15 @@ class SuggestionsRepository {
       'platform': defaultTargetPlatform.name,
     });
   }
+}
+
+String formatAppVersionLabel({
+  required String version,
+  required String buildNumber,
+}) {
+  if (buildNumber.isEmpty) return version;
+  final parts = version.split('.');
+  final alreadyIncludesRelease = parts.length == 4 && parts.last == buildNumber;
+  if (alreadyIncludesRelease) return version;
+  return '$version+$buildNumber';
 }

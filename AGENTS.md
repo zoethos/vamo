@@ -71,6 +71,19 @@ as staged, modified, added, or untracked files.
    - `fix(s21): harden plan RSVP propagation`
    - `docs: add agent git workflow rules`
 
+## Tester Build Versioning
+
+For any tester/store build, bump `app/pubspec.yaml` by exactly one release
+counter:
+
+```yaml
+version: 0.2.0+7
+```
+
+The Android build exposes this as `versionName 0.2.0.7` and `versionCode 7`.
+Profile/About should show the clean four-part version, so testers can identify
+the exact build without ambiguity. Do not upload two builds with the same `+N`.
+
 ## Quality Gates
 
 Before merging to `main`:
