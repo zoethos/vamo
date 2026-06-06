@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'expense_consent_providers.dart';
 import 'expense_governance.dart';
+import 'expense_governance_labels.dart';
 import 'expense_models.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
@@ -13,6 +14,7 @@ Future<void> showExpenseDetailSheet({
   required BuildContext context,
   required WidgetRef ref,
   required ExpenseSummary expense,
+  required ExpenseGovernanceLabels labels,
   required bool readOnly,
   required bool canManageProposals,
 }) {
@@ -22,6 +24,7 @@ Future<void> showExpenseDetailSheet({
     showDragHandle: true,
     builder: (ctx) => _ExpenseDetailSheet(
       expense: expense,
+      labels: labels,
       readOnly: readOnly,
       canManageProposals: canManageProposals,
     ),
@@ -31,11 +34,13 @@ Future<void> showExpenseDetailSheet({
 class _ExpenseDetailSheet extends ConsumerWidget {
   const _ExpenseDetailSheet({
     required this.expense,
+    required this.labels,
     required this.readOnly,
     required this.canManageProposals,
   });
 
   final ExpenseSummary expense;
+  final ExpenseGovernanceLabels labels;
   final bool readOnly;
   final bool canManageProposals;
 
@@ -67,7 +72,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
             const SizedBox(height: 8),
             if (expense.status == ExpenseStatus.proposed)
               Text(
-                'Proposal — not in balances until committed',
+                labels.proposalNotInBalances,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.graphite,
                       fontStyle: FontStyle.italic,
@@ -77,17 +82,16 @@ class _ExpenseDetailSheet extends ConsumerWidget {
             for (final share in shares.where((s) => s.expenseId == expense.id))
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(names[share.userId] ?? 'Someone'),
+                title: Text(
+                  names[share.userId] ?? labels.someoneFallback,
+                ),
                 subtitle: Text(
-                  shareConsentDisplayLabel(
-                        memberName: names[share.userId] ?? 'Someone',
-                        response: share.response,
-                      ).isEmpty
-                      ? 'Accepted'
-                      : shareConsentDisplayLabel(
-                          memberName: names[share.userId] ?? 'Someone',
-                          response: share.response,
-                        ),
+                  _shareSubtitle(
+                    labels: labels,
+                    memberName:
+                        names[share.userId] ?? labels.someoneFallback,
+                    response: share.response,
+                  ),
                 ),
                 trailing: Text(
                   formatMoneyFromCents(share.shareCents, expense.currency),
@@ -98,7 +102,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                 myShare.userId == currentUserId) ...[
               const Divider(),
               Text(
-                'Your share',
+                labels.yourShare,
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
@@ -112,7 +116,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                         repo,
                         accept: false,
                       ),
-                      child: const Text('Dispute'),
+                      child: Text(labels.dispute),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -121,7 +125,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                       onPressed: myShare.response == ShareResponse.accepted
                           ? null
                           : () => _respond(context, ref, repo, accept: true),
-                      child: const Text('Accept'),
+                      child: Text(labels.accept),
                     ),
                   ),
                 ],
@@ -136,20 +140,32 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                   await repo.commitExpense(expense.id);
                   if (context.mounted) Navigator.pop(context);
                 },
-                child: const Text('Commit to balances'),
+                child: Text(labels.commitToBalances),
               ),
               TextButton(
                 onPressed: () async {
                   await repo.voidExpense(expense.id);
                   if (context.mounted) Navigator.pop(context);
                 },
-                child: const Text('Void proposal'),
+                child: Text(labels.voidProposal),
               ),
             ],
           ],
         ),
       ),
     );
+  }
+
+  String _shareSubtitle({
+    required ExpenseGovernanceLabels labels,
+    required String memberName,
+    required ShareResponse response,
+  }) {
+    final flag = labels.consentDisplayLabel(
+      memberName: memberName,
+      response: response,
+    );
+    return flag.isEmpty ? labels.shareAccepted : flag;
   }
 
   Future<void> _respond(
@@ -188,20 +204,20 @@ class _ExpenseDetailSheet extends ConsumerWidget {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Why are you disputing?'),
+        title: Text(labels.disputeReasonTitle),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(hintText: 'Reason'),
+          decoration: InputDecoration(hintText: labels.disputeReasonHint),
           maxLines: 3,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(labels.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Submit'),
+            child: Text(labels.submit),
           ),
         ],
       ),

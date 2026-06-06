@@ -105,6 +105,7 @@ void main() {
               tripBaseCurrency: 'EUR',
               expenseCurrency: 'EUR',
               receiptThumbnailPath: receiptFile.path,
+              proposalRowPrefix: 'Proposal',
             ),
           ),
         ),

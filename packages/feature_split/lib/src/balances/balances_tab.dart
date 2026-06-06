@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../expenses/expense_consent_providers.dart';
+import '../expenses/expense_governance.dart';
+import '../expenses/expense_governance_labels.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
 import '../settle/settlements_providers.dart';
@@ -12,9 +14,14 @@ import 'mark_settle_sheet.dart';
 
 /// Slice 4 — settle-up, mark/confirm/revoke, honest payment handoff labels.
 class BalancesTab extends ConsumerWidget {
-  const BalancesTab({super.key, required this.tripId});
+  const BalancesTab({
+    super.key,
+    required this.tripId,
+    required this.governanceLabels,
+  });
 
   final String tripId;
+  final ExpenseGovernanceLabels governanceLabels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,8 +46,17 @@ class BalancesTab extends ConsumerWidget {
             ? <String, String>{}
             : {for (final m in members.requireValue) m.userId: m.displayName};
         final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
-        final consentLabels =
-            consentFlags.map((f) => f.label).toSet().toList(growable: false);
+        final consentLabels = consentFlags
+            .map(
+              (f) => governanceLabels.consentDisplayLabel(
+                memberName:
+                    nameById[f.userId] ?? governanceLabels.someoneFallback,
+                response: f.response,
+              ),
+            )
+            .where((label) => label.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -244,7 +260,8 @@ class BalancesTab extends ConsumerWidget {
               tripId: tripId,
               nameById: nameById,
               currency: currency,
-              consentFlags: ref.watch(tripShareConsentFlagsProvider(tripId)),
+              governanceLabels: governanceLabels,
+              consentFlags: consentFlags,
             ),
           ],
         );
@@ -323,13 +340,16 @@ class _NetBalancesSection extends ConsumerWidget {
     required this.tripId,
     required this.nameById,
     required this.currency,
+    required this.governanceLabels,
     required this.consentFlags,
   });
 
   final String tripId;
   final Map<String, String> nameById;
   final String currency;
-  final List<({String userId, String label, String expenseId})> consentFlags;
+  final ExpenseGovernanceLabels governanceLabels;
+  final List<({String userId, ShareResponse response, String expenseId})>
+      consentFlags;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -364,7 +384,11 @@ class _NetBalancesSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              flag.label,
+              governanceLabels.consentDisplayLabel(
+                memberName:
+                    nameById[flag.userId] ?? governanceLabels.someoneFallback,
+                response: flag.response,
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.graphite,
                     fontStyle: FontStyle.italic,

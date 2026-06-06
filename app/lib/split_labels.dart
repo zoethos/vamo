@@ -92,6 +92,33 @@ class SplitLabels {
         checklistsLoadError: l10n.planChecklistsLoadError,
       );
 
+  static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>
+      ExpenseGovernanceLabels(
+        includedDisputedBy: l10n.expenseIncludedDisputedBy,
+        includedPendingFrom: l10n.expenseIncludedPendingFrom,
+        someoneFallback: l10n.expenseSomeoneFallback,
+        proposalRowPrefix: l10n.expenseProposalRowPrefix,
+        proposalNotInBalances: l10n.expenseProposalNotInBalances,
+        shareAccepted: l10n.expenseShareAccepted,
+        yourShare: l10n.expenseYourShare,
+        dispute: l10n.expenseDispute,
+        accept: l10n.expenseAccept,
+        commitToBalances: l10n.expenseCommitToBalances,
+        voidProposal: l10n.expenseVoidProposal,
+        disputeReasonTitle: l10n.expenseDisputeReasonTitle,
+        disputeReasonHint: l10n.expenseDisputeReasonHint,
+        cancel: l10n.expenseGovernanceCancel,
+        submit: l10n.expenseGovernanceSubmit,
+        proposeCostAction: l10n.expenseProposeCostAction,
+        addExpenseTitle: l10n.expenseAddTitle,
+        proposeCostTitle: l10n.expenseProposeCostTitle,
+        saveExpense: l10n.expenseSaveExpense,
+        saveProposal: l10n.expenseSaveProposal,
+        tripBalancesIn: l10n.expenseTripBalancesIn,
+        splitEqual: l10n.expenseSplitEqual,
+        splitSolo: l10n.expenseSplitSolo,
+      );
+
   static InviteLabels invite(AppLocalizations l10n) => InviteLabels(
         showQr: l10n.inviteShowQr,
         scanQr: l10n.inviteScanQr,

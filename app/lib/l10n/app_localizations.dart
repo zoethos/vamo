@@ -716,6 +716,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load checklists.'**
   String get planChecklistsLoadError;
+
+  /// No description provided for @expenseIncludedDisputedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'included — disputed by {memberName}'**
+  String expenseIncludedDisputedBy(String memberName);
+
+  /// No description provided for @expenseIncludedPendingFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'included — pending from {memberName}'**
+  String expenseIncludedPendingFrom(String memberName);
+
+  /// No description provided for @expenseSomeoneFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Someone'**
+  String get expenseSomeoneFallback;
+
+  /// No description provided for @expenseProposalRowPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal'**
+  String get expenseProposalRowPrefix;
+
+  /// No description provided for @expenseProposalNotInBalances.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal — not in balances until committed'**
+  String get expenseProposalNotInBalances;
+
+  /// No description provided for @expenseShareAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get expenseShareAccepted;
+
+  /// No description provided for @expenseYourShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Your share'**
+  String get expenseYourShare;
+
+  /// No description provided for @expenseDispute.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute'**
+  String get expenseDispute;
+
+  /// No description provided for @expenseAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get expenseAccept;
+
+  /// No description provided for @expenseCommitToBalances.
+  ///
+  /// In en, this message translates to:
+  /// **'Commit to balances'**
+  String get expenseCommitToBalances;
+
+  /// No description provided for @expenseVoidProposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Void proposal'**
+  String get expenseVoidProposal;
+
+  /// No description provided for @expenseDisputeReasonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you disputing?'**
+  String get expenseDisputeReasonTitle;
+
+  /// No description provided for @expenseDisputeReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get expenseDisputeReasonHint;
+
+  /// No description provided for @expenseGovernanceCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get expenseGovernanceCancel;
+
+  /// No description provided for @expenseGovernanceSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit'**
+  String get expenseGovernanceSubmit;
+
+  /// No description provided for @expenseProposeCostAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Propose a cost'**
+  String get expenseProposeCostAction;
+
+  /// No description provided for @expenseAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add expense'**
+  String get expenseAddTitle;
+
+  /// No description provided for @expenseProposeCostTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Propose a cost'**
+  String get expenseProposeCostTitle;
+
+  /// No description provided for @expenseSaveExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Save expense'**
+  String get expenseSaveExpense;
+
+  /// No description provided for @expenseSaveProposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Save proposal'**
+  String get expenseSaveProposal;
+
+  /// No description provided for @expenseTripBalancesIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip balances in {currency}'**
+  String expenseTripBalancesIn(String currency);
+
+  /// No description provided for @expenseSplitEqual.
+  ///
+  /// In en, this message translates to:
+  /// **'Split equally · {count} Vamigos'**
+  String expenseSplitEqual(int count);
+
+  /// No description provided for @expenseSplitSolo.
+  ///
+  /// In en, this message translates to:
+  /// **'All on you (solo)'**
+  String get expenseSplitSolo;
 }
 
 class _AppLocalizationsDelegate

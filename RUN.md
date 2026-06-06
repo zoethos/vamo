@@ -132,9 +132,9 @@ dart run tool/rls_smoke.dart   # propose/commit net + dispute-on-closed + forged
 melos run ci
 ```
 
-**Online-only governance RPCs (S19):** `propose_expense`, `commit_expense`, `void_expense`, and `respond_to_share` are direct Supabase RPC calls — no outbox `SyncKind`, no offline queue. That is intentional for deliberate consent acts. **Born-committed expense logging** (add expense flow) stays offline-first as before.
+**Demo:** owner taps **Propose a cost** (admin-only, online RPC) → ghost row appears → **commits** → balances update → member **disputes** own share (net unchanged, flag visible on all devices) → close trip → dispute still allowed → cancelled trip blocks dispute.
 
-**Demo:** owner **proposes** a cost (ghost row, net unchanged) → **commits** → balances update → member **disputes** own share (net unchanged, flag visible on all devices) → close trip → dispute still allowed → cancelled trip blocks dispute.
+Born-committed logging still uses **Add expense** (offline-first outbox). Governance RPCs (`propose_expense`, `commit_expense`, `void_expense`, `respond_to_share`) require connectivity — no outbox queue.
 
 ### vamo.world site (`web/apps/site`)
 

@@ -10,7 +10,7 @@ Updated: 2026-06-05.
 | S17 | W2·R3 (lifecycle) | ✅ merged | review P1s fixed; smoke 34/34 on cloud; `trip-lifecycle-jobs` deployed with CRON_SECRET but **unscheduled** — activates with S22 push ("no notice, no deemed consent") |
 | S18 | W2·R4 (TripBoard) | ✅ merged | smoke green incl. closed-trip + ex-member plan cases; schema S21-ready (events = kind:activity) |
 | S19 | W2·R5 (money governance I) | ✅ merged | smoke 51/51; forged-dispute guard (0018) + realtime parent-touch; 2 invariants verified |
-| S19.1 | W2·R5 finish | ⬜ **gates internal build** | propose-expense UI (R5 untestable in field without it) + governance ARB pass |
+| S19.1 | W2·R5 finish | 🔶 in review (`feature/governance-ui-i18n`) **gates internal build** | propose UI + governance ARB built; 5 second-review fixes pending (proposed-mode capture hidden, screen-level route guard, real role-gate UI test, false-positive save test, hardcoded "Proposal" fallback) |
 | S20 | W2·R6 (money governance II) | ⬜ | budget + FX constant-rate (D3/D4) |
 | S21 | W2·R8 (EventList) | ⬜ | |
 | S22 | W2·R7 (close report) + P1 nudge | ⬜ | + FCM UNREGISTERED pruning (S16 finding) |

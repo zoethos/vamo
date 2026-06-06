@@ -31,6 +31,7 @@ class TripExpenseListTile extends ConsumerWidget {
     this.placeLabel,
     this.status = ExpenseStatus.committed,
     this.consentLabel,
+    required this.proposalRowPrefix,
     this.onTap,
   });
 
@@ -50,6 +51,7 @@ class TripExpenseListTile extends ConsumerWidget {
   final String? placeLabel;
   final ExpenseStatus status;
   final String? consentLabel;
+  final String proposalRowPrefix;
   final VoidCallback? onTap;
 
   bool get _hasReceipt =>
@@ -82,7 +84,7 @@ class TripExpenseListTile extends ConsumerWidget {
       detailLine = '$detailLine · $consentLabel';
     }
     if (status == ExpenseStatus.proposed) {
-      detailLine = 'Proposal · $detailLine';
+      detailLine = '$proposalRowPrefix · $detailLine';
     }
 
     Widget? leading;

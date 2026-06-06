@@ -20,6 +20,7 @@ void main() {
               tripBaseCurrency: 'EUR',
               expenseCurrency: 'EUR',
               placeLabel: 'Caffè Centrale',
+              proposalRowPrefix: 'Proposal',
             ),
           ),
         ),
