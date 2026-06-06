@@ -89,6 +89,7 @@ class SplitLabels {
         sheetTitleAdd: l10n.planSheetTitleAdd,
         sheetTitleEdit: l10n.planSheetTitleEdit,
         fieldTitle: l10n.planFieldTitle,
+        fieldKind: l10n.planFieldKind,
         fieldNotes: l10n.planFieldNotes,
         fieldStart: l10n.planFieldStart,
         fieldEnd: l10n.planFieldEnd,
@@ -99,6 +100,8 @@ class SplitLabels {
         rsvpMaybe: l10n.eventRsvpMaybe,
         rsvpDeclined: l10n.eventRsvpDeclined,
         rsvpSummary: (going, maybe) => l10n.eventRsvpSummary(going, maybe),
+        eventRsvpHint: l10n.planEventRsvpHint,
+        eventRsvpSection: l10n.planEventRsvpSection,
       );
 
   static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>

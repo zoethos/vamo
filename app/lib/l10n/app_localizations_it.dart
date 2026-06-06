@@ -317,6 +317,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get planFieldTitle => 'Title';
 
   @override
+  String get planFieldKind => 'Type';
+
+  @override
   String get planFieldNotes => 'Notes';
 
   @override
@@ -347,6 +350,13 @@ class AppLocalizationsIt extends AppLocalizations {
   String eventRsvpSummary(int going, int maybe) {
     return '$going going · $maybe maybe';
   }
+
+  @override
+  String get planEventRsvpHint =>
+      'After you save, you and other Vamigos can RSVP on the plan board.';
+
+  @override
+  String get planEventRsvpSection => 'RSVP';
 
   @override
   String get activityEventCreatedSubtitle => 'Event added';

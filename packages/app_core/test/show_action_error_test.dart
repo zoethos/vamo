@@ -48,7 +48,13 @@ void main() {
       actionFailureUserMessage(
         const AuthException('Token has expired or is invalid', code: 'otp_expired'),
       ),
-      "That code didn't match — try again",
+      'That code expired — tap Send me a new code.',
+    );
+    expect(
+      actionFailureUserMessage(
+        const AuthException('Invalid token', code: 'invalid_otp'),
+      ),
+      "That code didn't match — check it and re-enter, or resend.",
     );
   });
 

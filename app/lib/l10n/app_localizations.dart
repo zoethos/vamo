@@ -681,6 +681,12 @@ abstract class AppLocalizations {
   /// **'Title'**
   String get planFieldTitle;
 
+  /// No description provided for @planFieldKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get planFieldKind;
+
   /// No description provided for @planFieldNotes.
   ///
   /// In en, this message translates to:
@@ -740,6 +746,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{going} going · {maybe} maybe'**
   String eventRsvpSummary(int going, int maybe);
+
+  /// No description provided for @planEventRsvpHint.
+  ///
+  /// In en, this message translates to:
+  /// **'After you save, you and other Vamigos can RSVP on the plan board.'**
+  String get planEventRsvpHint;
+
+  /// No description provided for @planEventRsvpSection.
+  ///
+  /// In en, this message translates to:
+  /// **'RSVP'**
+  String get planEventRsvpSection;
 
   /// No description provided for @activityEventCreatedSubtitle.
   ///

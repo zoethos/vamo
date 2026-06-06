@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'event_rsvp_models.dart';
+import 'plan_event_rsvp_chips.dart';
 import 'plan_labels.dart';
-import 'plan_repository.dart';
 
 class PlanEventTile extends ConsumerWidget {
   const PlanEventTile({
@@ -55,9 +55,22 @@ class PlanEventTile extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Chip(
+                            label: Text(labels.kindLabel(item.kind)),
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          Text(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
                       ),
                       if (dateLabel != null)
                         Text(
@@ -102,46 +115,16 @@ class PlanEventTile extends ConsumerWidget {
             ),
             if (!readOnly) ...[
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final status in EventRsvpStatus.values)
-                    ChoiceChip(
-                      label: Text(_statusLabel(status)),
-                      selected: view.myStatus == status,
-                      onSelected: (_) {
-                        if (view.myStatus == status) {
-                          _clearStatus(ref);
-                        } else {
-                          _setStatus(ref, status);
-                        }
-                      },
-                    ),
-                ],
+              PlanEventRsvpChips(
+                planItemId: item.id,
+                labels: labels,
+                myStatus: view.myStatus,
+                readOnly: false,
               ),
             ],
           ],
         ),
       ),
     );
-  }
-
-  String _statusLabel(EventRsvpStatus status) => switch (status) {
-        EventRsvpStatus.going => labels.rsvpGoing,
-        EventRsvpStatus.maybe => labels.rsvpMaybe,
-        EventRsvpStatus.declined => labels.rsvpDeclined,
-      };
-
-  Future<void> _setStatus(WidgetRef ref, EventRsvpStatus status) async {
-    await ref.read(planRepositoryProvider).setEventRsvp(
-          planItemId: view.item.id,
-          status: status,
-        );
-  }
-
-  Future<void> _clearStatus(WidgetRef ref) async {
-    await ref.read(planRepositoryProvider).clearEventRsvp(
-          planItemId: view.item.id,
-        );
   }
 }

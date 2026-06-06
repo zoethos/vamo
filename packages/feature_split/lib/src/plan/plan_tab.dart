@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'event_rsvp_models.dart';
 import 'plan_event_tile.dart';
 import 'plan_item_sheet.dart';
 import 'plan_labels.dart';
@@ -22,10 +23,12 @@ class PlanTab extends ConsumerStatefulWidget {
   final bool readOnly;
 
   @override
-  ConsumerState<PlanTab> createState() => _PlanTabState();
+  ConsumerState<PlanTab> createState() => PlanTabState();
 }
 
-class _PlanTabState extends ConsumerState<PlanTab> {
+class PlanTabState extends ConsumerState<PlanTab> {
+  /// Opens the add-plan-item sheet (used by trip-home FAB on the Plan tab).
+  void openAddPlanItem() => _openSheet(context, null);
   final _listNameController = TextEditingController();
   final _listItemController = TextEditingController();
 
@@ -111,18 +114,14 @@ class _PlanTabState extends ConsumerState<PlanTab> {
                     (item) {
                       if (item.kind == PlanItemKind.activity) {
                         final view = eventViews[item.id];
-                        if (view == null) {
-                          return _PlanItemTile(
-                            item: item,
-                            labels: widget.labels,
-                            readOnly: widget.readOnly,
-                            onEdit: () => _openSheet(context, item),
-                            onDelete: () => repo.deletePlanItem(item.id),
-                          );
-                        }
                         return PlanEventTile(
                           tripId: widget.tripId,
-                          view: view,
+                          view: view ??
+                              PlanItemEventView(
+                                item: item,
+                                counts: const EventRsvpCounts(),
+                                myStatus: null,
+                              ),
                           labels: widget.labels,
                           readOnly: widget.readOnly,
                           onEdit: () => _openSheet(context, item),
@@ -219,10 +218,12 @@ class _PlanTabState extends ConsumerState<PlanTab> {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => PlanItemSheet(
         tripId: widget.tripId,
         labels: widget.labels,
         existing: existing,
+        readOnly: widget.readOnly,
         onSave: (input) async {
           if (existing == null) {
             await ref.read(planRepositoryProvider).addPlanItem(input);

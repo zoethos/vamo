@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,17 +20,39 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
+  static const _resendCooldownSeconds = 60;
+
   final _emailController = TextEditingController();
   final _otpController = TextEditingController();
   bool _otpSent = false;
   bool _busy = false;
   String? _error;
+  int _resendCooldown = 0;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _emailController.dispose();
     _otpController.dispose();
     super.dispose();
+  }
+
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+    setState(() => _resendCooldown = _resendCooldownSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCooldown <= 1) {
+        setState(() => _resendCooldown = 0);
+        timer.cancel();
+      } else {
+        setState(() => _resendCooldown -= 1);
+      }
+    });
   }
 
   Future<void> _run(
@@ -47,14 +71,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             action: authAction,
             error: e,
           );
-      setState(() => _error = formatActionFailureMessage(e));
+      setState(() => _error = actionFailureUserMessage(e));
     } catch (e) {
       ref.read(analyticsProvider).reportActionFailed(
             screen: 'auth',
             action: authAction,
             error: e,
           );
-      setState(() => _error = formatActionFailureMessage(e));
+      setState(() => _error = actionFailureUserMessage(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -67,8 +91,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           return;
         }
         await ref.read(authRepositoryProvider).signInWithEmailOtp(email);
-        if (mounted) setState(() => _otpSent = true);
+        if (mounted) {
+          setState(() => _otpSent = true);
+          _startResendCooldown();
+        }
       }, authAction: 'send_email_otp');
+
+  Future<void> _resendCode() => _run(() async {
+        await ref.read(authRepositoryProvider).signInWithEmailOtp(
+              _emailController.text.trim(),
+            );
+        if (mounted) _startResendCooldown();
+      }, authAction: 'resend_email_otp');
 
   Future<void> _verify() => _run(() async {
         await ref.read(authRepositoryProvider).verifyOtp(
@@ -168,10 +202,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               ? const _Spinner()
                               : const Text('Verify & continue'),
                         ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: (_busy || _resendCooldown > 0)
+                              ? null
+                              : _resendCode,
+                          child: Text(
+                            _resendCooldown > 0
+                                ? 'Send me a new code (${_resendCooldown}s)'
+                                : 'Send me a new code',
+                          ),
+                        ),
                         TextButton(
                           onPressed: _busy
                               ? null
-                              : () => setState(() => _otpSent = false),
+                              : () => setState(() {
+                                    _otpSent = false;
+                                    _otpController.clear();
+                                    _resendTimer?.cancel();
+                                    _resendCooldown = 0;
+                                  }),
                           child: const Text('Use a different email'),
                         ),
                       ],

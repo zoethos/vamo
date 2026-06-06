@@ -28,6 +28,12 @@ void main() {
     );
   });
 
+  test('input decoration labels use ink/graphite not primary lime', () {
+    final theme = AppTheme.light;
+    expect(theme.inputDecorationTheme.labelStyle?.color, AppColors.graphite);
+    expect(theme.inputDecorationTheme.floatingLabelStyle?.color, AppColors.ink);
+  });
+
   test('lime primary buttons use ink foreground in theme', () {
     final style = AppTheme.light.filledButtonTheme.style;
     expect(style?.foregroundColor?.resolve({}), AppColors.ink);

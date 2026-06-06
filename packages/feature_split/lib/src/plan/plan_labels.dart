@@ -19,6 +19,7 @@ class PlanTabLabels {
     required this.sheetTitleAdd,
     required this.sheetTitleEdit,
     required this.fieldTitle,
+    required this.fieldKind,
     required this.fieldNotes,
     required this.fieldStart,
     required this.fieldEnd,
@@ -30,6 +31,8 @@ class PlanTabLabels {
     required this.rsvpMaybe,
     required this.rsvpDeclined,
     required this.rsvpSummary,
+    required this.eventRsvpHint,
+    required this.eventRsvpSection,
   });
 
   final String emptyTitle;
@@ -49,6 +52,7 @@ class PlanTabLabels {
   final String sheetTitleAdd;
   final String sheetTitleEdit;
   final String fieldTitle;
+  final String fieldKind;
   final String fieldNotes;
   final String fieldStart;
   final String fieldEnd;
@@ -60,6 +64,8 @@ class PlanTabLabels {
   final String rsvpMaybe;
   final String rsvpDeclined;
   final String Function(int going, int maybe) rsvpSummary;
+  final String eventRsvpHint;
+  final String eventRsvpSection;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
         PlanItemKind.lodging => kindLodging,

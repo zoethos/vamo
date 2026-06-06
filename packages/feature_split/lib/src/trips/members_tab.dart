@@ -24,10 +24,12 @@ class MembersTab extends ConsumerStatefulWidget {
   final InviteLabels inviteLabels;
 
   @override
-  ConsumerState<MembersTab> createState() => _MembersTabState();
+  ConsumerState<MembersTab> createState() => MembersTabState();
 }
 
-class _MembersTabState extends ConsumerState<MembersTab> {
+class MembersTabState extends ConsumerState<MembersTab> {
+  /// Opens share-or-QR invite picker (trip-home FAB on the Members tab).
+  Future<void> openInviteFlow() => _showInvitePicker();
   bool _sharing = false;
   bool _showingQr = false;
   String? _roleBusyUserId;
@@ -216,6 +218,38 @@ class _MembersTabState extends ConsumerState<MembersTab> {
     } finally {
       if (mounted) setState(() => _roleBusyUserId = null);
     }
+  }
+
+  Future<void> _showInvitePicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('Invite Vamigos'),
+              subtitle: const Text('Share a join link'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _shareInvite();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_2_outlined),
+              title: Text(widget.inviteLabels.showQr),
+              subtitle: Text(widget.inviteLabels.qrCaption),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showQr();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _shareInvite() async {

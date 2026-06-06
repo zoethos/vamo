@@ -28,6 +28,7 @@ void main() {
     sheetTitleAdd: 'Add plan item',
     sheetTitleEdit: 'Edit plan item',
     fieldTitle: 'Title',
+    fieldKind: 'Type',
     fieldNotes: 'Notes',
     fieldStart: 'Starts',
     fieldEnd: 'Ends',
@@ -38,6 +39,8 @@ void main() {
     rsvpMaybe: 'Maybe',
     rsvpDeclined: 'Declined',
     rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
+    eventRsvpHint: 'RSVP after save',
+    eventRsvpSection: 'RSVP',
   );
 
   testWidgets('read-only plan tab hides add controls', (tester) async {

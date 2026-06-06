@@ -29,6 +29,7 @@ final _planTabLabels = PlanTabLabels(
   sheetTitleAdd: 'Add plan item',
   sheetTitleEdit: 'Edit plan item',
   fieldTitle: 'Title',
+  fieldKind: 'Type',
   fieldNotes: 'Notes',
   fieldStart: 'Starts',
   fieldEnd: 'Ends',
@@ -39,6 +40,8 @@ final _planTabLabels = PlanTabLabels(
   rsvpMaybe: 'Maybe',
   rsvpDeclined: 'Declined',
   rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
+  eventRsvpHint: 'RSVP after save',
+  eventRsvpSection: 'RSVP',
 );
 
 void main() {

@@ -116,6 +116,7 @@
   "planSheetTitleAdd": "Add plan item",
   "planSheetTitleEdit": "Edit plan item",
   "planFieldTitle": "Title",
+  "planFieldKind": "Type",
   "planFieldNotes": "Notes",
   "planFieldStart": "Starts",
   "planFieldEnd": "Ends",
@@ -136,6 +137,8 @@
       }
     }
   },
+  "planEventRsvpHint": "After you save, you and other Vamigos can RSVP on the plan board.",
+  "planEventRsvpSection": "RSVP",
   "activityEventCreatedSubtitle": "Event added",
   "activityEventRsvpSubtitle": "RSVP: {status}",
   "@activityEventRsvpSubtitle": {
