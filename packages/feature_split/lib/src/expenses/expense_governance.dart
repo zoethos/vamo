@@ -48,17 +48,12 @@ class ExpenseShareSummary {
   final DateTime? respondedAt;
 }
 
-/// Hard display rule copy — share contributes but consent is not accepted.
-String shareConsentDisplayLabel({
-  required String memberName,
-  required ShareResponse response,
-}) {
-  return switch (response) {
-    ShareResponse.rejected => 'included — disputed by $memberName',
-    ShareResponse.pending => 'included — pending from $memberName',
-    ShareResponse.accepted => '',
-  };
-}
-
 bool canEditTripProposals(String role) =>
     role == 'owner' || role == 'co-admin';
+
+/// Screen-level gate for the propose-expense form (role + writability).
+bool canShowProposeExpenseForm({
+  required bool tripReadOnly,
+  required String? memberRole,
+}) =>
+    !tripReadOnly && memberRole != null && canEditTripProposals(memberRole);

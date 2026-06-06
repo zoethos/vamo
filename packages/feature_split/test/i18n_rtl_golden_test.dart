@@ -1,4 +1,5 @@
 import 'package:app_core/app_core.dart';
+import 'package:feature_split/src/expenses/expense_governance.dart';
 import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
 import 'package:feature_split/src/snapshot/snapshot_card.dart';
 import 'package:feature_split/src/snapshot/snapshot_models.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'governance_test_labels.dart';
 import 'golden_test_theme.dart';
 
 void main() {
@@ -67,6 +69,10 @@ void main() {
   });
 
   testWidgets('Trip expense list RTL golden', (tester) async {
+    final consentLabel = governanceTestLabelsAr.consentDisplayLabel(
+      memberName: 'سارة',
+      response: ShareResponse.rejected,
+    );
     await tester.pumpWidget(
       rtlHarness(
         child: SizedBox(
@@ -80,6 +86,8 @@ void main() {
             tripBaseCurrency: 'EUR',
             expenseCurrency: 'EUR',
             locale: 'ar',
+            consentLabel: consentLabel,
+            proposalRowPrefix: governanceTestLabelsAr.proposalRowPrefix,
           ),
         ),
       ),

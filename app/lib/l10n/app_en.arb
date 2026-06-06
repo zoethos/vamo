@@ -121,5 +121,56 @@
   "planFieldEnd": "Ends",
   "planSave": "Save",
   "planLoadError": "Could not load the plan.",
-  "planChecklistsLoadError": "Could not load checklists."
+  "planChecklistsLoadError": "Could not load checklists.",
+  "expenseIncludedDisputedBy": "included — disputed by {memberName}",
+  "@expenseIncludedDisputedBy": {
+    "placeholders": {
+      "memberName": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseIncludedPendingFrom": "included — pending from {memberName}",
+  "@expenseIncludedPendingFrom": {
+    "placeholders": {
+      "memberName": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseSomeoneFallback": "Someone",
+  "expenseProposalRowPrefix": "Proposal",
+  "expenseProposalNotInBalances": "Proposal — not in balances until committed",
+  "expenseShareAccepted": "Accepted",
+  "expenseYourShare": "Your share",
+  "expenseDispute": "Dispute",
+  "expenseAccept": "Accept",
+  "expenseCommitToBalances": "Commit to balances",
+  "expenseVoidProposal": "Void proposal",
+  "expenseDisputeReasonTitle": "Why are you disputing?",
+  "expenseDisputeReasonHint": "Reason",
+  "expenseGovernanceCancel": "Cancel",
+  "expenseGovernanceSubmit": "Submit",
+  "expenseProposeCostAction": "Propose a cost",
+  "expenseAddTitle": "Add expense",
+  "expenseProposeCostTitle": "Propose a cost",
+  "expenseSaveExpense": "Save expense",
+  "expenseSaveProposal": "Save proposal",
+  "expenseTripBalancesIn": "Trip balances in {currency}",
+  "@expenseTripBalancesIn": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseSplitEqual": "Split equally · {count} Vamigos",
+  "@expenseSplitEqual": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "expenseSplitSolo": "All on you (solo)"
 }

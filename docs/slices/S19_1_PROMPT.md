@@ -63,6 +63,27 @@ same shape as `PlanTabLabels`):
 
 ## 4. RUN.md — note the propose flow in the Slice 19 section (online-only RPC).
 
+## 5b. Second-review fixes (required before merge)
+
+- **Hide receipt/OCR/place block in `AddExpenseMode.proposed`** — `proposeExpense`
+  drops that data, so showing the capture UI is silent data loss. Proposals =
+  amount + description + split only. (Proposal evidence = deferred spec P2
+  `attachment_path`; do not build now, just don't show inputs that vanish.)
+- **Screen-level guard on the propose route** — `/trips/:id/expenses/propose`
+  is deep-linkable; the hidden button isn't enough. `AddExpenseScreen` in
+  proposed mode must check role (owner/co-admin) + `is_trip_writable` and
+  bounce non-admins / closed trips before rendering the form, not rely on the
+  RPC rejection. Add member + closed-trip router/widget tests.
+- **Real role-gate UI test** — render `_ExpensesTab` and assert the propose
+  action is absent for a member / present for an admin; the current test only
+  asserts `canEditTripProposals()` (a helper, not the UI).
+- **Fix the false-positive proposed-save test** — it passes while logging
+  `action_failed` because `context.pop()` throws in the `MaterialApp` harness
+  and the catch swallows it. Use a GoRouter/Navigator harness; assert the
+  error path does NOT fire on success.
+- **Remove hardcoded `"Proposal"` fallback** (`trip_expense_list_tile.dart`):
+  make the label required so English can't silently reappear.
+
 ## 5. Reviewer checklist
 
 - [ ] Propose action gated to owner/co-admin (hidden for members) AND

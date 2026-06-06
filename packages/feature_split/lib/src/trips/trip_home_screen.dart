@@ -10,6 +10,8 @@ import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
 import '../expenses/expense_consent_providers.dart';
 import '../expenses/expense_detail_sheet.dart';
 import '../expenses/expense_governance.dart';
+import '../expenses/expense_governance_labels.dart';
+import '../expenses/trip_expenses_propose_action.dart';
 import '../expenses/expenses_providers.dart';
 import '../invites/invite_labels.dart';
 import '../signals/coming_soon_teaser.dart';
@@ -28,6 +30,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
     this.initialTab,
     required this.inviteLabels,
     required this.planLabels,
+    required this.governanceLabels,
   });
 
   final String tripId;
@@ -36,6 +39,7 @@ class TripHomeScreen extends ConsumerStatefulWidget {
   final String? initialTab;
   final InviteLabels inviteLabels;
   final PlanTabLabels planLabels;
+  final ExpenseGovernanceLabels governanceLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -170,6 +174,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       tripId: widget.tripId,
                       baseCurrency: detail.baseCurrency,
                       readOnly: readOnly,
+                      governanceLabels: widget.governanceLabels,
                     ),
                     PlanTab(
                       tripId: widget.tripId,
@@ -177,7 +182,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       readOnly: readOnly,
                     ),
                     if (showCapture) CaptureTab(tripId: widget.tripId),
-                    if (showBalances) BalancesTab(tripId: widget.tripId),
+                    if (showBalances)
+                      BalancesTab(
+                        tripId: widget.tripId,
+                        governanceLabels: widget.governanceLabels,
+                      ),
                     MembersTab(
                       tripId: widget.tripId,
                       inviteLabels: widget.inviteLabels,
@@ -219,11 +228,13 @@ class _ExpensesTab extends ConsumerWidget {
     required this.tripId,
     required this.baseCurrency,
     required this.readOnly,
+    required this.governanceLabels,
   });
 
   final String tripId;
   final String baseCurrency;
   final bool readOnly;
+  final ExpenseGovernanceLabels governanceLabels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -245,15 +256,6 @@ class _ExpensesTab extends ConsumerWidget {
         onRetry: () => ref.invalidate(tripExpensesProvider(tripId)),
       ),
       data: (list) {
-        if (list.isEmpty) {
-          return const AppEmptyState(
-            screen: 'trip_expenses',
-            icon: Icons.receipt_long_outlined,
-            title: 'No expenses yet',
-            subtitle: 'Tap Add expense to log your first cost.',
-          );
-        }
-
         final nameByUserId = members.valueOrNull == null
             ? <String, String>{}
             : {
@@ -261,45 +263,87 @@ class _ExpensesTab extends ConsumerWidget {
               };
 
         final consentByExpense = {
-          for (final flag in consentFlags) flag.expenseId: flag.label,
+          for (final flag in consentFlags)
+            flag.expenseId: governanceLabels.consentDisplayLabel(
+              memberName:
+                  nameByUserId[flag.userId] ?? governanceLabels.someoneFallback,
+              response: flag.response,
+            ),
         };
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: list.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, i) {
-            final e = list[i];
-            if (e.status == ExpenseStatus.cancelled) {
-              return const SizedBox.shrink();
-            }
-            final payer = nameByUserId[e.payerId] ?? 'Someone';
-            final locale = Localizations.localeOf(context).toString();
-            return TripExpenseListTile(
-              description: e.description,
-              payer: payer,
-              spentAt: e.spentAt,
-              baseCents: e.baseCents,
-              amountCents: e.amountCents,
-              tripBaseCurrency: baseCurrency,
-              expenseCurrency: e.currency,
-              locale: locale,
-              expenseId: e.id,
-              tripId: e.tripId,
-              receiptPath: e.receiptPath,
-              localReceiptPath: e.localReceiptPath,
-              placeLabel: e.placeLabel,
-              status: e.status,
-              consentLabel: consentByExpense[e.id],
-              onTap: () => showExpenseDetailSheet(
-                context: context,
-                ref: ref,
-                expense: e,
-                readOnly: readOnly,
-                canManageProposals: canManageProposals,
+        if (list.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TripExpensesProposeAction(
+                visible: canManageProposals,
+                labels: governanceLabels,
+                onPressed: () =>
+                    context.push(AppRoutes.tripProposeExpense(tripId)),
               ),
-            );
-          },
+              const Expanded(
+                child: AppEmptyState(
+                  screen: 'trip_expenses',
+                  icon: Icons.receipt_long_outlined,
+                  title: 'No expenses yet',
+                  subtitle: 'Tap Add expense to log your first cost.',
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TripExpensesProposeAction(
+              visible: canManageProposals,
+              labels: governanceLabels,
+              onPressed: () => context.push(AppRoutes.tripProposeExpense(tripId)),
+            ),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  final e = list[i];
+                  if (e.status == ExpenseStatus.cancelled) {
+                    return const SizedBox.shrink();
+                  }
+                  final payer =
+                      nameByUserId[e.payerId] ?? governanceLabels.someoneFallback;
+                  final locale = Localizations.localeOf(context).toString();
+                  return TripExpenseListTile(
+                    description: e.description,
+                    payer: payer,
+                    spentAt: e.spentAt,
+                    baseCents: e.baseCents,
+                    amountCents: e.amountCents,
+                    tripBaseCurrency: baseCurrency,
+                    expenseCurrency: e.currency,
+                    locale: locale,
+                    expenseId: e.id,
+                    tripId: e.tripId,
+                    receiptPath: e.receiptPath,
+                    localReceiptPath: e.localReceiptPath,
+                    placeLabel: e.placeLabel,
+                    status: e.status,
+                    consentLabel: consentByExpense[e.id],
+                    proposalRowPrefix: governanceLabels.proposalRowPrefix,
+                    onTap: () => showExpenseDetailSheet(
+                      context: context,
+                      ref: ref,
+                      expense: e,
+                      labels: governanceLabels,
+                      readOnly: readOnly,
+                      canManageProposals: canManageProposals,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

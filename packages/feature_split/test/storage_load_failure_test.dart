@@ -54,6 +54,7 @@ void main() {
                 expenseId: 'e1',
                 tripId: 't1',
                 receiptPath: 'u1/t1/receipts/e1.jpg',
+                proposalRowPrefix: 'Proposal',
               ),
             ),
           ),

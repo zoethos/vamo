@@ -7,7 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'expense_governance.dart';
+import 'expense_governance_labels.dart';
 import 'expense_models.dart';
+import 'expense_consent_providers.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
 import 'money_format.dart';
@@ -20,9 +23,16 @@ import '../trips/trips_providers.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
 class AddExpenseScreen extends ConsumerStatefulWidget {
-  const AddExpenseScreen({super.key, required this.tripId});
+  const AddExpenseScreen({
+    super.key,
+    required this.tripId,
+    this.mode = AddExpenseMode.committed,
+    required this.labels,
+  });
 
   final String tripId;
+  final AddExpenseMode mode;
+  final ExpenseGovernanceLabels labels;
 
   @override
   ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -160,15 +170,44 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               _payerId = memberList.first.userId;
             }
 
-            final splitLabel = memberList.length == 1
-                ? 'All on you (solo)'
-                : 'Split equally · ${memberList.length} Vamigos';
+            final labels = widget.labels;
+            final splitLabel = labels.splitLabel(memberList.length);
+            final isPropose = widget.mode == AddExpenseMode.proposed;
+
+            if (isPropose) {
+              final currentUserId = ref.watch(currentUserProvider)?.id;
+              final role = ref.watch(
+                currentMemberRoleProvider(
+                  (tripId: widget.tripId, userId: currentUserId),
+                ),
+              );
+              final tripReadOnly =
+                  isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
+              if (!canShowProposeExpenseForm(
+                tripReadOnly: tripReadOnly,
+                memberRole: role,
+              )) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!context.mounted) return;
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutes.trip(widget.tripId));
+                  }
+                });
+                return const Scaffold(body: SizedBox.shrink());
+              }
+            }
 
             final inForeignCurrency = _expenseCurrency != tripBase;
+            final screenTitle =
+                isPropose ? labels.proposeCostTitle : labels.addExpenseTitle;
+            final saveLabel =
+                isPropose ? labels.saveProposal : labels.saveExpense;
 
             return Scaffold(
               appBar: AppBar(
-                title: const Text('Add expense'),
+                title: Text(screenTitle),
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: _saving ? null : () => context.pop(),
@@ -187,7 +226,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Trip balances in $tripBase',
+                      labels.tripBalancesIn(tripBase),
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
@@ -219,7 +258,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               _refreshFxPreview(tripBase);
                             },
                     ),
-                    if (_ocrSuggested.contains(OcrSuggestionField.currency))
+                    if (_ocrSuggested.contains(OcrSuggestionField.currency) &&
+                        !isPropose)
                       const OcrSuggestionChip(),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -259,7 +299,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ?.copyWith(color: AppColors.jadeTeal),
                         ),
                     ],
-                    if (_ocrSuggested.contains(OcrSuggestionField.amount))
+                    if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
+                        !isPropose)
                       const OcrSuggestionChip(),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -277,97 +318,102 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         return null;
                       },
                     ),
-                    if (_ocrSuggested.contains(OcrSuggestionField.title))
+                    if (_ocrSuggested.contains(OcrSuggestionField.title) &&
+                        !isPropose)
                       const OcrSuggestionChip(),
-                    if (_placeLabel != null && _placeLabel!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Place',
+                    if (!isPropose) ...[
+                      if (_placeLabel != null && _placeLabel!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Place',
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.place_outlined,
+                                size: 18,
+                                color: AppColors.graphite,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _placeLabel!,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(color: AppColors.graphite),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
+                        if (_ocrSuggested
+                            .contains(OcrSuggestionField.placeLabel))
+                          const OcrSuggestionChip(),
+                      ],
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed:
+                            (_saving || _ocrLoading) ? null : _pickReceipt,
+                        icon: const Icon(Icons.document_scanner_outlined),
+                        label: const Text('Scan receipt'),
+                      ),
+                      if (_ocrLoading) ...[
+                        const SizedBox(height: 12),
+                        const LinearProgressIndicator(minHeight: 2),
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(top: 8),
+                          child: Text(
+                            'Reading receipt…',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.graphite),
+                          ),
+                        ),
+                      ],
+                      if (_receiptSourcePath != null) ...[
+                        const SizedBox(height: 12),
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.place_outlined,
-                              size: 18,
-                              color: AppColors.graphite,
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(_receiptSourcePath!),
+                                width: 72,
+                                height: 72,
+                                fit: BoxFit.cover,
+                              ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                _placeLabel!,
+                                'Receipt attached (optional evidence)',
                                 style: Theme.of(context)
                                     .textTheme
-                                    .bodyMedium
+                                    .bodySmall
                                     ?.copyWith(color: AppColors.graphite),
                               ),
                             ),
+                            IconButton(
+                              tooltip: 'Remove receipt',
+                              onPressed: (_saving || _ocrLoading)
+                                  ? null
+                                  : () => setState(() {
+                                        _receiptSourcePath = null;
+                                        _receiptMetadata = null;
+                                        _placeLabel = null;
+                                        _resolvedPlaceId = null;
+                                        _ocrSuggested.clear();
+                                        _ocrOriginal.clear();
+                                        _ocrUsed = false;
+                                      }),
+                              icon: const Icon(Icons.close),
+                            ),
                           ],
                         ),
-                      ),
-                      if (_ocrSuggested.contains(OcrSuggestionField.placeLabel))
-                        const OcrSuggestionChip(),
-                    ],
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      onPressed: (_saving || _ocrLoading) ? null : _pickReceipt,
-                      icon: const Icon(Icons.document_scanner_outlined),
-                      label: const Text('Scan receipt'),
-                    ),
-                    if (_ocrLoading) ...[
-                      const SizedBox(height: 12),
-                      const LinearProgressIndicator(minHeight: 2),
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(top: 8),
-                        child: Text(
-                          'Reading receipt…',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: AppColors.graphite),
-                        ),
-                      ),
-                    ],
-                    if (_receiptSourcePath != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(_receiptSourcePath!),
-                              width: 72,
-                              height: 72,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Receipt attached (optional evidence)',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: AppColors.graphite),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Remove receipt',
-                            onPressed: (_saving || _ocrLoading)
-                                ? null
-                                : () => setState(() {
-                                      _receiptSourcePath = null;
-                                      _receiptMetadata = null;
-                                      _placeLabel = null;
-                                      _resolvedPlaceId = null;
-                                      _ocrSuggested.clear();
-                                      _ocrOriginal.clear();
-                                      _ocrUsed = false;
-                                    }),
-                            icon: const Icon(Icons.close),
-                          ),
-                        ],
-                      ),
+                      ],
                     ],
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
@@ -413,7 +459,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Save expense'),
+                            : Text(saveLabel),
                       ),
                     ),
                   ],
@@ -588,37 +634,70 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
     setState(() => _saving = true);
     try {
-      await ref.read(expensesRepositoryProvider).addExpense(
-            input: AddExpenseInput(
+      double fxRate = 1.0;
+      var baseCents = cents;
+      if (_expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase()) {
+        final snapshot =
+            await ref.read(fxRatesClientProvider).fetchForBase(tripBaseCurrency);
+        fxRate = snapshot.rateExpenseToBase(_expenseCurrency);
+        baseCents = snapshot.toBaseCents(
+          amountCents: cents,
+          expenseCurrency: _expenseCurrency,
+        );
+      }
+
+      if (widget.mode == AddExpenseMode.proposed) {
+        await ref.read(expensesRepositoryProvider).proposeExpense(
               tripId: widget.tripId,
+              payerId: payerId,
               description: _descriptionController.text,
               amountCents: cents,
-              expenseCurrency: _expenseCurrency,
-              payerId: payerId,
-              receiptSourcePath: _receiptSourcePath,
-              capturedLat: _receiptMetadata?.lat,
-              capturedLng: _receiptMetadata?.lng,
-              capturedAt: _receiptMetadata?.capturedAt,
-              placeLabel: _placeLabel,
-              placeId: _resolvedPlaceId,
-              ocrUsed: _ocrUsed,
-            ),
-            baseCurrency: tripBaseCurrency,
-          );
+              currency: _expenseCurrency,
+              baseCents: baseCents,
+              fxRate: fxRate,
+            );
+      } else {
+        await ref.read(expensesRepositoryProvider).addExpense(
+              input: AddExpenseInput(
+                tripId: widget.tripId,
+                description: _descriptionController.text,
+                amountCents: cents,
+                expenseCurrency: _expenseCurrency,
+                payerId: payerId,
+                receiptSourcePath: _receiptSourcePath,
+                capturedLat: _receiptMetadata?.lat,
+                capturedLng: _receiptMetadata?.lng,
+                capturedAt: _receiptMetadata?.capturedAt,
+                placeLabel: _placeLabel,
+                placeId: _resolvedPlaceId,
+                ocrUsed: _ocrUsed,
+              ),
+              baseCurrency: tripBaseCurrency,
+            );
+      }
       if (!mounted) return;
       _flowTracker.complete();
-      context.pop();
     } catch (e) {
       if (!mounted) return;
       showActionError(
         context,
         ref,
         screen: 'add_expense',
-        action: 'add_expense',
+        action: widget.mode == AddExpenseMode.proposed
+            ? 'propose_expense'
+            : 'add_expense',
         error: e,
       );
+      return;
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+    if (mounted) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.trip(widget.tripId));
+      }
     }
   }
 

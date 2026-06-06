@@ -333,4 +333,82 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get planChecklistsLoadError => 'Could not load checklists.';
+
+  @override
+  String expenseIncludedDisputedBy(String memberName) {
+    return 'included — disputed by $memberName';
+  }
+
+  @override
+  String expenseIncludedPendingFrom(String memberName) {
+    return 'included — pending from $memberName';
+  }
+
+  @override
+  String get expenseSomeoneFallback => 'Someone';
+
+  @override
+  String get expenseProposalRowPrefix => 'Proposal';
+
+  @override
+  String get expenseProposalNotInBalances =>
+      'Proposal — not in balances until committed';
+
+  @override
+  String get expenseShareAccepted => 'Accepted';
+
+  @override
+  String get expenseYourShare => 'Your share';
+
+  @override
+  String get expenseDispute => 'Dispute';
+
+  @override
+  String get expenseAccept => 'Accept';
+
+  @override
+  String get expenseCommitToBalances => 'Commit to balances';
+
+  @override
+  String get expenseVoidProposal => 'Void proposal';
+
+  @override
+  String get expenseDisputeReasonTitle => 'Why are you disputing?';
+
+  @override
+  String get expenseDisputeReasonHint => 'Reason';
+
+  @override
+  String get expenseGovernanceCancel => 'Cancel';
+
+  @override
+  String get expenseGovernanceSubmit => 'Submit';
+
+  @override
+  String get expenseProposeCostAction => 'Propose a cost';
+
+  @override
+  String get expenseAddTitle => 'Add expense';
+
+  @override
+  String get expenseProposeCostTitle => 'Propose a cost';
+
+  @override
+  String get expenseSaveExpense => 'Save expense';
+
+  @override
+  String get expenseSaveProposal => 'Save proposal';
+
+  @override
+  String expenseTripBalancesIn(String currency) {
+    return 'Trip balances in $currency';
+  }
+
+  @override
+  String expenseSplitEqual(int count) {
+    return 'Split equally · $count Vamigos';
+  }
+
+  @override
+  String get expenseSplitSolo => 'All on you (solo)';
 }

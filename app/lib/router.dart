@@ -163,6 +163,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             initialTab: state.uri.queryParameters['tab'],
             inviteLabels: SplitLabels.invite(l10n),
             planLabels: SplitLabels.plan(l10n),
+            governanceLabels: SplitLabels.governance(l10n),
           );
         },
         routes: [
@@ -172,7 +173,25 @@ final routerProvider = Provider<GoRouter>((ref) {
             parentNavigatorKey: _rootNavigatorKey,
             builder: (context, state) {
               final id = state.pathParameters['tripId']!;
-              return AddExpenseScreen(tripId: id);
+              final l10n = AppLocalizations.of(context);
+              return AddExpenseScreen(
+                tripId: id,
+                labels: SplitLabels.governance(l10n),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'expenses/propose',
+            name: 'propose_expense',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return AddExpenseScreen(
+                tripId: id,
+                mode: AddExpenseMode.proposed,
+                labels: SplitLabels.governance(l10n),
+              );
             },
           ),
           GoRoute(
