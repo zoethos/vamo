@@ -3,6 +3,9 @@
 Effective from v0.1.0 (June 2026). Solo-founder + AI-agents workflow — rules
 are few but enforced.
 
+AI agents must also follow [`AGENTS.md`](AGENTS.md), which expands this policy
+into an operational git/stash/merge checklist.
+
 ## Versioning
 
 - Semantic-ish, starting at **0.1.0**. Increments are **manual** decisions,
@@ -29,6 +32,8 @@ are few but enforced.
   ```
 - **Fixes & small changes** that belong to no feature: commit directly to `main`.
 - Never rewrite history on `main` (no force-push).
+- Do not blanket-stash or blanket-stage. Keep commits scoped to the current
+  slice, and preserve unrelated work exactly as found.
 
 ## Quality gates
 
