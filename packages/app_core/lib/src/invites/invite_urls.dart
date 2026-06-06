@@ -10,22 +10,39 @@ abstract final class InviteUrls {
   static const appJoinHost = 'join';
 
   /// Shareable HTTPS link (store / web fallback when app not installed).
-  static String webInviteLink(String token) =>
-      'https://$webHost$webPathPrefix${Uri.encodeComponent(token)}';
+  ///
+  /// Adds `?ch=` only when [channel] is non-null and not `link` so legacy URLs
+  /// stay unchanged.
+  static String webInviteLink(String token, {String? channel}) {
+    final base =
+        'https://$webHost$webPathPrefix${Uri.encodeComponent(token)}';
+    if (channel == null || channel.isEmpty || channel == 'link') return base;
+    return '$base?ch=${Uri.encodeQueryComponent(channel)}';
+  }
 
   /// Opens the app when installed (`app.vamo://join?token=…`).
-  static Uri appInviteUri(String token) => Uri(
+  static Uri appInviteUri(String token, {String? channel}) => Uri(
         scheme: appScheme,
         host: appJoinHost,
-        queryParameters: {'token': token},
+        queryParameters: {
+          'token': token,
+          if (channel != null && channel.isNotEmpty && channel != 'link')
+            'ch': channel,
+        },
       );
+
+  /// Raw `ch` query value from an invite URI (may be null).
+  static String? channelQuery(Uri uri) => uri.queryParameters['ch'];
 
   /// QR payload for in-person invite (R9) — owned-domain web link (S25 site).
   static String qrInvitePayload(String token) => webInviteLink(token);
 
   /// In-app route used by GoRouter after [parseToken].
-  static String inAppJoinLocation(String token) =>
-      '/join?token=${Uri.encodeQueryComponent(token)}';
+  static String inAppJoinLocation(String token, {String? channel}) {
+    final base = '/join?token=${Uri.encodeQueryComponent(token)}';
+    if (channel == null || channel.isEmpty || channel == 'link') return base;
+    return '$base&ch=${Uri.encodeQueryComponent(channel)}';
+  }
 
   /// Extracts invite token from a scanned or pasted invite URL string.
   static String? parseTokenFromString(String raw) {

@@ -68,7 +68,14 @@ class _VamoAppState extends ConsumerState<VamoApp> {
 
     final token = InviteUrls.parseToken(uri);
     if (token == null) return;
-    ref.read(routerProvider).go(InviteUrls.inAppJoinLocation(token));
+    final channel = InviteChannel.fromQuery(InviteUrls.channelQuery(uri));
+    ref.read(pendingInviteChannelProvider.notifier).state = channel;
+    ref.read(routerProvider).go(
+          InviteUrls.inAppJoinLocation(
+            token,
+            channel: InviteUrls.channelQuery(uri),
+          ),
+        );
   }
 
   @override

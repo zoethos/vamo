@@ -4,7 +4,8 @@ import 'package:feature_split/src/expenses/expense_consent_providers.dart';
 import 'package:feature_split/src/expenses/expense_governance_labels.dart';
 import 'package:feature_split/src/expenses/expenses_providers.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
-import 'package:feature_split/src/invites/invite_labels.dart';
+
+import 'invite_labels_test_support.dart';
 import 'package:feature_split/src/plan/plan_labels.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
 import 'package:feature_split/src/sync/trip_realtime_binding.dart';
@@ -207,17 +208,7 @@ final _planLabels = PlanTabLabels(
   eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
 );
 
-const _inviteLabels = InviteLabels(
-  showQr: 'Show QR',
-  scanQr: 'Scan QR',
-  qrCaption: 'Caption',
-  notVamoInvite: 'Not a Vamo invite',
-  cameraDenied: 'Camera denied',
-  pasteLink: 'Paste link',
-  pasteHint: 'Hint',
-  pasteJoin: 'Join',
-  scannerTitle: 'Scanner',
-);
+const _inviteLabels = testInviteLabels;
 
 const _governanceLabels = ExpenseGovernanceLabels(
   includedDisputedBy: _mockDisputedBy,

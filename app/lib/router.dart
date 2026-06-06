@@ -27,10 +27,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         matchedLocation: state.matchedLocation,
         queryParameters: state.uri.queryParameters,
         isSignedIn: authRepo.isSignedIn,
-        onPendingInvite: (token) {
+        onPendingInvite: (token, channel) {
           ref.read(pendingInviteTokenProvider.notifier).state = token;
-          ref.read(pendingInviteChannelProvider.notifier).state =
-              InviteChannel.link;
+          ref.read(pendingInviteChannelProvider.notifier).state = channel;
         },
       );
     },
@@ -55,6 +54,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             state.matchedLocation,
             query: state.uri.queryParameters,
           );
+          final channel = inviteChannelFromQuery(state.uri.queryParameters);
+          ref.read(pendingInviteChannelProvider.notifier).state = channel;
           final l10n = AppLocalizations.of(context);
           return JoinTripScreen(
             token: token ?? '',

@@ -185,6 +185,48 @@ class AppLocalizationsIt extends AppLocalizations {
   String get inviteScannerTitle => 'Scan invite QR';
 
   @override
+  String get inviteVamigos => 'Invite Vamigos';
+
+  @override
+  String get inviteShareJoinLink => 'Share a join link';
+
+  @override
+  String get inviteFromContacts => 'Invite from contacts';
+
+  @override
+  String get inviteContactMethodTextMessage => 'Text message';
+
+  @override
+  String get inviteContactMethodEmail => 'Email';
+
+  @override
+  String get inviteContactMethodShareLink => 'Share link';
+
+  @override
+  String get inviteContactSubject => 'Join my Vamo trip';
+
+  @override
+  String inviteContactBody(String webUrl, String appUri) {
+    return 'Join my trip on Vamo!\n$webUrl\n\nHave the app? Tap: $appUri';
+  }
+
+  @override
+  String get membersVamigosTitle => 'Vamigos';
+
+  @override
+  String get membersInviteHintSolo =>
+      'Invite friends — balances unlock at 2+ people.';
+
+  @override
+  String membersCountOnTrip(int count) {
+    return '$count on this trip';
+  }
+
+  @override
+  String get membersShareFootnote =>
+      'Share a link — they can join mid-trip. Opens Vamo or the store.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

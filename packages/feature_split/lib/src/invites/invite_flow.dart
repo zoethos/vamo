@@ -44,6 +44,10 @@ Future<void> tryConsumePendingInvite({
   }
 }
 
+/// Reads invite channel from join-route query (`ch`); defaults to [InviteChannel.link].
+InviteChannel inviteChannelFromQuery(Map<String, String> query) =>
+    InviteChannel.fromQuery(query['ch']);
+
 /// Reads invite token from `/join` or `/join/:token` routes.
 String? inviteTokenFromLocation(
   String location, {

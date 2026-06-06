@@ -148,6 +148,7 @@ Not every transitive dep — only the ones with real lock-in or risk.
 | `posthog_flutter` | Analytics SDK | Low-med | event names are ours |
 | `app_links` | Deep-link channel (single handler) | Med | never re-add engine deep-linking alongside |
 | `share_plus`, `qr_flutter`, `package_info_plus`, `flutter_dotenv`, `image`, `connectivity_plus` | Misc utilities | Low | |
+| `url_launcher` | SMS/email compose for S26 contact invite (`sms:` / `mailto:`) | Low | Android `<queries>` for sms/mailto only; no broad contacts permission |
 
 **Upgrade debt:** CI reports ~41 packages with newer versions behind current
 constraints. Most are minor. Do a batched dependency-bump chore periodically

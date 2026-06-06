@@ -61,4 +61,34 @@ void main() {
     expect(InviteUrls.qrInvitePayload('tok'), InviteUrls.webInviteLink('tok'));
     expect(InviteUrls.qrInvitePayload('tok'), contains('vamo.world'));
   });
+
+  test('web invite link adds ch=contact when requested', () {
+    expect(
+      InviteUrls.webInviteLink('tok', channel: 'contact'),
+      'https://vamo.world/j/tok?ch=contact',
+    );
+  });
+
+  test('web invite link omits ch for link channel', () {
+    expect(InviteUrls.webInviteLink('tok'), 'https://vamo.world/j/tok');
+    expect(InviteUrls.webInviteLink('tok', channel: 'link'), 'https://vamo.world/j/tok');
+  });
+
+  test('inAppJoinLocation carries contact channel', () {
+    expect(
+      InviteUrls.inAppJoinLocation('tok', channel: 'contact'),
+      '/join?token=tok&ch=contact',
+    );
+  });
+
+  test('channelQuery reads ch from invite URI', () {
+    expect(
+      InviteUrls.channelQuery(Uri.parse('https://vamo.world/j/tok?ch=contact')),
+      'contact',
+    );
+    expect(
+      InviteUrls.channelQuery(Uri.parse('https://vamo.world/j/tok')),
+      isNull,
+    );
+  });
 }

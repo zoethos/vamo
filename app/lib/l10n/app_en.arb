@@ -73,6 +73,29 @@
   "invitePasteHint": "https://vamo.world/j/…",
   "invitePasteJoin": "Join from link",
   "inviteScannerTitle": "Scan invite QR",
+  "inviteVamigos": "Invite Vamigos",
+  "inviteShareJoinLink": "Share a join link",
+  "inviteFromContacts": "Invite from contacts",
+  "inviteContactMethodTextMessage": "Text message",
+  "inviteContactMethodEmail": "Email",
+  "inviteContactMethodShareLink": "Share link",
+  "inviteContactSubject": "Join my Vamo trip",
+  "inviteContactBody": "Join my trip on Vamo!\n{webUrl}\n\nHave the app? Tap: {appUri}",
+  "@inviteContactBody": {
+    "placeholders": {
+      "webUrl": {"type": "String"},
+      "appUri": {"type": "String"}
+    }
+  },
+  "membersVamigosTitle": "Vamigos",
+  "membersInviteHintSolo": "Invite friends — balances unlock at 2+ people.",
+  "membersCountOnTrip": "{count} on this trip",
+  "@membersCountOnTrip": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "membersShareFootnote": "Share a link — they can join mid-trip. Opens Vamo or the store.",
   "profileTitle": "Profile",
   "profileAbout": "About",
   "profileVersion": "Version",

@@ -1,5 +1,6 @@
 import 'package:app_core/app_core.dart';
 
+import 'contact_invite_target.dart';
 import 'invite_channel.dart';
 
 /// Fires [VamoEvent.memberInvited] on show/share; [VamoEvent.qrShown] when QR displayed.
@@ -7,13 +8,18 @@ void captureMemberInvitedShow(
   Analytics analytics, {
   required String tripId,
   required InviteChannel channel,
+  ContactInviteTargetType? targetType,
 }) {
+  final properties = <String, Object?>{
+    'trip_id': tripId,
+    'channel': channel.analyticsValue,
+  };
+  if (channel == InviteChannel.contact && targetType != null) {
+    properties['target_type'] = targetType.analyticsValue;
+  }
   analytics.capture(
     VamoEvent.memberInvited,
-    properties: {
-      'trip_id': tripId,
-      'channel': channel.analyticsValue,
-    },
+    properties: properties,
   );
   if (channel == InviteChannel.qr) {
     analytics.capture(

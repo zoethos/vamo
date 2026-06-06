@@ -1,4 +1,5 @@
 import 'package:app_core/app_core.dart';
+import 'package:feature_split/src/invites/contact_invite_target.dart';
 import 'package:feature_split/src/invites/invite_analytics.dart';
 import 'package:feature_split/src/invites/invite_channel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,22 @@ void main() {
       'channel': 'qr',
     });
     expect(analytics.events.single.$2.containsKey('invite_token'), isFalse);
+  });
+
+  test('member_invited contact channel includes target_type only', () {
+    captureMemberInvitedShow(
+      analytics,
+      tripId: 'trip-4',
+      channel: InviteChannel.contact,
+      targetType: ContactInviteTargetType.phone,
+    );
+    expect(analytics.events.single.$2, {
+      'trip_id': 'trip-4',
+      'channel': 'contact',
+      'target_type': 'phone',
+    });
+    expect(analytics.events.single.$2.containsKey('phone'), isFalse);
+    expect(analytics.events.single.$2.containsKey('token'), isFalse);
   });
 }
 
