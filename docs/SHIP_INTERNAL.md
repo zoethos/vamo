@@ -63,3 +63,60 @@ Verify in PostHog **Live events** (or debug console if key unset).
 - Trip create / join still use immediate RPC (not outbox).
 - Settlement revoke uses direct remote write.
 - Push notifications not included (stretch cut).
+
+---
+
+# Wave 2 internal build (S15–S19) — go/no-go
+
+First internal build carrying QR invite, roles+push, trip lifecycle, TripBoard,
+and money governance I. Bump `app/pubspec.yaml` to `0.2.0+N` (Wave-2 line).
+
+## Gate (all required before upload)
+- [ ] `main` CI green at the build commit (build_runner + analyze + test).
+- [ ] `dart run tool/rls_smoke.dart` **PASS on cloud** (currently 51/51) — the
+      release gate; never upload on a red smoke.
+- [ ] `app/.env` production values (Supabase URL + anon key only — never service role).
+- [ ] Migrations 0001–0018 applied to the cloud project (`supabase migration list`
+      shows local == remote).
+
+## Android identity / deep links (do for this build, not deferred)
+- [ ] Real `assetlinks.json` SHA-256: `cd app && ./gradlew signingReport`, take
+      the **upload key** SHA-256, replace `DEBUG_FINGERPRINT` in
+      `web/apps/site/public/.well-known/assetlinks.json`, redeploy site. Add the
+      Play App Signing cert SHA-256 too once the Play app exists (both may be
+      needed during transition). Verifies App Links so QR/invite opens the app
+      directly, not the browser.
+- [ ] `google-services.json` present at `app/android/app/` (package `app.vamo`) ✓ (S16).
+
+## S16 manual tail (hardware-bound — only you)
+- [ ] `melos run android` rebuild on the S25 — carries the whole stack
+      (overview, logos, deep-link fix, lifecycle banner, governance UI).
+- [ ] Dashboard → Edge Functions → `scheduled-heartbeat` → hourly cron `0 * * * *`
+      (the harmless no-op; this one SHOULD be scheduled).
+- [ ] Device push test per RUN.md Slice 16: sign in → background → curl
+      `send-push` → tap opens trip route.
+
+## Build & upload (Android Play internal)
+```bash
+cd app
+flutter build appbundle --release
+```
+Upload AAB to Play Console internal-testing track; add testers by email.
+
+## Wave 2 known limits (document for testers)
+- **Trip auto-close does NOT fire yet** — `trip-lifecycle-jobs` is deployed
+  but unscheduled (gated on S22 push: "no notice, no deemed consent"). Owners
+  can still request/force close manually; the 14-day deemed-close and 6-month
+  unresolved jobs are dormant until S22.
+- **Governance actions are online-only** — propose / commit / void / dispute
+  call RPCs directly (no offline outbox). Born-committed expense logging stays
+  offline-first.
+- **Close report UI not built** (S22) — close works, but the reconciliation
+  report (deemed vs explicit, FX drift, consent ledger) lands later.
+- Budget + FX constant-rate table not in this build (S20).
+
+## Post-upload QA
+Wave-1 analytics table above still applies, plus spot-check the new funnel
+events in PostHog Live: `qr_shown`, `close_requested`/`close_accepted`,
+`plan_item_created`, `proposal_created`/`share_response` (structure only — no
+amounts/reason text).

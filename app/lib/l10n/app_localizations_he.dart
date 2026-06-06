@@ -411,4 +411,81 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get expenseSplitSolo => 'All on you (solo)';
+
+  @override
+  String get tripSettingsTitle => 'Trip settings';
+
+  @override
+  String get tripBudgetSectionTitle => 'Budget';
+
+  @override
+  String get tripBudgetModeNone => 'No budget';
+
+  @override
+  String get tripBudgetModeInformational => 'Informational burn-down';
+
+  @override
+  String get tripBudgetModeFormal => 'Formal (over-budget flag)';
+
+  @override
+  String get tripBudgetAmountLabel => 'Budget amount';
+
+  @override
+  String get tripBudgetSave => 'Save budget';
+
+  @override
+  String tripBudgetRemaining(String amount, String currency) {
+    return '$amount left in $currency';
+  }
+
+  @override
+  String tripBudgetOver(String currency) {
+    return 'Over budget ($currency)';
+  }
+
+  @override
+  String get tripFxSectionTitle => 'Trip exchange rates';
+
+  @override
+  String get tripFxAddCurrency => 'Add currency';
+
+  @override
+  String get tripFxRefresh => 'Refresh rate';
+
+  @override
+  String tripFxCapturedAt(String capturedAt) {
+    return 'Captured $capturedAt';
+  }
+
+  @override
+  String get tripFxSource => 'Source';
+
+  @override
+  String get tripFxRateReadOnly =>
+      'Rates are captured from the market — not editable';
+
+  @override
+  String get tripOverBudgetCommitTitle => 'Commit over budget?';
+
+  @override
+  String get tripOverBudgetCommitBody =>
+      'This commit would exceed the formal trip budget. You can still proceed after confirming.';
+
+  @override
+  String tripOverBudgetConfirmHint(String phrase) {
+    return 'Type $phrase to confirm';
+  }
+
+  @override
+  String get tripOverBudgetConfirmPhrase => 'OVER BUDGET';
+
+  @override
+  String get tripBudgetConfirm => 'Confirm';
+
+  @override
+  String get tripBudgetCancel => 'Cancel';
+
+  @override
+  String get tripCurrencyMissingAdmin =>
+      'Ask an admin to add this currency in trip settings';
 }

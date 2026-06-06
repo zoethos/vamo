@@ -2,6 +2,10 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../trips/over_budget_confirm_dialog.dart';
+import '../trips/trip_budget.dart';
+import '../trips/trip_budget_labels.dart';
+import '../trips/trips_providers.dart';
 import 'expense_consent_providers.dart';
 import 'expense_governance.dart';
 import 'expense_governance_labels.dart';
@@ -15,6 +19,7 @@ Future<void> showExpenseDetailSheet({
   required WidgetRef ref,
   required ExpenseSummary expense,
   required ExpenseGovernanceLabels labels,
+  required TripBudgetLabels budgetLabels,
   required bool readOnly,
   required bool canManageProposals,
 }) {
@@ -25,6 +30,7 @@ Future<void> showExpenseDetailSheet({
     builder: (ctx) => _ExpenseDetailSheet(
       expense: expense,
       labels: labels,
+      budgetLabels: budgetLabels,
       readOnly: readOnly,
       canManageProposals: canManageProposals,
     ),
@@ -35,12 +41,14 @@ class _ExpenseDetailSheet extends ConsumerWidget {
   const _ExpenseDetailSheet({
     required this.expense,
     required this.labels,
+    required this.budgetLabels,
     required this.readOnly,
     required this.canManageProposals,
   });
 
   final ExpenseSummary expense;
   final ExpenseGovernanceLabels labels;
+  final TripBudgetLabels budgetLabels;
   final bool readOnly;
   final bool canManageProposals;
 
@@ -136,10 +144,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                 !readOnly) ...[
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: () async {
-                  await repo.commitExpense(expense.id);
-                  if (context.mounted) Navigator.pop(context);
-                },
+                onPressed: () => _commitProposal(context, ref, repo),
                 child: Text(labels.commitToBalances),
               ),
               TextButton(
@@ -166,6 +171,43 @@ class _ExpenseDetailSheet extends ConsumerWidget {
       response: response,
     );
     return flag.isEmpty ? labels.shareAccepted : flag;
+  }
+
+  Future<void> _commitProposal(
+    BuildContext context,
+    WidgetRef ref,
+    ExpensesRepository repo,
+  ) async {
+    final trip = ref.read(tripDetailProvider(expense.tripId)).valueOrNull;
+    final burnDown = ref.read(tripBudgetBurnDownProvider(expense.tripId));
+    if (trip != null &&
+        burnDown != null &&
+        wouldExceedFormalBudget(
+          mode: TripBudgetMode.parse(trip.budgetMode),
+          budgetCents: trip.budgetCents,
+          committedSpendCents: burnDown.committedSpendCents,
+          additionalBaseCents: expense.baseCents,
+        )) {
+      final ok = await confirmFormalOverBudgetCommit(
+        context: context,
+        labels: budgetLabels,
+      );
+      if (!ok) return;
+    }
+    try {
+      await repo.commitExpense(expense.id);
+      if (context.mounted) Navigator.pop(context);
+    } catch (e) {
+      if (context.mounted) {
+        showActionError(
+          context,
+          ref,
+          screen: 'expense_detail',
+          action: 'commit_expense',
+          error: e,
+        );
+      }
+    }
   }
 
   Future<void> _respond(

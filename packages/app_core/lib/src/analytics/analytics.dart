@@ -41,7 +41,9 @@ enum VamoEvent {
   proposalCreated('proposal_created'),
   proposalCommitted('proposal_committed'),
   proposalCancelled('proposal_cancelled'),
-  shareResponse('share_response');
+  shareResponse('share_response'),
+  tripBudgetSet('trip_budget_set'),
+  rateRefreshed('rate_refreshed');
 
   const VamoEvent(this.name);
   final String name;
@@ -88,6 +90,8 @@ enum VamoEvent {
         proposalCommitted,
         proposalCancelled,
         shareResponse,
+        tripBudgetSet,
+        rateRefreshed,
       ];
 }
 

@@ -10,6 +10,7 @@ import '../expenses/expenses_repository.dart';
 import '../plan/plan_repository.dart';
 import '../places/places_repository.dart';
 import '../settle/settlements_repository.dart';
+import 'trip_fx_models.dart';
 import 'trips_models.dart';
 
 final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
@@ -91,8 +92,28 @@ class TripsRepository {
         ownerId: row.ownerId,
         lifecycle: row.lifecycle,
         closeRequestedAt: row.closeRequestedAt,
+        budgetMode: row.budgetMode,
+        budgetCents: row.budgetCents,
       );
     });
+  }
+
+  Stream<List<TripFxRateRow>> watchTripFxRates(String tripId) {
+    return _db.watchTripFxRates(tripId).map(
+          (rows) => rows
+              .map(
+                (r) => TripFxRateRow(
+                  id: r.id,
+                  tripId: r.tripId,
+                  currency: r.currency,
+                  rate: r.rate,
+                  source: r.source,
+                  capturedAt: r.capturedAt,
+                  capturedBy: r.capturedBy,
+                ),
+              )
+              .toList(),
+        );
   }
 
   Stream<LocalTripMember?> watchMember(String tripId, String userId) {
@@ -124,6 +145,7 @@ class TripsRepository {
     await _db.delete(_db.localPlaces).go();
     await _db.delete(_db.localPlanItems).go();
     await _db.delete(_db.localTripListItems).go();
+    await _db.delete(_db.localTripFxRates).go();
     await _db.delete(_db.localTrips).go();
   }
 
@@ -147,6 +169,7 @@ class TripsRepository {
       excludePlanIds: pending.planItemIds,
       excludeListIds: pending.listItemIds,
     );
+    await _syncTripFxRatesForTrips([tripId]);
   }
 
   Future<void> syncFromRemote() async {
@@ -182,6 +205,7 @@ class TripsRepository {
       excludePlanIds: pending.planItemIds,
       excludeListIds: pending.listItemIds,
     );
+    await _syncTripFxRatesForTrips(remoteIds);
   }
 
   Future<void> _pullTripsAndMembers({
@@ -224,6 +248,8 @@ class TripsRepository {
           closeRequestedAt: Value(
             _timestamp(row['close_requested_at']),
           ),
+          budgetMode: Value((row['budget_mode'] as String?) ?? 'none'),
+          budgetCents: Value(row['budget_cents'] as int?),
           createdAt: Value(created),
           updatedAt: Value(now),
         ),
@@ -406,9 +432,75 @@ class TripsRepository {
     );
   }
 
+  Future<void> setTripBudget({
+    required String tripId,
+    required String mode,
+    int? budgetCents,
+  }) async {
+    await _client.rpc('set_trip_budget', params: {
+      'p_trip_id': tripId,
+      'p_mode': mode,
+      'p_cents': budgetCents,
+    });
+    _analytics.capture(
+      VamoEvent.tripBudgetSet,
+      properties: {'mode': mode},
+    );
+    await syncTripFromRemote(tripId);
+  }
+
+  Future<void> captureFxRate({
+    required String tripId,
+    required String currency,
+  }) async {
+    await _client.rpc('capture_trip_fx_rate', params: {
+      'p_trip_id': tripId,
+      'p_currency': currency.toUpperCase(),
+    });
+    _analytics.capture(
+      VamoEvent.rateRefreshed,
+      properties: {'currency': currency.toUpperCase()},
+    );
+    await _syncTripFxRatesForTrips({tripId});
+  }
+
+  Future<void> _syncTripFxRatesForTrips(Iterable<String> tripIds) async {
+    final ids = tripIds.toSet();
+    if (ids.isEmpty) return;
+    final rows = await _client
+        .from('trip_fx_rates')
+        .select(
+          'id, trip_id, currency, rate, source, captured_at, captured_by',
+        )
+        .inFilter('trip_id', ids.toList());
+    final remoteIdsByTrip = <String, Set<String>>{
+      for (final id in ids) id: {},
+    };
+    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+      final tripId = row['trip_id'] as String;
+      if (!ids.contains(tripId)) continue;
+      final id = row['id'] as String;
+      remoteIdsByTrip[tripId]!.add(id);
+      await _db.upsertTripFxRate(
+        LocalTripFxRatesCompanion(
+          id: Value(id),
+          tripId: Value(tripId),
+          currency: Value((row['currency'] as String).toUpperCase()),
+          rate: Value((row['rate'] as num).toDouble()),
+          source: Value(row['source'] as String),
+          capturedAt: Value(DateTime.parse(row['captured_at'] as String).toUtc()),
+          capturedBy: Value(row['captured_by'] as String),
+        ),
+      );
+    }
+    for (final tripId in ids) {
+      await _db.pruneTripFxRates(tripId, remoteIdsByTrip[tripId] ?? {});
+    }
+  }
+
   static const _tripSelectFields =
       'id, name, destination, start_date, end_date, owner_id, base_currency, '
-      'lifecycle, close_requested_at, created_at';
+      'lifecycle, close_requested_at, budget_mode, budget_cents, created_at';
 
   DateTime? _timestamp(dynamic value) {
     if (value == null) return null;

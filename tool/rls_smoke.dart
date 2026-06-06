@@ -49,7 +49,7 @@ Future<void> main() async {
   final cPass = Platform.environment['RLS_USER_C_PASSWORD'];
 
   if ([url, anon, aEmail, aPass, bEmail, bPass, cEmail, cPass]
-      .any((v) => v == null || v!.isEmpty)) {
+      .any((v) => v == null || v.isEmpty)) {
     stderr.writeln(
       'Missing env. Set SUPABASE_URL, SUPABASE_ANON_KEY, '
       'RLS_USER_A/B/C_EMAIL and RLS_USER_A/B/C_PASSWORD.',
@@ -84,7 +84,8 @@ Future<void> main() async {
     final token = invite['token'] as String;
     results.add(_Check('A create invite', true));
 
-    final joinedTrip = await clientB.rpc('join_trip', params: {'p_token': token});
+    final joinedTrip =
+        await clientB.rpc('join_trip', params: {'p_token': token});
     results.add(_Check('B join_trip', joinedTrip == tripId));
 
     final userB = clientB.auth.currentUser!.id;
@@ -114,7 +115,8 @@ Future<void> main() async {
     } catch (_) {
       memberCommitBlocked = true;
     }
-    results.add(_Check('member cannot commit proposed expense', memberCommitBlocked));
+    results.add(
+        _Check('member cannot commit proposed expense', memberCommitBlocked));
 
     await clientA.rpc('commit_expense', params: {'p_expense_id': proposedId});
     final netAfterCommit = await _netCents(clientB, tripId, userB);
@@ -214,7 +216,8 @@ Future<void> main() async {
         .firstWhere((r) => r['user_id'] == userA);
     results.add(_Check(
       'respond_to_share updates caller share only',
-      bShareRow['response'] == 'rejected' && aShareRow['response'] == 'accepted',
+      bShareRow['response'] == 'rejected' &&
+          aShareRow['response'] == 'accepted',
     ));
     await clientB.rpc('respond_to_share', params: {
       'p_expense_id': bornCommittedId,
@@ -237,7 +240,8 @@ Future<void> main() async {
         .insert({'trip_id': voidTripId, 'created_by': userA})
         .select('token')
         .single();
-    await clientB.rpc('join_trip', params: {'p_token': voidInvite['token'] as String});
+    await clientB
+        .rpc('join_trip', params: {'p_token': voidInvite['token'] as String});
     final voidBaseline = await _netCents(clientB, voidTripId, userB);
     final voidExpenseId = _uuid();
     await clientA.rpc('propose_expense', params: {
@@ -250,13 +254,140 @@ Future<void> main() async {
       'p_fx_rate': 1,
       'p_description': 'RLS void target',
     });
-    await clientA.rpc('commit_expense', params: {'p_expense_id': voidExpenseId});
+    await clientA
+        .rpc('commit_expense', params: {'p_expense_id': voidExpenseId});
     final voidNetCommitted = await _netCents(clientB, voidTripId, userB);
     await clientA.rpc('void_expense', params: {'p_expense_id': voidExpenseId});
     final voidNetAfterVoid = await _netCents(clientB, voidTripId, userB);
     results.add(_Check(
       'void/cancelled expense leaves net_cents',
       voidNetCommitted != voidBaseline && voidNetAfterVoid == voidBaseline,
+    ));
+
+    // --- S20 budget + FX (R6) — member B before co-admin promotion ---
+    var memberBudgetBlocked = false;
+    try {
+      await clientB.rpc('set_trip_budget', params: {
+        'p_trip_id': tripId,
+        'p_mode': 'formal',
+        'p_cents': 50000,
+      });
+    } catch (_) {
+      memberBudgetBlocked = true;
+    }
+    results.add(_Check('member cannot set budget', memberBudgetBlocked));
+
+    await clientA.rpc('set_trip_budget', params: {
+      'p_trip_id': tripId,
+      'p_mode': 'formal',
+      'p_cents': 50000,
+    });
+    final budgetRow = await clientA
+        .from('trips')
+        .select('budget_mode, budget_cents')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check(
+      'admin sets formal budget',
+      budgetRow['budget_mode'] == 'formal' &&
+          budgetRow['budget_cents'] == 50000,
+    ));
+
+    var outsiderSpendBlocked = false;
+    try {
+      await clientC.rpc('trip_committed_spend_cents', params: {
+        'p_trip_id': tripId,
+      });
+    } catch (_) {
+      outsiderSpendBlocked = true;
+    }
+    results.add(_Check(
+      'outsider cannot read committed spend helper',
+      outsiderSpendBlocked,
+    ));
+
+    final fxExpenseId = _uuid();
+    await clientA.from('expenses').insert({
+      'id': fxExpenseId,
+      'trip_id': tripId,
+      'payer_id': userA,
+      'amount_cents': 1000,
+      'currency': 'EUR',
+      'base_cents': 1000,
+      'fx_rate': 1,
+      'description': 'fx forward-only anchor',
+      'created_by': userA,
+    });
+    final fxBefore = await clientA
+        .from('expenses')
+        .select('fx_rate')
+        .eq('id', fxExpenseId)
+        .single();
+    final rateBefore = (fxBefore['fx_rate'] as num).toDouble();
+
+    await clientA.rpc('capture_trip_fx_rate', params: {
+      'p_trip_id': tripId,
+      'p_currency': 'USD',
+    });
+    final fxRow = await clientA
+        .from('trip_fx_rates')
+        .select('currency, source, captured_by, rate')
+        .eq('trip_id', tripId)
+        .eq('currency', 'USD')
+        .single();
+    results.add(_Check(
+      'captured FX row has source and captured_by',
+      fxRow['source'] != null &&
+          fxRow['captured_by'] == userA &&
+          fxRow['rate'] != null,
+    ));
+
+    final firstRate = (fxRow['rate'] as num).toDouble();
+    await clientA.rpc('capture_trip_fx_rate', params: {
+      'p_trip_id': tripId,
+      'p_currency': 'USD',
+    });
+    final fxRows = await clientA
+        .from('trip_fx_rates')
+        .select('id, rate')
+        .eq('trip_id', tripId)
+        .eq('currency', 'USD');
+    final fxAfter = await clientA
+        .from('expenses')
+        .select('fx_rate')
+        .eq('id', fxExpenseId)
+        .single();
+    final rateAfter = (fxAfter['fx_rate'] as num).toDouble();
+    results.add(_Check(
+      'FX refresh overwrites trip row not expense snapshot',
+      (fxRows as List).length == 1 && rateAfter == rateBefore,
+    ));
+    results.add(_Check(
+      'FX refresh returns a rate row',
+      firstRate > 0,
+    ));
+
+    final overBudgetId = _uuid();
+    await clientA.rpc('propose_expense', params: {
+      'p_id': overBudgetId,
+      'p_trip_id': tripId,
+      'p_payer_id': userA,
+      'p_amount_cents': 60000,
+      'p_currency': 'EUR',
+      'p_base_cents': 60000,
+      'p_fx_rate': 1,
+      'p_description': 'over formal budget',
+    });
+    var overBudgetCommitFailed = false;
+    try {
+      await clientA
+          .rpc('commit_expense', params: {'p_expense_id': overBudgetId});
+    } catch (_) {
+      overBudgetCommitFailed = true;
+    }
+    results.add(_Check(
+      'formal over-budget commit succeeds at DB',
+      !overBudgetCommitFailed,
     ));
 
     final placeId = _uuid();
@@ -287,12 +418,14 @@ Future<void> main() async {
     await clientA.storage.from(_capturesBucket).uploadBinary(
           storagePath,
           _pngBytes,
-          fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+          fileOptions:
+              const FileOptions(contentType: 'image/png', upsert: true),
         );
     results.add(_Check('A upload receipt (4-segment path)', true));
 
-    final bSigned =
-        await clientB.storage.from(_capturesBucket).createSignedUrl(storagePath, 60);
+    final bSigned = await clientB.storage
+        .from(_capturesBucket)
+        .createSignedUrl(storagePath, 60);
     final bFetch = await http.get(Uri.parse(bSigned));
     results.add(_Check(
       'B member signed URL + fetch',
@@ -308,20 +441,19 @@ Future<void> main() async {
     await clientB.storage.from(_capturesBucket).uploadBinary(
           bStoragePath,
           _pngBytes,
-          fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+          fileOptions:
+              const FileOptions(contentType: 'image/png', upsert: true),
         );
     results.add(_Check('B member upload (upsert)', true));
 
     // --- S16 role cases (R1) — before B is removed from trip ---
     await clientA
         .from('trips')
-        .update({'destination': 'RLS baseline'})
-        .eq('id', tripId);
+        .update({'destination': 'RLS baseline'}).eq('id', tripId);
 
     await clientB
         .from('trips')
-        .update({'destination': 'Member edit'})
-        .eq('id', tripId);
+        .update({'destination': 'Member edit'}).eq('id', tripId);
     final tripAfterMemberEdit = await clientB
         .from('trips')
         .select('destination')
@@ -343,12 +475,12 @@ Future<void> main() async {
         .eq('trip_id', tripId)
         .eq('user_id', userB)
         .single();
-    results.add(_Check('A promotes B to co-admin', bRole['role'] == 'co-admin'));
+    results
+        .add(_Check('A promotes B to co-admin', bRole['role'] == 'co-admin'));
 
     await clientB
         .from('trips')
-        .update({'destination': 'Co-admin edit'})
-        .eq('id', tripId);
+        .update({'destination': 'Co-admin edit'}).eq('id', tripId);
     final tripAfterCoAdmin = await clientB
         .from('trips')
         .select('destination')
@@ -377,8 +509,7 @@ Future<void> main() async {
 
     await clientA
         .from('trips')
-        .update({'destination': 'RLS baseline'})
-        .eq('id', tripId);
+        .update({'destination': 'RLS baseline'}).eq('id', tripId);
 
     // --- S18 TripBoard (R4) — before close ---
     final planItemId = _uuid();
@@ -434,7 +565,8 @@ Future<void> main() async {
         .select('lifecycle')
         .eq('id', tripId)
         .single();
-    results.add(_Check('A request_trip_close → closing', closingRow['lifecycle'] == 'closing'));
+    results.add(_Check('A request_trip_close → closing',
+        closingRow['lifecycle'] == 'closing'));
 
     await clientB.rpc('object_to_trip_close', params: {
       'p_trip_id': tripId,
@@ -446,7 +578,10 @@ Future<void> main() async {
       serviceClient = SupabaseClient(url, serviceKey);
       await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
         'p_trip_id': tripId,
-        'p_at': DateTime.now().toUtc().subtract(const Duration(days: 15)).toIso8601String(),
+        'p_at': DateTime.now()
+            .toUtc()
+            .subtract(const Duration(days: 15))
+            .toIso8601String(),
       });
       await serviceClient.rpc('run_trip_lifecycle_jobs');
       final objectedStillClosing = await clientA
@@ -459,10 +594,14 @@ Future<void> main() async {
         objectedStillClosing['lifecycle'] == 'closing',
       ));
 
-      await clientB.rpc('withdraw_close_objection', params: {'p_trip_id': tripId});
+      await clientB
+          .rpc('withdraw_close_objection', params: {'p_trip_id': tripId});
       await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
         'p_trip_id': tripId,
-        'p_at': DateTime.now().toUtc().subtract(const Duration(days: 15)).toIso8601String(),
+        'p_at': DateTime.now()
+            .toUtc()
+            .subtract(const Duration(days: 15))
+            .toIso8601String(),
       });
       await serviceClient.rpc('run_trip_lifecycle_jobs');
     }
@@ -475,7 +614,9 @@ Future<void> main() async {
     results.add(_Check(
       'deemed close after window (silent member)',
       serviceClient != null && closedRow['lifecycle'] == 'closed',
-      detail: serviceClient == null ? 'set RLS_SERVICE_ROLE_KEY for job tests' : null,
+      detail: serviceClient == null
+          ? 'set RLS_SERVICE_ROLE_KEY for job tests'
+          : null,
     ));
 
     var expenseOnClosedBlocked = false;
@@ -536,8 +677,7 @@ Future<void> main() async {
     try {
       await clientB
           .from('trip_plan_items')
-          .update({'title': 'blocked update'})
-          .eq('id', planItemId);
+          .update({'title': 'blocked update'}).eq('id', planItemId);
     } catch (_) {
       planUpdateClosedBlocked = true;
     }
@@ -589,12 +729,45 @@ Future<void> main() async {
       settlementOnClosedOk,
     ));
 
+    var budgetOnClosedBlocked = false;
+    try {
+      await clientA.rpc('set_trip_budget', params: {
+        'p_trip_id': tripId,
+        'p_mode': 'informational',
+        'p_cents': 10000,
+      });
+    } catch (_) {
+      budgetOnClosedBlocked = true;
+    }
+    results.add(_Check(
+      'budget set on closed trip blocked',
+      closedRow['lifecycle'] == 'closed' && budgetOnClosedBlocked,
+    ));
+
+    var fxOnClosedBlocked = false;
+    try {
+      await clientA.rpc('capture_trip_fx_rate', params: {
+        'p_trip_id': tripId,
+        'p_currency': 'GBP',
+      });
+    } catch (_) {
+      fxOnClosedBlocked = true;
+    }
+    results.add(_Check(
+      'FX capture on closed trip blocked',
+      closedRow['lifecycle'] == 'closed' && fxOnClosedBlocked,
+    ));
+
     // Cancel + co-admin guard on a throwaway pre-start trip
     final cancelTripId = _uuid();
     await clientA.rpc('create_trip', params: {
       'p_id': cancelTripId,
       'p_name': 'RLS cancel smoke',
-      'p_start_date': DateTime.now().toUtc().add(const Duration(days: 30)).toIso8601String().substring(0, 10),
+      'p_start_date': DateTime.now()
+          .toUtc()
+          .add(const Duration(days: 30))
+          .toIso8601String()
+          .substring(0, 10),
     });
     await clientA.rpc('cancel_trip', params: {'p_trip_id': cancelTripId});
     final cancelled = await clientA
@@ -602,7 +775,8 @@ Future<void> main() async {
         .select('lifecycle')
         .eq('id', cancelTripId)
         .single();
-    results.add(_Check('A cancel pre-start', cancelled['lifecycle'] == 'cancelled'));
+    results.add(
+        _Check('A cancel pre-start', cancelled['lifecycle'] == 'cancelled'));
 
     var writeOnCancelledBlocked = false;
     try {
@@ -620,12 +794,45 @@ Future<void> main() async {
     } catch (_) {
       writeOnCancelledBlocked = true;
     }
-    results.add(_Check('write on cancelled trip blocked', writeOnCancelledBlocked));
+    results.add(
+        _Check('write on cancelled trip blocked', writeOnCancelledBlocked));
+
+    var budgetOnCancelledBlocked = false;
+    try {
+      await clientA.rpc('set_trip_budget', params: {
+        'p_trip_id': cancelTripId,
+        'p_mode': 'informational',
+        'p_cents': 5000,
+      });
+    } catch (_) {
+      budgetOnCancelledBlocked = true;
+    }
+    results.add(_Check(
+      'budget set on cancelled trip blocked',
+      budgetOnCancelledBlocked,
+    ));
+
+    var fxOnCancelledBlocked = false;
+    try {
+      await clientA.rpc('capture_trip_fx_rate', params: {
+        'p_trip_id': cancelTripId,
+        'p_currency': 'USD',
+      });
+    } catch (_) {
+      fxOnCancelledBlocked = true;
+    }
+    results.add(_Check(
+      'FX capture on cancelled trip blocked',
+      fxOnCancelledBlocked,
+    ));
 
     // dispute blocked — pre-start cancelled trip with its own committed expense + B share
     final cancelDisputeTripId = _uuid();
-    final futureStart =
-        DateTime.now().toUtc().add(const Duration(days: 30)).toIso8601String().substring(0, 10);
+    final futureStart = DateTime.now()
+        .toUtc()
+        .add(const Duration(days: 30))
+        .toIso8601String()
+        .substring(0, 10);
     await clientA.rpc('create_trip', params: {
       'p_id': cancelDisputeTripId,
       'p_name': 'RLS cancel dispute smoke',
@@ -636,7 +843,8 @@ Future<void> main() async {
         .insert({'trip_id': cancelDisputeTripId, 'created_by': userA})
         .select('token')
         .single();
-    await clientB.rpc('join_trip', params: {'p_token': cancelDisputeInvite['token'] as String});
+    await clientB.rpc('join_trip',
+        params: {'p_token': cancelDisputeInvite['token'] as String});
     final cancelDisputeExpenseId = _uuid();
     await clientA.from('expenses').insert({
       'id': cancelDisputeExpenseId,
@@ -663,7 +871,8 @@ Future<void> main() async {
         'share_cents': 500,
       },
     ]);
-    await clientA.rpc('cancel_trip', params: {'p_trip_id': cancelDisputeTripId});
+    await clientA
+        .rpc('cancel_trip', params: {'p_trip_id': cancelDisputeTripId});
     final cancelDisputeRow = await clientA
         .from('trips')
         .select('lifecycle')
@@ -699,8 +908,7 @@ Future<void> main() async {
 
     await clientA
         .from('trips')
-        .update({'destination': 'RLS baseline'})
-        .eq('id', tripId);
+        .update({'destination': 'RLS baseline'}).eq('id', tripId);
 
     await clientA
         .from('trip_members')
@@ -723,7 +931,8 @@ Future<void> main() async {
       await clientB.storage.from(_capturesBucket).uploadBinary(
             bStoragePath,
             _pngBytes,
-            fileOptions: const FileOptions(contentType: 'image/png', upsert: true),
+            fileOptions:
+                const FileOptions(contentType: 'image/png', upsert: true),
           );
     } catch (_) {
       bUpsertBlocked = true;
@@ -750,15 +959,15 @@ Future<void> main() async {
       bRemoveResult =
           await clientB.storage.from(_capturesBucket).remove([bStoragePath]);
     } catch (_) {}
-    final bActuallyRemoved =
-        bRemoveResult.any((f) => f.name == bStoragePath);
+    final bActuallyRemoved = bRemoveResult.any((f) => f.name == bStoragePath);
     results.add(_Check(
       'B ex-member delete no-op (not in removed list)',
       !bActuallyRemoved,
     ));
 
-    final aSignedAfterBDelete =
-        await clientA.storage.from(_capturesBucket).createSignedUrl(bStoragePath, 60);
+    final aSignedAfterBDelete = await clientA.storage
+        .from(_capturesBucket)
+        .createSignedUrl(bStoragePath, 60);
     final aFetchAfterBDelete = await http.get(Uri.parse(aSignedAfterBDelete));
     results.add(_Check(
       'B object survived ex-member delete',
@@ -767,7 +976,9 @@ Future<void> main() async {
 
     var cBlocked = false;
     try {
-      await clientC.storage.from(_capturesBucket).createSignedUrl(storagePath, 60);
+      await clientC.storage
+          .from(_capturesBucket)
+          .createSignedUrl(storagePath, 60);
     } catch (_) {
       cBlocked = true;
     }
@@ -776,9 +987,12 @@ Future<void> main() async {
     final cTrips = await clientC.from('trips').select('id').eq('id', tripId);
     results.add(_Check('C zero trip rows', (cTrips as List).isEmpty));
 
-    final cBalances =
-        await clientC.from('trip_balances').select('trip_id').eq('trip_id', tripId);
-    results.add(_Check('C zero trip_balances rows', (cBalances as List).isEmpty));
+    final cBalances = await clientC
+        .from('trip_balances')
+        .select('trip_id')
+        .eq('trip_id', tripId);
+    results
+        .add(_Check('C zero trip_balances rows', (cBalances as List).isEmpty));
 
     final cExpenses =
         await clientC.from('expenses').select('id').eq('trip_id', tripId);
@@ -795,7 +1009,8 @@ Future<void> main() async {
     } catch (_) {
       memberInsertBlocked = true;
     }
-    results.add(_Check('C cannot self-insert trip_members', memberInsertBlocked));
+    results
+        .add(_Check('C cannot self-insert trip_members', memberInsertBlocked));
 
     await clientA.from('suggestions').insert({
       'user_id': userA,
@@ -806,7 +1021,8 @@ Future<void> main() async {
         .from('suggestions')
         .select('id')
         .eq('body', 'rls_smoke_${tripId}_suggestion');
-    results.add(_Check('B cannot read A suggestions', (bSuggestions as List).isEmpty));
+    results.add(
+        _Check('B cannot read A suggestions', (bSuggestions as List).isEmpty));
   } catch (e, st) {
     stderr.writeln('Unexpected error: $e\n$st');
     results.add(_Check('unexpected error', false, detail: '$e'));

@@ -10,6 +10,8 @@ class LocalTrips extends Table {
   TextColumn get ownerId => text()();
   TextColumn get baseCurrency => text()();
   TextColumn get lifecycle => text().withDefault(const Constant('active'))();
+  TextColumn get budgetMode => text().withDefault(const Constant('none'))();
+  IntColumn get budgetCents => integer().nullable()();
   DateTimeColumn get closeRequestedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
@@ -169,6 +171,20 @@ class LocalTripListItems extends Table {
   IntColumn get position => integer().withDefault(const Constant(0))();
   TextColumn get createdBy => text()();
   DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// S20 — per-trip constant FX rates (D4).
+class LocalTripFxRates extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get currency => text()();
+  RealColumn get rate => real()();
+  TextColumn get source => text()();
+  DateTimeColumn get capturedAt => dateTime()();
+  TextColumn get capturedBy => text()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

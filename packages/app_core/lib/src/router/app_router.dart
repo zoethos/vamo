@@ -18,6 +18,7 @@ abstract final class AppRoutes {
   static String tripAddExpense(String tripId) => '/trips/$tripId/expenses/new';
   static String tripProposeExpense(String tripId) =>
       '/trips/$tripId/expenses/propose';
+  static String tripSettings(String tripId) => '/trips/$tripId/settings';
   static String tripSnapshot(String tripId) => '/trips/$tripId/snapshot';
   static String tripAddCaptureNote(String tripId) =>
       '/trips/$tripId/capture/note';

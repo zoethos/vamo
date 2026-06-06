@@ -1,6 +1,9 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../expenses/expenses_providers.dart';
+import 'trip_budget.dart';
+import 'trip_fx_models.dart';
 import 'trips_models.dart';
 import 'trips_repository.dart';
 
@@ -37,4 +40,25 @@ final tripMyMemberProvider =
 final tripHasCloseObjectionProvider =
     StreamProvider.family<bool, String>((ref, tripId) {
   return ref.watch(tripsRepositoryProvider).watchTripHasCloseObjection(tripId);
+});
+
+final tripFxRatesProvider =
+    StreamProvider.family<List<TripFxRateRow>, String>((ref, tripId) {
+  return ref.watch(tripsRepositoryProvider).watchTripFxRates(tripId);
+});
+
+final tripBudgetBurnDownProvider =
+    Provider.family<TripBudgetBurnDown?, String>((ref, tripId) {
+  final trip = ref.watch(tripDetailProvider(tripId)).valueOrNull;
+  final expenses = ref.watch(tripExpensesProvider(tripId)).valueOrNull;
+  if (trip == null || expenses == null) return null;
+  final mode = TripBudgetMode.parse(trip.budgetMode);
+  if (!mode.hasBurnDown) return null;
+  return TripBudgetBurnDown.compute(
+    mode: mode,
+    budgetCents: trip.budgetCents,
+    committedBaseCents: expenses
+        .where((e) => e.status.affectsBalances)
+        .map((e) => e.baseCents),
+  );
 });

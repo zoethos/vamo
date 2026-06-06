@@ -159,6 +159,7 @@ List<Override> _proposeScreenOverrides({
         createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
       ),
     ),
+    tripFxRatesProvider(tripId).overrideWith((ref) => Stream.value([])),
   ];
 }
 
