@@ -1,4 +1,5 @@
 import 'package:app_core/app_core.dart';
+import 'package:feature_split/feature_split.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vamo/router_redirect.dart';
 
@@ -29,18 +30,47 @@ void main() {
       );
       expect(normalized, InviteUrls.inAppJoinLocation('abc'));
 
-      String? pending;
+      String? pendingToken;
+      InviteChannel? pendingChannel;
       expect(
         resolveRouterRedirect(
           uri: Uri.parse(InviteUrls.inAppJoinLocation('abc')),
           matchedLocation: AppRoutes.join,
           queryParameters: const {'token': 'abc'},
           isSignedIn: false,
-          onPendingInvite: (token) => pending = token,
+          onPendingInvite: (token, channel) {
+            pendingToken = token;
+            pendingChannel = channel;
+          },
         ),
         AppRoutes.auth,
       );
-      expect(pending, 'abc');
+      expect(pendingToken, 'abc');
+      expect(pendingChannel, InviteChannel.link);
+    });
+
+    test('preserves contact channel on signed-out join redirect', () {
+      InviteChannel? pendingChannel;
+      resolveRouterRedirect(
+        uri: Uri.parse('https://vamo.world/j/tok'),
+        matchedLocation: AppRoutes.join,
+        queryParameters: const {'token': 'tok', 'ch': 'contact'},
+        isSignedIn: false,
+        onPendingInvite: (_, channel) => pendingChannel = channel,
+      );
+      expect(pendingChannel, InviteChannel.contact);
+    });
+
+    test('unknown ch defaults to link on signed-out join redirect', () {
+      InviteChannel? pendingChannel;
+      resolveRouterRedirect(
+        uri: Uri.parse('https://vamo.world/j/tok'),
+        matchedLocation: AppRoutes.join,
+        queryParameters: const {'token': 'tok', 'ch': 'bogus'},
+        isSignedIn: false,
+        onPendingInvite: (_, channel) => pendingChannel = channel,
+      );
+      expect(pendingChannel, InviteChannel.link);
     });
 
     test('accepts join path shapes on custom scheme host', () {

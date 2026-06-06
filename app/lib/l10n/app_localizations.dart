@@ -423,6 +423,78 @@ abstract class AppLocalizations {
   /// **'Scan invite QR'**
   String get inviteScannerTitle;
 
+  /// No description provided for @inviteVamigos.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite Vamigos'**
+  String get inviteVamigos;
+
+  /// No description provided for @inviteShareJoinLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a join link'**
+  String get inviteShareJoinLink;
+
+  /// No description provided for @inviteFromContacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite from contacts'**
+  String get inviteFromContacts;
+
+  /// No description provided for @inviteContactMethodTextMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Text message'**
+  String get inviteContactMethodTextMessage;
+
+  /// No description provided for @inviteContactMethodEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get inviteContactMethodEmail;
+
+  /// No description provided for @inviteContactMethodShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Share link'**
+  String get inviteContactMethodShareLink;
+
+  /// No description provided for @inviteContactSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Join my Vamo trip'**
+  String get inviteContactSubject;
+
+  /// No description provided for @inviteContactBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Join my trip on Vamo!\n{webUrl}\n\nHave the app? Tap: {appUri}'**
+  String inviteContactBody(String webUrl, String appUri);
+
+  /// No description provided for @membersVamigosTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vamigos'**
+  String get membersVamigosTitle;
+
+  /// No description provided for @membersInviteHintSolo.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite friends — balances unlock at 2+ people.'**
+  String get membersInviteHintSolo;
+
+  /// No description provided for @membersCountOnTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} on this trip'**
+  String membersCountOnTrip(int count);
+
+  /// No description provided for @membersShareFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'Share a link — they can join mid-trip. Opens Vamo or the store.'**
+  String get membersShareFootnote;
+
   /// No description provided for @profileTitle.
   ///
   /// In en, this message translates to:

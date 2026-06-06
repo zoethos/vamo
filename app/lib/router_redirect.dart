@@ -10,7 +10,7 @@ String? resolveRouterRedirect({
   required String matchedLocation,
   required Map<String, String> queryParameters,
   required bool isSignedIn,
-  void Function(String token)? onPendingInvite,
+  void Function(String token, InviteChannel channel)? onPendingInvite,
 }) {
   if (uri.scheme == AuthUrls.appScheme) {
     if (AuthUrls.isAuthCallback(uri)) {
@@ -19,6 +19,7 @@ String? resolveRouterRedirect({
     if (uri.host == InviteUrls.appJoinHost) {
       return InviteUrls.inAppJoinLocation(
         uri.queryParameters['token'] ?? '',
+        channel: uri.queryParameters['ch'],
       );
     }
   }
@@ -32,6 +33,7 @@ String? resolveRouterRedirect({
       if (parsed.host == InviteUrls.appJoinHost) {
         return InviteUrls.inAppJoinLocation(
           parsed.queryParameters['token'] ?? '',
+          channel: parsed.queryParameters['ch'],
         );
       }
     }
@@ -42,7 +44,10 @@ String? resolveRouterRedirect({
     query: queryParameters,
   );
   if (token != null && !isSignedIn) {
-    onPendingInvite?.call(token);
+    onPendingInvite?.call(
+      token,
+      inviteChannelFromQuery(queryParameters),
+    );
     return AppRoutes.auth;
   }
 

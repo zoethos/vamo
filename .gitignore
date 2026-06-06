@@ -61,4 +61,4 @@ supabase/.temp/
 .~lock.*#
 
 # Temporary: leftover locked by a tool session - delete folder, then remove this line
-Vamo/
+/Vamo/

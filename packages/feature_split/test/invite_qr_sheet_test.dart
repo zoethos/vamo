@@ -1,5 +1,5 @@
 import 'package:app_core/app_core.dart';
-import 'package:feature_split/src/invites/invite_labels.dart';
+import 'invite_labels_test_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -27,17 +27,6 @@ void main() {
   });
 
   test('invite labels bundle exposes scanner copy', () {
-    const labels = InviteLabels(
-      showQr: 'Show QR',
-      scanQr: 'Scan a Vamo QR',
-      qrCaption: 'Point a camera at this to join',
-      notVamoInvite: "That's not a Vamo invite",
-      cameraDenied: 'Camera denied',
-      pasteLink: 'Paste invite link',
-      pasteHint: 'https://vamo.world/j/…',
-      pasteJoin: 'Join from link',
-      scannerTitle: 'Scan invite QR',
-    );
-    expect(labels.notVamoInvite, "That's not a Vamo invite");
+    expect(testInviteLabels.notVamoInvite, "That's not a Vamo invite");
   });
 }

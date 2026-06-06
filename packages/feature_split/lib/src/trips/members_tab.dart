@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../expenses/expenses_providers.dart';
+import '../invites/contact_invite_flow.dart';
+import '../invites/contact_invite_gateway.dart';
 import '../invites/invite_analytics.dart';
 import '../invites/invite_channel.dart';
 import '../invites/invite_labels.dart';
@@ -18,24 +20,38 @@ class MembersTab extends ConsumerStatefulWidget {
     super.key,
     required this.tripId,
     required this.inviteLabels,
+    this.contactInviteGateway,
+    this.contactInviteShare,
   });
 
   final String tripId;
   final InviteLabels inviteLabels;
+
+  /// Test override for [ContactInviteGateway].
+  final ContactInviteGateway? contactInviteGateway;
+
+  /// Test override for the platform share sheet used by contact fallback.
+  final ContactInviteShare? contactInviteShare;
 
   @override
   ConsumerState<MembersTab> createState() => MembersTabState();
 }
 
 class MembersTabState extends ConsumerState<MembersTab> {
-  /// Opens share-or-QR invite picker (trip-home FAB on the Members tab).
+  /// Opens share, contact, or QR invite picker (trip-home FAB on Members tab).
   Future<void> openInviteFlow() => _showInvitePicker();
+
   bool _sharing = false;
   bool _showingQr = false;
   String? _roleBusyUserId;
 
   /// Started on invite tap only — browsing members is not an invite attempt.
   FlowTracker? _inviteFlow;
+
+  ContactInviteGateway get _contactGateway =>
+      widget.contactInviteGateway ?? ref.read(contactInviteGatewayProvider);
+
+  bool get _contactInviteSupported => _contactGateway.isSupported;
 
   @override
   void dispose() {
@@ -45,6 +61,7 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
   @override
   Widget build(BuildContext context) {
+    final labels = widget.inviteLabels;
     final members = ref.watch(tripMembersForExpenseProvider(widget.tripId));
     final trip = ref.watch(tripDetailProvider(widget.tripId));
     final currentUserId = ref.watch(currentUserProvider)?.id;
@@ -64,7 +81,7 @@ class MembersTabState extends ConsumerState<MembersTab> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Vamigos',
+              labels.membersVamigosTitle,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.ink,
                     fontWeight: FontWeight.w700,
@@ -73,8 +90,8 @@ class MembersTabState extends ConsumerState<MembersTab> {
             const SizedBox(height: 4),
             Text(
               list.length == 1
-                  ? 'Invite friends — balances unlock at 2+ people.'
-                  : '${list.length} on this trip',
+                  ? labels.membersInviteHintSolo
+                  : labels.membersCountOnTrip(list.length),
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -124,7 +141,7 @@ class MembersTabState extends ConsumerState<MembersTab> {
                             ),
                           )
                         : const Icon(Icons.share_outlined),
-                    label: const Text('Invite Vamigos'),
+                    label: Text(labels.inviteVamigos),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -138,14 +155,22 @@ class MembersTabState extends ConsumerState<MembersTab> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.qr_code_2_outlined),
-                    label: Text(widget.inviteLabels.showQr),
+                    label: Text(labels.showQr),
                   ),
                 ),
               ],
             ),
+            if (_contactInviteSupported) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _startContactInvite,
+                icon: const Icon(Icons.contacts_outlined),
+                label: Text(labels.inviteFromContacts),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
-              'Share a link — they can join mid-trip. Opens Vamo or the store.',
+              labels.membersShareFootnote,
               textAlign: TextAlign.center,
               style: Theme.of(context)
                   .textTheme
@@ -221,6 +246,7 @@ class MembersTabState extends ConsumerState<MembersTab> {
   }
 
   Future<void> _showInvitePicker() async {
+    final labels = widget.inviteLabels;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -230,17 +256,26 @@ class MembersTabState extends ConsumerState<MembersTab> {
           children: [
             ListTile(
               leading: const Icon(Icons.share_outlined),
-              title: const Text('Invite Vamigos'),
-              subtitle: const Text('Share a join link'),
+              title: Text(labels.inviteVamigos),
+              subtitle: Text(labels.shareJoinLink),
               onTap: () {
                 Navigator.pop(ctx);
                 _shareInvite();
               },
             ),
+            if (_contactInviteSupported)
+              ListTile(
+                leading: const Icon(Icons.contacts_outlined),
+                title: Text(labels.inviteFromContacts),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _startContactInvite();
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.qr_code_2_outlined),
-              title: Text(widget.inviteLabels.showQr),
-              subtitle: Text(widget.inviteLabels.qrCaption),
+              title: Text(labels.showQr),
+              subtitle: Text(labels.qrCaption),
               onTap: () {
                 Navigator.pop(ctx);
                 _showQr();
@@ -252,6 +287,15 @@ class MembersTabState extends ConsumerState<MembersTab> {
     );
   }
 
+  Future<void> _startContactInvite() => runContactInviteFlow(
+        context: context,
+        ref: ref,
+        tripId: widget.tripId,
+        labels: widget.inviteLabels,
+        gateway: _contactGateway,
+        shareInvite: widget.contactInviteShare,
+      );
+
   Future<void> _shareInvite() async {
     _inviteFlow = FlowTracker(
       flow: 'invite',
@@ -260,17 +304,15 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
     setState(() => _sharing = true);
     try {
+      final labels = widget.inviteLabels;
       final token = await ref
           .read(invitesRepositoryProvider)
           .getOrCreateInviteToken(widget.tripId);
       final web = InviteUrls.webInviteLink(token);
       final app = InviteUrls.appInviteUri(token);
+      final body = labels.contactInviteBody(web, app.toString());
 
-      await Share.share(
-        'Join my trip on Vamo!\n$web\n\n'
-        'Have the app? Tap: $app',
-        subject: 'Join my Vamo trip',
-      );
+      await Share.share(body, subject: labels.contactInviteSubject);
       captureMemberInvitedShow(
         ref.read(analyticsProvider),
         tripId: widget.tripId,

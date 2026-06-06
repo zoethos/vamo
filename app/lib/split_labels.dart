@@ -209,6 +209,18 @@ class SplitLabels {
         pasteHint: l10n.invitePasteHint,
         pasteJoin: l10n.invitePasteJoin,
         scannerTitle: l10n.inviteScannerTitle,
+        inviteVamigos: l10n.inviteVamigos,
+        shareJoinLink: l10n.inviteShareJoinLink,
+        inviteFromContacts: l10n.inviteFromContacts,
+        contactMethodTextMessage: l10n.inviteContactMethodTextMessage,
+        contactMethodEmail: l10n.inviteContactMethodEmail,
+        contactMethodShareLink: l10n.inviteContactMethodShareLink,
+        contactInviteSubject: l10n.inviteContactSubject,
+        contactInviteBody: l10n.inviteContactBody,
+        membersVamigosTitle: l10n.membersVamigosTitle,
+        membersInviteHintSolo: l10n.membersInviteHintSolo,
+        membersShareFootnote: l10n.membersShareFootnote,
+        membersCountOnTrip: l10n.membersCountOnTrip,
       );
 
   static ProfileScreenLabels profile(AppLocalizations l10n) =>

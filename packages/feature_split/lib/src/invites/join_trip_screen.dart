@@ -43,7 +43,8 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
 
     if (!ref.read(isSignedInProvider)) {
       ref.read(pendingInviteTokenProvider.notifier).state = widget.token;
-      ref.read(pendingInviteChannelProvider.notifier).state = InviteChannel.link;
+      ref.read(pendingInviteChannelProvider.notifier).state =
+          ref.read(pendingInviteChannelProvider) ?? InviteChannel.link;
       return;
     }
 
