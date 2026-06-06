@@ -10,9 +10,8 @@
 //
 // Requires Authorization: Bearer <user JWT>. Never log device or invite tokens.
 
-import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-import { importPKCS8 } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { importPKCS8, SignJWT } from "npm:jose@5";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -60,18 +59,14 @@ async function getFcmAccessToken(sa: ServiceAccount): Promise<string> {
   }
 
   const key = await importPKCS8(sa.private_key, "RS256");
-  const assertion = await create(
-    { alg: "RS256", typ: "JWT" },
-    {
-      iss: sa.client_email,
-      sub: sa.client_email,
-      aud: GOOGLE_TOKEN_URL,
-      iat: getNumericDate(0),
-      exp: getNumericDate(3600),
-      scope: FCM_SCOPE,
-    },
-    key,
-  );
+  const assertion = await new SignJWT({ scope: FCM_SCOPE })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setIssuer(sa.client_email)
+    .setSubject(sa.client_email)
+    .setAudience(GOOGLE_TOKEN_URL)
+    .setIssuedAt()
+    .setExpirationTime("1h")
+    .sign(key);
 
   const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
