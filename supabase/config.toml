@@ -13,3 +13,25 @@ additional_redirect_urls = [
 [auth.email]
 enable_signup = true
 enable_confirmations = true
+
+# Edge Function auth gates — pinned so a redeploy can never silently flip them.
+# verify_jwt is NOT stored on the server permanently; without these, each deploy
+# falls back to the default (true) unless --no-verify-jwt is passed. Pinning here
+# means `supabase functions deploy <name>` always applies the right gate.
+#   false = not called with a user JWT (auth hook / cron / self-guarded GET)
+#   true  = called with the caller's JWT (and re-checked in code)
+
+[functions.send-push]
+verify_jwt = true            # user-facing: caller's JWT bearer, re-checked in code
+
+[functions.send-auth-email]
+verify_jwt = false           # Auth "Send Email" hook — standardwebhooks signature, not a JWT
+
+[functions.fx-rates]
+verify_jwt = false           # plain GET from FxRatesClient (no JWT); self-guards via access_key
+
+[functions.scheduled-heartbeat]
+verify_jwt = false           # cron-invoked; gated by CRON_SECRET
+
+[functions.trip-lifecycle-jobs]
+verify_jwt = false           # cron-invoked; gated by CRON_SECRET
