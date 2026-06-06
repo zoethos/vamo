@@ -8,6 +8,7 @@ class ActivityItem {
     required this.title,
     required this.subtitle,
     required this.occurredAt,
+    this.rsvpStatus,
   });
 
   final String id;
@@ -17,6 +18,13 @@ class ActivityItem {
   final String title;
   final String subtitle;
   final DateTime occurredAt;
+  final String? rsvpStatus;
 }
 
-enum ActivityKind { expense, memberJoined, settlement }
+enum ActivityKind {
+  expense,
+  memberJoined,
+  settlement,
+  eventCreated,
+  eventRsvp,
+}

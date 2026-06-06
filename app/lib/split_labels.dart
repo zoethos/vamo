@@ -34,6 +34,11 @@ class SplitLabels {
         emptyTitle: l10n.activityEmptyTitle,
         emptySubtitle: l10n.activityEmptySubtitle,
         loadError: l10n.activityLoadError,
+        eventCreatedSubtitle: l10n.activityEventCreatedSubtitle,
+        eventRsvpSubtitle: (status) => l10n.activityEventRsvpSubtitle(status),
+        rsvpGoing: l10n.eventRsvpGoing,
+        rsvpMaybe: l10n.eventRsvpMaybe,
+        rsvpDeclined: l10n.eventRsvpDeclined,
       );
 
   static ExpensesListScreenLabels expenses(AppLocalizations l10n) =>
@@ -90,6 +95,10 @@ class SplitLabels {
         save: l10n.planSave,
         loadError: l10n.planLoadError,
         checklistsLoadError: l10n.planChecklistsLoadError,
+        rsvpGoing: l10n.eventRsvpGoing,
+        rsvpMaybe: l10n.eventRsvpMaybe,
+        rsvpDeclined: l10n.eventRsvpDeclined,
+        rsvpSummary: (going, maybe) => l10n.eventRsvpSummary(going, maybe),
       );
 
   static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>

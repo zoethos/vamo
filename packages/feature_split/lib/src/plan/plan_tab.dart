@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'plan_event_tile.dart';
 import 'plan_item_sheet.dart';
 import 'plan_labels.dart';
 import 'plan_models.dart';
@@ -39,6 +40,7 @@ class _PlanTabState extends ConsumerState<PlanTab> {
   Widget build(BuildContext context) {
     final plans = ref.watch(tripPlanItemsProvider(widget.tripId));
     final lists = ref.watch(tripListItemsProvider(widget.tripId));
+    final eventViews = ref.watch(tripPlanEventViewsProvider(widget.tripId));
     final repo = ref.read(planRepositoryProvider);
 
     return plans.when(
@@ -106,13 +108,35 @@ class _PlanTabState extends ConsumerState<PlanTab> {
                   ),
                   const SizedBox(height: 8),
                   ...section.items.map(
-                    (item) => _PlanItemTile(
-                      item: item,
-                      labels: widget.labels,
-                      readOnly: widget.readOnly,
-                      onEdit: () => _openSheet(context, item),
-                      onDelete: () => repo.deletePlanItem(item.id),
-                    ),
+                    (item) {
+                      if (item.kind == PlanItemKind.activity) {
+                        final view = eventViews[item.id];
+                        if (view == null) {
+                          return _PlanItemTile(
+                            item: item,
+                            labels: widget.labels,
+                            readOnly: widget.readOnly,
+                            onEdit: () => _openSheet(context, item),
+                            onDelete: () => repo.deletePlanItem(item.id),
+                          );
+                        }
+                        return PlanEventTile(
+                          tripId: widget.tripId,
+                          view: view,
+                          labels: widget.labels,
+                          readOnly: widget.readOnly,
+                          onEdit: () => _openSheet(context, item),
+                          onDelete: () => repo.deletePlanItem(item.id),
+                        );
+                      }
+                      return _PlanItemTile(
+                        item: item,
+                        labels: widget.labels,
+                        readOnly: widget.readOnly,
+                        onEdit: () => _openSheet(context, item),
+                        onDelete: () => repo.deletePlanItem(item.id),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                 ],

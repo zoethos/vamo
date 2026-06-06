@@ -4,11 +4,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema v12 includes plan, governance, and budget columns', () async {
+  test('schema v13 includes plan, governance, budget, and rsvp tables', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 12);
+    expect(db.schemaVersion, 13);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertPlanItem(
@@ -41,7 +41,7 @@ void main() {
     expect(lists, hasLength(1));
   });
 
-  test('v9 to v12 migration step creates plan, governance, and budget columns', () async {
+  test('v9 to v13 migration step creates plan, governance, budget, and rsvp', () async {
     final executor = NativeDatabase.memory();
     final db = AppDatabase.forTesting(executor);
     addTearDown(db.close);
@@ -49,6 +49,7 @@ void main() {
     await db.customStatement('DROP TABLE IF EXISTS local_plan_items');
     await db.customStatement('DROP TABLE IF EXISTS local_trip_list_items');
     await db.customStatement('DROP TABLE IF EXISTS local_trip_fx_rates');
+    await db.customStatement('DROP TABLE IF EXISTS local_plan_item_rsvps');
     await db.customStatement('ALTER TABLE local_expenses DROP COLUMN status');
     await db.customStatement('ALTER TABLE local_expense_shares DROP COLUMN response');
     await db.customStatement(
@@ -62,7 +63,7 @@ void main() {
     await db.customStatement('PRAGMA user_version = 9');
 
     final migrator = db.createMigrator();
-    await db.migration.onUpgrade(migrator, 9, 12);
+    await db.migration.onUpgrade(migrator, 9, 13);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertPlanItem(

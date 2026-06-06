@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  const labels = PlanTabLabels(
+  final labels = PlanTabLabels(
     tabTitle: 'Plan',
     emptyTitle: 'Nothing on the board yet',
     emptySubtitle: 'Add items for the group.',
@@ -34,6 +34,10 @@ void main() {
     save: 'Save',
     loadError: 'Could not load the plan.',
     checklistsLoadError: 'Could not load checklists.',
+    rsvpGoing: 'Going',
+    rsvpMaybe: 'Maybe',
+    rsvpDeclined: 'Declined',
+    rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
   );
 
   testWidgets('read-only plan tab hides add controls', (tester) async {

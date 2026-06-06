@@ -335,6 +335,28 @@ class AppLocalizationsHe extends AppLocalizations {
   String get planChecklistsLoadError => 'Could not load checklists.';
 
   @override
+  String get eventRsvpGoing => 'Going';
+
+  @override
+  String get eventRsvpMaybe => 'Maybe';
+
+  @override
+  String get eventRsvpDeclined => 'Declined';
+
+  @override
+  String eventRsvpSummary(int going, int maybe) {
+    return '$going going · $maybe maybe';
+  }
+
+  @override
+  String get activityEventCreatedSubtitle => 'Event added';
+
+  @override
+  String activityEventRsvpSubtitle(String status) {
+    return 'RSVP: $status';
+  }
+
+  @override
   String expenseIncludedDisputedBy(String memberName) {
     return 'included — disputed by $memberName';
   }

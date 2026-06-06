@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import 'event_rsvp_models.dart';
 import 'plan_models.dart';
 
 final planRepositoryProvider = Provider<PlanRepository>((ref) {
@@ -47,6 +48,22 @@ class PlanRepository {
   Stream<List<TripListItemSummary>> watchListItems(String tripId) {
     return _db.watchTripListItems(tripId).map(
           (rows) => rows.map(_toListSummary).toList(),
+        );
+  }
+
+  Stream<List<EventRsvpRow>> watchEventRsvps(String tripId) {
+    return _db.watchTripPlanItemRsvps(tripId).map(
+          (rows) => rows
+              .map(
+                (row) => EventRsvpRow(
+                  id: row.id,
+                  planItemId: row.planItemId,
+                  userId: row.userId,
+                  status: EventRsvpStatus.parse(row.status),
+                  respondedAt: row.respondedAt,
+                ),
+              )
+              .toList(),
         );
   }
 
@@ -382,6 +399,52 @@ class PlanRepository {
     unawaited(_syncWorker.flush());
   }
 
+  Future<void> setEventRsvp({
+    required String planItemId,
+    required EventRsvpStatus status,
+  }) async {
+    if (_client.auth.currentUser?.id == null) {
+      throw StateError('Must be signed in');
+    }
+
+    await _client.rpc('set_event_rsvp', params: {
+      'p_plan_item_id': planItemId,
+      'p_status': status.name,
+    });
+    _analytics.capture(
+      VamoEvent.eventRsvp,
+      properties: {'status': status.name},
+    );
+
+    final local = await (_db.select(_db.localPlanItems)
+          ..where((p) => p.id.equals(planItemId)))
+        .getSingleOrNull();
+    if (local != null) {
+      await syncPlanForTrips([local.tripId]);
+    }
+  }
+
+  Future<void> clearEventRsvp({required String planItemId}) async {
+    if (_client.auth.currentUser?.id == null) {
+      throw StateError('Must be signed in');
+    }
+
+    await _client.rpc('clear_event_rsvp', params: {
+      'p_plan_item_id': planItemId,
+    });
+    _analytics.capture(
+      VamoEvent.eventRsvp,
+      properties: {'status': 'withdrawn'},
+    );
+
+    final local = await (_db.select(_db.localPlanItems)
+          ..where((p) => p.id.equals(planItemId)))
+        .getSingleOrNull();
+    if (local != null) {
+      await syncPlanForTrips([local.tripId]);
+    }
+  }
+
   Future<void> syncPlanForTrips(
     Iterable<String> tripIds, {
     Set<String> excludePlanIds = const {},
@@ -443,6 +506,30 @@ class PlanRepository {
       );
     }
 
+    final planIds = (planRows as List)
+        .cast<Map<String, dynamic>>()
+        .map((r) => r['id'] as String)
+        .toList();
+    var rsvpRows = <dynamic>[];
+    if (planIds.isNotEmpty) {
+      rsvpRows = await _client
+          .from('trip_plan_item_rsvps')
+          .select('id, plan_item_id, user_id, status, responded_at')
+          .inFilter('plan_item_id', planIds);
+
+      for (final row in rsvpRows.cast<Map<String, dynamic>>()) {
+        await _db.upsertPlanItemRsvp(
+          LocalPlanItemRsvpsCompanion(
+            id: Value(row['id'] as String),
+            planItemId: Value(row['plan_item_id'] as String),
+            userId: Value(row['user_id'] as String),
+            status: Value(row['status'] as String),
+            respondedAt: Value(DateTime.parse(row['responded_at'] as String)),
+          ),
+        );
+      }
+    }
+
     for (final tripId in ids) {
       final remotePlanIds = (planRows as List)
           .cast<Map<String, dynamic>>()
@@ -454,6 +541,15 @@ class PlanRepository {
           .where((r) => r['trip_id'] == tripId)
           .map((r) => r['id'] as String)
           .toSet();
+      final remoteRsvpIds = planIds.isEmpty
+          ? <String>{}
+          : rsvpRows
+              .cast<Map<String, dynamic>>()
+              .where(
+                (r) => remotePlanIds.contains(r['plan_item_id'] as String),
+              )
+              .map((r) => r['id'] as String)
+              .toSet();
       await _db.prunePlanItemsForTrip(
         tripId,
         remotePlanIds,
@@ -464,6 +560,7 @@ class PlanRepository {
         remoteListIds,
         excludeIds: excludeListIds,
       );
+      await _db.prunePlanItemRsvpsForTrip(tripId, remoteRsvpIds);
     }
   }
 

@@ -122,6 +122,29 @@
   "planSave": "Save",
   "planLoadError": "Could not load the plan.",
   "planChecklistsLoadError": "Could not load checklists.",
+  "eventRsvpGoing": "Going",
+  "eventRsvpMaybe": "Maybe",
+  "eventRsvpDeclined": "Declined",
+  "eventRsvpSummary": "{going} going · {maybe} maybe",
+  "@eventRsvpSummary": {
+    "placeholders": {
+      "going": {
+        "type": "int"
+      },
+      "maybe": {
+        "type": "int"
+      }
+    }
+  },
+  "activityEventCreatedSubtitle": "Event added",
+  "activityEventRsvpSubtitle": "RSVP: {status}",
+  "@activityEventRsvpSubtitle": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
   "expenseIncludedDisputedBy": "included — disputed by {memberName}",
   "@expenseIncludedDisputedBy": {
     "placeholders": {

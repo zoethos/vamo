@@ -168,7 +168,7 @@ const _lifecycleLabels = TripLifecycleLabels(
 
 String _mockClosingDays(int days) => 'Trip closes in $days days unless someone objects.';
 
-const _planLabels = PlanTabLabels(
+final _planLabels = PlanTabLabels(
   tabTitle: 'Plan',
   emptyTitle: 'Nothing on the board yet',
   emptySubtitle: 'Add items for the group.',
@@ -193,6 +193,10 @@ const _planLabels = PlanTabLabels(
   save: 'Save',
   loadError: 'Could not load the plan.',
   checklistsLoadError: 'Could not load checklists.',
+  rsvpGoing: 'Going',
+  rsvpMaybe: 'Maybe',
+  rsvpDeclined: 'Declined',
+  rsvpSummary: (going, maybe) => '$going going · $maybe maybe',
 );
 
 const _inviteLabels = InviteLabels(

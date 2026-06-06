@@ -717,6 +717,42 @@ abstract class AppLocalizations {
   /// **'Could not load checklists.'**
   String get planChecklistsLoadError;
 
+  /// No description provided for @eventRsvpGoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Going'**
+  String get eventRsvpGoing;
+
+  /// No description provided for @eventRsvpMaybe.
+  ///
+  /// In en, this message translates to:
+  /// **'Maybe'**
+  String get eventRsvpMaybe;
+
+  /// No description provided for @eventRsvpDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Declined'**
+  String get eventRsvpDeclined;
+
+  /// No description provided for @eventRsvpSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{going} going · {maybe} maybe'**
+  String eventRsvpSummary(int going, int maybe);
+
+  /// No description provided for @activityEventCreatedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Event added'**
+  String get activityEventCreatedSubtitle;
+
+  /// No description provided for @activityEventRsvpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'RSVP: {status}'**
+  String activityEventRsvpSubtitle(String status);
+
   /// No description provided for @expenseIncludedDisputedBy.
   ///
   /// In en, this message translates to:

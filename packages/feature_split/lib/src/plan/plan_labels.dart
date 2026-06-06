@@ -1,7 +1,7 @@
 import 'plan_models.dart';
 
 class PlanTabLabels {
-  const PlanTabLabels({
+  PlanTabLabels({
     required this.emptyTitle,
     required this.emptySubtitle,
     required this.undatedSection,
@@ -26,6 +26,10 @@ class PlanTabLabels {
     required this.tabTitle,
     required this.loadError,
     required this.checklistsLoadError,
+    required this.rsvpGoing,
+    required this.rsvpMaybe,
+    required this.rsvpDeclined,
+    required this.rsvpSummary,
   });
 
   final String emptyTitle;
@@ -52,6 +56,10 @@ class PlanTabLabels {
   final String tabTitle;
   final String loadError;
   final String checklistsLoadError;
+  final String rsvpGoing;
+  final String rsvpMaybe;
+  final String rsvpDeclined;
+  final String Function(int going, int maybe) rsvpSummary;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
         PlanItemKind.lodging => kindLodging,
