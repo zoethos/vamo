@@ -4,7 +4,8 @@
 //   RLS_USER_A_EMAIL / RLS_USER_A_PASSWORD — trip owner
 //   RLS_USER_B_EMAIL / RLS_USER_B_PASSWORD — joins via invite
 //   RLS_USER_C_EMAIL / RLS_USER_C_PASSWORD — outsider (never joins)
-//   RLS_SERVICE_ROLE_KEY — lifecycle job + backdate tests (S17)
+//   RLS_SERVICE_ROLE_KEY — lifecycle job + deterministic service-role writers
+//     for tests that must not hit external providers repeatedly
 //
 // Also required:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
@@ -68,6 +69,10 @@ Future<void> main() async {
     final userA = clientA.auth.currentUser!.id;
     final clientB = await _signIn(url, anon, bEmail!, bPass!);
     final clientC = await _signIn(url, anon, cEmail!, cPass!);
+    final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
+    final serviceClient = serviceKey != null && serviceKey.isNotEmpty
+        ? SupabaseClient(url, serviceKey)
+        : null;
 
     tripId = _uuid();
     await clientA.rpc('create_trip', params: {
@@ -343,15 +348,24 @@ Future<void> main() async {
     ));
 
     final firstRate = (fxRow['rate'] as num).toDouble();
-    await clientA.rpc('capture_trip_fx_rate', params: {
-      'p_trip_id': tripId,
-      'p_currency': 'USD',
-    });
+    final simulatedRate = firstRate + 0.123456;
+    if (serviceClient != null) {
+      await serviceClient.rpc('_apply_trip_fx_rate', params: {
+        'p_trip_id': tripId,
+        'p_currency': 'USD',
+        'p_rate': simulatedRate,
+        'p_source': 'test',
+        'p_captured_by': userA,
+      });
+    }
     final fxRows = await clientA
         .from('trip_fx_rates')
-        .select('id, rate')
+        .select('id, rate, source')
         .eq('trip_id', tripId)
         .eq('currency', 'USD');
+    final fxRowList = (fxRows as List).cast<Map<String, dynamic>>();
+    final refreshedRate =
+        fxRowList.isEmpty ? 0.0 : (fxRowList.first['rate'] as num).toDouble();
     final fxAfter = await clientA
         .from('expenses')
         .select('fx_rate')
@@ -360,7 +374,14 @@ Future<void> main() async {
     final rateAfter = (fxAfter['fx_rate'] as num).toDouble();
     results.add(_Check(
       'FX refresh overwrites trip row not expense snapshot',
-      (fxRows as List).length == 1 && rateAfter == rateBefore,
+      serviceClient != null &&
+          fxRowList.length == 1 &&
+          (refreshedRate - simulatedRate).abs() < 0.000001 &&
+          fxRowList.first['source'] == 'test' &&
+          rateAfter == rateBefore,
+      detail: serviceClient == null
+          ? 'set RLS_SERVICE_ROLE_KEY for deterministic FX refresh'
+          : null,
     ));
     results.add(_Check(
       'FX refresh returns a rate row',
@@ -572,10 +593,7 @@ Future<void> main() async {
       'p_trip_id': tripId,
       'p_reason': 'rls_smoke objection',
     });
-    final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
-    SupabaseClient? serviceClient;
-    if (serviceKey != null && serviceKey.isNotEmpty) {
-      serviceClient = SupabaseClient(url, serviceKey);
+    if (serviceClient != null) {
       await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
         'p_trip_id': tripId,
         'p_at': DateTime.now()

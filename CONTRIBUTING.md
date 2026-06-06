@@ -44,6 +44,10 @@ are few but enforced.
 - **RLS smoke** (`tool/rls_smoke.dart`): cases are state-based — **no error ≠
   it worked**. Assert the post-condition (row absent, lifecycle unchanged, write
   blocked), not merely that the RPC didn't throw.
+- **External-provider smoke makes at most one live call per provider.** Live
+  calls prove the endpoint + secret path; invariants that need repeated states
+  use deterministic stubs or service-role writers instead of hammering the
+  upstream and burning quota.
 - **UI and SQL tests**: **Tests must assert the negative.** A UI/SQL test
   proves the control is hidden, the route bounces, the write is blocked, or
   the error path did not fire — not merely that a helper returns false or a

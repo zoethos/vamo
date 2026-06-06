@@ -125,8 +125,12 @@ yet):** converge new-expense `base_cents` to derive from the constant table
 (the "resolves against the trip's constant table" clause) so the client stops
 being the rate authority for in-table currencies. Until then expenses keep
 using their A4 snapshot. Second follow-up: retire the in-DB `http` fetch in
-favor of the `fx-rates` Edge Function (duplicate rebase math + blocking-RPC
-risk) before public launch.
+favor of the `fx-rates` Edge Function (blocking-RPC risk) before public launch.
+**FX provider: exchangerate.host (decided, kept).** 0019 used the deprecated
+`/latest?base=` endpoint → 404; corrected in `0020` to current `/live?
+currencies=…` with default-USD pivot (non-USD source is plan-gated).
+Key stays in Vault. A provider swap (e.g. keyless Frankfurter) is a *deferred
+option* for the Edge-Function refactor, not a mid-slice change.
 
 ## D5 — reconciliation: report-only at close (agreed)
 
