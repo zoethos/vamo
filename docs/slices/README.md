@@ -1,7 +1,14 @@
 # Slice tracker — Wave 2 (the real stage)
 
 Living status; specs stay sealed. Conventions: `docs/CONVENTIONS.md`.
-Updated: 2026-06-05.
+Updated: 2026-06-07.
+
+## Recommended sequencing (founder-approved)
+
+1. **Fix main CI golden + merge #21** — do not start new slices on red main.
+2. **S25** share pages (web-only, growth, ungated) — prompt tightened 2026-06-07.
+3. **S23** AI theme (after S25; reads `trips.theme` via preview RPC).
+4. **S22** close report — PR open; **held** until device + cron dry-run pass.
 
 | Slice | Implements | Status | Notes |
 |---|---|---|---|
@@ -16,10 +23,10 @@ Updated: 2026-06-05.
 | S21 | W2·R8 (EventList) | 📋 prompt ready (`S21_PROMPT.md`) | events = plan items kind:activity (S18 reuse) + RSVP own-row |
 | — | **Wave 2 internal build (S15–S20)** | 🔶 in progress | S16 verified; **release-signed `.aab` built** (upload key CN=Tiziano Rocca/Vamo, R8 proguard fix for ML Kit Latin-only). Next: Play internal upload → app-signing-key SHA-256 → assetlinks → testers (`SHIP_INTERNAL.md` 5–8) |
 | — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
-| S22 | W2·R7 (close report) + P1 nudge | ⬜ | + FCM UNREGISTERED pruning (S16 finding) |
-| S23 | W2·R10 (AI theme resolver) | ⬜ | |
+| S22 | W2·R7 (close report) + P1 nudge | 🔶 PR #20 | device + cron gate before merge; cron unscheduled |
+| S23 | W2·R10 (AI theme resolver) | 📋 prompt ready | **after S25**; `destination_themes` per `AI_THEMING_SPEC.md` |
 | S24 | P1 retention basics | ⬜ | |
-| S25 | P1 share pages | ⬜ | domain live (vamo.world) — ungated |
+| S25 | P1 share pages | 📋 prompt ready | **next impl**; preview-first, no auto-redirect; member count only |
 
 In-flight fixes (merge before S17): `fix/join-deeplink-single-handler`
 (reviewed, one nit: `ScaffoldMessenger.maybeOf`), `fix/web-share-and-lime-primary`.
