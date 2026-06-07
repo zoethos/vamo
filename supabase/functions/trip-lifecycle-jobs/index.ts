@@ -8,14 +8,25 @@ import {
   sendPushToUserDevices,
 } from "../_shared/fcm.ts";
 
+interface TripInfo {
+  name: string;
+  lifecycle: string;
+}
+
 interface TripMemberRow {
   trip_id: string;
   user_id: string;
-  close_notified_at: string | null;
-  close_reminded_at: string | null;
-  close_accepted_at: string | null;
-  close_objected_at: string | null;
-  trips: { name: string; lifecycle: string } | null;
+  close_notified_at?: string | null;
+  close_reminded_at?: string | null;
+  close_accepted_at?: string | null;
+  close_objected_at?: string | null;
+  settle_nudged_at?: string | null;
+  trips: TripInfo | TripInfo[] | null;
+}
+
+function tripName(row: TripMemberRow): string {
+  const trip = Array.isArray(row.trips) ? row.trips[0] : row.trips;
+  return trip?.name ?? "your trip";
 }
 
 function tripRoute(tripId: string, suffix = ""): string {
@@ -68,7 +79,7 @@ Deno.serve(async (req) => {
     console.error("close notice query failed", noticeErr);
   } else if (noticeRows?.length && pushEnabled) {
     for (const row of noticeRows as TripMemberRow[]) {
-      const tripName = row.trips?.name ?? "your trip";
+      const name = tripName(row);
       const result = await sendPushToUserDevices(
         supabase,
         serviceAccount!,
@@ -76,7 +87,7 @@ Deno.serve(async (req) => {
         {
           title: "Trip is closing",
           body:
-            `${tripName} — review balances. Auto-closes 14 days after you're notified.`,
+            `${name} — review balances. Auto-closes 14 days after you're notified.`,
           route: tripRoute(row.trip_id, "/close-report"),
         },
       );
@@ -106,7 +117,7 @@ Deno.serve(async (req) => {
     .is("close_objected_at", null)
     .eq("trips.lifecycle", "closing");
 
-    if (remindErr) {
+  if (remindErr) {
     console.error("day7 query failed", remindErr);
   } else if (remindRows?.length && pushEnabled) {
     for (const row of remindRows as TripMemberRow[]) {
@@ -116,14 +127,14 @@ Deno.serve(async (req) => {
       }
 
       if (pushEnabled) {
-        const tripName = row.trips?.name ?? "your trip";
+        const name = tripName(row);
         const result = await sendPushToUserDevices(
           supabase,
           serviceAccount!,
           row.user_id,
           {
             title: "7 days left",
-            body: `7 days left to review ${tripName} before it closes.`,
+            body: `7 days left to review ${name} before it closes.`,
             route: tripRoute(row.trip_id, "/close-report"),
           },
         );
@@ -197,14 +208,14 @@ Deno.serve(async (req) => {
       .gte("settle_nudged_at", new Date(now - 86_400_000).toISOString());
 
     for (const row of (nudgeMembers ?? []) as TripMemberRow[]) {
-      const tripName = row.trips?.name ?? "your trip";
+      const name = tripName(row);
       const result = await sendPushToUserDevices(
         supabase,
         serviceAccount!,
         row.user_id,
         {
           title: "Balance to settle",
-          body: `You still have a balance to settle in ${tripName}.`,
+          body: `You still have a balance to settle in ${name}.`,
           route: tripRoute(row.trip_id),
         },
       );
