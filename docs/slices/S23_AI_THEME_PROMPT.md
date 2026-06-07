@@ -17,11 +17,13 @@ at share/preview time (that reads `trips.theme` only).
 
 ## 0. Sequencing (read before coding)
 
-1. **Main CI green + merge #21** (golden fix) before new slice work.
-2. **S25 first** (share pages — web-only, growth, no Play gate).
+1. **Main CI green** before starting.
+2. **S25 is live** (PR #23 merged, Supabase `0026` applied, Vercel publishable key
+   fixed, production `/j/<token>` smoke verified).
 3. **S23 next** (this slice). S25 preview/OG consumes **`trips.theme`** via
    `get_trip_preview` — no anon read of theme tables.
-4. **S22 held** until device + cron dry-run pass.
+4. **S22 held** until device + cron dry-run pass; its old `0025` migration slot
+   must be renumbered when that PR resumes.
 
 ## 1. Hard rules (the three R10 gates + spec ladder)
 
@@ -69,12 +71,21 @@ leave the device** for theming. No PII in cache, logs, or analytics.
 
 ## 3. Provider + resilience
 
-- Add LLM provider to **`docs/DEPENDENCIES.md`** (tier, cost-watch, secret in
-  Supabase — never client bundle).
-- `PROVIDER_RESILIENCE.md`: 429/5xx/timeout → bounded wait → fallback; log
-  `provider_throttled`.
+- **Provider: OpenAI** (decided 2026-06). Model: `gpt-4o-mini` (or `gpt-4.1-nano`).
+  Use **Structured Outputs (strict JSON schema)** for the `SnapshotThemePack` —
+  guarantees a conformant shape so validation rarely rejects. Validation gates
+  (§1.2) still run regardless (defense-in-depth; semantic checks like contrast).
+- **Key: `OPENAI_API_KEY`** as a **Supabase Edge Function secret** — NOT in the
+  client bundle, and distinct from any Codex/ChatGPT subscription (that's a
+  coding tool, not this runtime key). Provision at platform.openai.com.
+- OpenAI is registered in **`docs/DEPENDENCIES.md`** — tier **T2**, cost
+  negligible in expected usage (cache-gated), secret in Supabase, resilience
+  posture below.
+- `PROVIDER_RESILIENCE.md`: 429/5xx/timeout → bounded wait → **fallback** (never
+  hang the create-trip flow on theming); log `provider_throttled`.
 - Edge fn deno hygiene (`SECURITY_PATCHING.md` §2.1): `deno.json`, frozen
-  `deno.lock`, `deno check`, no raw imports.
+  `deno.lock`, `deno check`, no raw imports (import the OpenAI SDK via a pinned
+  `npm:`/`jsr:` specifier, not a raw URL).
 
 ## 4. Verification
 

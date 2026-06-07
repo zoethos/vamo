@@ -69,6 +69,11 @@ Input: `{ destination: string }`.
    - Tagline: length cap, single line, no URLs/digits.
 5. Upsert theme + alias; return pack.
 
+Provider note: S23 uses OpenAI from the Supabase Edge Function only, with
+Structured Outputs / strict JSON schema for the `SnapshotThemePack` shape.
+`OPENAI_API_KEY` lives as a Supabase secret and is never bundled into the app or
+web client.
+
 ## Invariants
 
 - Wordmark/watermark: same mark, same position, every theme, every tier. The
