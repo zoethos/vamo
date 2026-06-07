@@ -74,7 +74,9 @@ void main() {
   testWidgets('RSVP summary renders from aggregated counts', (tester) async {
     final db = await _seedEventPlan(withCounts: true);
     await _pumpPlanTab(tester, db: db, readOnly: false);
-    expect(find.text('3 going · 1 maybe · 1 declined'), findsOneWidget);
+    expect(find.text('3 Going'), findsOneWidget);
+    expect(find.text('1 Maybe'), findsOneWidget);
+    expect(find.text('1 Declined'), findsOneWidget);
     expect(find.textContaining('4 going'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

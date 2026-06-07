@@ -216,12 +216,16 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             ],
             bottom: TabBar(
               controller: _tabController,
+              labelPadding:
+                  const EdgeInsetsDirectional.symmetric(horizontal: 4),
               tabs: [
-                Tab(text: widget.tripHomeLabels.tabExpenses),
-                Tab(text: widget.planLabels.tabTitle),
-                if (showCapture) Tab(text: widget.tripHomeLabels.tabCapture),
-                if (showBalances) Tab(text: widget.tripHomeLabels.tabBalances),
-                Tab(text: widget.tripHomeLabels.tabMembers),
+                _TripTab(label: widget.tripHomeLabels.tabExpenses),
+                _TripTab(label: widget.planLabels.tabTitle),
+                if (showCapture)
+                  _TripTab(label: widget.tripHomeLabels.tabCapture),
+                if (showBalances)
+                  _TripTab(label: widget.tripHomeLabels.tabBalances),
+                _TripTab(label: widget.tripHomeLabels.tabMembers),
               ],
             ),
           ),
@@ -323,6 +327,26 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
+  }
+}
+
+class _TripTab extends StatelessWidget {
+  const _TripTab({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+        ),
+      ),
+    );
   }
 }
 

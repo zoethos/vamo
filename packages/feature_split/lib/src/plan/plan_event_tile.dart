@@ -32,13 +32,6 @@ class PlanEventTile extends ConsumerWidget {
         ? null
         : DateFormat.yMMMd().format(item.startsAt!.toLocal());
     final placeLabel = item.notes?.trim();
-    final summary = view.counts.isEmpty
-        ? null
-        : labels.rsvpSummary(
-            view.counts.going,
-            view.counts.maybe,
-            view.counts.declined,
-          );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -89,15 +82,37 @@ class PlanEventTile extends ConsumerWidget {
                           placeLabel,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      if (summary != null)
+                      if (!view.counts.isEmpty)
                         Padding(
                           padding: const EdgeInsetsDirectional.only(top: 4),
-                          child: Text(
-                            summary,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.graphite,
-                                    ),
+                          child: Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (view.counts.going > 0)
+                                _RsvpCountPill(
+                                  count: view.counts.going,
+                                  label: labels.rsvpGoing,
+                                  foreground: AppColors.ink,
+                                  background: AppColors.jadeTeal
+                                      .withValues(alpha: 0.18),
+                                ),
+                              if (view.counts.maybe > 0)
+                                _RsvpCountPill(
+                                  count: view.counts.maybe,
+                                  label: labels.rsvpMaybe,
+                                  foreground: AppColors.graphite,
+                                  background: AppColors.mistGray,
+                                ),
+                              if (view.counts.declined > 0)
+                                _RsvpCountPill(
+                                  count: view.counts.declined,
+                                  label: labels.rsvpDeclined,
+                                  foreground: AppColors.coralText,
+                                  background: AppColors.coralText
+                                      .withValues(alpha: 0.12),
+                                ),
+                            ],
                           ),
                         ),
                     ],
@@ -130,6 +145,45 @@ class PlanEventTile extends ConsumerWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RsvpCountPill extends StatelessWidget {
+  const _RsvpCountPill({
+    required this.count,
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final int count;
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 8,
+          vertical: 3,
+        ),
+        child: Text(
+          '$count $label',
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
         ),
       ),
     );
