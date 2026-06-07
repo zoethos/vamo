@@ -26,7 +26,7 @@ Updated: 2026-06-07.
 | S22 | W2·R7 (close report) + P1 nudge | 🔶 PR #20 | device + cron gate before merge; cron unscheduled |
 | S23 | W2·R10 (AI theme resolver) | 📋 prompt ready | **after S25**; `destination_themes` per `AI_THEMING_SPEC.md` |
 | S24 | P1 retention basics | ⬜ | |
-| S25 | P1 share pages | 📋 prompt ready | **next impl**; preview-first, no auto-redirect; member count only |
+| S25 | P1 share pages | ✅ merged | PR #23; preview-first `/j/[token]`; member count only |
 
 In-flight fixes (merge before S17): `fix/join-deeplink-single-handler`
 (reviewed, one nit: `ScaffoldMessenger.maybeOf`), `fix/web-share-and-lime-primary`.

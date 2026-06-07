@@ -89,6 +89,52 @@ Future<void> main() async {
     final token = invite['token'] as String;
     results.add(_Check('A create invite', true));
 
+    // --- S25 share preview (anon RPC; no direct table reads) ---
+    final anonPreviewClient = SupabaseClient(url, anon);
+    final preview =
+        await anonPreviewClient.rpc('get_trip_preview', params: {'p_token': token});
+    results.add(_Check('S25 get_trip_preview valid token', preview != null));
+    if (preview != null) {
+      final map = Map<String, dynamic>.from(preview as Map);
+      results.add(_Check('S25 preview trip_name', map['trip_name'] != null));
+      results.add(_Check('S25 preview member_count', map['member_count'] != null));
+      results.add(_Check('S25 preview theme pack', map['theme'] != null));
+      results.add(_Check(
+        'S25 preview no financial fields',
+        !map.containsKey('amount_cents') &&
+            !map.containsKey('balances') &&
+            !map.containsKey('net_cents'),
+      ));
+      results.add(_Check(
+        'S25 preview no member roster',
+        !map.containsKey('members') && !map.containsKey('member_names'),
+      ));
+    }
+    final badPreview = await anonPreviewClient
+        .rpc('get_trip_preview', params: {'p_token': 'invalid-token-xyz'});
+    results.add(
+        _Check('S25 get_trip_preview invalid token null', badPreview == null));
+    final anonInviteRows =
+        await anonPreviewClient.from('invites').select('token').limit(1);
+    results.add(_Check(
+      'S25 anon cannot read invites table',
+      (anonInviteRows as List).isEmpty,
+    ));
+    if (serviceClient != null) {
+      final exhaustInvite = await clientA
+          .from('invites')
+          .insert({'trip_id': tripId, 'created_by': userA})
+          .select('token, max_uses')
+          .single();
+      await serviceClient.from('invites').update({
+        'uses': exhaustInvite['max_uses'],
+      }).eq('token', exhaustInvite['token'] as String);
+      final exhaustedPreview = await anonPreviewClient.rpc('get_trip_preview',
+          params: {'p_token': exhaustInvite['token'] as String});
+      results.add(_Check(
+          'S25 get_trip_preview exhausted null', exhaustedPreview == null));
+    }
+
     final joinedTrip =
         await clientB.rpc('join_trip', params: {'p_token': token});
     results.add(_Check('B join_trip', joinedTrip == tripId));
