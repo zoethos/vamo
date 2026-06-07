@@ -495,6 +495,426 @@ abstract class AppLocalizations {
   /// **'Share a link — they can join mid-trip. Opens Vamo or the store.'**
   String get membersShareFootnote;
 
+  /// No description provided for @inviteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get inviteAction;
+
+  /// No description provided for @tripHomeTabExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get tripHomeTabExpenses;
+
+  /// No description provided for @tripHomeTabCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture'**
+  String get tripHomeTabCapture;
+
+  /// No description provided for @tripHomeTabBalances.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances'**
+  String get tripHomeTabBalances;
+
+  /// No description provided for @tripHomeTabMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get tripHomeTabMembers;
+
+  /// No description provided for @tripHomeMoreMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get tripHomeMoreMenu;
+
+  /// No description provided for @tripHomeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip settings'**
+  String get tripHomeSettings;
+
+  /// No description provided for @tripHomeShareSnapshot.
+  ///
+  /// In en, this message translates to:
+  /// **'Share snapshot'**
+  String get tripHomeShareSnapshot;
+
+  /// No description provided for @tripHomeAddExpense.
+  ///
+  /// In en, this message translates to:
+  /// **'Add expense'**
+  String get tripHomeAddExpense;
+
+  /// No description provided for @tripHomeLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load this trip.'**
+  String get tripHomeLoadError;
+
+  /// No description provided for @tripHomeNotFoundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip not found'**
+  String get tripHomeNotFoundTitle;
+
+  /// No description provided for @tripHomeNotFoundSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'It may have been removed or you no longer have access.'**
+  String get tripHomeNotFoundSubtitle;
+
+  /// No description provided for @balancesLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load balances.'**
+  String get balancesLoadError;
+
+  /// No description provided for @balancesWhoOwesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Who owes whom'**
+  String get balancesWhoOwesTitle;
+
+  /// No description provided for @balancesWhoOwesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Fewest payments to clear the trip.'**
+  String get balancesWhoOwesHint;
+
+  /// No description provided for @balancesPaysLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{from} pays {to}'**
+  String balancesPaysLine(String from, String to);
+
+  /// No description provided for @balancesWaitingForPayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {name} to pay'**
+  String balancesWaitingForPayer(String name);
+
+  /// No description provided for @balancesMarkSettled.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as settled'**
+  String get balancesMarkSettled;
+
+  /// No description provided for @balancesMyActionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your action'**
+  String get balancesMyActionTitle;
+
+  /// No description provided for @balancesConfirmHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as paid — confirm if you received it, or reject if not.'**
+  String get balancesConfirmHint;
+
+  /// No description provided for @balancesConfirmFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} says they paid you'**
+  String balancesConfirmFrom(String name);
+
+  /// No description provided for @balancesConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get balancesConfirm;
+
+  /// No description provided for @balancesReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get balancesReject;
+
+  /// No description provided for @balancesAwaitingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Awaiting confirmation'**
+  String get balancesAwaitingTitle;
+
+  /// No description provided for @balancesAwaitingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You marked these paid — recipients can confirm or reject. Cancel if you did not actually pay.'**
+  String get balancesAwaitingHint;
+
+  /// No description provided for @balancesYouToRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'You → {name}'**
+  String balancesYouToRecipient(String name);
+
+  /// No description provided for @balancesMarkedNotConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} · marked, not confirmed'**
+  String balancesMarkedNotConfirmed(String amount);
+
+  /// No description provided for @balancesCancelMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get balancesCancelMark;
+
+  /// No description provided for @balancesDisputedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s disputed'**
+  String get balancesDisputedTitle;
+
+  /// No description provided for @balancesFinalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s final'**
+  String get balancesFinalTitle;
+
+  /// No description provided for @balancesNetLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} {direction} {amount}'**
+  String balancesNetLine(String name, String direction, String amount);
+
+  /// No description provided for @balancesNetOwed.
+  ///
+  /// In en, this message translates to:
+  /// **'is owed'**
+  String get balancesNetOwed;
+
+  /// No description provided for @balancesNetOwes.
+  ///
+  /// In en, this message translates to:
+  /// **'owes'**
+  String get balancesNetOwes;
+
+  /// No description provided for @balancesEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All square'**
+  String get balancesEmptyTitle;
+
+  /// No description provided for @balancesEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No open debts — add expenses or invite Vamigos.'**
+  String get balancesEmptySubtitle;
+
+  /// No description provided for @balancesPaymentConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment confirmed.'**
+  String get balancesPaymentConfirmed;
+
+  /// No description provided for @balancesMarkedNotReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Marked as not received.'**
+  String get balancesMarkedNotReceived;
+
+  /// No description provided for @balancesMarkCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark cancelled — debt is back on your balance.'**
+  String get balancesMarkCancelled;
+
+  /// No description provided for @authContinueEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with email'**
+  String get authContinueEmail;
+
+  /// No description provided for @authEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get authEmailLabel;
+
+  /// No description provided for @authEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'you@example.com'**
+  String get authEmailHint;
+
+  /// No description provided for @authOtpLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get authOtpLabel;
+
+  /// No description provided for @authCodeSent.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a code to {email}'**
+  String authCodeSent(String email);
+
+  /// No description provided for @authVerifyContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify & continue'**
+  String get authVerifyContinue;
+
+  /// No description provided for @authDifferentEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a different email'**
+  String get authDifferentEmail;
+
+  /// No description provided for @authOrDivider.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get authOrDivider;
+
+  /// No description provided for @authContinueApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get authContinueApple;
+
+  /// No description provided for @authContinueGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get authContinueGoogle;
+
+  /// No description provided for @authResendCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Send me a new code'**
+  String get authResendCode;
+
+  /// No description provided for @authResendCodeCooldown.
+  ///
+  /// In en, this message translates to:
+  /// **'Send me a new code ({seconds}s)'**
+  String authResendCodeCooldown(int seconds);
+
+  /// No description provided for @createTripTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New trip'**
+  String get createTripTitle;
+
+  /// No description provided for @createTripHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Si va?'**
+  String get createTripHeadline;
+
+  /// No description provided for @createTripSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start solo — you can invite Vamigos later.'**
+  String get createTripSubtitle;
+
+  /// No description provided for @createTripNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip name'**
+  String get createTripNameLabel;
+
+  /// No description provided for @createTripNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Amalfi with the crew'**
+  String get createTripNameHint;
+
+  /// No description provided for @createTripNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your trip a name'**
+  String get createTripNameRequired;
+
+  /// No description provided for @createTripDestinationLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Destination (optional)'**
+  String get createTripDestinationLabel;
+
+  /// No description provided for @createTripDestinationHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Positano, Italy'**
+  String get createTripDestinationHint;
+
+  /// No description provided for @createTripCurrencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Base currency'**
+  String get createTripCurrencyLabel;
+
+  /// No description provided for @createTripStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get createTripStartDate;
+
+  /// No description provided for @createTripEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'End date'**
+  String get createTripEndDate;
+
+  /// No description provided for @createTripSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Create trip'**
+  String get createTripSubmit;
+
+  /// No description provided for @createTripEndBeforeStart.
+  ///
+  /// In en, this message translates to:
+  /// **'End date must be on or after start date.'**
+  String get createTripEndBeforeStart;
+
+  /// No description provided for @createTripClearDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear date'**
+  String get createTripClearDate;
+
+  /// No description provided for @addExpenseTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add expense'**
+  String get addExpenseTitle;
+
+  /// No description provided for @addExpenseTripNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip not found'**
+  String get addExpenseTripNotFound;
+
+  /// No description provided for @addExpenseScanReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan receipt'**
+  String get addExpenseScanReceipt;
+
+  /// No description provided for @addExpenseTakePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take photo'**
+  String get addExpenseTakePhoto;
+
+  /// No description provided for @addExpenseChooseGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from gallery'**
+  String get addExpenseChooseGallery;
+
+  /// No description provided for @addExpenseChoosePayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who paid.'**
+  String get addExpenseChoosePayer;
+
   /// No description provided for @profileTitle.
   ///
   /// In en, this message translates to:

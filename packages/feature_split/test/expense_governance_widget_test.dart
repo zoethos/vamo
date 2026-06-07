@@ -1,6 +1,7 @@
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
+import 'package:feature_split/src/expenses/add_expense_screen_labels.dart';
 import 'package:feature_split/src/expenses/add_expense_screen.dart';
 import 'package:feature_split/src/expenses/expense_consent_providers.dart';
 import 'package:feature_split/src/expenses/expense_governance.dart';
@@ -19,6 +20,15 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'governance_test_labels.dart';
+
+const _addExpenseScreenLabels = AddExpenseScreenLabels(
+  title: 'Add expense',
+  tripNotFound: 'Trip not found',
+  scanReceipt: 'Scan receipt',
+  takePhoto: 'Take photo',
+  chooseGallery: 'Choose from gallery',
+  choosePayer: 'Choose who paid.',
+);
 
 class _SpyExpensesRepository extends ExpensesRepository {
   _SpyExpensesRepository({
@@ -179,6 +189,7 @@ GoRouter _proposeGoRouter({required String tripId}) {
               tripId: state.pathParameters['tripId']!,
               mode: AddExpenseMode.proposed,
               labels: governanceTestLabels,
+              screenLabels: _addExpenseScreenLabels,
             ),
           ),
         ],

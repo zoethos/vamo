@@ -11,6 +11,7 @@ class InviteLabels {
     required this.pasteJoin,
     required this.scannerTitle,
     required this.inviteVamigos,
+    required this.inviteAction,
     required this.shareJoinLink,
     required this.inviteFromContacts,
     required this.contactMethodTextMessage,
@@ -34,6 +35,7 @@ class InviteLabels {
   final String pasteJoin;
   final String scannerTitle;
   final String inviteVamigos;
+  final String inviteAction;
   final String shareJoinLink;
   final String inviteFromContacts;
   final String contactMethodTextMessage;

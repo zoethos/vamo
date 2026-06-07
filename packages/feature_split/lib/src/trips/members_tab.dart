@@ -14,6 +14,8 @@ import '../invites/invites_repository.dart';
 import 'trips_providers.dart';
 import 'trips_repository.dart';
 
+enum _InviteMethod { textMessage, email, shareLink, qr }
+
 /// Slice 5 — roster + invite link share. S16 — owner co-admin grants.
 class MembersTab extends ConsumerStatefulWidget {
   const MembersTab({
@@ -126,48 +128,20 @@ class MembersTabState extends ConsumerState<MembersTab> {
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _sharing ? null : _shareInvite,
-                    icon: _sharing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.share_outlined),
-                    label: Text(labels.inviteVamigos),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _showingQr ? null : _showQr,
-                    icon: _showingQr
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.qr_code_2_outlined),
-                    label: Text(labels.showQr),
-                  ),
-                ),
-              ],
+            FilledButton.icon(
+              onPressed: _sharing || _showingQr ? null : openInviteFlow,
+              icon: _sharing || _showingQr
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.person_add_outlined),
+              label: Text(labels.inviteAction),
             ),
-            if (_contactInviteSupported) ...[
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _startContactInvite,
-                icon: const Icon(Icons.contacts_outlined),
-                label: Text(labels.inviteFromContacts),
-              ),
-            ],
             const SizedBox(height: 8),
             Text(
               labels.membersShareFootnote,
@@ -245,56 +219,74 @@ class MembersTabState extends ConsumerState<MembersTab> {
     }
   }
 
-  Future<void> _showInvitePicker() async {
+  Future<void> _showInvitePicker() => _showInviteMethodSheet();
+
+  Future<void> _showInviteMethodSheet() async {
     final labels = widget.inviteLabels;
-    await showModalBottomSheet<void>(
+    final method = await showModalBottomSheet<_InviteMethod>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.share_outlined),
-              title: Text(labels.inviteVamigos),
-              subtitle: Text(labels.shareJoinLink),
-              onTap: () {
-                Navigator.pop(ctx);
-                _shareInvite();
-              },
-            ),
             if (_contactInviteSupported)
               ListTile(
-                leading: const Icon(Icons.contacts_outlined),
-                title: Text(labels.inviteFromContacts),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _startContactInvite();
-                },
+                leading: const Icon(Icons.sms_outlined),
+                title: Text(labels.contactMethodTextMessage),
+                onTap: () => Navigator.pop(ctx, _InviteMethod.textMessage),
               ),
+            if (_contactInviteSupported)
+              ListTile(
+                leading: const Icon(Icons.email_outlined),
+                title: Text(labels.contactMethodEmail),
+                onTap: () => Navigator.pop(ctx, _InviteMethod.email),
+              ),
+            ListTile(
+              leading: const Icon(Icons.share_outlined),
+              title: Text(labels.contactMethodShareLink),
+              subtitle: Text(labels.shareJoinLink),
+              onTap: () => Navigator.pop(ctx, _InviteMethod.shareLink),
+            ),
             ListTile(
               leading: const Icon(Icons.qr_code_2_outlined),
               title: Text(labels.showQr),
               subtitle: Text(labels.qrCaption),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showQr();
-              },
+              onTap: () => Navigator.pop(ctx, _InviteMethod.qr),
             ),
           ],
         ),
       ),
     );
-  }
+    if (!mounted || method == null) return;
 
-  Future<void> _startContactInvite() => runContactInviteFlow(
-        context: context,
-        ref: ref,
-        tripId: widget.tripId,
-        labels: widget.inviteLabels,
-        gateway: _contactGateway,
-        shareInvite: widget.contactInviteShare,
-      );
+    switch (method) {
+      case _InviteMethod.textMessage:
+        await runContactInviteFlow(
+          context: context,
+          ref: ref,
+          tripId: widget.tripId,
+          labels: labels,
+          gateway: _contactGateway,
+          shareInvite: widget.contactInviteShare,
+          initialMethod: ContactInviteMethod.textMessage,
+        );
+      case _InviteMethod.email:
+        await runContactInviteFlow(
+          context: context,
+          ref: ref,
+          tripId: widget.tripId,
+          labels: labels,
+          gateway: _contactGateway,
+          shareInvite: widget.contactInviteShare,
+          initialMethod: ContactInviteMethod.email,
+        );
+      case _InviteMethod.shareLink:
+        await _shareInvite();
+      case _InviteMethod.qr:
+        await _showQr();
+    }
+  }
 
   Future<void> _shareInvite() async {
     _inviteFlow = FlowTracker(

@@ -6,6 +6,7 @@ import 'package:feature_split/src/expenses/expenses_providers.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 
 import 'invite_labels_test_support.dart';
+import 'trip_home_labels_test_support.dart';
 import 'package:feature_split/src/plan/plan_labels.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
 import 'package:feature_split/src/sync/trip_realtime_binding.dart';
@@ -272,7 +273,7 @@ String _mockCapturedAt(String iso) => 'Captured $iso';
 String _mockHint(String phrase) => 'Type $phrase';
 
 Future<void> _openOverflowMenu(WidgetTester tester) async {
-  await tester.tap(find.byIcon(Icons.more_vert));
+  await tester.tap(find.byIcon(Icons.more_horiz));
   await tester.pumpAndSettle();
 }
 
@@ -365,6 +366,8 @@ Widget _tripHome({
         governanceLabels: _governanceLabels,
         budgetLabels: _budgetLabels,
         lifecycleLabels: _lifecycleLabels,
+        tripHomeLabels: testTripHomeLabels,
+        balancesLabels: testBalancesTabLabels,
       ),
     ),
   );
@@ -392,6 +395,8 @@ Widget _tripHomeRouter({
           governanceLabels: _governanceLabels,
           budgetLabels: _budgetLabels,
           lifecycleLabels: _lifecycleLabels,
+          tripHomeLabels: testTripHomeLabels,
+          balancesLabels: testBalancesTabLabels,
         ),
       ),
     ],

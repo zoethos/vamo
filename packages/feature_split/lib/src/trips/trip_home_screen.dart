@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../balances/balances_tab.dart';
+import '../balances/balances_tab_labels.dart';
 import '../capture/capture_tab.dart';
 import '../sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/expenses/trip_expense_list_tile.dart';
@@ -14,16 +15,15 @@ import '../expenses/expense_governance_labels.dart';
 import '../expenses/trip_expenses_propose_action.dart';
 import '../expenses/expenses_providers.dart';
 import '../invites/invite_labels.dart';
-import '../signals/coming_soon_teaser.dart';
 import '../plan/plan_labels.dart';
 import '../plan/plan_tab.dart';
 import 'members_tab.dart';
+import 'trip_home_labels.dart';
 import 'trip_lifecycle_banner.dart';
 import 'trip_lifecycle_actions.dart';
 import 'trip_lifecycle_labels.dart';
 import 'trip_lifecycle_menu.dart';
 import 'trip_budget_labels.dart';
-import 'trips_models.dart';
 import 'trips_providers.dart';
 import 'trips_repository.dart';
 
@@ -38,6 +38,8 @@ class TripHomeScreen extends ConsumerStatefulWidget {
     required this.governanceLabels,
     required this.budgetLabels,
     required this.lifecycleLabels,
+    required this.tripHomeLabels,
+    required this.balancesLabels,
   });
 
   final String tripId;
@@ -49,6 +51,8 @@ class TripHomeScreen extends ConsumerStatefulWidget {
   final ExpenseGovernanceLabels governanceLabels;
   final TripBudgetLabels budgetLabels;
   final TripLifecycleLabels lifecycleLabels;
+  final TripHomeLabels tripHomeLabels;
+  final BalancesTabLabels balancesLabels;
 
   @override
   ConsumerState<TripHomeScreen> createState() => _TripHomeScreenState();
@@ -85,7 +89,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         appBar: AppBar(),
         body: AppErrorState(
           screen: 'trip_home',
-          message: 'Could not load this trip.',
+          message: widget.tripHomeLabels.loadError,
           onRetry: () => ref.invalidate(tripDetailProvider(widget.tripId)),
         ),
       ),
@@ -93,12 +97,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         if (detail == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const AppEmptyState(
+            body: AppEmptyState(
               screen: 'trip_home',
               icon: Icons.map_outlined,
-              title: 'Trip not found',
-              subtitle:
-                  'It may have been removed or you no longer have access.',
+              title: widget.tripHomeLabels.notFoundTitle,
+              subtitle: widget.tripHomeLabels.notFoundSubtitle,
             ),
           );
         }
@@ -136,7 +139,6 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
         final onExpensesTab = _tabController!.index == _expensesTabIndex;
         final onPlanTab = _tabController!.index == _planTabIndex;
         final onMembersTab = _tabController!.index == membersTabIndex;
-        final postTrip = _isPostTrip(detail);
         final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
         final lifecycle = TripLifecycle.parse(detail.lifecycle);
         final phase = resolveTripPhase(
@@ -165,49 +167,65 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
             ),
             title: Text(detail.name),
             actions: [
-              if (menuActions.isNotEmpty)
-                PopupMenuButton<TripLifecycleMenuAction>(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: widget.lifecycleLabels.tripActions,
-                  onSelected: (action) => TripLifecycleActions.handleMenuAction(
-                    context: context,
-                    ref: ref,
-                    tripId: widget.tripId,
-                    action: action,
-                    labels: widget.lifecycleLabels,
-                    repo: repo,
-                  ),
-                  itemBuilder: (context) => [
-                    for (final action in menuActions)
-                      PopupMenuItem(
-                        value: action,
-                        child: Text(
-                          lifecycleMenuLabel(action, widget.lifecycleLabels),
-                        ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                tooltip: widget.tripHomeLabels.moreMenu,
+                onSelected: (value) {
+                  if (value == 'settings') {
+                    context.push(AppRoutes.tripSettings(widget.tripId));
+                    return;
+                  }
+                  if (value == 'share') {
+                    context.push(AppRoutes.tripSnapshot(widget.tripId));
+                    return;
+                  }
+                  if (value.startsWith('lifecycle:')) {
+                    final actionName = value.substring('lifecycle:'.length);
+                    final action = TripLifecycleMenuAction.values.firstWhere(
+                      (a) => a.name == actionName,
+                    );
+                    TripLifecycleActions.handleMenuAction(
+                      context: context,
+                      ref: ref,
+                      tripId: widget.tripId,
+                      action: action,
+                      labels: widget.lifecycleLabels,
+                      repo: repo,
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  for (final action in menuActions)
+                    PopupMenuItem(
+                      value: 'lifecycle:${action.name}',
+                      child: Text(
+                        lifecycleMenuLabel(action, widget.lifecycleLabels),
                       ),
-                  ],
-                ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                tooltip: 'Trip settings',
-                onPressed: () =>
-                    context.push(AppRoutes.tripSettings(widget.tripId)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.share_outlined),
-                tooltip: 'Share snapshot',
-                onPressed: () =>
-                    context.push(AppRoutes.tripSnapshot(widget.tripId)),
+                    ),
+                  if (menuActions.isNotEmpty) const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: 'settings',
+                    child: Text(widget.tripHomeLabels.tripSettings),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Text(widget.tripHomeLabels.shareSnapshot),
+                  ),
+                ],
               ),
             ],
             bottom: TabBar(
               controller: _tabController,
+              labelPadding:
+                  const EdgeInsetsDirectional.symmetric(horizontal: 4),
               tabs: [
-                const Tab(text: 'Expenses'),
-                Tab(text: widget.planLabels.tabTitle),
-                if (showCapture) const Tab(text: 'Capture'),
-                if (showBalances) const Tab(text: 'Balances'),
-                const Tab(text: 'Members'),
+                _TripTab(label: widget.tripHomeLabels.tabExpenses),
+                _TripTab(label: widget.planLabels.tabTitle),
+                if (showCapture)
+                  _TripTab(label: widget.tripHomeLabels.tabCapture),
+                if (showBalances)
+                  _TripTab(label: widget.tripHomeLabels.tabBalances),
+                _TripTab(label: widget.tripHomeLabels.tabMembers),
               ],
             ),
           ),
@@ -223,22 +241,6 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       detail: detail,
                       labels: widget.lifecycleLabels,
                     ),
-                    const SizedBox(height: 8),
-                    ComingSoonTeaser(
-                      interestEvent: VamoEvent.mapInterestTapped,
-                      feature: 'map',
-                      title: 'Trip map — coming soon',
-                      icon: Icons.map_outlined,
-                    ),
-                    if (postTrip) ...[
-                      const SizedBox(height: 8),
-                      ComingSoonTeaser(
-                        interestEvent: VamoEvent.recapInterestTapped,
-                        feature: 'recap',
-                        title: 'Trip recap video — coming soon',
-                        icon: Icons.movie_filter_outlined,
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -265,6 +267,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       BalancesTab(
                         tripId: widget.tripId,
                         governanceLabels: widget.governanceLabels,
+                        labels: widget.balancesLabels,
                       ),
                     MembersTab(
                       key: _membersTabKey,
@@ -302,24 +305,13 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                     onPlanTab
                         ? widget.planLabels.addPlanItem
                         : onMembersTab
-                            ? 'Invite Vamigos'
-                            : 'Add expense',
+                            ? widget.inviteLabels.inviteAction
+                            : widget.tripHomeLabels.addExpense,
                   ),
                 ),
         );
       },
     );
-  }
-
-  bool _isPostTrip(TripDetail detail) {
-    final end = detail.endDate;
-    if (end == null) return false;
-    final parsed = DateTime.tryParse(end);
-    if (parsed == null) return false;
-    final today = DateTime.now();
-    final endDay = DateTime(parsed.year, parsed.month, parsed.day);
-    final todayDay = DateTime(today.year, today.month, today.day);
-    return endDay.isBefore(todayDay);
   }
 
   void _navigateBack(BuildContext context) {
@@ -335,6 +327,26 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     }
+  }
+}
+
+class _TripTab extends StatelessWidget {
+  const _TripTab({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tab(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+        ),
+      ),
+    );
   }
 }
 

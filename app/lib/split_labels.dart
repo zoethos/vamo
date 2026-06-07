@@ -210,6 +210,7 @@ class SplitLabels {
         pasteJoin: l10n.invitePasteJoin,
         scannerTitle: l10n.inviteScannerTitle,
         inviteVamigos: l10n.inviteVamigos,
+        inviteAction: l10n.inviteAction,
         shareJoinLink: l10n.inviteShareJoinLink,
         inviteFromContacts: l10n.inviteFromContacts,
         contactMethodTextMessage: l10n.inviteContactMethodTextMessage,
@@ -253,5 +254,94 @@ class SplitLabels {
         signOut: l10n.profileSignOut,
         saveChanges: l10n.profileSave,
         profileSaved: l10n.profileSaved,
+      );
+
+  static TripHomeLabels tripHome(AppLocalizations l10n) => TripHomeLabels(
+        tabExpenses: l10n.tripHomeTabExpenses,
+        tabCapture: l10n.tripHomeTabCapture,
+        tabBalances: l10n.tripHomeTabBalances,
+        tabMembers: l10n.tripHomeTabMembers,
+        moreMenu: l10n.tripHomeMoreMenu,
+        tripSettings: l10n.tripHomeSettings,
+        shareSnapshot: l10n.tripHomeShareSnapshot,
+        addExpense: l10n.tripHomeAddExpense,
+        loadError: l10n.tripHomeLoadError,
+        notFoundTitle: l10n.tripHomeNotFoundTitle,
+        notFoundSubtitle: l10n.tripHomeNotFoundSubtitle,
+      );
+
+  static BalancesTabLabels balances(AppLocalizations l10n) => BalancesTabLabels(
+        loadError: l10n.balancesLoadError,
+        whoOwesWhomTitle: l10n.balancesWhoOwesTitle,
+        whoOwesWhomHint: l10n.balancesWhoOwesHint,
+        paysLine: l10n.balancesPaysLine,
+        waitingForPayer: l10n.balancesWaitingForPayer,
+        markAsSettled: l10n.balancesMarkSettled,
+        myActionTitle: l10n.balancesMyActionTitle,
+        confirmPaymentsHint: l10n.balancesConfirmHint,
+        confirmPaymentFrom: l10n.balancesConfirmFrom,
+        confirm: l10n.balancesConfirm,
+        reject: l10n.balancesReject,
+        awaitingConfirmationTitle: l10n.balancesAwaitingTitle,
+        awaitingConfirmationHint: l10n.balancesAwaitingHint,
+        youToRecipient: l10n.balancesYouToRecipient,
+        markedNotConfirmed: l10n.balancesMarkedNotConfirmed,
+        cancelMark: l10n.balancesCancelMark,
+        disputedTitle: l10n.balancesDisputedTitle,
+        finalTitle: l10n.balancesFinalTitle,
+        netBalanceLine: (name, isOwed, amount) => l10n.balancesNetLine(
+          name,
+          isOwed ? l10n.balancesNetOwed : l10n.balancesNetOwes,
+          amount,
+        ),
+        emptyTitle: l10n.balancesEmptyTitle,
+        emptySubtitle: l10n.balancesEmptySubtitle,
+        paymentConfirmed: l10n.balancesPaymentConfirmed,
+        markedNotReceived: l10n.balancesMarkedNotReceived,
+        markCancelled: l10n.balancesMarkCancelled,
+        someoneFallback: l10n.expenseSomeoneFallback,
+      );
+
+  static AuthLabels auth(AppLocalizations l10n) => AuthLabels(
+        tagline: l10n.brandTagline,
+        emailLabel: l10n.authEmailLabel,
+        emailHint: l10n.authEmailHint,
+        otpLabel: l10n.authOtpLabel,
+        codeSent: l10n.authCodeSent,
+        continueWithEmail: l10n.authContinueEmail,
+        verifyAndContinue: l10n.authVerifyContinue,
+        useDifferentEmail: l10n.authDifferentEmail,
+        orDivider: l10n.authOrDivider,
+        continueWithApple: l10n.authContinueApple,
+        continueWithGoogle: l10n.authContinueGoogle,
+        resendCode: l10n.authResendCode,
+        resendCodeCooldown: l10n.authResendCodeCooldown,
+      );
+
+  static CreateTripLabels createTrip(AppLocalizations l10n) => CreateTripLabels(
+        title: l10n.createTripTitle,
+        headline: l10n.createTripHeadline,
+        subtitle: l10n.createTripSubtitle,
+        nameLabel: l10n.createTripNameLabel,
+        nameHint: l10n.createTripNameHint,
+        nameRequired: l10n.createTripNameRequired,
+        destinationLabel: l10n.createTripDestinationLabel,
+        destinationHint: l10n.createTripDestinationHint,
+        currencyLabel: l10n.createTripCurrencyLabel,
+        startDate: l10n.createTripStartDate,
+        endDate: l10n.createTripEndDate,
+        submit: l10n.createTripSubmit,
+        endBeforeStart: l10n.createTripEndBeforeStart,
+        clearDate: l10n.createTripClearDate,
+      );
+
+  static AddExpenseScreenLabels addExpense(AppLocalizations l10n) =>
+      AddExpenseScreenLabels(
+        title: l10n.addExpenseTitle,
+        tripNotFound: l10n.addExpenseTripNotFound,
+        scanReceipt: l10n.addExpenseScanReceipt,
+        takePhoto: l10n.addExpenseTakePhoto,
+        chooseGallery: l10n.addExpenseChooseGallery,
+        choosePayer: l10n.addExpenseChoosePayer,
       );
 }

@@ -155,7 +155,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Invite from contacts'), findsOneWidget);
+    expect(find.text('Invite from contacts'), findsNothing);
+    expect(find.text('Invite Vamigos'), findsNothing);
+    expect(find.text('Show QR'), findsNothing);
+    expect(find.text('Invite'), findsOneWidget);
   });
 
   testWidgets('hides contact invite action when unsupported', (tester) async {
@@ -177,7 +180,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
 
     expect(find.text('Text message'), findsOneWidget);
@@ -196,7 +199,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
@@ -217,7 +220,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Email'));
     await tester.pumpAndSettle();
@@ -233,7 +236,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
@@ -259,7 +262,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
@@ -291,7 +294,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite from contacts'));
+    await tester.tap(find.text('Invite'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();

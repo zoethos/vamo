@@ -74,7 +74,9 @@ void main() {
   testWidgets('RSVP summary renders from aggregated counts', (tester) async {
     final db = await _seedEventPlan(withCounts: true);
     await _pumpPlanTab(tester, db: db, readOnly: false);
-    expect(find.text('3 going · 1 maybe · 1 declined'), findsOneWidget);
+    expect(find.text('3 Going'), findsOneWidget);
+    expect(find.text('1 Maybe'), findsOneWidget);
+    expect(find.text('1 Declined'), findsOneWidget);
     expect(find.textContaining('4 going'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -138,7 +140,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Going'));
+    await tester.tap(find.text('Going').first);
     await tester.pumpAndSettle();
 
     expect(spy.clearCalls, 1);
@@ -206,7 +208,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Declined'));
+    await tester.tap(find.text('Declined').first);
     await tester.pumpAndSettle();
 
     expect(spy.setCalls, 1);
@@ -276,16 +278,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Going'));
+    await tester.tap(find.text('Going').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(spy.setCalls, 1);
     expect(find.text(_planTabLabels.eventRsvpUpdateFailed), findsOneWidget);
-    final chip = tester.widget<ChoiceChip>(
-      find.widgetWithText(ChoiceChip, 'Going'),
+    final button = tester.widget<SegmentedButton<EventRsvpStatus>>(
+      find.byType(SegmentedButton<EventRsvpStatus>),
     );
-    expect(chip.selected, isFalse);
+    expect(button.selected, isEmpty);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

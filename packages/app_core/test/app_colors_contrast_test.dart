@@ -34,6 +34,11 @@ void main() {
     expect(theme.inputDecorationTheme.floatingLabelStyle?.color, AppColors.ink);
   });
 
+  test('ColorScheme primary is deepPlum not goLime', () {
+    expect(AppTheme.light.colorScheme.primary, AppColors.deepPlum);
+    expect(AppTheme.light.colorScheme.primary, isNot(AppColors.goLime));
+  });
+
   test('lime primary buttons use ink foreground in theme', () {
     final style = AppTheme.light.filledButtonTheme.style;
     expect(style?.foregroundColor?.resolve({}), AppColors.ink);
