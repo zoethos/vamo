@@ -289,6 +289,7 @@ Deno.serve(async (req) => {
     return fallback(errorKind);
   }
 
+  generated = repairGeneratedTheme(generated);
   const validationError = validateGeneratedTheme(generated);
   if (validationError) {
     await recordUsage(serviceClient, {
@@ -549,8 +550,10 @@ async function generateTheme(
             content:
               `Destination: ${normalizedDestination}\n` +
               "Create a dark, evocative three-color gradient and high-contrast " +
-              "card tokens. The tagline should be a local-language 'let's go' " +
-              "phrase, max 16 chars, no digits, no URL.",
+              "card tokens. statPrimary must contrast with statBackground, and " +
+              "memberInitial must contrast with memberBubble. The tagline should " +
+              "be a local-language 'let's go' phrase, max 16 chars, no digits, " +
+              "no URL.",
           },
         ],
         response_format: {
@@ -601,6 +604,26 @@ function validateGeneratedTheme(theme: GeneratedTheme): string | null {
   }
   if (theme.pack?.id !== theme.canonicalKey) return "id_mismatch";
   return validateThemePack(theme.pack);
+}
+
+function repairGeneratedTheme(theme: GeneratedTheme): GeneratedTheme {
+  if (!theme.pack || typeof theme.pack !== "object") return theme;
+  const pack: ThemePack = { ...theme.pack, gradient: [...theme.pack.gradient] };
+  if (
+    isHex(pack.statBackground) &&
+    isHex(pack.statPrimary) &&
+    contrastRatio(pack.statPrimary, pack.statBackground) < 4.5
+  ) {
+    pack.statPrimary = readableForeground(pack.statBackground);
+  }
+  if (
+    isHex(pack.memberBubble) &&
+    isHex(pack.memberInitial) &&
+    contrastRatio(pack.memberInitial, pack.memberBubble) < 4.5
+  ) {
+    pack.memberInitial = readableForeground(pack.memberBubble);
+  }
+  return { ...theme, pack };
 }
 
 function coerceThemePack(raw: unknown): ThemePack | null {
@@ -825,6 +848,13 @@ function relativeLuminance(hex: string): number {
       : Math.pow((value + 0.055) / 1.055, 2.4);
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function readableForeground(background: string): string {
+  return contrastRatio("#0C0E16", background) >=
+      contrastRatio("#FFFFFF", background)
+    ? "#0C0E16"
+    : "#FFFFFF";
 }
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
