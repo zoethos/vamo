@@ -62,6 +62,17 @@ interface UsageEvent {
   metadata?: JsonRecord;
 }
 
+class ProviderError extends Error {
+  constructor(kind: string, detail: JsonRecord = {}) {
+    super(kind);
+    this.kind = kind;
+    this.detail = detail;
+  }
+
+  kind: string;
+  detail: JsonRecord;
+}
+
 const THEME_SCHEMA_VERSION = 1;
 const AI_TIMEOUT_MS = 4_000;
 const MAX_DESTINATION_CHARS = 80;
@@ -266,11 +277,14 @@ Deno.serve(async (req) => {
     await recordUsage(serviceClient, {
       provider: config.provider,
       model: config.model,
-      status: errorKind === "throttled" ? "throttled" : "fallback",
+      status: isProviderThrottle(errorKind) ? "throttled" : "fallback",
       cached: false,
       latencyMs: Date.now() - started,
       errorKind,
-      metadata: { destination_hash: destinationHash },
+      metadata: {
+        destination_hash: destinationHash,
+        ...providerErrorMetadata(e),
+      },
     });
     return fallback(errorKind);
   }
@@ -500,7 +514,7 @@ async function generateTheme(
   config: ThemeAiConfig,
   normalizedDestination: string,
 ): Promise<GeneratedTheme> {
-  if (!config.baseUrl) throw new Error("missing_base_url");
+  if (!config.baseUrl) throw new ProviderError("missing_base_url");
   const endpoint = new URL("chat/completions", config.baseUrl).toString();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -549,8 +563,9 @@ async function generateTheme(
         },
       }),
     });
-    if (response.status === 429) throw new Error("provider_throttled");
-    if (!response.ok) throw new Error(`provider_${response.status}`);
+    if (!response.ok) {
+      throw await providerHttpError(response);
+    }
 
     const body = await response.json() as JsonRecord;
     const choices = Array.isArray(body.choices) ? body.choices : [];
@@ -571,7 +586,7 @@ async function generateTheme(
     };
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") {
-      throw new Error("timeout");
+      throw new ProviderError("timeout");
     }
     throw e;
   } finally {
@@ -690,6 +705,7 @@ function isCacheableDestination(normalized: string, raw: string): boolean {
 }
 
 function classifyProviderError(error: unknown): string {
+  if (error instanceof ProviderError) return error.kind;
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("provider_throttled") || message.includes("429")) {
     return "throttled";
@@ -699,6 +715,46 @@ function classifyProviderError(error: unknown): string {
   if (message.includes("provider_5")) return "provider_5xx";
   if (message.includes("provider_4")) return "provider_4xx";
   return "provider_error";
+}
+
+async function providerHttpError(response: Response): Promise<ProviderError> {
+  const detail: JsonRecord = { provider_status: response.status };
+  try {
+    const body = await response.json() as JsonRecord;
+    const error = body.error as JsonRecord | undefined;
+    const type = stringOrUndefined(error?.type);
+    const code = stringOrUndefined(error?.code);
+    const param = stringOrUndefined(error?.param);
+    if (type) detail.provider_error_type = type;
+    if (code) detail.provider_error_code = code;
+    if (param) detail.provider_error_param = param;
+  } catch {
+    // Body shape is provider-specific; status alone is enough to classify.
+  }
+
+  const providerType = String(detail.provider_error_type ?? "");
+  const providerCode = String(detail.provider_error_code ?? "");
+  if (response.status === 429) {
+    const quotaSignals = new Set([
+      "insufficient_quota",
+      "billing_hard_limit_reached",
+      "billing_not_active",
+    ]);
+    const kind = quotaSignals.has(providerType) || quotaSignals.has(providerCode)
+      ? "insufficient_quota"
+      : "throttled";
+    return new ProviderError(kind, detail);
+  }
+  if (response.status >= 500) return new ProviderError("provider_5xx", detail);
+  return new ProviderError("provider_4xx", detail);
+}
+
+function providerErrorMetadata(error: unknown): JsonRecord {
+  return error instanceof ProviderError ? error.detail : {};
+}
+
+function isProviderThrottle(errorKind: string): boolean {
+  return errorKind === "throttled" || errorKind === "insufficient_quota";
 }
 
 function isUuid(value: string): boolean {
@@ -717,6 +773,10 @@ function ensureTrailingSlash(value: string): string {
 
 function numberOrUndefined(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function fallback(reason: string) {
