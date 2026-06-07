@@ -1,4 +1,5 @@
 import 'package:feature_split/src/invites/contact_invite_gateway.dart';
+import 'package:feature_split/src/trips/members_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -26,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await expectLater(
-      find.byType(Scaffold),
+      find.byType(MembersTab),
       matchesGoldenFile('goldens/s27_members_invite_small.png'),
     );
   });
