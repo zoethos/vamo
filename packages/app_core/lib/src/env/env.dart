@@ -13,9 +13,9 @@ class Env {
 
   static String get posthogApiKey => dotenv.maybeGet('POSTHOG_API_KEY') ?? '';
 
-  /// PostHog ingest host (default US cloud).
+  /// PostHog ingest host (default EU cloud).
   static String get posthogHost =>
-      dotenv.maybeGet('POSTHOG_HOST') ?? 'https://us.i.posthog.com';
+      dotenv.maybeGet('POSTHOG_HOST') ?? 'https://eu.i.posthog.com';
   static String get fxRatesFunctionUrl =>
       dotenv.maybeGet('FX_RATES_FUNCTION_URL') ?? '';
 

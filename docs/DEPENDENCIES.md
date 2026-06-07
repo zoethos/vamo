@@ -87,7 +87,7 @@ caps — which is the signal to budget the next tier, not a surprise.
 | Service | Role | Auth / secret | Cost tier | Lock-in | Review trigger |
 |---|---|---|---|---|---|
 | **Supabase** | Postgres + RLS, auth, storage, Edge Functions, Vault, realtime, pg_cron | project keys (anon/publishable + service/secret); never ship service key | Free now → Pro at launch | **High** — the backbone | scaling limits; Pro pricing at launch |
-| **PostHog (EU)** | Product analytics (funnel + signals) | `POSTHOG_API_KEY` (project 193638, EU host) | Free tier (event volume cap) | Med — event names are ours; SDK swappable | event volume nears free cap; pricing |
+| **PostHog (EU)** | Product analytics (funnel + signals) | `POSTHOG_API_KEY` in app; `NEXT_PUBLIC_POSTHOG_API_KEY` + EU host in Vercel site (project 193638) | Free tier (event volume cap) | Med — event names are ours; SDK swappable | event volume nears free cap; pricing |
 | **Brevo** | Transactional email (OTP sign-in codes, notifications) | SMTP creds; sender `noreply@vamo.world` pending | Free tier (daily send cap) | Med — SMTP is portable; templates re-do | daily send cap; deliverability issues |
 | **Firebase / FCM** | Push notifications (HTTP v1) | `FIREBASE_SERVICE_ACCOUNT` JSON (Supabase secret) | Free (FCM) | Med-high — token plumbing + client SDK | APNs/iOS work; SDK major bumps |
 | **exchangerate.host** (FX) | FX market rates → trip constant table (D4) | `exchangerate_access_key` (Supabase **Vault**) | Free tier (keyed) | **Low** — see FX card | endpoint corrected to `/live` 2026-06-05; key rotation; free-tier source-lock |
@@ -167,6 +167,8 @@ and treat Riverpod/go_router/Firebase majors as their own scoped chores.
 | Supabase anon/publishable key | `app/.env` | app client |
 | Supabase service/secret key | local smoke runner (gitignored), CI env | `rls_smoke.dart`, never the app |
 | `POSTHOG_API_KEY` | `app/.env` | analytics |
+| `NEXT_PUBLIC_POSTHOG_API_KEY` | Vercel site env / `web/apps/site/.env.local` | public web analytics for `/j/<token>`; PostHog project key only, never a secret |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Vercel site env / `web/apps/site/.env.local` | PostHog EU ingest host |
 | `FIREBASE_SERVICE_ACCOUNT` | Supabase secret | `send-push` |
 | `CRON_SECRET` | Supabase secret | `trip-lifecycle-jobs` |
 | `exchangerate_access_key` | Supabase **Vault** | `_fetch_market_fx_rate` |
