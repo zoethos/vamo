@@ -20,6 +20,7 @@ import 'receipt_metadata.dart';
 import 'receipt_ocr.dart';
 import 'receipt_ocr_form_prefill.dart';
 import '../places/places_repository.dart';
+import 'add_expense_screen_labels.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
 class AddExpenseScreen extends ConsumerStatefulWidget {
@@ -28,11 +29,13 @@ class AddExpenseScreen extends ConsumerStatefulWidget {
     required this.tripId,
     this.mode = AddExpenseMode.committed,
     required this.labels,
+    required this.screenLabels,
   });
 
   final String tripId;
   final AddExpenseMode mode;
   final ExpenseGovernanceLabels labels;
+  final AddExpenseScreenLabels screenLabels;
 
   @override
   ConsumerState<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -140,7 +143,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         if (detail == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('Trip not found')),
+            body: Center(child: Text(widget.screenLabels.tripNotFound)),
           );
         }
 
@@ -155,7 +158,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             body: Center(child: CircularProgressIndicator()),
           ),
           error: (e, _) => Scaffold(
-            appBar: AppBar(title: const Text('Add expense')),
+            appBar: AppBar(title: Text(widget.screenLabels.title)),
             body: AppErrorState(
               screen: 'add_expense',
               message: formatActionFailureMessage(e),
@@ -364,7 +367,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         onPressed:
                             (_saving || _ocrLoading) ? null : _pickReceipt,
                         icon: const Icon(Icons.document_scanner_outlined),
-                        label: const Text('Scan receipt'),
+                        label: Text(widget.screenLabels.scanReceipt),
                       ),
                       if (_ocrLoading) ...[
                         const SizedBox(height: 12),
@@ -488,12 +491,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
+              title: Text(widget.screenLabels.takePhoto),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
+              title: Text(widget.screenLabels.chooseGallery),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
@@ -631,7 +634,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     final payerId = _payerId;
     if (payerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose who paid.')),
+        SnackBar(content: Text(widget.screenLabels.choosePayer)),
       );
       return;
     }

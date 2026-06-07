@@ -227,6 +227,238 @@ class AppLocalizationsAr extends AppLocalizations {
       'Share a link — they can join mid-trip. Opens Vamo or the store.';
 
   @override
+  String get inviteAction => 'Invite';
+
+  @override
+  String get tripHomeTabExpenses => 'Expenses';
+
+  @override
+  String get tripHomeTabCapture => 'Capture';
+
+  @override
+  String get tripHomeTabBalances => 'Balances';
+
+  @override
+  String get tripHomeTabMembers => 'Members';
+
+  @override
+  String get tripHomeMoreMenu => 'More';
+
+  @override
+  String get tripHomeSettings => 'Trip settings';
+
+  @override
+  String get tripHomeShareSnapshot => 'Share snapshot';
+
+  @override
+  String get tripHomeAddExpense => 'Add expense';
+
+  @override
+  String get tripHomeLoadError => 'Could not load this trip.';
+
+  @override
+  String get tripHomeNotFoundTitle => 'Trip not found';
+
+  @override
+  String get tripHomeNotFoundSubtitle =>
+      'It may have been removed or you no longer have access.';
+
+  @override
+  String get balancesLoadError => 'Could not load balances.';
+
+  @override
+  String get balancesWhoOwesTitle => 'Who owes whom';
+
+  @override
+  String get balancesWhoOwesHint => 'Fewest payments to clear the trip.';
+
+  @override
+  String balancesPaysLine(String from, String to) {
+    return '$from pays $to';
+  }
+
+  @override
+  String balancesWaitingForPayer(String name) {
+    return 'Waiting for $name to pay';
+  }
+
+  @override
+  String get balancesMarkSettled => 'Mark as settled';
+
+  @override
+  String get balancesMyActionTitle => 'Your action';
+
+  @override
+  String get balancesConfirmHint =>
+      'Marked as paid — confirm if you received it, or reject if not.';
+
+  @override
+  String balancesConfirmFrom(String name) {
+    return '$name says they paid you';
+  }
+
+  @override
+  String get balancesConfirm => 'Confirm';
+
+  @override
+  String get balancesReject => 'Reject';
+
+  @override
+  String get balancesAwaitingTitle => 'Awaiting confirmation';
+
+  @override
+  String get balancesAwaitingHint =>
+      'You marked these paid — recipients can confirm or reject. Cancel if you did not actually pay.';
+
+  @override
+  String balancesYouToRecipient(String name) {
+    return 'You → $name';
+  }
+
+  @override
+  String balancesMarkedNotConfirmed(String amount) {
+    return '$amount · marked, not confirmed';
+  }
+
+  @override
+  String get balancesCancelMark => 'Cancel';
+
+  @override
+  String get balancesDisputedTitle => 'What\'s disputed';
+
+  @override
+  String get balancesFinalTitle => 'What\'s final';
+
+  @override
+  String balancesNetLine(String name, String direction, String amount) {
+    return '$name $direction $amount';
+  }
+
+  @override
+  String get balancesNetOwed => 'is owed';
+
+  @override
+  String get balancesNetOwes => 'owes';
+
+  @override
+  String get balancesEmptyTitle => 'All square';
+
+  @override
+  String get balancesEmptySubtitle =>
+      'No open debts — add expenses or invite Vamigos.';
+
+  @override
+  String get balancesPaymentConfirmed => 'Payment confirmed.';
+
+  @override
+  String get balancesMarkedNotReceived => 'Marked as not received.';
+
+  @override
+  String get balancesMarkCancelled =>
+      'Mark cancelled — debt is back on your balance.';
+
+  @override
+  String get authContinueEmail => 'Continue with email';
+
+  @override
+  String get authEmailLabel => 'Email';
+
+  @override
+  String get authEmailHint => 'you@example.com';
+
+  @override
+  String get authOtpLabel => '6-digit code';
+
+  @override
+  String authCodeSent(String email) {
+    return 'We sent a code to $email';
+  }
+
+  @override
+  String get authVerifyContinue => 'Verify & continue';
+
+  @override
+  String get authDifferentEmail => 'Use a different email';
+
+  @override
+  String get authOrDivider => 'or';
+
+  @override
+  String get authContinueApple => 'Continue with Apple';
+
+  @override
+  String get authContinueGoogle => 'Continue with Google';
+
+  @override
+  String get authResendCode => 'Send me a new code';
+
+  @override
+  String authResendCodeCooldown(int seconds) {
+    return 'Send me a new code (${seconds}s)';
+  }
+
+  @override
+  String get createTripTitle => 'New trip';
+
+  @override
+  String get createTripHeadline => 'Si va?';
+
+  @override
+  String get createTripSubtitle => 'Start solo — you can invite Vamigos later.';
+
+  @override
+  String get createTripNameLabel => 'Trip name';
+
+  @override
+  String get createTripNameHint => 'Amalfi with the crew';
+
+  @override
+  String get createTripNameRequired => 'Give your trip a name';
+
+  @override
+  String get createTripDestinationLabel => 'Destination (optional)';
+
+  @override
+  String get createTripDestinationHint => 'Positano, Italy';
+
+  @override
+  String get createTripCurrencyLabel => 'Base currency';
+
+  @override
+  String get createTripStartDate => 'Start date';
+
+  @override
+  String get createTripEndDate => 'End date';
+
+  @override
+  String get createTripSubmit => 'Create trip';
+
+  @override
+  String get createTripEndBeforeStart =>
+      'End date must be on or after start date.';
+
+  @override
+  String get createTripClearDate => 'Clear date';
+
+  @override
+  String get addExpenseTitle => 'Add expense';
+
+  @override
+  String get addExpenseTripNotFound => 'Trip not found';
+
+  @override
+  String get addExpenseScanReceipt => 'Scan receipt';
+
+  @override
+  String get addExpenseTakePhoto => 'Take photo';
+
+  @override
+  String get addExpenseChooseGallery => 'Choose from gallery';
+
+  @override
+  String get addExpenseChoosePayer => 'Choose who paid.';
+
+  @override
   String get profileTitle => 'Profile';
 
   @override

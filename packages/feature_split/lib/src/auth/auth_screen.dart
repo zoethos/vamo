@@ -7,13 +7,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../invites/invite_labels.dart';
 import '../invites/invite_qr_scanner.dart';
+import 'auth_labels.dart';
 
 /// Slice 0 onboarding: email OTP wired end-to-end, with Apple/Google/phone as
 /// the next surfaces to light up. On success the router redirects to /trips.
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({super.key, this.inviteLabels});
+  const AuthScreen({
+    super.key,
+    this.inviteLabels,
+    required this.authLabels,
+  });
 
   final InviteLabels? inviteLabels;
+  final AuthLabels authLabels;
 
   @override
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
@@ -119,6 +125,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labels = widget.authLabels;
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -158,7 +165,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Si va?',
+                        labels.tagline,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: AppColors.graphite,
@@ -170,9 +177,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            hintText: 'you@example.com',
+                          decoration: InputDecoration(
+                            labelText: labels.emailLabel,
+                            hintText: labels.emailHint,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -180,11 +187,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           onPressed: _busy ? null : _sendCode,
                           child: _busy
                               ? const _Spinner()
-                              : const Text('Continue with email'),
+                              : Text(labels.continueWithEmail),
                         ),
                       ] else ...[
                         Text(
-                          'We sent a code to ${_emailController.text.trim()}',
+                          labels.codeSent(_emailController.text.trim()),
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium,
                         ),
@@ -193,14 +200,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           controller: _otpController,
                           keyboardType: TextInputType.number,
                           decoration:
-                              const InputDecoration(labelText: '6-digit code'),
+                              InputDecoration(labelText: labels.otpLabel),
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: _busy ? null : _verify,
                           child: _busy
                               ? const _Spinner()
-                              : const Text('Verify & continue'),
+                              : Text(labels.verifyAndContinue),
                         ),
                         const SizedBox(height: 8),
                         TextButton(
@@ -209,8 +216,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               : _resendCode,
                           child: Text(
                             _resendCooldown > 0
-                                ? 'Send me a new code (${_resendCooldown}s)'
-                                : 'Send me a new code',
+                                ? labels.resendCodeCooldown(_resendCooldown)
+                                : labels.resendCode,
                           ),
                         ),
                         TextButton(
@@ -222,31 +229,31 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                     _resendTimer?.cancel();
                                     _resendCooldown = 0;
                                   }),
-                          child: const Text('Use a different email'),
+                          child: Text(labels.useDifferentEmail),
                         ),
                       ],
                       const SizedBox(height: 24),
-                      const Row(children: [
-                        Expanded(child: Divider()),
+                      Row(children: [
+                        const Expanded(child: Divider()),
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('or'),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(labels.orDivider),
                         ),
-                        Expanded(child: Divider()),
+                        const Expanded(child: Divider()),
                       ]),
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
                         onPressed:
                             _busy ? null : () => _oauth(OAuthProvider.apple),
                         icon: const Icon(Icons.apple),
-                        label: const Text('Continue with Apple'),
+                        label: Text(labels.continueWithApple),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed:
                             _busy ? null : () => _oauth(OAuthProvider.google),
                         icon: const Icon(Icons.g_mobiledata, size: 28),
-                        label: const Text('Continue with Google'),
+                        label: Text(labels.continueWithGoogle),
                       ),
                       if (widget.inviteLabels != null &&
                           isInviteQrScanSupported) ...[

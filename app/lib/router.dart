@@ -69,7 +69,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final l10n = AppLocalizations.of(context);
-          return AuthScreen(inviteLabels: SplitLabels.invite(l10n));
+          return AuthScreen(
+            inviteLabels: SplitLabels.invite(l10n),
+            authLabels: SplitLabels.auth(l10n),
+          );
         },
       ),
       GoRoute(
@@ -150,7 +153,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.tripCreate,
         name: 'create_trip',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => const CreateTripScreen(),
+        builder: (context, state) {
+          final l10n = AppLocalizations.of(context);
+          return CreateTripScreen(labels: SplitLabels.createTrip(l10n));
+        },
       ),
       GoRoute(
         path: '/trips/:tripId',
@@ -167,6 +173,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             governanceLabels: SplitLabels.governance(l10n),
             budgetLabels: SplitLabels.budget(l10n),
             lifecycleLabels: SplitLabels.lifecycle(l10n),
+            tripHomeLabels: SplitLabels.tripHome(l10n),
+            balancesLabels: SplitLabels.balances(l10n),
           );
         },
         routes: [
@@ -193,6 +201,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               return AddExpenseScreen(
                 tripId: id,
                 labels: SplitLabels.governance(l10n),
+                screenLabels: SplitLabels.addExpense(l10n),
               );
             },
           ),
@@ -207,6 +216,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 tripId: id,
                 mode: AddExpenseMode.proposed,
                 labels: SplitLabels.governance(l10n),
+                screenLabels: SplitLabels.addExpense(l10n),
               );
             },
           ),

@@ -96,6 +96,119 @@
     }
   },
   "membersShareFootnote": "Share a link — they can join mid-trip. Opens Vamo or the store.",
+  "inviteAction": "Invite",
+  "tripHomeTabExpenses": "Expenses",
+  "tripHomeTabCapture": "Capture",
+  "tripHomeTabBalances": "Balances",
+  "tripHomeTabMembers": "Members",
+  "tripHomeMoreMenu": "More",
+  "tripHomeSettings": "Trip settings",
+  "tripHomeShareSnapshot": "Share snapshot",
+  "tripHomeAddExpense": "Add expense",
+  "tripHomeLoadError": "Could not load this trip.",
+  "tripHomeNotFoundTitle": "Trip not found",
+  "tripHomeNotFoundSubtitle": "It may have been removed or you no longer have access.",
+  "balancesLoadError": "Could not load balances.",
+  "balancesWhoOwesTitle": "Who owes whom",
+  "balancesWhoOwesHint": "Fewest payments to clear the trip.",
+  "balancesPaysLine": "{from} pays {to}",
+  "@balancesPaysLine": {
+    "placeholders": {
+      "from": {"type": "String"},
+      "to": {"type": "String"}
+    }
+  },
+  "balancesWaitingForPayer": "Waiting for {name} to pay",
+  "@balancesWaitingForPayer": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "balancesMarkSettled": "Mark as settled",
+  "balancesMyActionTitle": "Your action",
+  "balancesConfirmHint": "Marked as paid — confirm if you received it, or reject if not.",
+  "balancesConfirmFrom": "{name} says they paid you",
+  "@balancesConfirmFrom": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "balancesConfirm": "Confirm",
+  "balancesReject": "Reject",
+  "balancesAwaitingTitle": "Awaiting confirmation",
+  "balancesAwaitingHint": "You marked these paid — recipients can confirm or reject. Cancel if you did not actually pay.",
+  "balancesYouToRecipient": "You → {name}",
+  "@balancesYouToRecipient": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "balancesMarkedNotConfirmed": "{amount} · marked, not confirmed",
+  "@balancesMarkedNotConfirmed": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "balancesCancelMark": "Cancel",
+  "balancesDisputedTitle": "What's disputed",
+  "balancesFinalTitle": "What's final",
+  "balancesNetLine": "{name} {direction} {amount}",
+  "@balancesNetLine": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "direction": {"type": "String"},
+      "amount": {"type": "String"}
+    }
+  },
+  "balancesNetOwed": "is owed",
+  "balancesNetOwes": "owes",
+  "balancesEmptyTitle": "All square",
+  "balancesEmptySubtitle": "No open debts — add expenses or invite Vamigos.",
+  "balancesPaymentConfirmed": "Payment confirmed.",
+  "balancesMarkedNotReceived": "Marked as not received.",
+  "balancesMarkCancelled": "Mark cancelled — debt is back on your balance.",
+  "authContinueEmail": "Continue with email",
+  "authEmailLabel": "Email",
+  "authEmailHint": "you@example.com",
+  "authOtpLabel": "6-digit code",
+  "authCodeSent": "We sent a code to {email}",
+  "@authCodeSent": {
+    "placeholders": {
+      "email": {"type": "String"}
+    }
+  },
+  "authVerifyContinue": "Verify & continue",
+  "authDifferentEmail": "Use a different email",
+  "authOrDivider": "or",
+  "authContinueApple": "Continue with Apple",
+  "authContinueGoogle": "Continue with Google",
+  "authResendCode": "Send me a new code",
+  "authResendCodeCooldown": "Send me a new code ({seconds}s)",
+  "@authResendCodeCooldown": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "createTripTitle": "New trip",
+  "createTripHeadline": "Si va?",
+  "createTripSubtitle": "Start solo — you can invite Vamigos later.",
+  "createTripNameLabel": "Trip name",
+  "createTripNameHint": "Amalfi with the crew",
+  "createTripNameRequired": "Give your trip a name",
+  "createTripDestinationLabel": "Destination (optional)",
+  "createTripDestinationHint": "Positano, Italy",
+  "createTripCurrencyLabel": "Base currency",
+  "createTripStartDate": "Start date",
+  "createTripEndDate": "End date",
+  "createTripSubmit": "Create trip",
+  "createTripEndBeforeStart": "End date must be on or after start date.",
+  "createTripClearDate": "Clear date",
+  "addExpenseTitle": "Add expense",
+  "addExpenseTripNotFound": "Trip not found",
+  "addExpenseScanReceipt": "Scan receipt",
+  "addExpenseTakePhoto": "Take photo",
+  "addExpenseChooseGallery": "Choose from gallery",
+  "addExpenseChoosePayer": "Choose who paid.",
   "profileTitle": "Profile",
   "profileAbout": "About",
   "profileVersion": "Version",

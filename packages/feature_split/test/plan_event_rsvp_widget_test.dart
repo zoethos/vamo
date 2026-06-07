@@ -138,7 +138,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Going'));
+    await tester.tap(find.text('Going').first);
     await tester.pumpAndSettle();
 
     expect(spy.clearCalls, 1);
@@ -206,7 +206,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Declined'));
+    await tester.tap(find.text('Declined').first);
     await tester.pumpAndSettle();
 
     expect(spy.setCalls, 1);
@@ -276,16 +276,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Going'));
+    await tester.tap(find.text('Going').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(spy.setCalls, 1);
     expect(find.text(_planTabLabels.eventRsvpUpdateFailed), findsOneWidget);
-    final chip = tester.widget<ChoiceChip>(
-      find.widgetWithText(ChoiceChip, 'Going'),
+    final button = tester.widget<SegmentedButton<EventRsvpStatus>>(
+      find.byType(SegmentedButton<EventRsvpStatus>),
     );
-    expect(chip.selected, isFalse);
+    expect(button.selected, isEmpty);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

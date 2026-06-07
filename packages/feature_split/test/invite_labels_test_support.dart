@@ -11,6 +11,7 @@ const testInviteLabels = InviteLabels(
   pasteJoin: 'Join from link',
   scannerTitle: 'Scan invite QR',
   inviteVamigos: 'Invite Vamigos',
+  inviteAction: 'Invite',
   shareJoinLink: 'Share a join link',
   inviteFromContacts: 'Invite from contacts',
   contactMethodTextMessage: 'Text message',

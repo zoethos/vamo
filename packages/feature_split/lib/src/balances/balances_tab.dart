@@ -3,25 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../expenses/expense_consent_providers.dart';
-import '../expenses/expense_governance.dart';
 import '../expenses/expense_governance_labels.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
 import '../settle/settlements_providers.dart';
 import '../settle/settlements_repository.dart';
 import 'balances_providers.dart';
+import 'balances_tab_labels.dart';
 import 'mark_settle_sheet.dart';
 
-/// Slice 4 — settle-up, mark/confirm/revoke, honest payment handoff labels.
+/// Slice 4 — settle-up with S27 scan-first hierarchy.
 class BalancesTab extends ConsumerWidget {
   const BalancesTab({
     super.key,
     required this.tripId,
     required this.governanceLabels,
+    required this.labels,
   });
 
   final String tripId;
   final ExpenseGovernanceLabels governanceLabels;
+  final BalancesTabLabels labels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,24 +35,24 @@ class BalancesTab extends ConsumerWidget {
     final currency =
         ref.watch(tripNetBalancesProvider(tripId)).valueOrNull?.currency ??
             'EUR';
+    final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
 
     return settlements.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => AppErrorState(
         screen: 'trip_balances',
-        message: 'Could not load balances.',
+        message: labels.loadError,
         onRetry: () => ref.invalidate(tripSettleUpProvider(tripId)),
       ),
       data: (lines) {
         final nameById = members.valueOrNull == null
             ? <String, String>{}
             : {for (final m in members.requireValue) m.userId: m.displayName};
-        final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
+        final someone = labels.someoneFallback;
         final consentLabels = consentFlags
             .map(
               (f) => governanceLabels.consentDisplayLabel(
-                memberName:
-                    nameById[f.userId] ?? governanceLabels.someoneFallback,
+                memberName: nameById[f.userId] ?? someone,
                 response: f.response,
               ),
             )
@@ -58,120 +60,37 @@ class BalancesTab extends ConsumerWidget {
             .toSet()
             .toList(growable: false);
 
+        final hasMyAction = pending.isNotEmpty || payerAwaiting.isNotEmpty;
+        final isEmpty =
+            lines.isEmpty && !hasMyAction && consentLabels.isEmpty;
+
+        if (isEmpty) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              AppEmptyState(
+                screen: 'trip_balances',
+                icon: Icons.check_circle_outline,
+                title: labels.emptyTitle,
+                subtitle: labels.emptySubtitle,
+              ),
+            ],
+          );
+        }
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (pending.isNotEmpty) ...[
-              _sectionTitle(context, 'Confirm payments'),
+            if (lines.isNotEmpty) ...[
+              _sectionTitle(context, labels.whoOwesWhomTitle),
               Text(
-                'Marked as paid — confirm if you received it, or reject if not.',
+                labels.whoOwesWhomHint,
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
                     ?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 12),
-              ...pending.map(
-                (s) => Card(
-                  color: AppColors.blush,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${nameById[s.fromUserId] ?? 'Someone'} says they paid you',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text(
-                          formatMoneyFromCents(s.amountCents, s.currency),
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: AppColors.jadeTeal,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: FilledButton(
-                                onPressed: () =>
-                                    _confirm(context, ref, s.id),
-                                child: const Text('Confirm'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _revoke(
-                                  context,
-                                  ref,
-                                  s.id,
-                                  successMessage: 'Marked as not received.',
-                                ),
-                                child: const Text('Reject'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-            if (payerAwaiting.isNotEmpty) ...[
-              _sectionTitle(context, 'Awaiting confirmation'),
-              Text(
-                'You marked these paid — recipients can confirm or reject. Cancel if you did not actually pay.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.graphite),
-              ),
-              const SizedBox(height: 12),
-              ...payerAwaiting.map(
-                (s) => Card(
-                  child: ListTile(
-                    title: Text(
-                      'You → ${nameById[s.toUserId] ?? 'Someone'}',
-                    ),
-                    subtitle: Text(
-                      '${formatMoneyFromCents(s.amountCents, s.currency)} · marked, not confirmed',
-                    ),
-                    trailing: TextButton(
-                      onPressed: () => _revoke(
-                        context,
-                        ref,
-                        s.id,
-                        successMessage: 'Mark cancelled — debt is back on your balance.',
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-            if (lines.isEmpty && pending.isEmpty && payerAwaiting.isEmpty)
-              const AppEmptyState(
-                screen: 'trip_balances',
-                icon: Icons.check_circle_outline,
-                title: 'All square',
-                subtitle: 'No open debts — add expenses or invite Vamigos.',
-              )
-            else if (lines.isNotEmpty) ...[
-              _sectionTitle(context, 'Settle up'),
-              Text(
-                'Fewest payments to clear the trip.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.graphite),
-              ),
-              const SizedBox(height: 16),
               ...lines.map(
                 (s) {
                   final isPayer = currentUserId == s.line.fromUserId;
@@ -181,47 +100,16 @@ class BalancesTab extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: AppColors.blush,
-                                child: Icon(
-                                  Directionality.of(context) ==
-                                          TextDirection.rtl
-                                      ? Icons.arrow_back
-                                      : Icons.arrow_forward,
-                                  color: AppColors.ink,
-                                  size: 20,
+                          Text(
+                            labels.paysLine(s.fromName, s.toName),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(
+                            formatMoneyFromCents(s.line.cents, s.currency),
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  color: AppColors.jadeTeal,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${s.fromName} pays ${s.toName}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                    Text(
-                                      formatMoneyFromCents(
-                                        s.line.cents,
-                                        s.currency,
-                                      ),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleLarge
-                                          ?.copyWith(
-                                            color: AppColors.jadeTeal,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
                           if (isPayer) ...[
                             const SizedBox(height: 12),
@@ -235,14 +123,14 @@ class BalancesTab extends ConsumerWidget {
                                   display: s,
                                   consentLabels: consentLabels,
                                 ),
-                                child: const Text('Mark as settled'),
+                                child: Text(labels.markAsSettled),
                               ),
                             ),
                           ] else
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
-                                'Waiting for ${s.fromName} to pay',
+                                labels.waitingForPayer(s.fromName),
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
@@ -255,13 +143,129 @@ class BalancesTab extends ConsumerWidget {
                   );
                 },
               ),
+              const SizedBox(height: 24),
             ],
-            _NetBalancesSection(
+            if (consentLabels.isNotEmpty) ...[
+              _sectionTitle(context, labels.disputedTitle),
+              ...consentLabels.map(
+                (label) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.coralText,
+                        ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+            if (hasMyAction) ...[
+              _sectionTitle(context, labels.myActionTitle),
+              if (pending.isNotEmpty) ...[
+                Text(
+                  labels.confirmPaymentsHint,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.graphite),
+                ),
+                const SizedBox(height: 12),
+                ...pending.map(
+                  (s) => Card(
+                    color: AppColors.blush,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            labels.confirmPaymentFrom(
+                              nameById[s.fromUserId] ?? someone,
+                            ),
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            formatMoneyFromCents(s.amountCents, s.currency),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppColors.jadeTeal,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: () =>
+                                      _confirm(context, ref, s.id),
+                                  child: Text(labels.confirm),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _revoke(
+                                    context,
+                                    ref,
+                                    s.id,
+                                    successMessage: labels.markedNotReceived,
+                                  ),
+                                  child: Text(labels.reject),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (payerAwaiting.isNotEmpty) ...[
+                if (pending.isNotEmpty) const SizedBox(height: 16),
+                Text(
+                  labels.awaitingConfirmationHint,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.graphite),
+                ),
+                const SizedBox(height: 12),
+                ...payerAwaiting.map(
+                  (s) => Card(
+                    child: ListTile(
+                      title: Text(
+                        labels.youToRecipient(
+                          nameById[s.toUserId] ?? someone,
+                        ),
+                      ),
+                      subtitle: Text(
+                        labels.markedNotConfirmed(
+                          formatMoneyFromCents(s.amountCents, s.currency),
+                        ),
+                      ),
+                      trailing: TextButton(
+                        onPressed: () => _revoke(
+                          context,
+                          ref,
+                          s.id,
+                          successMessage: labels.markCancelled,
+                        ),
+                        child: Text(labels.cancelMark),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+            ],
+            _FinalBalancesSection(
               tripId: tripId,
               nameById: nameById,
               currency: currency,
-              governanceLabels: governanceLabels,
-              consentFlags: consentFlags,
+              labels: labels,
             ),
           ],
         );
@@ -290,7 +294,7 @@ class BalancesTab extends ConsumerWidget {
           .confirmSettlement(settlementId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment confirmed.')),
+          SnackBar(content: Text(labels.paymentConfirmed)),
         );
       }
     } catch (e) {
@@ -335,21 +339,18 @@ class BalancesTab extends ConsumerWidget {
   }
 }
 
-class _NetBalancesSection extends ConsumerWidget {
-  const _NetBalancesSection({
+class _FinalBalancesSection extends ConsumerWidget {
+  const _FinalBalancesSection({
     required this.tripId,
     required this.nameById,
     required this.currency,
-    required this.governanceLabels,
-    required this.consentFlags,
+    required this.labels,
   });
 
   final String tripId;
   final Map<String, String> nameById;
   final String currency;
-  final ExpenseGovernanceLabels governanceLabels;
-  final List<({String userId, ShareResponse response, String expenseId})>
-      consentFlags;
+  final BalancesTabLabels labels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -362,11 +363,11 @@ class _NetBalancesSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
         Text(
-          'Net balances',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.graphite,
+          labels.finalTitle,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
               ),
         ),
         const SizedBox(height: 8),
@@ -374,25 +375,12 @@ class _NetBalancesSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Text(
-              '${nameById[e.key] ?? 'Someone'} '
-              '${e.value > 0 ? 'is owed' : 'owes'} '
-              '${formatMoneyFromCents(e.value.abs(), currency)}',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-        for (final flag in consentFlags)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              governanceLabels.consentDisplayLabel(
-                memberName:
-                    nameById[flag.userId] ?? governanceLabels.someoneFallback,
-                response: flag.response,
+              labels.netBalanceLine(
+                nameById[e.key] ?? labels.someoneFallback,
+                e.value > 0,
+                formatMoneyFromCents(e.value.abs(), currency),
               ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.graphite,
-                    fontStyle: FontStyle.italic,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
       ],

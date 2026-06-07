@@ -6,10 +6,13 @@ import 'package:intl/intl.dart';
 
 import 'trips_models.dart';
 import 'trips_repository.dart';
+import 'create_trip_labels.dart';
 
 /// Slice 1 — create a solo trip (invite friends lands in Slice 5).
 class CreateTripScreen extends ConsumerStatefulWidget {
-  const CreateTripScreen({super.key});
+  const CreateTripScreen({super.key, required this.labels});
+
+  final CreateTripLabels labels;
 
   @override
   ConsumerState<CreateTripScreen> createState() => _CreateTripScreenState();
@@ -58,9 +61,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final labels = widget.labels;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New trip'),
+        title: Text(labels.title),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: _saving ? null : () => context.pop(),
@@ -72,7 +76,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             Text(
-              'Si va?',
+              labels.headline,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: AppColors.ink,
                     fontWeight: FontWeight.w700,
@@ -80,7 +84,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Start solo — you can invite Vamigos later.',
+              labels.subtitle,
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium
@@ -89,14 +93,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const SizedBox(height: 24),
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Trip name',
-                hintText: 'Amalfi with the crew',
+              decoration: InputDecoration(
+                labelText: labels.nameLabel,
+                hintText: labels.nameHint,
               ),
               textCapitalization: TextCapitalization.sentences,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) {
-                  return 'Give your trip a name';
+                  return labels.nameRequired;
                 }
                 return null;
               },
@@ -104,16 +108,16 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _destinationController,
-              decoration: const InputDecoration(
-                labelText: 'Destination (optional)',
-                hintText: 'Positano, Italy',
+              decoration: InputDecoration(
+                labelText: labels.destinationLabel,
+                hintText: labels.destinationHint,
               ),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _baseCurrency,
-              decoration: const InputDecoration(labelText: 'Base currency'),
+              decoration: InputDecoration(labelText: labels.currencyLabel),
               items: _currencies
                   .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
@@ -123,17 +127,19 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
             const SizedBox(height: 16),
             _DateRow(
-              label: 'Start date',
+              label: labels.startDate,
               value: _startDate,
               onPick: _pickStart,
               onClear: () => setState(() => _startDate = null),
+              clearTooltip: labels.clearDate,
             ),
             const SizedBox(height: 12),
             _DateRow(
-              label: 'End date',
+              label: labels.endDate,
               value: _endDate,
               onPick: _pickEnd,
               onClear: () => setState(() => _endDate = null),
+              clearTooltip: labels.clearDate,
             ),
             const SizedBox(height: 32),
             FilledButton(
@@ -147,7 +153,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Create trip'),
+                  : Text(labels.submit),
             ),
           ],
         ),
@@ -182,7 +188,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _endDate != null &&
         _endDate!.isBefore(_startDate!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('End date must be on or after start date.')),
+        SnackBar(content: Text(widget.labels.endBeforeStart)),
       );
       return;
     }
@@ -227,12 +233,14 @@ class _DateRow extends StatelessWidget {
     required this.value,
     required this.onPick,
     required this.onClear,
+    required this.clearTooltip,
   });
 
   final String label;
   final DateTime? value;
   final VoidCallback onPick;
   final VoidCallback onClear;
+  final String clearTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +260,7 @@ class _DateRow extends StatelessWidget {
         if (value != null) ...[
           const SizedBox(width: 8),
           IconButton(
-            tooltip: 'Clear date',
+            tooltip: clearTooltip,
             onPressed: onClear,
             icon: const Icon(Icons.clear),
           ),

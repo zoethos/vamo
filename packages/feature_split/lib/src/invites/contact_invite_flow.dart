@@ -20,7 +20,7 @@ typedef ContactInviteShare = Future<void> Function({
   required String subject,
 });
 
-enum _ContactInviteMethod { textMessage, email, shareLink }
+enum ContactInviteMethod { textMessage, email, shareLink }
 
 /// S26 — permissionless contact invite via OS picker + SMS/email compose.
 Future<void> runContactInviteFlow({
@@ -30,8 +30,11 @@ Future<void> runContactInviteFlow({
   required InviteLabels labels,
   required ContactInviteGateway gateway,
   ContactInviteShare? shareInvite,
+  ContactInviteMethod? initialMethod,
 }) async {
-  if (!gateway.isSupported) return;
+  if (!gateway.isSupported && initialMethod != ContactInviteMethod.shareLink) {
+    return;
+  }
 
   final flow = FlowTracker(
     flow: 'invite',
@@ -58,14 +61,14 @@ Future<void> runContactInviteFlow({
     final body = labels.contactInviteBody(web, app.toString());
     final subject = labels.contactInviteSubject;
 
-    final method = await _showMethodSheet(context, labels);
+    final method = initialMethod ?? await _showMethodSheet(context, labels);
     if (method == null || !context.mounted) {
       flow.abandonIfIncomplete();
       return;
     }
 
     switch (method) {
-      case _ContactInviteMethod.textMessage:
+      case ContactInviteMethod.textMessage:
         final target = await _pickSafely(gateway.pickPhoneTarget);
         if (target == null || !context.mounted) {
           flow.abandonIfIncomplete();
@@ -114,7 +117,7 @@ Future<void> runContactInviteFlow({
           flow: flow,
           shareInvite: shareInvite,
         );
-      case _ContactInviteMethod.email:
+      case ContactInviteMethod.email:
         final target = await _pickSafely(gateway.pickEmailTarget);
         if (target == null || !context.mounted) {
           flow.abandonIfIncomplete();
@@ -164,7 +167,7 @@ Future<void> runContactInviteFlow({
           flow: flow,
           shareInvite: shareInvite,
         );
-      case _ContactInviteMethod.shareLink:
+      case ContactInviteMethod.shareLink:
         await _shareFallback(
           context: context,
           ref: ref,
@@ -210,11 +213,11 @@ Future<bool> _composeSafely(Future<bool> Function() compose) async {
   }
 }
 
-Future<_ContactInviteMethod?> _showMethodSheet(
+Future<ContactInviteMethod?> _showMethodSheet(
   BuildContext context,
   InviteLabels labels,
 ) {
-  return showModalBottomSheet<_ContactInviteMethod>(
+  return showModalBottomSheet<ContactInviteMethod>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
@@ -224,17 +227,17 @@ Future<_ContactInviteMethod?> _showMethodSheet(
           ListTile(
             leading: const Icon(Icons.sms_outlined),
             title: Text(labels.contactMethodTextMessage),
-            onTap: () => Navigator.pop(ctx, _ContactInviteMethod.textMessage),
+            onTap: () => Navigator.pop(ctx, ContactInviteMethod.textMessage),
           ),
           ListTile(
             leading: const Icon(Icons.email_outlined),
             title: Text(labels.contactMethodEmail),
-            onTap: () => Navigator.pop(ctx, _ContactInviteMethod.email),
+            onTap: () => Navigator.pop(ctx, ContactInviteMethod.email),
           ),
           ListTile(
             leading: const Icon(Icons.share_outlined),
             title: Text(labels.contactMethodShareLink),
-            onTap: () => Navigator.pop(ctx, _ContactInviteMethod.shareLink),
+            onTap: () => Navigator.pop(ctx, ContactInviteMethod.shareLink),
           ),
         ],
       ),
