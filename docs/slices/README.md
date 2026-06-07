@@ -8,9 +8,9 @@ Updated: 2026-06-07.
 1. **S25 is live** — PR #23 merged, Supabase `0026_s25_get_trip_preview` applied,
    Vercel `NEXT_PUBLIC_SUPABASE_URL` + publishable key set, and `/j/<token>`
    smoke verified on production.
-2. **S23 next** — AI theme resolver. Provision `OPENAI_API_KEY` as a Supabase
-   Edge Function secret first; S25 already consumes `trips.theme` through
-   `get_trip_preview`.
+2. **S23 next** — AI theme resolver. Provision neutral `THEME_AI_*` Supabase
+   Edge Function config/secrets first (default provider: OpenAI); S25 already
+   consumes `trips.theme` through `get_trip_preview`.
 3. **S22 held** — PR #20 remains blocked on the device + cron dry-run gate. Before
    resuming, rebase it and move its current `0025_s22_close_notice.sql` to the
    next free migration ordinal, because production already has S25 as `0026`.
@@ -31,7 +31,7 @@ Updated: 2026-06-07.
 | — | **Wave 2 internal build (S15–S20)** | 🔶 in progress | S16 verified; **release-signed `.aab` built** (upload key CN=Tiziano Rocca/Vamo, R8 proguard fix for ML Kit Latin-only). Next: Play internal upload → app-signing-key SHA-256 → assetlinks → testers (`SHIP_INTERNAL.md` 5–8) |
 | — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
 | S22 | W2·R7 (close report) + P1 nudge | 🔶 PR #20 held | device + cron gate before merge; cron unscheduled; **renumber migration on rebase** (old PR slot `0025`, prod frontier includes S25 `0026`) |
-| S23 | W2·R10 (AI theme resolver) | 📋 prompt ready (`S23_AI_THEME_PROMPT.md`) | **next slice**; OpenAI provider chosen; needs `OPENAI_API_KEY` Supabase secret; `destination_themes` per `AI_THEMING_SPEC.md` |
+| S23 | W2·R10 (AI theme resolver) | 📋 prompt ready (`S23_AI_THEME_PROMPT.md`) | **next slice**; provider-neutral adapter, default OpenAI; needs `THEME_AI_*` Supabase config/secrets; `destination_themes` per `AI_THEMING_SPEC.md` |
 | S24 | P1 retention basics | ⬜ | |
 | S25 | P1 share pages | ✅ live | PR #23; preview-first `/j/[token]`; member count only; production smoke verified after Vercel publishable key fix |
 | S26 | Contact invite (growth) | ✅ merged (`1c6ed4b`) | permissionless selected contact invite; no `READ_CONTACTS`; uses S25 `/j/<token>` + `ch=contact`; device-pass debt remains before tester confidence |

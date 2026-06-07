@@ -42,11 +42,13 @@ at share/preview time (that reads `trips.theme` only).
 | Step | When | Action |
 |------|------|--------|
 | 1 | Trip already has `trips.theme` jsonb | Render stored pack. Offline-first. |
-| 2 | **Trip creation only** (never share time) | Call `resolve-theme` Edge Function with **`destination` field only**; on success **persist pack on `trips.theme`**. |
+| 2 | **Trip creation only** (never share time) | Call `resolve-theme` Edge Function with `trip_id` plus the **`destination` field only** for model resolution; on success the function persists pack on `trips.theme` through the guarded server path. |
 | 3 | Function unavailable / empty destination | Local keyword resolver → default pack. |
 
-**Privacy:** Only **`trips.destination`** goes to the resolver. **Trip names never
-leave the device** for theming. No PII in cache, logs, or analytics.
+**Privacy:** Only **`trips.destination`** goes to the model resolver. The Edge
+Function may receive `trip_id` only for auth/persistence, and must never include
+trip name, member names, emails, balances, or other PII in provider payloads,
+cache rows, logs, or analytics.
 
 ## 2. Architecture (use spec table names — not `theme_cache`)
 
@@ -57,35 +59,50 @@ leave the device** for theming. No PII in cache, logs, or analytics.
     `model`, `schema_version`, `review_status`, `created_at`
   - `destination_theme_aliases` — `alias` PK → `canonical_key` FK
   - `trips.theme` jsonb — stored pack on the trip row after creation-time resolve
+  - `provider_usage_events` — first admin-dashboard ledger for provider calls
+    and costs (`feature='theme'`, provider/model, cached, status, units/cost,
+    latency, error_kind; service-role write/admin-read only)
 - **RLS:** both theme tables **read-only for `authenticated`** only (global,
   non-personal content). **Writes service-role only** (Edge Function). **No anon
   / public read** — share pages get theme via `get_trip_preview` (S25), not direct
   table access.
-- **Edge Function flow** (`resolve-theme`, input `{ destination: string }`):
+- **Edge Function flow** (`resolve-theme`, input `{ trip_id: string, destination: string }`):
   1. Normalize (lowercase, trim, diacritics/punctuation strip).
-  2. Alias lookup → theme lookup → return on hit (**no LLM**).
-  3. Miss → one cheap LLM call → validate → upsert theme + alias → return pack.
+  2. Verify authenticated caller owns/admins the trip; then alias lookup → theme
+     lookup → persist + return on hit (**no LLM**).
+  3. Miss → one cheap LLM call → validate → upsert theme + alias → persist +
+     return pack.
   4. Fail → return fallback signal (**do not cache failures**).
-- **Client:** invoke at **create-trip** (after trip row exists), write returned
-  pack to `trips.theme`. Do **not** call on every navigation or at share time.
+  5. Emit provider usage telemetry for cache hits, misses, fallbacks, throttles,
+     and invalid outputs.
+- **Client:** invoke at **create-trip** (after trip row exists), fire-and-forget
+  with a bounded timeout. The client never writes `trips.theme` directly. Do
+  **not** call on every navigation or at share time.
 
 ## 3. Provider + resilience
 
-- **Provider: OpenAI** (decided 2026-06). Model: `gpt-4o-mini` (or `gpt-4.1-nano`).
-  Use **Structured Outputs (strict JSON schema)** for the `SnapshotThemePack` —
+- **Provider adapter:** Vamo-owned, OpenAI-compatible API contract. Default
+  runtime provider is direct OpenAI; Azure OpenAI / Foundry remains a config
+  switch if cost, enterprise posture, or procurement criteria justify it later.
+- **Model:** `gpt-4.1-nano` default unless configured otherwise. Use
+  **Structured Outputs (strict JSON schema)** for the `SnapshotThemePack` —
   guarantees a conformant shape so validation rarely rejects. Validation gates
   (§1.2) still run regardless (defense-in-depth; semantic checks like contrast).
-- **Key: `OPENAI_API_KEY`** as a **Supabase Edge Function secret** — NOT in the
-  client bundle, and distinct from any Codex/ChatGPT subscription (that's a
-  coding tool, not this runtime key). Provision at platform.openai.com.
-- OpenAI is registered in **`docs/DEPENDENCIES.md`** — tier **T2**, cost
-  negligible in expected usage (cache-gated), secret in Supabase, resilience
-  posture below.
+- **Config/secrets:** `THEME_AI_PROVIDER`, `THEME_AI_MODEL`, `THEME_AI_API_KEY`,
+  optional `THEME_AI_BASE_URL`, optional `THEME_AI_DEPLOYMENT` as **Supabase Edge
+  Function secrets/config** — NOT in the client bundle, and distinct from any
+  Codex/ChatGPT subscription (that's a coding tool, not this runtime key).
+- Theme AI is registered in **`docs/DEPENDENCIES.md`** — tier **T2**, cost
+  negligible in expected usage (cache-gated), with telemetry feeding the future
+  provider dashboard.
 - `PROVIDER_RESILIENCE.md`: 429/5xx/timeout → bounded wait → **fallback** (never
   hang the create-trip flow on theming); log `provider_throttled`.
+- `PROVIDER_CONTROL_PLANE.md`: S23 is the first producer for provider registry /
+  cost ledger data; do not build the dashboard in this slice.
 - Edge fn deno hygiene (`SECURITY_PATCHING.md` §2.1): `deno.json`, frozen
-  `deno.lock`, `deno check`, no raw imports (import the OpenAI SDK via a pinned
-  `npm:`/`jsr:` specifier, not a raw URL).
+  `deno.lock`, `deno check`, no raw imports. A raw `fetch` to the compatible API
+  endpoint is acceptable and keeps the adapter small; if using an SDK, pin it
+  via `npm:`/`jsr:`, not a raw URL.
 
 ## 4. Verification
 
@@ -99,8 +116,9 @@ leave the device** for theming. No PII in cache, logs, or analytics.
 - **no PII** in model payload (destination/coarse context only).
 - Validation unit tests: malformed / low-contrast / unsafe sets rejected.
 - **anon cannot SELECT** `destination_themes` / `destination_theme_aliases`.
-- **`trips.theme`** writable only via expected path (creation RPC or guarded
-  update — no client forgery).
+- **`trips.theme`** writable only via guarded server path (no client forgery).
+- Provider telemetry row/event emitted for miss, hit, timeout/throttle, invalid
+  output, and fallback.
 
 `melos run ci` green + smoke PASS. Edge fn **deploy + invoke-once** verified.
 
@@ -115,6 +133,8 @@ leave the device** for theming. No PII in cache, logs, or analytics.
 - [ ] Share/preview theme only via **`get_trip_preview`** (S25), not broadened RLS
 - [ ] LLM server-side only; no PII to model/cache/analytics
 - [ ] Edge fn: frozen `deno.lock` + `deno check`; deploy + invoke-once
+- [ ] Provider adapter uses neutral `THEME_AI_*` config and emits usage/cost
+      telemetry for the future admin dashboard
 
 ## Notes
 

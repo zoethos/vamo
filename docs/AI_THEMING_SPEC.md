@@ -15,17 +15,20 @@ hot path.
 
 1. Trip already has a stored theme (`trips.theme` jsonb) → render it. Offline-first.
 2. At **trip creation** (never at share time): call `resolve-theme` Edge Function
-   with the **destination field only** (see privacy note), store the returned
-   pack on the trip row.
+   with the trip id plus the **destination field only** for theme resolution
+   (see privacy note). The function verifies the caller and stores the validated
+   pack on the trip row through a guarded server-side path.
 3. Function unavailable / destination empty → local `KeywordThemeResolver`
    (Slice 12 packs) → `defaultPack`.
 
 ## Privacy rule (important)
 
 Only the `destination` field is sent to the resolver and only its normalized
-form becomes a cache key. **Trip names never leave the device for theming** —
-"Mario's stag do, Rome" must not become a shared cache row. Trip-name keyword
-matching stays local-only fallback.
+form becomes a cache key. The Edge Function may receive `trip_id` only to
+authorize the caller and persist `trips.theme`; `trip_id` is never sent to the
+model provider. **Trip names never leave the device for theming** — "Mario's
+stag do, Rome" must not become a shared cache row. Trip-name keyword matching
+stays local-only fallback.
 
 ## Data model
 
@@ -45,18 +48,38 @@ create table destination_theme_aliases (
   alias         text primary key,        -- normalized raw input: 'roma italia'
   canonical_key text not null references destination_themes(canonical_key)
 );
+
+create table provider_usage_events (
+  id             uuid primary key default gen_random_uuid(),
+  feature        text not null,          -- 'theme'
+  provider       text not null,          -- 'openai', 'azure-openai', ...
+  model          text,
+  operation      text not null,          -- 'resolve-theme'
+  status         text not null,          -- success | fallback | error | throttled
+  cached         boolean not null default false,
+  input_units    int,
+  output_units   int,
+  estimated_cost_usd numeric(12, 6),
+  latency_ms     int,
+  error_kind     text,
+  metadata       jsonb not null default '{}',
+  created_at     timestamptz not null default now()
+);
 ```
 
 RLS: both tables **read-only for `authenticated`** (content is global,
 non-personal), writes only via service role (the Edge Function). Aliases mean
 "Roma", "Rome, Italy", "rome italia" all converge after their first miss.
+`provider_usage_events` is service-role write/admin-read only; it feeds the
+future provider dashboard and must not contain secrets or PII.
 
 ## Edge Function `resolve-theme`
 
-Input: `{ destination: string }`.
+Input: `{ trip_id: uuid, destination: string }`.
 
 1. Normalize: lowercase, trim, strip diacritics + punctuation.
-2. Alias lookup → theme lookup → return on hit.
+2. Verify the caller can update the trip theme, then alias lookup → theme lookup
+   → persist + return on hit.
 3. Miss: one call to a small/cheap LLM. Prompt returns **JSON only**:
    canonical key + display name, 3-color gradient (dark, evocative of the
    place), stat panel colors, accent, member bubble colors, and the
@@ -67,12 +90,17 @@ Input: `{ destination: string }`.
      light-on-dark — contrast ≥ 4.5:1 against all gradient stops).
    - `statPrimary` vs `statBackground` contrast ≥ 4.5:1.
    - Tagline: length cap, single line, no URLs/digits.
-5. Upsert theme + alias; return pack.
+5. Upsert theme + alias; persist the pack to `trips.theme`; return pack.
+6. Emit provider usage telemetry for cache hit/miss/fallback/throttle outcomes.
 
-Provider note: S23 uses OpenAI from the Supabase Edge Function only, with
-Structured Outputs / strict JSON schema for the `SnapshotThemePack` shape.
-`OPENAI_API_KEY` lives as a Supabase secret and is never bundled into the app or
-web client.
+Provider note: S23 uses a Vamo-owned provider adapter from the Supabase Edge
+Function only. The default runtime provider is direct OpenAI, using an
+OpenAI-compatible strict JSON schema response shape for the `SnapshotThemePack`.
+Neutral secrets/config (`THEME_AI_PROVIDER`, `THEME_AI_MODEL`,
+`THEME_AI_API_KEY`, optional `THEME_AI_BASE_URL`, optional
+`THEME_AI_DEPLOYMENT`) keep Azure OpenAI / Foundry viable later without a
+product-code rewrite. Runtime keys live as Supabase secrets and are never
+bundled into the app or web client.
 
 ## Invariants
 
