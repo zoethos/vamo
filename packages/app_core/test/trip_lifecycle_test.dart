@@ -27,6 +27,14 @@ void main() {
         0,
       );
     });
+
+    test('closeReviewDaysRemainingFromNotice anchors on member notice', () {
+      final notified = DateTime.utc(2026, 1, 1);
+      expect(
+        closeReviewDaysRemainingFromNotice(notified, DateTime.utc(2026, 1, 8)),
+        7,
+      );
+    });
   });
 
   group('resolveTripPhase', () {

@@ -9,7 +9,7 @@ import 'trips_providers.dart';
 import 'trips_repository.dart';
 
 /// Closing / closed lifecycle banner only (S17.1 — active controls live in overflow).
-class TripLifecycleBanner extends ConsumerWidget {
+class TripLifecycleBanner extends ConsumerStatefulWidget {
   const TripLifecycleBanner({
     super.key,
     required this.tripId,
@@ -22,12 +22,46 @@ class TripLifecycleBanner extends ConsumerWidget {
   final TripLifecycleLabels labels;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TripLifecycleBanner> createState() =>
+      _TripLifecycleBannerState();
+}
+
+class _TripLifecycleBannerState extends ConsumerState<TripLifecycleBanner> {
+  var _noticeStamped = false;
+
+  @override
+  void didUpdateWidget(covariant TripLifecycleBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.detail.lifecycle != widget.detail.lifecycle) {
+      _noticeStamped = false;
+    }
+  }
+
+  void _maybeStampCloseNotice(TripLifecycle lifecycle) {
+    if (_noticeStamped || lifecycle != TripLifecycle.closing) return;
+    final member = ref.read(tripMyMemberProvider(widget.tripId)).valueOrNull;
+    if (member?.closeNotifiedAt != null) {
+      _noticeStamped = true;
+      return;
+    }
+    _noticeStamped = true;
+    ref
+        .read(tripsRepositoryProvider)
+        .stampCloseNoticeViewed(widget.tripId)
+        .catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = widget.detail;
+    final labels = widget.labels;
+    final tripId = widget.tripId;
     final lifecycle = TripLifecycle.parse(detail.lifecycle);
+    _maybeStampCloseNotice(lifecycle);
     final phase = resolveTripPhase(
       lifecycle: lifecycle,
       startDateIso: detail.startDate,
-      now: DateTime.now(), // local — date-only phase (P1); closeReviewDaysRemaining below stays UTC vs the UTC timestamp
+      now: DateTime.now(),
     );
     final userId = ref.watch(authRepositoryProvider).currentUser?.id;
     final isOwner = userId != null && userId == detail.ownerId;
@@ -46,8 +80,8 @@ class TripLifecycleBanner extends ConsumerWidget {
     }
 
     if (phase == TripPhase.closing) {
-      final days = closeReviewDaysRemaining(
-        detail.closeRequestedAt,
+      final days = closeReviewDaysRemainingFromNotice(
+        member?.closeNotifiedAt,
         DateTime.now().toUtc(),
       );
       return Column(

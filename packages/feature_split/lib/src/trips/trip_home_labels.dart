@@ -8,6 +8,7 @@ class TripHomeLabels {
     required this.moreMenu,
     required this.tripSettings,
     required this.shareSnapshot,
+    required this.closeReport,
     required this.addExpense,
     required this.loadError,
     required this.notFoundTitle,
@@ -21,6 +22,7 @@ class TripHomeLabels {
   final String moreMenu;
   final String tripSettings;
   final String shareSnapshot;
+  final String closeReport;
   final String addExpense;
   final String loadError;
   final String notFoundTitle;

@@ -9,6 +9,7 @@ const testTripHomeLabels = TripHomeLabels(
   moreMenu: 'More',
   tripSettings: 'Trip settings',
   shareSnapshot: 'Share snapshot',
+  closeReport: 'Close report',
   addExpense: 'Add expense',
   loadError: 'Could not load this trip.',
   notFoundTitle: 'Trip not found',

@@ -823,6 +823,28 @@ Future<void> main() async {
     results.add(_Check('A request_trip_close → closing',
         closingRow['lifecycle'] == 'closing'));
 
+    if (serviceClient != null) {
+      final fifteenDaysAgo = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 15))
+          .toIso8601String();
+      await serviceClient.rpc('rls_smoke_set_close_notified_at', params: {
+        'p_trip_id': tripId,
+        'p_user_id': userA,
+        'p_at': fifteenDaysAgo,
+      });
+      await serviceClient.rpc('run_trip_lifecycle_jobs');
+      final unnotifiedBlocks = await clientA
+          .from('trips')
+          .select('lifecycle')
+          .eq('id', tripId)
+          .single();
+      results.add(_Check(
+        'un-notified member blocks deemed close',
+        unnotifiedBlocks['lifecycle'] == 'closing',
+      ));
+    }
+
     await clientB.rpc('object_to_trip_close', params: {
       'p_trip_id': tripId,
       'p_reason': 'rls_smoke objection',
@@ -848,13 +870,17 @@ Future<void> main() async {
 
       await clientB
           .rpc('withdraw_close_objection', params: {'p_trip_id': tripId});
-      await serviceClient.rpc('rls_smoke_set_close_requested_at', params: {
-        'p_trip_id': tripId,
-        'p_at': DateTime.now()
-            .toUtc()
-            .subtract(const Duration(days: 15))
-            .toIso8601String(),
-      });
+      final fifteenDaysAgo = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 15))
+          .toIso8601String();
+      for (final uid in [userA, userB, userC]) {
+        await serviceClient.rpc('rls_smoke_set_close_notified_at', params: {
+          'p_trip_id': tripId,
+          'p_user_id': uid,
+          'p_at': fifteenDaysAgo,
+        });
+      }
       await serviceClient.rpc('run_trip_lifecycle_jobs');
     }
 
@@ -934,21 +960,66 @@ Future<void> main() async {
       ));
     }
 
-    var disputeOnClosedOk = false;
+    var disputeBeforeSettleOk = false;
     if (closedRow['lifecycle'] == 'closed') {
       try {
         await clientB.rpc('respond_to_share', params: {
           'p_expense_id': bornCommittedId,
           'p_accept': false,
-          'p_reason': 'dispute after close',
+          'p_reason': 'dispute before settle confirm',
         });
-        disputeOnClosedOk = true;
+        disputeBeforeSettleOk = true;
       } catch (_) {}
     }
     results.add(_Check(
-      'member disputes own share on closed trip allowed',
-      disputeOnClosedOk,
+      'member disputes own share on closed trip before settle confirm',
+      disputeBeforeSettleOk,
     ));
+
+    var disputeAfterSettleBlocked = false;
+    String? a1SettlementId;
+    if (closedRow['lifecycle'] == 'closed') {
+      a1SettlementId = _uuid();
+      try {
+        await clientB.from('settlements').insert({
+          'id': a1SettlementId,
+          'trip_id': tripId,
+          'from_user': userB,
+          'to_user': userA,
+          'amount_cents': 25,
+          'currency': 'EUR',
+        });
+        await clientA
+            .from('settlements')
+            .update({'status': 'confirmed'}).eq('id', a1SettlementId);
+        await clientA.rpc('respond_to_share', params: {
+          'p_expense_id': bornCommittedId,
+          'p_accept': false,
+          'p_reason': 'dispute after settle confirm',
+        });
+      } catch (_) {
+        disputeAfterSettleBlocked = true;
+      }
+    }
+    results.add(_Check(
+      'A1: settle confirm blocks further dispute for that member',
+      disputeAfterSettleBlocked,
+    ));
+
+    if (serviceClient != null) {
+      var forgedNoticeBlocked = false;
+      try {
+        await clientA.from('trip_members').update({
+          'close_notified_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('trip_id', tripId).eq('user_id', userA);
+      } catch (_) {
+        forgedNoticeBlocked = true;
+      }
+      results.add(_Check(
+        'client cannot forge close_notified_at',
+        forgedNoticeBlocked,
+      ));
+    }
 
     var planInsertClosedBlocked = false;
     try {

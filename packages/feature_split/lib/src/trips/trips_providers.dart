@@ -42,6 +42,11 @@ final tripHasCloseObjectionProvider =
   return ref.watch(tripsRepositoryProvider).watchTripHasCloseObjection(tripId);
 });
 
+final tripActiveMembersProvider =
+    StreamProvider.family<List<LocalTripMember>, String>((ref, tripId) {
+  return ref.watch(tripsRepositoryProvider).watchActiveMembers(tripId);
+});
+
 final tripFxRatesProvider =
     StreamProvider.family<List<TripFxRateRow>, String>((ref, tripId) {
   return ref.watch(tripsRepositoryProvider).watchTripFxRates(tripId);

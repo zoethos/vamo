@@ -179,6 +179,10 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                     context.push(AppRoutes.tripSnapshot(widget.tripId));
                     return;
                   }
+                  if (value == 'close_report') {
+                    context.push(AppRoutes.tripCloseReport(widget.tripId));
+                    return;
+                  }
                   if (value.startsWith('lifecycle:')) {
                     final actionName = value.substring('lifecycle:'.length);
                     final action = TripLifecycleMenuAction.values.firstWhere(
@@ -203,6 +207,13 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen>
                       ),
                     ),
                   if (menuActions.isNotEmpty) const PopupMenuDivider(),
+                  if (lifecycle == TripLifecycle.closing ||
+                      lifecycle == TripLifecycle.closed ||
+                      lifecycle == TripLifecycle.unresolved)
+                    PopupMenuItem(
+                      value: 'close_report',
+                      child: Text(widget.tripHomeLabels.closeReport),
+                    ),
                   PopupMenuItem(
                     value: 'settings',
                     child: Text(widget.tripHomeLabels.tripSettings),

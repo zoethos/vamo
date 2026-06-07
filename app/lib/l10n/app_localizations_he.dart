@@ -264,6 +264,57 @@ class AppLocalizationsHe extends AppLocalizations {
       'It may have been removed or you no longer have access.';
 
   @override
+  String get tripHomeCloseReport => 'Close report';
+
+  @override
+  String get closeReportTitle => 'Close report';
+
+  @override
+  String get closeReportLoadError => 'Could not load the close report.';
+
+  @override
+  String get closeReportNotAvailable =>
+      'Close report is available when the trip is closing or closed.';
+
+  @override
+  String get closeReportBalancesTitle => 'Final balances';
+
+  @override
+  String get closeReportMembersTitle => 'Close responses';
+
+  @override
+  String get closeReportDisputedTitle => 'Disputed shares';
+
+  @override
+  String get closeReportConsentAccepted => 'Accepted explicitly';
+
+  @override
+  String get closeReportConsentObjected => 'Objected';
+
+  @override
+  String get closeReportConsentDeemed => 'Deemed (no response after notice)';
+
+  @override
+  String get closeReportConsentPending => 'Review in progress';
+
+  @override
+  String get closeReportConsentNotNotified => 'Not yet notified';
+
+  @override
+  String closeReportBalanceLine(String name, String direction, String amount) {
+    return '$name $direction $amount';
+  }
+
+  @override
+  String get closeReportNetOwed => 'is owed';
+
+  @override
+  String get closeReportNetOwes => 'owes';
+
+  @override
+  String get closeReportNoBalances => 'All square — no open balances.';
+
+  @override
   String get balancesLoadError => 'Could not load balances.';
 
   @override

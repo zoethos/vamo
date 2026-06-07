@@ -20,6 +20,7 @@ abstract final class AppRoutes {
       '/trips/$tripId/expenses/propose';
   static String tripSettings(String tripId) => '/trips/$tripId/settings';
   static String tripSnapshot(String tripId) => '/trips/$tripId/snapshot';
+  static String tripCloseReport(String tripId) => '/trips/$tripId/close-report';
   static String tripAddCaptureNote(String tripId) =>
       '/trips/$tripId/capture/note';
   static const join = '/join';

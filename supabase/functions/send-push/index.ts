@@ -3,7 +3,6 @@
 //
 // Secrets:
 //   FIREBASE_SERVICE_ACCOUNT — full Firebase service-account JSON string
-//     (Firebase console → Project settings → Service accounts → Generate key)
 //
 // Body (JSON, optional):
 //   { "title": "...", "body": "...", "route": "/trips/<uuid>" }
@@ -11,116 +10,15 @@
 // Requires Authorization: Bearer <user JWT>. Never log device or invite tokens.
 
 import { createClient } from "@supabase/supabase-js";
-import { importPKCS8, SignJWT } from "jose";
-
-const FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+import {
+  loadServiceAccount,
+  sendPushToUserDevices,
+} from "../_shared/fcm.ts";
 
 interface PushBody {
   title?: string;
   body?: string;
   route?: string;
-}
-
-interface ServiceAccount {
-  project_id: string;
-  client_email: string;
-  private_key: string;
-}
-
-interface CachedAccessToken {
-  token: string;
-  expiresAtMs: number;
-}
-
-let accessTokenCache: CachedAccessToken | null = null;
-let parsedServiceAccount: ServiceAccount | null = null;
-
-function loadServiceAccount(): ServiceAccount | null {
-  if (parsedServiceAccount) return parsedServiceAccount;
-  const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT")?.trim();
-  if (!raw) return null;
-  try {
-    const sa = JSON.parse(raw) as ServiceAccount;
-    if (!sa.project_id || !sa.client_email || !sa.private_key) {
-      return null;
-    }
-    parsedServiceAccount = sa;
-    return sa;
-  } catch {
-    return null;
-  }
-}
-
-async function getFcmAccessToken(sa: ServiceAccount): Promise<string> {
-  const now = Date.now();
-  if (accessTokenCache && now < accessTokenCache.expiresAtMs - 60_000) {
-    return accessTokenCache.token;
-  }
-
-  const key = await importPKCS8(sa.private_key, "RS256");
-  const assertion = await new SignJWT({ scope: FCM_SCOPE })
-    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
-    .setIssuer(sa.client_email)
-    .setSubject(sa.client_email)
-    .setAudience(GOOGLE_TOKEN_URL)
-    .setIssuedAt()
-    .setExpirationTime("1h")
-    .sign(key);
-
-  const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    throw new Error(`Google token exchange failed (${tokenRes.status})`);
-  }
-
-  const tokenBody = await tokenRes.json() as {
-    access_token?: string;
-    expires_in?: number;
-  };
-  if (!tokenBody.access_token) {
-    throw new Error("Google token response missing access_token");
-  }
-
-  const ttlSec = tokenBody.expires_in ?? 3600;
-  accessTokenCache = {
-    token: tokenBody.access_token,
-    expiresAtMs: now + ttlSec * 1000,
-  };
-  return accessTokenCache.token;
-}
-
-async function sendFcmV1(
-  accessToken: string,
-  projectId: string,
-  deviceToken: string,
-  title: string,
-  body: string,
-  route: string,
-): Promise<Response> {
-  const url =
-    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-  return fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: {
-        token: deviceToken,
-        notification: { title, body },
-        data: { route },
-      },
-    }),
-  });
 }
 
 Deno.serve(async (req) => {
@@ -187,9 +85,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  let accessToken: string;
+  let result;
   try {
-    accessToken = await getFcmAccessToken(serviceAccount);
+    result = await sendPushToUserDevices(
+      supabase,
+      serviceAccount,
+      userData.user.id,
+      { title, body, route },
+    );
   } catch (e) {
     const message = e instanceof Error ? e.message : "token exchange failed";
     return new Response(JSON.stringify({ ok: false, error: message }), {
@@ -198,28 +101,13 @@ Deno.serve(async (req) => {
     });
   }
 
-  let sent = 0;
-  let failed = 0;
-
-  for (const row of devices) {
-    const deviceToken = row.fcm_token as string;
-    const res = await sendFcmV1(
-      accessToken,
-      serviceAccount.project_id,
-      deviceToken,
-      title,
-      body,
-      route,
-    );
-    if (res.ok) {
-      sent++;
-    } else {
-      failed++;
-    }
-  }
-
   return new Response(
-    JSON.stringify({ ok: sent > 0, sent, failed }),
+    JSON.stringify({
+      ok: result.sent > 0,
+      sent: result.sent,
+      failed: result.failed,
+      pruned: result.pruned,
+    }),
     { headers: { "Content-Type": "application/json" } },
   );
 });
