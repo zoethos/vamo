@@ -18,8 +18,8 @@ npx turbo run dev      # local dev (site on :3000)
 
 | App | Status | Purpose |
 |-----|--------|---------|
-| `apps/site` | **Live (vamo.world)** | Landing, privacy, terms, `/j/[token]` redirect, Android App Links file. Deploy on Vercel. |
-| `apps/share-pages` | Wave 2–3 | View-before-install trip preview, branded share pages (SSR). |
+| `apps/site` | **Live (vamo.world)** | Landing, privacy, terms, `/j/[token]` view-before-install preview (S25), Android App Links file. Deploy on Vercel. |
+| `apps/share-pages` | ~~Wave 2–3~~ | **Superseded by S25 in `apps/site`** — do not add a separate app for invite preview. |
 | `apps/operator-console` | post Wave-3 gate | B2B operator console. |
 
 ## Vercel — `apps/site`
@@ -30,6 +30,8 @@ npx turbo run dev      # local dev (site on :3000)
 4. Domain: attach **vamo.world** (and `www` redirect if desired).
 5. Before Play release: update `public/.well-known/assetlinks.json` with real SHA-256
    fingerprints (debug + Play App Signing — see `.well-known/README.md`).
+6. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (see
+   `apps/site/.env.example`) so `/j/[token]` can call `get_trip_preview`.
 
 Build command (from repo root via Turborepo): `cd web && npm install && npx turbo run build --filter=@vamo/site`.
 

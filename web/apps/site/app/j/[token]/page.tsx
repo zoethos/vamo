@@ -1,43 +1,70 @@
-import Image from "next/image";
 import type { Metadata } from "next";
-import { JoinRedirect } from "./join-redirect";
+import { canonicalJoinLanding } from "../../../lib/invite-urls";
+import { fetchTripPreview } from "../../../lib/trip-preview";
+import { InviteUnavailable } from "./unavailable";
+import { TripPreviewCard } from "./preview-card";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Props = {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ ch?: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
-  const appUrl = `app.vamo://join?token=${encodeURIComponent(token)}`;
+  const preview = await fetchTripPreview(token);
+  if (!preview) {
+    return {
+      title: "Invite not available · Vamo",
+      description: "This invite link is no longer available.",
+      robots: { index: false, follow: false },
+      alternates: { canonical: canonicalJoinLanding() },
+    };
+  }
+  const descriptionParts = [
+    preview.destination,
+    preview.memberCount === 1
+      ? "1 Vamigo going"
+      : `${preview.memberCount} Vamigos going`,
+  ].filter(Boolean);
   return {
-    title: "Join trip · Vamo",
-    description: "Open this invite in the Vamo app.",
-    other: {
-      refresh: `0;url=${appUrl}`,
+    title: `${preview.tripName} · Vamo`,
+    description:
+      descriptionParts.length > 0
+        ? descriptionParts.join(" · ")
+        : "You're invited to join a trip on Vamo.",
+    robots: { index: false, follow: false },
+    alternates: { canonical: canonicalJoinLanding() },
+    openGraph: {
+      title: preview.tripName,
+      description:
+        descriptionParts.length > 0
+          ? descriptionParts.join(" · ")
+          : "Join this trip on Vamo.",
+      siteName: "Vamo",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: preview.tripName,
+      description:
+        descriptionParts.length > 0
+          ? descriptionParts.join(" · ")
+          : "Join this trip on Vamo.",
     },
   };
 }
 
-export default async function JoinPage({ params }: Props) {
+export default async function JoinPage({ params, searchParams }: Props) {
   const { token } = await params;
-  const appUrl = `app.vamo://join?token=${encodeURIComponent(token)}`;
+  const { ch } = await searchParams;
+  const preview = await fetchTripPreview(token);
 
-  return (
-    <main className="join-card">
-      <Image
-        src="/brand/mark_white.png"
-        alt="Vamo"
-        width={72}
-        height={72}
-        priority
-      />
-      <h1>Vamo opens this invite — get the app</h1>
-      <p>
-        If Vamo is installed, your device should open the trip automatically.
-        Otherwise install the app and try again.
-      </p>
-      <span className="store-badge">Google Play — coming soon</span>
-      <JoinRedirect appUrl={appUrl} />
-    </main>
-  );
+  if (!preview) {
+    return <InviteUnavailable />;
+  }
+
+  return <TripPreviewCard token={token} channel={ch ?? null} preview={preview} />;
 }
