@@ -60,6 +60,7 @@ Behind the provider abstraction seam (so it's uniform, not per-call):
 | Brevo | daily send cap | queue + backoff; **cap-approach alert is critical** (OTP SPOF) |
 | FCM | effectively unlimited | n/a |
 | Vercel | bandwidth (plan) | CDN cache; watch at launch |
+| Theme AI provider (S23; default OpenAI) | 429/5xx/timeout + usage budget | global cache, strict schema, bounded wait, fallback theme; log `provider_throttled` and provider usage ledger rows |
 
 ## Phasing (don't over-build now)
 

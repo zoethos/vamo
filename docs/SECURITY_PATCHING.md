@@ -254,6 +254,7 @@ updates:
   - package-ecosystem: "deno"
     directories:
       - "/supabase/functions/fx-rates"
+      - "/supabase/functions/resolve-theme"
       - "/supabase/functions/scheduled-heartbeat"
       - "/supabase/functions/send-auth-email"
       - "/supabase/functions/send-push"

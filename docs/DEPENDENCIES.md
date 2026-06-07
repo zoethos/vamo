@@ -38,6 +38,7 @@ impact).
 | **PostHog** | T1 | Analytics events lost | app fine; debug-console fallback exists; gate metrics blind for the gap | OK — but the Wave-2→3 gate *reads* PostHog, so a long outage delays the decision, not the app. |
 | **MLKit OCR** | T1 | — | **on-device, no network** — resilient by design; receipt scan works offline | None. Keep it on-device (also a privacy promise). |
 | **Vercel** (site) | T1 | Invite landing `/j/`, privacy URL, assetlinks down | QR/link invites degrade to manual entry; app core unaffected | OK. assetlinks outage breaks App-Links verification (links open browser, not app). |
+| **Theme AI provider** (S23 theme miss path; default direct OpenAI) | T2 | New destinations fall back to the default/local theme pack | cache-first design; existing `trips.theme` values and built-in fallback still render | Provision `THEME_AI_API_KEY` before S23; log throttles/timeouts and never block trip creation. |
 | **ImprovMX** | T2 | Inbound `@vamo.world` mail not forwarded | no app impact | None. |
 | **GoDaddy** (registrar) | T2 | only at renewal / DNS edits | DNS served by Vercel; registrar is dormant at runtime | Set auto-renew; calendar the expiry. |
 | **Google Play** | T2 | distribution channel | doesn't affect running installs | None. |
@@ -71,6 +72,7 @@ those are the ones to watch as testers grow. The rest are flat or trivial.
 | **FCM** | effectively free | — | — | n/a |
 | **exchangerate.host** (FX) | free request cap; tight burst rate limit | paid | **negligible** (1 capture/currency/trip) | watch for 429s; smoke must not make repeated live calls |
 | **Vercel** | Hobby free | Pro ~$20/mo (planned) | bandwidth | launch traffic |
+| **Theme AI provider** | usage-based small-model calls | usage-based | distinct uncached destinations only | cache-miss count + `provider_throttled` + provider usage ledger |
 | **Domain** | — | ~$20/yr | — | renewal date |
 | **Play** | — | $25 one-time | — | paid once |
 
@@ -90,6 +92,7 @@ caps — which is the signal to budget the next tier, not a surprise.
 | **Firebase / FCM** | Push notifications (HTTP v1) | `FIREBASE_SERVICE_ACCOUNT` JSON (Supabase secret) | Free (FCM) | Med-high — token plumbing + client SDK | APNs/iOS work; SDK major bumps |
 | **exchangerate.host** (FX) | FX market rates → trip constant table (D4) | `exchangerate_access_key` (Supabase **Vault**) | Free tier (keyed) | **Low** — see FX card | endpoint corrected to `/live` 2026-06-05; key rotation; free-tier source-lock |
 | **Vercel** | Web tier hosting (`apps/site`: landing, privacy, `/j/` invite, assetlinks) + DNS panel | account (personal → Pro at launch) | Hobby now | Med — Next.js portable; DNS records re-point | Pro at launch; team transfer |
+| **Theme AI provider** | S23 AI theme generation on cache miss; default direct OpenAI, Azure-compatible later | `THEME_AI_*` config/secrets as Supabase Edge Function secrets; never client-side | usage-based; expected negligible due global cache | Low-med — schema prompt, validation, and adapter are ours | model/pricing changes; sustained 429/5xx; output quality review; dashboard switch criteria |
 | **ImprovMX** | Inbound email forwarding (`*@vamo.world` → zoethos@outlook.com) | MX records | Free | Low | volume; want real mailboxes |
 | **GoDaddy** | Domain registrar (`vamo.world`) | account | ~annual | Low | renewal; transfer to Vercel/Cloudflare |
 | **Google Play** | Android distribution (internal track → production) | Play Console | $25 one-time | High (Android channel) | store policy; signing |
@@ -167,6 +170,7 @@ and treat Riverpod/go_router/Firebase majors as their own scoped chores.
 | `FIREBASE_SERVICE_ACCOUNT` | Supabase secret | `send-push` |
 | `CRON_SECRET` | Supabase secret | `trip-lifecycle-jobs` |
 | `exchangerate_access_key` | Supabase **Vault** | `_fetch_market_fx_rate` |
+| `THEME_AI_API_KEY` | Supabase Edge Function secret | `resolve-theme` (S23); server-only theme AI provider key |
 | Brevo SMTP creds | Supabase Auth SMTP config | OTP/email |
 
 Rule (CONTRIBUTING): local-secret files are gitignored the moment they're

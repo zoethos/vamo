@@ -34,6 +34,7 @@ export 'src/settle/settle_up.dart';
 export 'src/settle/settlements_providers.dart';
 export 'src/settle/settlements_repository.dart';
 export 'src/snapshot/snapshot_share_screen.dart';
+export 'src/snapshot/theme_resolver_repository.dart';
 export 'src/sync/trips_remote_sync_gateway.dart';
 export 'src/expenses/expenses_providers.dart';
 export 'src/expenses/expenses_repository.dart';
