@@ -236,9 +236,9 @@ updates:
       dart-minor-patch:
         update-types: ["minor", "patch"]
     open-pull-requests-limit: 5
-  # npm — repo root + web tier
+  # npm — web tier
   - package-ecosystem: "npm"
-    directories: ["/", "/web"]
+    directories: ["/web"]
     schedule: { interval: "weekly" }
     groups:
       npm-minor-patch:
@@ -263,8 +263,8 @@ updates:
 ```
 
 > Verified against the actual tree: pubspecs at `/`, `/app`,
-> `/packages/app_core`, `/packages/feature_split`; package.json at `/` and
-> `/web`; Gradle plugins (AGP 9.0.1, Kotlin 2.3.20, Google Services 4.4.2) in
+> `/packages/app_core`, `/packages/feature_split`; package.json at `/web`;
+> Gradle plugins (AGP 9.0.1, Kotlin 2.3.20, Google Services 4.4.2) in
 > `/app/android/settings.gradle.kts`; CI in `.github/workflows/`.
 > The leftover `Vamo/` dir is gitignored, so scanners won't see it.
 
@@ -284,10 +284,13 @@ name: osv-scan
 on:
   pull_request:
   schedule: [{ cron: "0 6 * * 1" }]   # Mondays 06:00 UTC
-permissions: { contents: read }
+permissions:
+  actions: read
+  contents: read
+  security-events: write
 jobs:
   scan:
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8
     with:
       scan-args: |-
         --recursive
