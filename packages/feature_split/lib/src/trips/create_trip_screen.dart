@@ -1,12 +1,15 @@
+import 'dart:async';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../snapshot/theme_resolver_repository.dart';
+import 'create_trip_labels.dart';
 import 'trips_models.dart';
 import 'trips_repository.dart';
-import 'create_trip_labels.dart';
 
 /// Slice 1 — create a solo trip (invite friends lands in Slice 5).
 class CreateTripScreen extends ConsumerStatefulWidget {
@@ -194,18 +197,23 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
 
     setState(() => _saving = true);
+    final destination = _destinationController.text.trim();
     try {
       final id = await ref.read(tripsRepositoryProvider).createTrip(
             CreateTripInput(
               name: _nameController.text,
-              destination: _destinationController.text.isEmpty
-                  ? null
-                  : _destinationController.text,
+              destination: destination.isEmpty ? null : destination,
               startDate: _isoDate(_startDate),
               endDate: _isoDate(_endDate),
               baseCurrency: _baseCurrency,
             ),
           );
+      unawaited(
+        ref.read(themeResolverRepositoryProvider).resolveForTrip(
+              tripId: id,
+              destination: destination,
+            ),
+      );
       if (!mounted) return;
       _flowTracker.complete();
       context.go(AppRoutes.trip(id));
@@ -244,8 +252,7 @@ class _DateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatted =
-        value == null ? null : DateFormat.yMMMd().format(value!);
+    final formatted = value == null ? null : DateFormat.yMMMd().format(value!);
     return Row(
       children: [
         Expanded(

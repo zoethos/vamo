@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for fn in fx-rates scheduled-heartbeat send-auth-email send-push trip-lifecycle-jobs; do
+          for fn in fx-rates resolve-theme scheduled-heartbeat send-auth-email send-push trip-lifecycle-jobs; do
             pushd "supabase/functions/$fn"
             deno install --frozen --entrypoint index.ts
             deno check index.ts

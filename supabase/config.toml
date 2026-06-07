@@ -30,6 +30,9 @@ verify_jwt = false           # Auth "Send Email" hook — standardwebhooks signa
 [functions.fx-rates]
 verify_jwt = false           # plain GET from FxRatesClient (no JWT); self-guards via access_key
 
+[functions.resolve-theme]
+verify_jwt = true            # user-facing: caller's JWT bearer, re-checked in code
+
 [functions.scheduled-heartbeat]
 verify_jwt = false           # cron-invoked; gated by CRON_SECRET
 

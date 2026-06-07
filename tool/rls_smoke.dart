@@ -39,6 +39,19 @@ final _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
 
+const _s23SmokeTheme = {
+  'id': 'rls-smoke',
+  'label': 'Smoke',
+  'gradient': ['#102033', '#24364F', '#4C2E4D'],
+  'statBackground': '#F6F7FB',
+  'statPrimary': '#111827',
+  'statMuted': '#374151',
+  'accent': '#FF5B4D',
+  'memberBubble': '#F6F7FB',
+  'memberInitial': '#111827',
+  'tagline': 'Si va?',
+};
+
 Future<void> main() async {
   final url = Platform.environment['SUPABASE_URL'];
   final anon = Platform.environment['SUPABASE_ANON_KEY'];
@@ -91,13 +104,14 @@ Future<void> main() async {
 
     // --- S25 share preview (anon RPC; no direct table reads) ---
     final anonPreviewClient = SupabaseClient(url, anon);
-    final preview =
-        await anonPreviewClient.rpc('get_trip_preview', params: {'p_token': token});
+    final preview = await anonPreviewClient
+        .rpc('get_trip_preview', params: {'p_token': token});
     results.add(_Check('S25 get_trip_preview valid token', preview != null));
     if (preview != null) {
       final map = Map<String, dynamic>.from(preview as Map);
       results.add(_Check('S25 preview trip_name', map['trip_name'] != null));
-      results.add(_Check('S25 preview member_count', map['member_count'] != null));
+      results
+          .add(_Check('S25 preview member_count', map['member_count'] != null));
       results.add(_Check('S25 preview theme pack', map['theme'] != null));
       results.add(_Check(
         'S25 preview no financial fields',
@@ -114,6 +128,15 @@ Future<void> main() async {
         .rpc('get_trip_preview', params: {'p_token': 'invalid-token-xyz'});
     results.add(
         _Check('S25 get_trip_preview invalid token null', badPreview == null));
+    results.add(_Check(
+      'S23 anon cannot read destination_themes',
+      await _selectDeniedOrEmpty(anonPreviewClient, 'destination_themes'),
+    ));
+    results.add(_Check(
+      'S23 anon cannot read destination_theme_aliases',
+      await _selectDeniedOrEmpty(
+          anonPreviewClient, 'destination_theme_aliases'),
+    ));
     final anonInviteRows =
         await anonPreviewClient.from('invites').select('token').limit(1);
     results.add(_Check(
@@ -133,6 +156,42 @@ Future<void> main() async {
           params: {'p_token': exhaustInvite['token'] as String});
       results.add(_Check(
           'S25 get_trip_preview exhausted null', exhaustedPreview == null));
+    }
+
+    var directThemeUpdateBlocked = false;
+    try {
+      await clientA
+          .from('trips')
+          .update({'theme': _s23SmokeTheme}).eq('id', tripId);
+    } catch (_) {
+      directThemeUpdateBlocked = true;
+    }
+    final directThemeRow =
+        await clientA.from('trips').select('theme').eq('id', tripId).single();
+    results.add(_Check(
+      'S23 direct trip theme update blocked',
+      directThemeUpdateBlocked || directThemeRow['theme'] == null,
+    ));
+
+    if (serviceClient != null) {
+      await serviceClient.rpc('_apply_trip_theme', params: {
+        'p_trip_id': tripId,
+        'p_theme': _s23SmokeTheme,
+      });
+      final themedPreview = await anonPreviewClient
+          .rpc('get_trip_preview', params: {'p_token': token});
+      final themedMap = Map<String, dynamic>.from(themedPreview as Map);
+      final theme = Map<String, dynamic>.from(themedMap['theme'] as Map);
+      results.add(_Check(
+        'S23 service theme visible through preview',
+        theme['id'] == 'rls-smoke',
+      ));
+    } else {
+      results.add(_Check(
+        'S23 service theme apply skipped',
+        false,
+        detail: 'set RLS_SERVICE_ROLE_KEY for _apply_trip_theme smoke',
+      ));
     }
 
     final joinedTrip =
@@ -834,7 +893,7 @@ Future<void> main() async {
           (cascadeTripRsvpBefore as List).isNotEmpty &&
           cascadeTripDeleteOk &&
           cascadeTripAfter == null &&
-          (cascadeTripRsvpsAfter as List).isEmpty,
+          cascadeTripRsvpsAfter.isEmpty,
       detail: serviceClient == null
           ? 'set RLS_SERVICE_ROLE_KEY for cascade delete test'
           : null,
@@ -1477,6 +1536,15 @@ Future<int?> _netCents(
       .eq('user_id', userId)
       .maybeSingle();
   return row == null ? null : (row['net_cents'] as num).toInt();
+}
+
+Future<bool> _selectDeniedOrEmpty(SupabaseClient client, String table) async {
+  try {
+    final rows = await client.from(table).select().limit(1);
+    return (rows as List).isEmpty;
+  } catch (_) {
+    return true;
+  }
 }
 
 class _Check {
