@@ -283,6 +283,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: 'close-report',
+            name: 'close_report',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return CloseReportScreen(
+                tripId: id,
+                labels: SplitLabels.closeReport(l10n),
+                governanceLabels: SplitLabels.governance(l10n),
+              );
+            },
+          ),
+          GoRoute(
             path: 'snapshot',
             name: 'snapshot',
             parentNavigatorKey: _rootNavigatorKey,

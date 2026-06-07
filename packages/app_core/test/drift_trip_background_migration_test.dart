@@ -4,11 +4,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema v14 adds trip background columns', () async {
+  test('schema v15 adds trip background columns', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 14);
+    expect(db.schemaVersion, 15);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertTrip(

@@ -229,7 +229,8 @@ class TripsRepository {
 
     final memberQuery = _client.from('trip_members').select(
           'trip_id, user_id, role, status, completed_at, close_accepted_at, '
-          'close_objected_at, close_objection_reason, profiles(display_name)',
+          'close_objected_at, close_objection_reason, close_notified_at, '
+          'close_reminded_at, settle_nudged_at, profiles(display_name)',
         );
     final memberRows = onlyTripId == null
         ? await memberQuery
@@ -279,6 +280,9 @@ class TripsRepository {
           closeObjectionReason: Value(
             row['close_objection_reason'] as String?,
           ),
+          closeNotifiedAt: Value(_timestamp(row['close_notified_at'])),
+          closeRemindedAt: Value(_timestamp(row['close_reminded_at'])),
+          settleNudgedAt: Value(_timestamp(row['settle_nudged_at'])),
         ),
       );
     }
@@ -395,6 +399,19 @@ class TripsRepository {
       VamoEvent.closeAccepted,
       properties: {'trip_id': tripId, 'mode': 'explicit'},
     );
+  }
+
+  /// Stamps in-app close notice for the current member (S22).
+  Future<void> stampCloseNoticeViewed(String tripId) async {
+    await _client.rpc(
+      'stamp_close_notice_viewed',
+      params: {'p_trip_id': tripId},
+    );
+    await syncTripFromRemote(tripId);
+  }
+
+  Stream<List<LocalTripMember>> watchActiveMembers(String tripId) {
+    return _db.watchActiveMembers(tripId);
   }
 
   Future<void> objectToTripClose({

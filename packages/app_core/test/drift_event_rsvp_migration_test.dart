@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 14);
+    expect(db.schemaVersion, 15);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertPlanItem(

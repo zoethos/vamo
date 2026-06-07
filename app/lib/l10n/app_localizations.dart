@@ -687,6 +687,102 @@ abstract class AppLocalizations {
   /// **'Memories'**
   String get tripHomeQuickMemories;
 
+  /// No description provided for @tripHomeCloseReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Close report'**
+  String get tripHomeCloseReport;
+
+  /// No description provided for @closeReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Close report'**
+  String get closeReportTitle;
+
+  /// No description provided for @closeReportLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the close report.'**
+  String get closeReportLoadError;
+
+  /// No description provided for @closeReportNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Close report is available when the trip is closing or closed.'**
+  String get closeReportNotAvailable;
+
+  /// No description provided for @closeReportBalancesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Final balances'**
+  String get closeReportBalancesTitle;
+
+  /// No description provided for @closeReportMembersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Close responses'**
+  String get closeReportMembersTitle;
+
+  /// No description provided for @closeReportDisputedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Disputed shares'**
+  String get closeReportDisputedTitle;
+
+  /// No description provided for @closeReportConsentAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted explicitly'**
+  String get closeReportConsentAccepted;
+
+  /// No description provided for @closeReportConsentObjected.
+  ///
+  /// In en, this message translates to:
+  /// **'Objected'**
+  String get closeReportConsentObjected;
+
+  /// No description provided for @closeReportConsentDeemed.
+  ///
+  /// In en, this message translates to:
+  /// **'Deemed (no response after notice)'**
+  String get closeReportConsentDeemed;
+
+  /// No description provided for @closeReportConsentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Review in progress'**
+  String get closeReportConsentPending;
+
+  /// No description provided for @closeReportConsentNotNotified.
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet notified'**
+  String get closeReportConsentNotNotified;
+
+  /// No description provided for @closeReportBalanceLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} {direction} {amount}'**
+  String closeReportBalanceLine(String name, String direction, String amount);
+
+  /// No description provided for @closeReportNetOwed.
+  ///
+  /// In en, this message translates to:
+  /// **'is owed'**
+  String get closeReportNetOwed;
+
+  /// No description provided for @closeReportNetOwes.
+  ///
+  /// In en, this message translates to:
+  /// **'owes'**
+  String get closeReportNetOwes;
+
+  /// No description provided for @closeReportNoBalances.
+  ///
+  /// In en, this message translates to:
+  /// **'All square — no open balances.'**
+  String get closeReportNoBalances;
+
   /// No description provided for @balancesLoadError.
   ///
   /// In en, this message translates to:

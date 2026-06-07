@@ -26,7 +26,19 @@ enum TripLifecycle {
 /// Whether the trip blocks member content writes (expenses, capture, edits).
 bool isTripReadOnly(TripLifecycle lifecycle) => lifecycle.isReadOnly;
 
+/// Days left in the 14-day close review window from member notice (S22).
+int? closeReviewDaysRemainingFromNotice(
+  DateTime? closeNotifiedAt,
+  DateTime now,
+) {
+  if (closeNotifiedAt == null) return null;
+  final deadline = closeNotifiedAt.add(const Duration(days: 14));
+  final remaining = deadline.difference(now).inDays;
+  return remaining < 0 ? 0 : remaining;
+}
+
 /// Days left in the 14-day close review window (null if not closing).
+/// Prefer [closeReviewDaysRemainingFromNotice] when notice timestamp is known.
 int? closeReviewDaysRemaining(DateTime? closeRequestedAt, DateTime now) {
   if (closeRequestedAt == null) return null;
   final deadline = closeRequestedAt.add(const Duration(days: 14));
