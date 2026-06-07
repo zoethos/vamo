@@ -70,7 +70,7 @@ Wire the §8b signal taxonomy as for expenses.
 
 ## 5. RUN.md — Slice 18
 
-Migration push (`npx supabase db push`), demo script: add lodging + flight
+Migration push (`supabase db push`), demo script: add lodging + flight
 with dates → reorder → checklist "Packing: sunscreen" → second device sees it
 (realtime/sync) → close trip → verify board read-only.
 

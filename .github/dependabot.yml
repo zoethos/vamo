@@ -10,9 +10,9 @@ updates:
         update-types: ["minor", "patch"]
     open-pull-requests-limit: 5
 
-  # npm — repo root + web tier
+  # npm — web tier
   - package-ecosystem: "npm"
-    directories: ["/", "/web"]
+    directories: ["/web"]
     schedule:
       interval: "weekly"
     groups:

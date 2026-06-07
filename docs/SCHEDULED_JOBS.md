@@ -48,8 +48,8 @@ Migration `0015_trip_lifecycle.sql` adds `run_trip_lifecycle_jobs()` (service ro
 Deploy the **authenticated** Edge Function (not the bare heartbeat pattern):
 
 ```bash
-npx supabase secrets set CRON_SECRET='your-long-random-secret'
-npx supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
+supabase secrets set CRON_SECRET='your-long-random-secret'
+supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
 ```
 
 Dashboard → Edge Functions → `trip-lifecycle-jobs` → **Schedules** → daily cron
