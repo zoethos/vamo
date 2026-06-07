@@ -70,12 +70,13 @@ function-local `deno.json` plus committed `deno.lock`.
   exact `npm:` versions.
 - CI runs `deno install --frozen --entrypoint index.ts` and `deno check index.ts`
   for every function, so dependency resolution cannot drift silently.
-- Dependabot `package-ecosystem: "deno"` is enabled against the function
-  directories. Dependabot reads `deno.json` / `deno.jsonc`, not raw `.ts`
-  import URLs.
+- Dependabot Deno updates are temporarily disabled because the hosted updater
+  cannot read Deno lockfile `version: "5"` yet. Until it catches up, edge
+  function dependency review is manual/quarterly, backed by exact manifests,
+  committed locks, and frozen CI.
 - OSV stays **"no Deno lockfile coverage"** — accept it; the controls are exact
-  manifests, frozen locks, Dependabot Deno, and quarterly manual review of the
-  small edge import surface.
+  manifests, frozen locks, and quarterly manual review of the small edge import
+  surface until Dependabot can parse lockfile `version: "5"`.
 
 ---
 
@@ -208,9 +209,9 @@ own infrastructure; scanners never see them. Our duties:
 **Soon (own small chore, not "someday"):**
 
 - [ ] **Edge-function supply chain (§2.1):** function-local `deno.json`
-      manifests with **exact** versions + committed `deno.lock` files; keep
-      Dependabot `deno` enabled. Deploy + invoke-once each function after
-      migrating.
+      manifests with **exact** versions + committed `deno.lock` files. Re-enable
+      Dependabot `deno` once it supports lockfile `version: "5"`. Deploy +
+      invoke-once each function after migrating.
 
 **Later (W3, when there's reason):**
 
@@ -250,16 +251,6 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule: { interval: "weekly" }
-  # Edge functions — function-local deno.json manifests (§2.1)
-  - package-ecosystem: "deno"
-    directories:
-      - "/supabase/functions/fx-rates"
-      - "/supabase/functions/resolve-theme"
-      - "/supabase/functions/scheduled-heartbeat"
-      - "/supabase/functions/send-auth-email"
-      - "/supabase/functions/send-push"
-      - "/supabase/functions/trip-lifecycle-jobs"
-    schedule: { interval: "weekly" }
 ```
 
 > Verified against the actual tree: pubspecs at `/`, `/app`,
@@ -267,6 +258,8 @@ updates:
 > Gradle plugins (AGP 9.0.1, Kotlin 2.3.20, Google Services 4.4.2) in
 > `/app/android/settings.gradle.kts`; CI in `.github/workflows/`.
 > The leftover `Vamo/` dir is gitignored, so scanners won't see it.
+> Deno edge-function Dependabot is intentionally absent until GitHub's hosted
+> updater supports Deno lockfile `version: "5"`.
 
 > **Gradle caveat:** Dependabot does *version* updates for Gradle Kotlin DSL,
 > but GitHub *security* alerts for Gradle need **dependency submission** (the
