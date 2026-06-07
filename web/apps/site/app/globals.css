@@ -294,7 +294,13 @@ a:hover {
   filter: brightness(0.96);
 }
 
-.invite-ctas .store-badge {
-  margin-top: 0.25rem;
-  text-align: center;
+.invite-cta-secondary {
+  background: transparent;
+  color: var(--preview-stat-muted, var(--graphite));
+  border: 1px dashed var(--preview-stat-muted, var(--graphite));
+}
+
+.invite-cta-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.85;
 }

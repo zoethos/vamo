@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { getSupabaseAnonClient } from "./supabase";
 import { defaultThemePack, parseThemePack, type SnapshotThemePack } from "./theme";
 
@@ -44,21 +46,21 @@ function parsePreview(raw: RpcPreview): TripPreview | null {
   };
 }
 
-export async function fetchTripPreview(
-  token: string,
-): Promise<TripPreview | null> {
-  const client = getSupabaseAnonClient();
-  if (!client) return null;
-  try {
-    const { data, error } = await client.rpc("get_trip_preview", {
-      p_token: token,
-    });
-    if (error || data == null) return null;
-    return parsePreview(data as RpcPreview);
-  } catch {
-    return null;
-  }
-}
+export const fetchTripPreview = cache(
+  async (token: string): Promise<TripPreview | null> => {
+    const client = getSupabaseAnonClient();
+    if (!client) return null;
+    try {
+      const { data, error } = await client.rpc("get_trip_preview", {
+        p_token: token,
+      });
+      if (error || data == null) return null;
+      return parsePreview(data as RpcPreview);
+    } catch {
+      return null;
+    }
+  },
+);
 
 export function formatTripDates(
   startDate: string | null,

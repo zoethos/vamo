@@ -12,12 +12,18 @@ export function InviteCtas({ token, channel }: Props) {
 
   return (
     <div className="invite-ctas">
-      <button type="button" className="invite-cta invite-cta-primary" onClick={() => {
-        window.location.href = appUrl;
-      }}>
+      <button
+        type="button"
+        className="invite-cta invite-cta-primary"
+        onClick={() => {
+          window.location.href = appUrl;
+        }}
+      >
         Open in app
       </button>
-      <span className="store-badge">Google Play — coming soon</span>
+      <button type="button" className="invite-cta invite-cta-secondary" disabled>
+        Get the app — Google Play coming soon
+      </button>
     </div>
   );
 }
