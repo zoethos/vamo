@@ -1,7 +1,8 @@
 {
   "version": "5",
   "specifiers": {
-    "npm:@supabase/supabase-js@2.49.1": "2.49.1"
+    "npm:@supabase/supabase-js@2.49.1": "2.49.1",
+    "npm:jose@5.10.0": "5.10.0"
   },
   "npm": {
     "@supabase/auth-js@2.68.0": {
@@ -69,6 +70,9 @@
         "@types/node"
       ]
     },
+    "jose@5.10.0": {
+      "integrity": "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg=="
+    },
     "tr46@0.0.3": {
       "integrity": "sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw=="
     },
@@ -91,7 +95,8 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@supabase/supabase-js@2.49.1"
+      "npm:@supabase/supabase-js@2.49.1",
+      "npm:jose@5.10.0"
     ]
   }
 }
