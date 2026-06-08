@@ -41,6 +41,7 @@ class SyncWorker {
     if (_flushing) return 0;
     if (!_flushWithoutSession && _client.auth.currentUser == null) return 0;
 
+    debugBreadcrumb('flush start', screen: 'sync', action: 'flush');
     _flushing = true;
     var processed = 0;
     try {
@@ -61,14 +62,22 @@ class SyncWorker {
             await _queue.remove(op.id);
             processed++;
             madeProgress = true;
-          } catch (e) {
-            if (isDuplicateKeyError(e)) {
+          } catch (error, stackTrace) {
+            if (isDuplicateKeyError(error)) {
               await _queue.remove(op.id);
               processed++;
               madeProgress = true;
               continue;
             }
-            final attempts = await _queue.recordFailure(op.id, e.toString());
+            reportAndLog(
+              error,
+              stackTrace,
+              screen: 'sync',
+              action: op.kind,
+              severity: ActionFailureSeverity.degraded,
+            );
+            final attempts =
+                await _queue.recordFailure(op.id, error.toString());
             if (attempts != null && attempts >= SyncQueue.maxAttempts) {
               await _deadLetter(op);
               madeProgress = true;
@@ -80,6 +89,12 @@ class SyncWorker {
     } finally {
       _flushing = false;
     }
+    debugBreadcrumb(
+      'flush complete',
+      screen: 'sync',
+      action: 'flush',
+      details: {'processed': processed},
+    );
     return processed;
   }
 
@@ -87,10 +102,13 @@ class SyncWorker {
     final kind = SyncKind.parse(op.kind);
     final analytics = _analytics;
     if (kind == SyncKind.receiptUpload && analytics != null) {
-      analytics.reportActionFailed(
+      reportAndLog(
+        Exception(op.lastError ?? 'receipt_upload_dead_letter'),
+        StackTrace.current,
         screen: 'sync',
         action: 'attach_receipt',
-        error: Exception(op.lastError ?? 'receipt_upload_dead_letter'),
+        severity: ActionFailureSeverity.degraded,
+        analytics: analytics,
       );
     }
     await _queue.remove(op.id);
@@ -150,9 +168,9 @@ class SyncWorker {
               ),
             );
         await _client.from('expenses').upsert(
-              {'id': expenseId, 'receipt_path': storagePath},
-              onConflict: 'id',
-            );
+          {'id': expenseId, 'receipt_path': storagePath},
+          onConflict: 'id',
+        );
         final db = _db;
         if (db != null) {
           await db.upsertExpense(
@@ -170,10 +188,8 @@ class SyncWorker {
             );
         break;
       case SyncKind.settlementUpdate:
-        await _client
-            .from('settlements')
-            .update({'status': payload['status']})
-            .eq('id', payload['id'] as String);
+        await _client.from('settlements').update(
+            {'status': payload['status']}).eq('id', payload['id'] as String);
         break;
       case SyncKind.tripNoteInsert:
         await _client.from('trip_notes').upsert(
@@ -209,7 +225,8 @@ class SyncWorker {
   }
 
   static String _contentTypeForPath(String path) {
-    final ext = path.contains('.') ? '.${path.split('.').last.toLowerCase()}' : '.jpg';
+    final ext =
+        path.contains('.') ? '.${path.split('.').last.toLowerCase()}' : '.jpg';
     switch (ext) {
       case '.png':
         return 'image/png';

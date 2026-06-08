@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'expense_trip_picker_sheet.dart';
 import 'expenses_overview.dart';
 import 'expenses_overview_providers.dart';
 import 'money_format.dart';
@@ -28,6 +29,7 @@ class ExpensesListScreenLabels {
     required this.unresolvedBadge,
     required this.pickerTitle,
     required this.pickerLastUsed,
+    required this.addExpenseTooltip,
   });
 
   final String title;
@@ -49,6 +51,7 @@ class ExpensesListScreenLabels {
   final String unresolvedBadge;
   final String pickerTitle;
   final String pickerLastUsed;
+  final String addExpenseTooltip;
 }
 
 /// Cross-trip money overview: balance header, trip rollups, period strip.
@@ -71,7 +74,21 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> {
     final locale = Localizations.localeOf(context).toString();
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.labels.title)),
+      appBar: AppBar(
+        title: Text(widget.labels.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: widget.labels.addExpenseTooltip,
+            onPressed: () => openAddExpenseFromShell(
+              context: context,
+              ref: ref,
+              pickerTitle: widget.labels.pickerTitle,
+              lastUsedLabel: widget.labels.pickerLastUsed,
+            ),
+          ),
+        ],
+      ),
       body: overview.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => AppErrorState(

@@ -22,12 +22,15 @@ final pushNotificationRouteHandlerProvider =
 final pushLifecycleProvider = Provider<void>((ref) {
   final registrar = ref.watch(pushRegistrarProvider);
   final devices = ref.watch(pushDevicesRepositoryProvider);
+  debugBreadcrumb('mounted', screen: 'push', action: 'push_lifecycle');
 
   Future<void> bind(bool signedIn) async {
     if (!signedIn) {
+      debugBreadcrumb('stop', screen: 'push', action: 'push_lifecycle');
       await registrar.stop();
       return;
     }
+    debugBreadcrumb('start', screen: 'push', action: 'push_lifecycle');
     await registrar.start(
       onRoute: (route) => ref.read(pushNotificationRouteHandlerProvider)(route),
       onToken: (token) {

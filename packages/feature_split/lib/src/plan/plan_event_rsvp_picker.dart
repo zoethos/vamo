@@ -215,8 +215,15 @@ class _PlanEventRsvpPickerSheetState
       }
       if (!mounted) return;
       Navigator.pop(context);
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'plan',
+        action: 'pick_event_rsvp',
+        analytics: ref.read(analyticsProvider),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.labels.eventRsvpUpdateFailed)),
       );

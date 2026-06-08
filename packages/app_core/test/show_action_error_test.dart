@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  testWidgets('PostgrestException snackbar hides raw server details', (tester) async {
+  testWidgets('PostgrestException snackbar hides raw server details',
+      (tester) async {
     final events = <Map<String, Object?>>[];
     const rawMessage = 'Could not find the function public.create_trip';
 
@@ -22,8 +23,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final snackText = tester.widget<SnackBar>(find.byType(SnackBar)).content
-        as Text;
+    final snackText =
+        tester.widget<SnackBar>(find.byType(SnackBar)).content as Text;
     final shown = snackText.data!;
 
     expect(shown.toLowerCase(), isNot(contains('postgrest')));
@@ -36,8 +37,9 @@ void main() {
         'properties': {
           'screen': 'create_trip',
           'action': 'create_trip',
-          'kind': 'server',
-          'code': 'PGRST202',
+          'severity': 'failure',
+          'error_kind': 'server',
+          'error_code': 'postgrest_function_not_found',
         },
       },
     ]);
@@ -46,7 +48,8 @@ void main() {
   test('maps OTP AuthException to friendly copy', () {
     expect(
       actionFailureUserMessage(
-        const AuthException('Token has expired or is invalid', code: 'otp_expired'),
+        const AuthException('Token has expired or is invalid',
+            code: 'otp_expired'),
       ),
       'That code expired — tap Send me a new code.',
     );
@@ -61,7 +64,8 @@ void main() {
   test('maps flow-state AuthException to cross-device copy', () {
     expect(
       actionFailureUserMessage(
-        const AuthException('flow state not found', code: 'flow_state_not_found'),
+        const AuthException('flow state not found',
+            code: 'flow_state_not_found'),
       ),
       'This link was for a different device — use the 6-digit code',
     );

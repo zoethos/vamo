@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../trips/trip_format.dart';
 import 'expenses_overview_providers.dart';
 
-/// Bottom sheet: pick a trip before adding an expense from the shell FAB.
+/// Bottom sheet: pick a trip before adding an expense from the expenses tab.
 Future<void> showExpenseTripPickerSheet({
   required BuildContext context,
   required WidgetRef ref,

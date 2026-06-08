@@ -41,7 +41,7 @@ class TripDashboardTab extends ConsumerWidget {
   final TripLifecycleLabels lifecycleLabels;
   final bool readOnly;
   final bool showBalances;
-  final VoidCallback? onCapture;
+  final ValueChanged<LayerLink>? onCapture;
   final VoidCallback onExpenses;
   final VoidCallback onPlans;
   final VoidCallback onBalances;
@@ -257,7 +257,7 @@ class _TripDashboardHeroSection extends StatefulWidget {
   final double cardHeroOverlap;
   final double heroTopInset;
   final String? backgroundImagePath;
-  final VoidCallback? onCapture;
+  final ValueChanged<LayerLink>? onCapture;
   final bool readOnly;
   final TripHomeLabels labels;
   final VamoSemanticColors colors;
@@ -275,6 +275,7 @@ class _TripDashboardHeroSection extends StatefulWidget {
 
 class _TripDashboardHeroSectionState extends State<_TripDashboardHeroSection> {
   final GlobalKey _cardKey = GlobalKey();
+  final LayerLink _captureAnchorLink = LayerLink();
   double _cardHeight = TripDashboardTab._totalCardEstHeight;
 
   @override
@@ -332,15 +333,20 @@ class _TripDashboardHeroSectionState extends State<_TripDashboardHeroSection> {
                     PositionedDirectional(
                       top: widget.heroTopInset + widget.space.x2,
                       end: widget.space.x2,
-                      child: VamoCircleIcon(
-                        diameter: 48,
-                        backgroundColor: Colors.white,
-                        onTap: widget.onCapture,
-                        tooltip: widget.labels.tabCapture,
-                        child: Icon(
-                          Icons.camera_alt_outlined,
-                          color: widget.colors.secondary,
-                          size: 24,
+                      child: CompositedTransformTarget(
+                        link: _captureAnchorLink,
+                        child: VamoCircleIcon(
+                          diameter: 48,
+                          backgroundColor: Colors.white,
+                          shadow: true,
+                          onTap: () =>
+                              widget.onCapture?.call(_captureAnchorLink),
+                          tooltip: widget.labels.tabCapture,
+                          child: Icon(
+                            Icons.camera_alt_outlined,
+                            color: widget.colors.secondary,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),

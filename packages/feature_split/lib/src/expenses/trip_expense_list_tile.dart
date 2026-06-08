@@ -245,7 +245,8 @@ class _ReceiptThumbnailState extends ConsumerState<_ReceiptThumbnail> {
   Future<void> _resolve() async {
     if (widget.thumbnailOverride != null) {
       setState(
-        () => _result = StorageAttachmentLoadResult.local(widget.thumbnailOverride!),
+        () => _result =
+            StorageAttachmentLoadResult.local(widget.thumbnailOverride!),
       );
       return;
     }
@@ -265,11 +266,13 @@ class _ReceiptThumbnailState extends ConsumerState<_ReceiptThumbnail> {
       return;
     }
     _lastReportedError = error;
-    ref.read(analyticsProvider).reportActionFailed(
-          screen: 'trip_home',
-          action: 'load_receipt',
-          error: error,
-        );
+    reportAndLog(
+      error,
+      StackTrace.current,
+      screen: 'trip_home',
+      action: 'load_receipt',
+      analytics: ref.read(analyticsProvider),
+    );
   }
 
   @override

@@ -53,16 +53,22 @@ class _VamoAppState extends ConsumerState<VamoApp> {
       if (initial != null) _handleDeepLink(initial);
 
       _linkSubscription = _appLinks.uriLinkStream.listen(_handleDeepLink);
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Platform may be unavailable in tests / desktop without config.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'app_lifecycle',
+        action: 'deep_link_init',
+        severity: ActionFailureSeverity.degraded,
+        analytics: ref.read(analyticsProvider),
+      );
     }
   }
 
   void _handleDeepLink(Uri uri) {
     if (AuthUrls.isAuthCallback(uri)) {
-      ref
-          .read(routerProvider)
-          .go(AuthUrls.inAppLoginCallbackLocation(uri));
+      ref.read(routerProvider).go(AuthUrls.inAppLoginCallbackLocation(uri));
       return;
     }
 

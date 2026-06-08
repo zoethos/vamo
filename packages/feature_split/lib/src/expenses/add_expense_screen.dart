@@ -178,8 +178,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             final splitLabel = labels.splitLabel(memberList.length);
             final isPropose = widget.mode == AddExpenseMode.proposed;
             final fxRows =
-                ref.watch(tripFxRatesProvider(widget.tripId)).valueOrNull ??
-                    [];
+                ref.watch(tripFxRatesProvider(widget.tripId)).valueOrNull ?? [];
             final availableCurrencies = {
               tripBase.toUpperCase(),
               ...fxRows.map((r) => r.currency.toUpperCase()),
@@ -446,9 +445,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                             ),
                           )
                           .toList(),
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _payerId = v),
+                      onChanged:
+                          _saving ? null : (v) => setState(() => _payerId = v),
                     ),
                     const SizedBox(height: 16),
                     InputDecorator(
@@ -550,13 +548,15 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       }
       _applyOcrSuggestion(suggestion);
       await _resolvePlaceFromReceipt(suggestion);
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      ref.read(analyticsProvider).reportActionFailed(
-            screen: 'add_expense',
-            action: 'ocr_scan',
-            error: e,
-          );
+      reportAndLog(
+        e,
+        stackTrace,
+        screen: 'add_expense',
+        action: 'ocr_scan',
+        analytics: ref.read(analyticsProvider),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -620,8 +620,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     if (original == null) return;
 
     final changed = switch (field) {
-      OcrSuggestionField.amount =>
-        _amountController.text.trim() != original,
+      OcrSuggestionField.amount => _amountController.text.trim() != original,
       OcrSuggestionField.currency => _expenseCurrency != original,
       OcrSuggestionField.title =>
         _descriptionController.text.trim() != original,
@@ -630,9 +629,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
     if (changed) {
       ref.read(analyticsProvider).capture(
-            VamoEvent.ocrSuggestionEdited,
-            properties: {'field': field.name},
-          );
+        VamoEvent.ocrSuggestionEdited,
+        properties: {'field': field.name},
+      );
       setState(() => _ocrSuggested.remove(field));
     }
   }

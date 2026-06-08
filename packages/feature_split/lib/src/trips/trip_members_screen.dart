@@ -63,22 +63,27 @@ class _TripMembersScreenState extends ConsumerState<TripMembersScreen> {
           );
         }
 
+        final readOnly =
+            isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
+
         return Scaffold(
           appBar: AppBar(
             leading: TripSectionBackButton(tripId: widget.tripId),
             title: Text(widget.tripHomeLabels.tabMembers),
+            actions: [
+              if (!readOnly)
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: widget.inviteLabels.inviteAction,
+                  onPressed: () =>
+                      _membersTabKey.currentState?.openInviteFlow(),
+                ),
+            ],
           ),
           body: MembersTab(
             key: _membersTabKey,
             tripId: widget.tripId,
             inviteLabels: widget.inviteLabels,
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            backgroundColor: AppColors.goLime,
-            foregroundColor: AppColors.ink,
-            onPressed: () => _membersTabKey.currentState?.openInviteFlow(),
-            icon: const Icon(Icons.person_add_outlined),
-            label: Text(widget.inviteLabels.inviteAction),
           ),
         );
       },

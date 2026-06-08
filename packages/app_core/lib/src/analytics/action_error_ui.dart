@@ -16,6 +16,12 @@ String catalogueMessageForKind(AnalyticsErrorKind kind) {
       return 'Sign in again to continue.';
     case AnalyticsErrorKind.server:
       return 'Something went wrong on our side. Try again in a moment.';
+    case AnalyticsErrorKind.file:
+      return 'We could not save that file. Try again.';
+    case AnalyticsErrorKind.db:
+      return 'We could not save that change locally. Restart and try again.';
+    case AnalyticsErrorKind.app:
+      return 'Something went wrong in the app. Try again.';
     case AnalyticsErrorKind.unknown:
       return 'Something went wrong. Try again.';
   }
@@ -89,12 +95,17 @@ void showActionError(
   required String screen,
   required String action,
   required Object error,
+  StackTrace? stackTrace,
+  ActionFailureSeverity severity = ActionFailureSeverity.failure,
 }) {
-  ref.read(analyticsProvider).reportActionFailed(
-        screen: screen,
-        action: action,
-        error: error,
-      );
+  reportAndLog(
+    error,
+    stackTrace ?? StackTrace.current,
+    screen: screen,
+    action: action,
+    severity: severity,
+    analytics: ref.read(analyticsProvider),
+  );
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(formatActionFailureMessage(error))),
   );

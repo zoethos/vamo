@@ -50,8 +50,16 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     try {
       final profile = await ref.read(userProfileProvider.future);
       if (mounted) setState(() => _baseCurrency = profile.baseCurrency);
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Profile unavailable before first sign-in edge case.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'create_trip',
+        action: 'load_default_currency',
+        severity: ActionFailureSeverity.degraded,
+        analytics: ref.read(analyticsProvider),
+      );
     }
   }
 

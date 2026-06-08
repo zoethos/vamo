@@ -276,29 +276,34 @@
     </ol></div>
   </section>
 
-  <!-- ============ ADD MENU ============ -->
+  <!-- ============ CAPTURE CAROUSEL ============ -->
   <section class="screen">
-    <h2>7 · “Add to your trip” menu <small>(CaptureChoiceSheet — bottom sheet)</small></h2>
+    <h2>7 · Capture carousel <small>(capture_action_sheet.dart — vertical elliptical flyout from the camera button)</small></h2>
     <div class="phone">
       <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
-      <div class="scr" style="background:rgba(0,0,0,.35);min-height:360px;position:relative">
-        <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:18px 18px 0 0;padding:14px 10px">
-          <div style="width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 12px"></div>
-          <div class="sech blk" style="padding-left:4px"><span class="n">1</span>Add to your trip</div>
-          <div class="qgrid blk" style="grid-template-columns:repeat(2,1fr)"><span class="n">2</span>
-            <div class="qt" style="padding:14px 2px"><div class="qi">📝</div>Note</div>
-            <div class="qt" style="padding:14px 2px"><div class="qi">📷</div>Photo</div>
-            <div class="qt" style="padding:14px 2px"><div class="qi">🎬</div>Video</div>
-            <div class="qt" style="padding:14px 2px"><div class="qi">🖼</div>Background<span class="n r">3</span></div>
+      <div class="scr">
+        <div class="hero tall" style="height:380px;border-radius:0;position:relative">
+          <div class="topr"><span class="ico">&lsaquo;</span><span class="ico">&middot;&middot;&middot;</span></div>
+          <div style="position:absolute;right:10px;top:64px"><span class="ico" style="width:30px;height:30px;font-size:14px">📷</span><span class="n r">1</span></div>
+          <div style="position:absolute;right:12px;top:116px;background:rgba(255,255,255,.18);border-radius:80px;padding:12px 7px;display:flex;flex-direction:column;align-items:center;gap:9px;box-shadow:0 6px 18px rgba(0,0,0,.35)">
+            <span class="n">2</span>
+            <span class="ico" style="width:20px;height:20px;font-size:10px;opacity:.55">🖼</span>
+            <span class="ico" style="width:40px;height:40px;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.35)">📝</span>
+            <span style="font-size:9px;color:#fff;font-weight:700;margin-top:-3px">Note</span>
+            <span class="ico" style="width:20px;height:20px;font-size:10px;opacity:.55">📷</span>
+            <span class="ico" style="width:20px;height:20px;font-size:10px;opacity:.55">🎬</span>
+            <span class="n r" style="top:auto;bottom:-7px">3</span>
           </div>
         </div>
       </div>
     </div>
     <div class="legend"><h3>Element names</h3><ol>
-      <li><b>add-menu</b> <small>(bottom sheet — title “Add to your trip”)</small></li>
-      <li><b>add-menu-grid</b> <small>= add-tile ×N (Note / Photo / Video)</small></li>
-      <li><b>change-background-tile</b> <small>(sets hero-badge background; not a capture)</small></li>
-    </ol></div>
+      <li><b>capture-carousel</b> <small>(vertical elliptical/pill flyout from the camera-button; opens laterally, not a bottom sheet)</small></li>
+      <li><b>carousel-item</b> <small>(centered = magnified + label; off-center = smaller, icon-only) — Photo / Video / Note / Background; each a <code>VamoCircleIcon</code> (white ring)</small></li>
+      <li><b>change-background-item</b> <small>(Background &rarr; sets the hero-badge background; not a capture)</small></li>
+    </ol>
+    <p class="cap" style="margin-top:10px"><b>Visual:</b> slim translucent pill (<code>rgba(255,255,255,.18)</code> + blur); centered item = solid white <code>VamoCircleIcon</code> + <code>labelMedium</code> label (fade/scale on scroll); neighbors icon-only ≈52% scale.</p>
+    </div>
   </section>
 
   <!-- ============ GLOSSARY ============ -->
@@ -322,8 +327,8 @@
       <tr><td><code>member-row</code></td><td>member-avatar + member-name + member-role + role-menu.</td><td class="file">members_tab.dart</td></tr>
       <tr><td><code>event-card</code> / <code>rsvp-state-icon</code></td><td>Plan event + the per-card RSVP status (tap → rsvp-picker).</td><td class="file">plan_event_tile.dart</td></tr>
       <tr><td><code>checklist-section</code> / <code>checklist-item</code></td><td>Named collaborative list / a checkable line (swipe-left to delete).</td><td class="file">plan_tab.dart</td></tr>
-      <tr><td><code>add-menu</code> / <code>change-background-tile</code></td><td>The “Add to your trip” sheet / the tile that sets the hero-badge background.</td><td class="file">capture_action_sheet.dart</td></tr>
-      <tr><td><code>camera-button</code></td><td>Hero capture/add entry (opens the add-menu).</td><td class="file">trip_dashboard_tab.dart</td></tr>
+      <tr><td><code>capture-carousel</code> / <code>change-background-item</code></td><td>Vertical elliptical wheel flyout from the camera-button (Photo/Video/Note/Background; centered item magnified). Background sets the hero-badge background (not a capture). Slim pill; items use <code>VamoCircleIcon</code>.</td><td class="file">capture_action_sheet.dart</td></tr>
+      <tr><td><code>camera-button</code></td><td>Hero capture/add entry (opens the capture-carousel).</td><td class="file">trip_dashboard_tab.dart</td></tr>
     </table>
   </div>
 </div>

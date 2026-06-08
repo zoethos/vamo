@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('main shell FAB uses goLime with ink foreground', (tester) async {
+  testWidgets('main shell has four nav tabs and no FAB', (tester) async {
     final router = GoRouter(
       routes: [
         StatefulShellRoute.indexedStack(
@@ -67,11 +67,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final fab = tester.widget<FloatingActionButton>(
-      find.byType(FloatingActionButton),
-    );
-    expect(fab.backgroundColor, AppColors.goLime);
-    expect(fab.foregroundColor, AppColors.ink);
-    expect(fab.foregroundColor, isNot(Colors.white));
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.text('Trips'), findsOneWidget);
+    expect(find.text('Activity'), findsOneWidget);
+    expect(find.text('Expenses'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsNothing);
   });
 }

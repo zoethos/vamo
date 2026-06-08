@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:app_core/app_core.dart';
 import 'package:exif/exif.dart';
 
 /// GPS + timestamp extracted from a receipt photo (EXIF only).
@@ -44,7 +45,14 @@ Future<ReceiptCaptureMetadata> _metadataFromExif(String imagePath) async {
       lng: lng,
       capturedAt: capturedAt?.toUtc(),
     );
-  } catch (_) {
+  } catch (error, stackTrace) {
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'receipt',
+      action: 'read_exif_metadata',
+      severity: ActionFailureSeverity.degraded,
+    );
     return const ReceiptCaptureMetadata();
   }
 }

@@ -69,8 +69,9 @@ void main() {
           'properties': {
             'screen': 'trip_home',
             'action': 'load_receipt',
-            'kind': 'auth',
-            'code': 'storage_403',
+            'severity': 'failure',
+            'error_kind': 'auth',
+            'error_code': 'storage_403',
           },
         },
       ]);
@@ -111,8 +112,9 @@ void main() {
           'properties': {
             'screen': 'trip_home',
             'action': 'load_photo',
-            'kind': 'auth',
-            'code': 'storage_403',
+            'severity': 'failure',
+            'error_kind': 'auth',
+            'error_code': 'storage_403',
           },
         },
       ]);

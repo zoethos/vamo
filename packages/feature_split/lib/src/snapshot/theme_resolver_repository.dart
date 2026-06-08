@@ -31,9 +31,16 @@ class ThemeResolverRepository {
           'destination': trimmed,
         },
       ).timeout(const Duration(seconds: 6));
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Theming is a cache/fallback enhancement; trip creation must never wait
       // on provider availability, function deployment, or throttling.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'theme',
+        action: 'resolve_theme',
+        severity: ActionFailureSeverity.degraded,
+      );
     }
   }
 }
