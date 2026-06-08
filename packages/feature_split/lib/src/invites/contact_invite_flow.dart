@@ -197,7 +197,14 @@ Future<ContactInviteTarget?> _pickSafely(
 ) async {
   try {
     return await pick();
-  } catch (_) {
+  } catch (error, stackTrace) {
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'trip_home',
+      action: 'pick_contact_invite_target',
+      severity: ActionFailureSeverity.degraded,
+    );
     return const ContactInviteTarget(
       targetType: ContactInviteTargetType.shareFallback,
       value: '',
@@ -208,7 +215,14 @@ Future<ContactInviteTarget?> _pickSafely(
 Future<bool> _composeSafely(Future<bool> Function() compose) async {
   try {
     return await compose();
-  } catch (_) {
+  } catch (error, stackTrace) {
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'trip_home',
+      action: 'compose_contact_invite',
+      severity: ActionFailureSeverity.degraded,
+    );
     return false;
   }
 }

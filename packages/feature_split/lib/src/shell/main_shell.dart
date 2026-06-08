@@ -1,22 +1,17 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../expenses/expense_trip_picker_sheet.dart';
-
-/// Bottom nav shell — Trips · Activity · [FAB] · Expenses · Profile.
-class MainShell extends ConsumerWidget {
+/// Bottom nav shell — Trips · Activity · Expenses · Profile.
+class MainShell extends StatelessWidget {
   const MainShell({
     super.key,
     required this.navigationShell,
     required this.labels,
-    this.expensesFabLabels,
   });
 
   final StatefulNavigationShell navigationShell;
   final MainShellLabels labels;
-  final ExpensesFabLabels? expensesFabLabels;
 
   static const tripBranch = 0;
   static const activityBranch = 1;
@@ -24,38 +19,19 @@ class MainShell extends ConsumerWidget {
   static const profileBranch = 3;
 
   void _onTab(int index) {
-    navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
-  }
-
-  void _onFab(BuildContext context, WidgetRef ref) {
-    if (navigationShell.currentIndex == expensesBranch) {
-      final fabLabels = expensesFabLabels;
-      if (fabLabels == null) return;
-      openAddExpenseFromShell(
-        context: context,
-        ref: ref,
-        pickerTitle: fabLabels.pickerTitle,
-        lastUsedLabel: fabLabels.pickerLastUsed,
-      );
-      return;
-    }
-    context.push(AppRoutes.tripCreate);
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final index = navigationShell.currentIndex;
     final colors = context.vamoColors;
 
     return Scaffold(
       body: navigationShell,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.goLime,
-        foregroundColor: AppColors.ink,
-        onPressed: () => _onFab(context, ref),
-        child: const Icon(Icons.add),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         height: 56,
         padding: EdgeInsets.zero,
@@ -79,7 +55,6 @@ class MainShell extends ConsumerWidget {
                 label: labels.activity,
                 onTap: () => _onTab(activityBranch),
               ),
-              const SizedBox(width: 56),
               _NavSlot(
                 selected: index == expensesBranch,
                 icon: Icons.receipt_long_outlined,
@@ -100,16 +75,6 @@ class MainShell extends ConsumerWidget {
       ),
     );
   }
-}
-
-class ExpensesFabLabels {
-  const ExpensesFabLabels({
-    required this.pickerTitle,
-    required this.pickerLastUsed,
-  });
-
-  final String pickerTitle;
-  final String pickerLastUsed;
 }
 
 class MainShellLabels {

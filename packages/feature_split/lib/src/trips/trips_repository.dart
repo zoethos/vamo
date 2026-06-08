@@ -494,7 +494,8 @@ class TripsRepository {
           currency: Value((row['currency'] as String).toUpperCase()),
           rate: Value((row['rate'] as num).toDouble()),
           source: Value(row['source'] as String),
-          capturedAt: Value(DateTime.parse(row['captured_at'] as String).toUtc()),
+          capturedAt:
+              Value(DateTime.parse(row['captured_at'] as String).toUtc()),
           capturedBy: Value(row['captured_by'] as String),
         ),
       );
@@ -542,6 +543,12 @@ class TripsRepository {
     required String tripId,
     required String sourcePath,
   }) async {
+    debugBreadcrumb(
+      'start',
+      screen: 'trip_home',
+      action: 'set_trip_background',
+      details: {'tripId': tripId},
+    );
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
       throw StateError('Must be signed in to set a trip background');
@@ -552,33 +559,65 @@ class TripsRepository {
       sourcePath: sourcePath,
     );
 
-    await _db.upsertTrip(
+    await _db.updateTripFields(
+      tripId,
       LocalTripsCompanion(
-        id: Value(tripId),
         backgroundLocalPath: Value(localPath),
         updatedAt: Value(DateTime.now().toUtc()),
       ),
     );
+    debugBreadcrumb(
+      'local background persisted',
+      screen: 'trip_home',
+      action: 'set_trip_background',
+      details: {'tripId': tripId},
+    );
 
     try {
+      debugBreadcrumb(
+        'remote upload start',
+        screen: 'trip_home',
+        action: 'set_trip_background_remote',
+        details: {'tripId': tripId},
+      );
       final storagePath = await _uploadTripBackground(
         userId: userId,
         tripId: tripId,
         localPath: localPath,
       );
+      debugBreadcrumb(
+        'rpc set_trip_background start',
+        screen: 'trip_home',
+        action: 'set_trip_background_remote',
+        details: {'tripId': tripId},
+      );
       await _client.rpc('set_trip_background', params: {
         'p_trip_id': tripId,
         'p_background_path': storagePath,
       });
-      await _db.upsertTrip(
+      await _db.updateTripFields(
+        tripId,
         LocalTripsCompanion(
-          id: Value(tripId),
           backgroundPath: Value(storagePath),
           updatedAt: Value(DateTime.now().toUtc()),
         ),
       );
-    } catch (_) {
+      debugBreadcrumb(
+        'remote background synced',
+        screen: 'trip_home',
+        action: 'set_trip_background_remote',
+        details: {'tripId': tripId},
+      );
+    } catch (error, stackTrace) {
       // Local hero still updates when remote/bucket is unavailable.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'trip_home',
+        action: 'set_trip_background_remote',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
     }
   }
 

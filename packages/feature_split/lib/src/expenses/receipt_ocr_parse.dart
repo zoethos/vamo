@@ -1,3 +1,5 @@
+import 'package:app_core/app_core.dart';
+
 import 'receipt_ocr_models.dart';
 
 /// Pure parser — unit-tested with receipt-shaped fixtures (no ML Kit).
@@ -113,7 +115,8 @@ List<int> _moneyTokensInLine(String line) {
 
   // Bare amounts on total-like lines or trailing decimals.
   if (results.isEmpty || _totalKeywords.hasMatch(line)) {
-    for (final m in RegExp(r'([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})').allMatches(line)) {
+    for (final m
+        in RegExp(r'([\d]{1,3}(?:[.,]\d{3})*[.,]\d{2})').allMatches(line)) {
       final cents = _parseMoneyToCents(m.group(1)!);
       if (cents != null && cents > 0) results.add(cents);
     }
@@ -149,13 +152,16 @@ int? _parseMoneyToCents(String raw) {
 }
 
 String? _detectCurrency(String raw, List<String> lines) {
-  if (raw.contains('€') || RegExp(r'\bEUR\b', caseSensitive: false).hasMatch(raw)) {
+  if (raw.contains('€') ||
+      RegExp(r'\bEUR\b', caseSensitive: false).hasMatch(raw)) {
     return 'EUR';
   }
-  if (raw.contains(r'$') || RegExp(r'\bUSD\b', caseSensitive: false).hasMatch(raw)) {
+  if (raw.contains(r'$') ||
+      RegExp(r'\bUSD\b', caseSensitive: false).hasMatch(raw)) {
     return 'USD';
   }
-  if (raw.contains('£') || RegExp(r'\bGBP\b', caseSensitive: false).hasMatch(raw)) {
+  if (raw.contains('£') ||
+      RegExp(r'\bGBP\b', caseSensitive: false).hasMatch(raw)) {
     return 'GBP';
   }
   if (RegExp(r'\bCHF\b', caseSensitive: false).hasMatch(raw)) {
@@ -260,7 +266,14 @@ DateTime? _detectDate(String raw) {
         int.parse(m.group(2)!),
         int.parse(m.group(1)!),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'receipt',
+        action: 'detect_receipt_date',
+        severity: ActionFailureSeverity.degraded,
+      );
       continue;
     }
   }

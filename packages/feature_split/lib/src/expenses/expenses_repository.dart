@@ -75,9 +75,7 @@ class ExpensesRepository {
 
       void emit() {
         controller.add(
-          expenses
-              .map((r) => _toSummary(r, placesById: placesById))
-              .toList(),
+          expenses.map((r) => _toSummary(r, placesById: placesById)).toList(),
         );
       }
 
@@ -270,7 +268,15 @@ class ExpensesRepository {
           expenseId: expenseId,
           localPath: localReceiptPath,
         );
-      } catch (_) {
+      } catch (error, stackTrace) {
+        reportAndLog(
+          error,
+          stackTrace,
+          screen: 'expense',
+          action: 'upload_receipt_remote',
+          severity: ActionFailureSeverity.degraded,
+          analytics: _analytics,
+        );
         await _syncQueue.enqueue(
           kind: SyncKind.receiptUpload,
           payload: {

@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:app_core/app_core.dart';
+import 'package:drift/drift.dart' show DriftWrappedException;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' show ClientException;
+import 'package:sqlite3/sqlite3.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
@@ -15,7 +19,7 @@ void main() {
             code: 'PGRST202',
           ),
         ),
-        'PGRST202',
+        'postgrest_function_not_found',
       );
     });
 
@@ -31,7 +35,8 @@ void main() {
     test('maps AuthException to auth code or status', () {
       expect(
         sanitizeActionFailureCode(
-          const AuthException('JWT expired', statusCode: '401', code: 'invalid_jwt'),
+          const AuthException('JWT expired',
+              statusCode: '401', code: 'invalid_jwt'),
         ),
         'invalid_jwt',
       );
@@ -74,6 +79,29 @@ void main() {
       );
     });
 
+    test('maps local and framework failures to stable codes', () {
+      expect(
+        sanitizeActionFailureCode(const FileSystemException('nope')),
+        'file_error',
+      );
+      expect(
+        sanitizeActionFailureCode(
+          DriftWrappedException(
+              message: 'bad statement', cause: StateError('x')),
+        ),
+        'db_error',
+      );
+      expect(sanitizeActionFailureCode(StateError('bad state')), 'state_error');
+      expect(
+        sanitizeActionFailureCode(FlutterError('layout failed')),
+        'flutter_error',
+      );
+      expect(
+        sanitizeActionFailureCode(NotInitializedError()),
+        'app_not_initialized',
+      );
+    });
+
     test('unknown errors collapse to unknown', () {
       expect(sanitizeActionFailureCode(Exception('oops')), 'unknown');
     });
@@ -91,7 +119,8 @@ void main() {
 
     test('AuthException is auth unless retryable fetch', () {
       expect(
-        classifyActionFailureKind(const AuthException('bad token', code: '401')),
+        classifyActionFailureKind(
+            const AuthException('bad token', code: '401')),
         AnalyticsErrorKind.auth,
       );
       expect(
@@ -125,9 +154,35 @@ void main() {
         AnalyticsErrorKind.server,
       );
     });
+
+    test('local file, sqlite, Drift, and framework failures are named', () {
+      final sqliteError = _sqliteException();
+
+      expect(
+        classifyActionFailureKind(const FileSystemException('missing')),
+        AnalyticsErrorKind.file,
+      );
+      expect(classifyActionFailureKind(sqliteError), AnalyticsErrorKind.db);
+      expect(
+        classifyActionFailureKind(
+          DriftWrappedException(message: 'bad statement', cause: sqliteError),
+        ),
+        AnalyticsErrorKind.db,
+      );
+      expect(
+        classifyActionFailureKind(FlutterError('layout failed')),
+        AnalyticsErrorKind.app,
+      );
+      expect(
+        classifyActionFailureKind(StateError('bad state')),
+        AnalyticsErrorKind.app,
+      );
+      expect(classifyActionFailureKind(NotInitializedError()),
+          AnalyticsErrorKind.app);
+    });
   });
 
-  test('reportActionFailed captures sanitized properties', () {
+  test('reportActionFailed captures sanitized properties and error_kind', () {
     final events = <Map<String, Object?>>[];
     final analytics = _RecordingAnalytics(events);
 
@@ -146,12 +201,51 @@ void main() {
         'properties': {
           'screen': 'create_trip',
           'action': 'create_trip',
-          'kind': 'server',
-          'code': 'PGRST202',
+          'severity': 'failure',
+          'error_kind': 'server',
+          'error_code': 'postgrest_function_not_found',
         },
       },
     ]);
   });
+
+  test('reportAndLog reports sanitized degraded failures', () {
+    final events = <Map<String, Object?>>[];
+
+    reportAndLog(
+      const FileSystemException('path contains /private/user.jpg'),
+      StackTrace.current,
+      screen: 'trip_home',
+      action: 'set_trip_background',
+      severity: ActionFailureSeverity.degraded,
+      analytics: _RecordingAnalytics(events),
+    );
+
+    expect(events, [
+      {
+        'event': VamoEvent.actionFailed,
+        'properties': {
+          'screen': 'trip_home',
+          'action': 'set_trip_background',
+          'severity': 'degraded',
+          'error_kind': 'file',
+          'error_code': 'file_error',
+        },
+      },
+    ]);
+  });
+}
+
+Object _sqliteException() {
+  final database = sqlite3.openInMemory();
+  try {
+    database.select('select * from missing_table');
+    throw StateError('sqlite query unexpectedly succeeded');
+  } catch (error) {
+    return error;
+  } finally {
+    database.dispose();
+  }
 }
 
 class _RecordingAnalytics implements Analytics {
@@ -170,3 +264,5 @@ class _RecordingAnalytics implements Analytics {
   @override
   Future<void> reset() async {}
 }
+
+class NotInitializedError implements Exception {}

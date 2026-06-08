@@ -1,5 +1,5 @@
 import 'package:feature_split/src/invites/contact_invite_gateway.dart';
-import 'package:feature_split/src/trips/members_tab.dart';
+import 'package:feature_split/src/trips/trip_members_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,7 +19,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      pumpMembersTab(
+      pumpMembersScreen(
         gateway: const UnsupportedContactInviteGateway(),
         theme: goldenTestTheme(),
       ),
@@ -27,8 +27,40 @@ void main() {
     await tester.pumpAndSettle();
 
     await expectLater(
-      find.byType(MembersTab),
+      find.byType(TripMembersScreen),
       matchesGoldenFile('goldens/s27_members_invite_small.png'),
+    );
+  });
+
+  testWidgets('expenses list header add small screen golden', (tester) async {
+    tester.view.physicalSize = surface;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: goldenTestTheme(),
+        home: Scaffold(
+          appBar: AppBar(
+            title: const Text('Expenses'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Add expense',
+                onPressed: () {},
+              ),
+            ],
+          ),
+          body: const SizedBox.shrink(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(AppBar),
+      matchesGoldenFile('goldens/s27_expenses_header_small.png'),
     );
   });
 

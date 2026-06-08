@@ -23,7 +23,14 @@ class FirebasePushRegistrar implements PushRegistrar {
 
     try {
       await FirebaseMessaging.instance.requestPermission();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'push',
+        action: 'request_permission',
+        severity: ActionFailureSeverity.degraded,
+      );
       return;
     }
 

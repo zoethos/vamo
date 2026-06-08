@@ -107,6 +107,7 @@ void main() {
     required ContactInviteGateway gateway,
     ContactInviteShare? shareInvite,
   }) {
+    final membersKey = GlobalKey<MembersTabState>();
     return MediaQuery(
       data: const MediaQueryData(size: Size(480, 900)),
       child: ProviderScope(
@@ -138,7 +139,18 @@ void main() {
       child: MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
+          appBar: AppBar(
+            title: const Text('Members'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: testInviteLabels.inviteAction,
+                onPressed: () => membersKey.currentState?.openInviteFlow(),
+              ),
+            ],
+          ),
           body: MembersTab(
+            key: membersKey,
             tripId: tripId,
             inviteLabels: testInviteLabels,
             contactInviteGateway: gateway,
@@ -148,6 +160,11 @@ void main() {
       ),
       ),
     );
+  }
+
+  Future<void> tapInviteAction(WidgetTester tester) async {
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('shows contact invite action when supported', (tester) async {
@@ -161,7 +178,8 @@ void main() {
     expect(find.text('Invite from contacts'), findsNothing);
     expect(find.text('Invite Vamigos'), findsNothing);
     expect(find.text('Show QR'), findsNothing);
-    expect(find.text('Invite'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.text('Invite'), findsNothing);
   });
 
   testWidgets('hides contact invite action when unsupported', (tester) async {
@@ -183,8 +201,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
 
     expect(find.text('Text message'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -202,8 +219,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
 
@@ -223,8 +239,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
     await tester.tap(find.text('Email'));
     await tester.pumpAndSettle();
 
@@ -239,8 +254,7 @@ void main() {
     await tester.pumpWidget(buildMembersTab(gateway: gateway));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
 
@@ -265,8 +279,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
 
@@ -297,8 +310,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Invite'));
-    await tester.pumpAndSettle();
+    await tapInviteAction(tester);
     await tester.tap(find.text('Text message'));
     await tester.pumpAndSettle();
 

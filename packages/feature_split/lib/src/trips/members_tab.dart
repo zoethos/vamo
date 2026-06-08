@@ -82,15 +82,11 @@ class MembersTab extends ConsumerStatefulWidget {
 
 class MembersTabState extends ConsumerState<MembersTab> {
 
-  /// Opens share, contact, or QR invite picker (trip-home FAB on Members tab).
+  /// Opens share, contact, or QR invite picker (app-bar + on Members).
 
   Future<void> openInviteFlow() => _showInvitePicker();
 
 
-
-  bool _sharing = false;
-
-  bool _showingQr = false;
 
   String? _roleBusyUserId;
 
@@ -235,54 +231,6 @@ class MembersTabState extends ConsumerState<MembersTab> {
                 busy: _roleBusyUserId == m.userId,
 
               ),
-
-            ),
-
-            const SizedBox(height: 24),
-
-            FilledButton.icon(
-
-              onPressed: _sharing || _showingQr ? null : openInviteFlow,
-
-              icon: _sharing || _showingQr
-
-                  ? const SizedBox(
-
-                      width: 20,
-
-                      height: 20,
-
-                      child: CircularProgressIndicator(
-
-                        strokeWidth: 2,
-
-                        color: Colors.white,
-
-                      ),
-
-                    )
-
-                  : const Icon(Icons.person_add_outlined),
-
-              label: Text(labels.inviteAction),
-
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(
-
-              labels.membersShareFootnote,
-
-              textAlign: TextAlign.center,
-
-              style: Theme.of(context)
-
-                  .textTheme
-
-                  .bodySmall
-
-                  ?.copyWith(color: colors.onSurfaceMuted),
 
             ),
 
@@ -556,10 +504,6 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
     );
 
-
-
-    setState(() => _sharing = true);
-
     try {
 
       final labels = widget.inviteLabels;
@@ -610,10 +554,6 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
       );
 
-    } finally {
-
-      if (mounted) setState(() => _sharing = false);
-
     }
 
   }
@@ -621,8 +561,6 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
 
   Future<void> _showQr() async {
-
-    setState(() => _showingQr = true);
 
     try {
 
@@ -673,10 +611,6 @@ class MembersTabState extends ConsumerState<MembersTab> {
         error: e,
 
       );
-
-    } finally {
-
-      if (mounted) setState(() => _showingQr = false);
 
     }
 

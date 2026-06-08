@@ -3,6 +3,9 @@ enum AnalyticsErrorKind {
   network('network'),
   server('server'),
   auth('auth'),
+  file('file'),
+  db('db'),
+  app('app'),
   unknown('unknown');
 
   const AnalyticsErrorKind(this.value);

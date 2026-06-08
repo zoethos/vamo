@@ -71,20 +71,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     });
     try {
       await action();
-    } on AuthException catch (e) {
-      ref.read(analyticsProvider).reportActionFailed(
-            screen: 'auth',
-            action: authAction,
-            error: e,
-          );
-      setState(() => _error = actionFailureUserMessage(e));
-    } catch (e) {
-      ref.read(analyticsProvider).reportActionFailed(
-            screen: 'auth',
-            action: authAction,
-            error: e,
-          );
-      setState(() => _error = actionFailureUserMessage(e));
+    } on AuthException catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'auth',
+        action: authAction,
+        analytics: ref.read(analyticsProvider),
+      );
+      setState(() => _error = actionFailureUserMessage(error));
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'auth',
+        action: authAction,
+        analytics: ref.read(analyticsProvider),
+      );
+      setState(() => _error = actionFailureUserMessage(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

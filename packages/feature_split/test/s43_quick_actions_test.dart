@@ -54,7 +54,8 @@ const _lifecycleLabels = TripLifecycleLabels(
   submitObjection: 'Submit objection',
 );
 
-String _closingDays(int days) => 'Trip closes in $days days unless someone objects.';
+String _closingDays(int days) =>
+    'Trip closes in $days days unless someone objects.';
 
 List<Override> _tripHomeOverrides({
   required String tripId,
@@ -84,7 +85,8 @@ List<Override> _tripHomeOverrides({
     ),
     tripRealtimeBindingProvider(tripId).overrideWith((ref) {}),
     tripDetailProvider(tripId).overrideWith((ref) => Stream.value(detail)),
-    tripHeroBackgroundProvider(tripId).overrideWith((ref) => Future.value(null)),
+    tripHeroBackgroundProvider(tripId)
+        .overrideWith((ref) => Future.value(null)),
     tripMemberCountProvider(tripId).overrideWith((ref) => Stream.value(2)),
     tripMyMemberProvider(tripId).overrideWith((ref) => Stream.value(null)),
     tripHasCloseObjectionProvider(tripId)
@@ -141,7 +143,8 @@ class _StubAuthRepository extends AuthRepository {
 void main() {
   const tripId = 'trip-quick-actions';
 
-  testWidgets('dashboard quick actions scroll with five tiles including Memories',
+  testWidgets(
+      'dashboard quick actions scroll with five tiles including Memories',
       (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -212,7 +215,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CaptureChoiceSheet), findsOneWidget);
-    expect(find.byType(PageView), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(find.byType(ListWheelScrollView), findsOneWidget);
     expect(find.text('Photo'), findsOneWidget);
     expect(find.bySemanticsLabel('Background'), findsOneWidget);
   });
