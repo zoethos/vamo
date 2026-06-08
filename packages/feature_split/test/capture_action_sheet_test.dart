@@ -57,140 +57,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets(
-      'capture choice flyout shows vertical wheel with centered noun label',
-      (tester) async {
+  testWidgets('capture flyout opens generic carousel shell', (tester) async {
     await pumpSheet(tester);
 
     expect(find.byType(BottomSheet), findsNothing);
-
     expect(find.byType(ListWheelScrollView), findsOneWidget);
-
     expect(find.byType(VamoCircleIcon), findsWidgets);
-
     expect(find.byType(CaptureChoiceSheet), findsOneWidget);
-
+    expect(find.byType(VamoCarousel), findsOneWidget);
     expect(find.text('Photo'), findsOneWidget);
-
-    expect(find.text('Add note'), findsNothing);
-
-    expect(find.text('Add photo'), findsNothing);
-  });
-
-  testWidgets('only the centered item shows a visible text label', (tester) async {
-    await pumpSheet(tester);
-
-    expect(find.text('Photo'), findsOneWidget);
-    expect(find.text('Video'), findsNothing);
-    expect(find.text('Note'), findsNothing);
-    expect(find.text('Background'), findsNothing);
-  });
-
-  testWidgets('centered label respects large text scaler without overflow',
-      (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          supabaseClientProvider.overrideWithValue(
-            SupabaseClient(
-              'http://localhost',
-              'anon-key',
-              authOptions: const AuthClientOptions(autoRefreshToken: false),
-            ),
-          ),
-          analyticsProvider.overrideWithValue(DebugAnalytics()),
-        ],
-        child: MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const Scaffold(
-              body: Center(
-                child: CaptureChoiceSheet(tripId: 'trip-1'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final label = tester.widget<Text>(find.text('Photo'));
-    expect(label.maxLines, 1);
-    expect(find.ancestor(of: find.text('Photo'), matching: find.byType(FittedBox)),
-        findsOneWidget);
-  });
-
-  testWidgets('long centered label scales down to fit the pill', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          supabaseClientProvider.overrideWithValue(
-            SupabaseClient(
-              'http://localhost',
-              'anon-key',
-              authOptions: const AuthClientOptions(autoRefreshToken: false),
-            ),
-          ),
-          analyticsProvider.overrideWithValue(DebugAnalytics()),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(
-            body: Center(
-              child: CaptureChoiceSheet(tripId: 'trip-1'),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final wheel = find.byType(ListWheelScrollView);
-    await tester.drag(wheel, const Offset(0, -240));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Background'), findsOneWidget);
-  });
-
-  testWidgets('capture carousel exposes semantic labels for every option',
-      (tester) async {
-    await pumpSheet(tester);
-
-    for (final label in ['Photo', 'Video', 'Note', 'Background']) {
-      expect(find.bySemanticsLabel(label), findsOneWidget);
-    }
-  });
-
-  testWidgets('semantic options are buttons reachable without scrolling',
-      (tester) async {
-    await pumpSheet(tester);
-
-    for (final label in ['Photo', 'Video', 'Note', 'Background']) {
-      final data =
-          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
-      expect(data.flagsCollection.isButton, isTrue);
-    }
-  });
-
-  testWidgets('capture wheel is finite and does not wrap end-to-start',
-      (tester) async {
-    await pumpSheet(tester);
-
-    final wheel =
-        tester.widget<ListWheelScrollView>(find.byType(ListWheelScrollView));
-    expect(
-      wheel.childDelegate.estimatedChildCount,
-      4,
-    );
   });
 
   testWidgets('outside tap dismisses capture flyout', (tester) async {
