@@ -43,6 +43,9 @@ class _SpyExpensesRepository extends ExpensesRepository {
   int proposeCalls = 0;
   int addCalls = 0;
 
+  String? lastProposedCategory;
+  String? lastAddedCategory;
+
   @override
   Future<String> proposeExpense({
     required String tripId,
@@ -52,8 +55,10 @@ class _SpyExpensesRepository extends ExpensesRepository {
     required String currency,
     required int baseCents,
     required double fxRate,
+    String? category,
   }) async {
     proposeCalls++;
+    lastProposedCategory = category;
     return 'proposed-expense-id';
   }
 
@@ -63,6 +68,7 @@ class _SpyExpensesRepository extends ExpensesRepository {
     required String baseCurrency,
   }) async {
     addCalls++;
+    lastAddedCategory = input.category;
     return const AddExpenseResult(expenseId: 'committed-id');
   }
 }

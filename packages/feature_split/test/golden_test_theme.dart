@@ -2,7 +2,8 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 
 /// Theme for golden / script smoke tests — deterministic Noto font stack.
-ThemeData goldenTestTheme() {
+ThemeData goldenTestTheme({Brightness brightness = Brightness.light}) {
+  final base = brightness == Brightness.dark ? AppTheme.dark : AppTheme.light;
   const fallbacks = [
     'NotoSansArabic',
     'NotoSansHebrew',
@@ -10,28 +11,28 @@ ThemeData goldenTestTheme() {
     'NotoSansDevanagari',
   ];
 
-  return AppTheme.light.copyWith(
-    textTheme: AppTheme.light.textTheme.apply(
+  return base.copyWith(
+    textTheme: base.textTheme.apply(
       fontFamily: 'NotoSans',
       fontFamilyFallback: fallbacks,
     ),
-    primaryTextTheme: AppTheme.light.primaryTextTheme.apply(
+    primaryTextTheme: base.primaryTextTheme.apply(
       fontFamily: 'NotoSans',
       fontFamilyFallback: fallbacks,
     ),
-    appBarTheme: AppTheme.light.appBarTheme.copyWith(
-      titleTextStyle: AppTheme.light.appBarTheme.titleTextStyle?.copyWith(
+    appBarTheme: base.appBarTheme.copyWith(
+      titleTextStyle: base.appBarTheme.titleTextStyle?.copyWith(
         fontFamily: 'NotoSans',
         fontFamilyFallback: fallbacks,
       ),
     ),
-    tabBarTheme: AppTheme.light.tabBarTheme.copyWith(
-      labelStyle: AppTheme.light.tabBarTheme.labelStyle?.copyWith(
+    tabBarTheme: base.tabBarTheme.copyWith(
+      labelStyle: base.tabBarTheme.labelStyle?.copyWith(
         fontFamily: 'NotoSans',
         fontFamilyFallback: fallbacks,
       ),
       unselectedLabelStyle:
-          AppTheme.light.tabBarTheme.unselectedLabelStyle?.copyWith(
+          base.tabBarTheme.unselectedLabelStyle?.copyWith(
         fontFamily: 'NotoSans',
         fontFamilyFallback: fallbacks,
       ),

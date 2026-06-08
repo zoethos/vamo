@@ -105,17 +105,11 @@ void main() {
       rtlHarness(
         child: SizedBox(
           width: 400,
-          child: DefaultTabController(
-            length: 2,
-            child: AppBar(
-              title: const Text('رحلة العائلة'),
-              bottom: const TabBar(
-                tabs: [
-                  Tab(text: 'المصروفات'),
-                  Tab(text: 'الأعضاء'),
-                ],
-              ),
-            ),
+          child: AppBar(
+            leading: const BackButton(),
+            actions: const [
+              Icon(Icons.more_horiz),
+            ],
           ),
         ),
       ),

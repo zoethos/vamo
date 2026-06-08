@@ -12,6 +12,8 @@ class LocalTrips extends Table {
   TextColumn get lifecycle => text().withDefault(const Constant('active'))();
   TextColumn get budgetMode => text().withDefault(const Constant('none'))();
   IntColumn get budgetCents => integer().nullable()();
+  TextColumn get backgroundPath => text().nullable()();
+  TextColumn get backgroundLocalPath => text().nullable()();
   DateTimeColumn get closeRequestedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();

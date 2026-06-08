@@ -15,6 +15,10 @@ abstract final class AppRoutes {
   static const tripCreate = '/trips/create';
 
   static String trip(String id) => '/trips/$id';
+  static String tripExpenses(String tripId) => '/trips/$tripId/expenses';
+  static String tripPlan(String tripId) => '/trips/$tripId/plan';
+  static String tripBalances(String tripId) => '/trips/$tripId/balances';
+  static String tripMembers(String tripId) => '/trips/$tripId/members';
   static String tripAddExpense(String tripId) => '/trips/$tripId/expenses/new';
   static String tripProposeExpense(String tripId) =>
       '/trips/$tripId/expenses/propose';
@@ -22,6 +26,7 @@ abstract final class AppRoutes {
   static String tripSnapshot(String tripId) => '/trips/$tripId/snapshot';
   static String tripAddCaptureNote(String tripId) =>
       '/trips/$tripId/capture/note';
+  static String tripMemories(String tripId) => '/trips/$tripId/memories';
   static const join = '/join';
   static const loginCallback = '/login-callback';
 }

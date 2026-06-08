@@ -162,22 +162,84 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/trips/:tripId',
         name: 'trip_home',
         parentNavigatorKey: _rootNavigatorKey,
+        redirect: (context, state) {
+          final segments = state.uri.pathSegments;
+          if (segments.length == 2 &&
+              segments.first == 'trips' &&
+              state.uri.queryParameters['tab'] == 'balances') {
+            return AppRoutes.tripBalances(state.pathParameters['tripId']!);
+          }
+          return null;
+        },
         builder: (context, state) {
           final id = state.pathParameters['tripId']!;
           final l10n = AppLocalizations.of(context);
           return TripHomeScreen(
             tripId: id,
             initialTab: state.uri.queryParameters['tab'],
-            inviteLabels: SplitLabels.invite(l10n),
-            planLabels: SplitLabels.plan(l10n),
-            governanceLabels: SplitLabels.governance(l10n),
-            budgetLabels: SplitLabels.budget(l10n),
             lifecycleLabels: SplitLabels.lifecycle(l10n),
             tripHomeLabels: SplitLabels.tripHome(l10n),
-            balancesLabels: SplitLabels.balances(l10n),
           );
         },
         routes: [
+          GoRoute(
+            path: 'expenses',
+            name: 'trip_expenses',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripExpensesScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+                governanceLabels: SplitLabels.governance(l10n),
+                budgetLabels: SplitLabels.budget(l10n),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'plan',
+            name: 'trip_plan',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripPlanScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+                planLabels: SplitLabels.plan(l10n),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'balances',
+            name: 'trip_balances',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripBalancesScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+                governanceLabels: SplitLabels.governance(l10n),
+                balancesLabels: SplitLabels.balances(l10n),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'members',
+            name: 'trip_members',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripMembersScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+                inviteLabels: SplitLabels.invite(l10n),
+              );
+            },
+          ),
           GoRoute(
             path: 'settings',
             name: 'trip_settings',
@@ -236,6 +298,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final id = state.pathParameters['tripId']!;
               return AddCaptureNoteScreen(tripId: id);
+            },
+          ),
+          GoRoute(
+            path: 'memories',
+            name: 'trip_memories',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripMemoriesScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+              );
             },
           ),
         ],

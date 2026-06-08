@@ -37,6 +37,8 @@ class TripDetail {
     this.closeRequestedAt,
     this.budgetMode = 'none',
     this.budgetCents,
+    this.backgroundStoragePath,
+    this.backgroundLocalPath,
   });
 
   final String id;
@@ -50,6 +52,8 @@ class TripDetail {
   final DateTime? closeRequestedAt;
   final String budgetMode;
   final int? budgetCents;
+  final String? backgroundStoragePath;
+  final String? backgroundLocalPath;
 }
 
 class CreateTripInput {

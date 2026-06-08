@@ -18,6 +18,10 @@ class ProfileScreenLabels {
     required this.tagline,
     required this.loadError,
     required this.profileSection,
+    required this.appearanceSection,
+    required this.appearanceLight,
+    required this.appearanceDark,
+    required this.appearanceSystem,
     required this.displayName,
     required this.displayNameHint,
     required this.defaultCurrency,
@@ -48,6 +52,10 @@ class ProfileScreenLabels {
   final String tagline;
   final String loadError;
   final String profileSection;
+  final String appearanceSection;
+  final String appearanceLight;
+  final String appearanceDark;
+  final String appearanceSystem;
   final String displayName;
   final String displayNameHint;
   final String defaultCurrency;
@@ -168,6 +176,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _baseCurrency = v;
                     _dirty = true;
                   });
+                },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                widget.labels.appearanceSection,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: context.vamoColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<VamoThemePreference>(
+                segments: [
+                  ButtonSegment(
+                    value: VamoThemePreference.light,
+                    label: Text(widget.labels.appearanceLight),
+                  ),
+                  ButtonSegment(
+                    value: VamoThemePreference.dark,
+                    label: Text(widget.labels.appearanceDark),
+                  ),
+                  ButtonSegment(
+                    value: VamoThemePreference.system,
+                    label: Text(widget.labels.appearanceSystem),
+                  ),
+                ],
+                selected: {ref.watch(themePreferenceProvider)},
+                onSelectionChanged: (selection) {
+                  ref
+                      .read(themePreferenceProvider.notifier)
+                      .setPreference(selection.first);
                 },
               ),
               const SizedBox(height: 24),

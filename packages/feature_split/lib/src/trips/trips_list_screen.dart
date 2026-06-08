@@ -1,9 +1,13 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../invites/invite_flow.dart';
-import 'trip_card.dart';
+import 'compact_trip_card.dart';
+import 'featured_trip_card.dart';
 import 'trip_format.dart';
+import 'trip_list_layout.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
 
@@ -14,6 +18,8 @@ class TripsListScreenLabels {
     required this.title,
     required this.emptyTitle,
     required this.emptySubtitle,
+    required this.emptyUpcomingTitle,
+    required this.emptyPastTitle,
     required this.syncPendingLabel,
     required this.syncSubtitle,
     required this.filterAll,
@@ -22,11 +28,18 @@ class TripsListScreenLabels {
     required this.filterDrafts,
     required this.loadError,
     required this.syncError,
+    required this.sectionUpcoming,
+    required this.sectionPast,
+    required this.participants,
+    required this.notificationsTooltip,
+    required this.createTripTooltip,
   });
 
   final String title;
   final String emptyTitle;
   final String emptySubtitle;
+  final String emptyUpcomingTitle;
+  final String emptyPastTitle;
   final String Function(int count) syncPendingLabel;
   final String syncSubtitle;
   final String filterAll;
@@ -35,6 +48,11 @@ class TripsListScreenLabels {
   final String filterDrafts;
   final String loadError;
   final String syncError;
+  final String sectionUpcoming;
+  final String sectionPast;
+  final String Function(int count) participants;
+  final String notificationsTooltip;
+  final String createTripTooltip;
 }
 
 class TripsListScreen extends ConsumerStatefulWidget {
@@ -66,21 +84,126 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
       TripListFilter.upcoming => list.where((t) {
           final start = parseTripDate(t.startDate);
           return start != null && start.isAfter(now);
-        }).toList(),
+        }).toList(growable: false),
       TripListFilter.past => list.where((t) {
           final end = parseTripDate(t.endDate) ?? parseTripDate(t.startDate);
           return end != null && end.isBefore(now);
-        }).toList(),
+        }).toList(growable: false),
     };
+  }
+
+  String _emptyTitle({required List<TripSummary> allTrips}) {
+    if (allTrips.isEmpty && _filter == TripListFilter.all) {
+      return widget.labels.emptyTitle;
+    }
+    return switch (_filter) {
+      TripListFilter.all => widget.labels.emptyTitle,
+      TripListFilter.upcoming => widget.labels.emptyUpcomingTitle,
+      TripListFilter.past => widget.labels.emptyPastTitle,
+      TripListFilter.drafts => widget.labels.emptyPastTitle,
+    };
+  }
+
+  Widget _buildTripList({
+    required List<TripSummary> filtered,
+    required int pendingSync,
+  }) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
+
+    final layout = layoutTripsForMyTrips(filtered);
+    final showHierarchy =
+        _filter == TripListFilter.all || _filter == TripListFilter.upcoming;
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsetsDirectional.fromSTEB(
+        space.x4,
+        0,
+        space.x4,
+        space.x4,
+      ),
+      children: [
+        if (pendingSync > 0) ...[
+          _SyncBanner(
+            count: pendingSync,
+            labels: widget.labels,
+            onTap: () => ref.invalidate(tripsSyncProvider),
+          ),
+          SizedBox(height: space.x3),
+        ],
+        if (showHierarchy && layout.hasFeatured) ...[
+          FeaturedTripCard(
+            trip: layout.featured!,
+            participantsLabel: widget.labels.participants,
+          ),
+          if (layout.upcoming.isNotEmpty) ...[
+            SizedBox(height: space.x4),
+            Text(
+              widget.labels.sectionUpcoming,
+              style: type.titleSmall.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: space.x2),
+          ],
+        ],
+        if (showHierarchy) ...[
+          for (final trip in layout.upcoming) ...[
+            CompactTripCard(
+              trip: trip,
+              participantsLabel: widget.labels.participants,
+            ),
+            SizedBox(height: space.x2),
+          ],
+          if (_filter == TripListFilter.all && layout.past.isNotEmpty) ...[
+            SizedBox(height: space.x2),
+            Text(
+              widget.labels.sectionPast,
+              style: type.titleSmall.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            SizedBox(height: space.x2),
+            for (final trip in layout.past) ...[
+              CompactTripCard(
+                trip: trip,
+                participantsLabel: widget.labels.participants,
+              ),
+              SizedBox(height: space.x2),
+            ],
+          ],
+          if (_filter == TripListFilter.all && layout.other.isNotEmpty)
+            for (final trip in layout.other) ...[
+              CompactTripCard(
+                trip: trip,
+                participantsLabel: widget.labels.participants,
+              ),
+              SizedBox(height: space.x2),
+            ],
+        ] else
+          _FlatCompactList(
+            trips: filtered,
+            participantsLabel: widget.labels.participants,
+          ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
     final sync = ref.watch(tripsSyncProvider);
     final trips = ref.watch(tripsListProvider);
     final pendingSync = ref.watch(pendingSyncCountProvider).valueOrNull ?? 0;
 
     return Scaffold(
+      backgroundColor: colors.background,
       appBar: AppBar(
         title: Row(
           children: [
@@ -88,15 +211,37 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
               BrandAssets.primaryMark,
               height: 28,
             ),
-            const SizedBox(width: 10),
-            Expanded(child: Text(widget.labels.title)),
+            SizedBox(width: space.x3),
+            Expanded(
+              child: Text(
+                widget.labels.title,
+                style: type.titleMedium.copyWith(color: colors.onBackground),
+              ),
+            ),
           ],
         ),
         actions: [
+          VamoCircleIcon(
+            diameter: 40,
+            backgroundColor: colors.surface,
+            shadow: false,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Notifications coming soon')),
+              );
+            },
+            tooltip: widget.labels.notificationsTooltip,
+            child: Icon(
+              Icons.notifications_outlined,
+              color: colors.secondary,
+              size: 22,
+            ),
+          ),
+          SizedBox(width: space.x1),
           IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(tripsSyncProvider),
+            tooltip: widget.labels.createTripTooltip,
+            icon: const Icon(Icons.add),
+            onPressed: () => context.push(AppRoutes.tripCreate),
           ),
         ],
       ),
@@ -117,87 +262,47 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
           ),
           data: (list) {
             final filtered = _filtered(list);
+            final globalEmpty = list.isEmpty;
+            final filterEmpty = filtered.isEmpty;
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 0),
-                  child: Row(
-                    children: [
-                      _FilterPill(
-                        label: widget.labels.filterAll,
-                        selected: _filter == TripListFilter.all,
-                        onTap: () =>
-                            setState(() => _filter = TripListFilter.all),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterPill(
-                        label: widget.labels.filterUpcoming,
-                        selected: _filter == TripListFilter.upcoming,
-                        onTap: () =>
-                            setState(() => _filter = TripListFilter.upcoming),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterPill(
-                        label: widget.labels.filterPast,
-                        selected: _filter == TripListFilter.past,
-                        onTap: () =>
-                            setState(() => _filter = TripListFilter.past),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterPill(
-                        label: widget.labels.filterDrafts,
-                        selected: _filter == TripListFilter.drafts,
-                        onTap: () =>
-                            setState(() => _filter = TripListFilter.drafts),
-                      ),
-                    ],
+                Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(
+                    space.x4,
+                    space.x3,
+                    space.x4,
+                    0,
+                  ),
+                  child: _FilterRow(
+                    key: const Key('trips_filter_row'),
+                    labels: widget.labels,
+                    filter: _filter,
+                    showDraftsFilter: false,
+                    onFilterChanged: (f) => setState(() => _filter = f),
                   ),
                 ),
                 Expanded(
-                  child: filtered.isEmpty
+                  child: filterEmpty
                       ? AppEmptyState(
                           screen: 'trips_list',
                           icon: Icons.airport_shuttle_outlined,
-                          title: widget.labels.emptyTitle,
-                          subtitle: widget.labels.emptySubtitle,
-                          useBrandMark: true,
+                          title: _emptyTitle(allTrips: list),
+                          subtitle: globalEmpty && _filter == TripListFilter.all
+                              ? widget.labels.emptySubtitle
+                              : null,
+                          useBrandMark:
+                              globalEmpty && _filter == TripListFilter.all,
                         )
                       : RefreshIndicator(
                           onRefresh: () async {
                             ref.invalidate(tripsSyncProvider);
                             await ref.read(tripsSyncProvider.future);
                           },
-                          child: ListView.separated(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsetsDirectional.all(16),
-                            itemCount:
-                                filtered.length + (pendingSync > 0 ? 1 : 0),
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, i) {
-                              if (pendingSync > 0 && i == 0) {
-                                return Material(
-                                  color: AppColors.blush,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: ListTile(
-                                    leading: const Icon(
-                                      Icons.cloud_upload_outlined,
-                                      color: AppColors.jadeTeal,
-                                    ),
-                                    title: Text(
-                                      widget.labels.syncPendingLabel(pendingSync),
-                                    ),
-                                    subtitle: Text(widget.labels.syncSubtitle),
-                                    onTap: () =>
-                                        ref.invalidate(tripsSyncProvider),
-                                  ),
-                                );
-                              }
-                              final index = pendingSync > 0 ? i - 1 : i;
-                              return TripCard(trip: filtered[index]);
-                            },
+                          child: _buildTripList(
+                            filtered: filtered,
+                            pendingSync: pendingSync,
                           ),
                         ),
                 ),
@@ -205,6 +310,117 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({
+    super.key,
+    required this.labels,
+    required this.filter,
+    required this.onFilterChanged,
+    this.showDraftsFilter = false,
+  });
+
+  final TripsListScreenLabels labels;
+  final TripListFilter filter;
+  final ValueChanged<TripListFilter> onFilterChanged;
+  final bool showDraftsFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final space = context.vamoSpace;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FilterPill(
+            label: labels.filterAll,
+            selected: filter == TripListFilter.all,
+            onTap: () => onFilterChanged(TripListFilter.all),
+          ),
+          SizedBox(width: space.x2),
+          _FilterPill(
+            label: labels.filterUpcoming,
+            selected: filter == TripListFilter.upcoming,
+            onTap: () => onFilterChanged(TripListFilter.upcoming),
+          ),
+          SizedBox(width: space.x2),
+          _FilterPill(
+            label: labels.filterPast,
+            selected: filter == TripListFilter.past,
+            onTap: () => onFilterChanged(TripListFilter.past),
+          ),
+          if (showDraftsFilter) ...[
+            SizedBox(width: space.x2),
+            _FilterPill(
+              label: labels.filterDrafts,
+              selected: filter == TripListFilter.drafts,
+              onTap: () => onFilterChanged(TripListFilter.drafts),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FlatCompactList extends StatelessWidget {
+  const _FlatCompactList({
+    required this.trips,
+    required this.participantsLabel,
+  });
+
+  final List<TripSummary> trips;
+  final String Function(int count) participantsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final space = context.vamoSpace;
+    return Column(
+      children: [
+        for (final trip in trips) ...[
+          CompactTripCard(
+            trip: trip,
+            participantsLabel: participantsLabel,
+          ),
+          SizedBox(height: space.x2),
+        ],
+      ],
+    );
+  }
+}
+
+class _SyncBanner extends StatelessWidget {
+  const _SyncBanner({
+    required this.count,
+    required this.labels,
+    required this.onTap,
+  });
+
+  final int count;
+  final TripsListScreenLabels labels;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final shape = context.vamoShape;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.accent.withValues(alpha: 0.08),
+        borderRadius: shape.cardBorderRadius,
+      ),
+      child: ListTile(
+        leading: Icon(
+          Icons.cloud_upload_outlined,
+          color: colors.secondary,
+        ),
+        title: Text(labels.syncPendingLabel(count)),
+        subtitle: Text(labels.syncSubtitle),
+        onTap: onTap,
       ),
     );
   }
@@ -227,8 +443,6 @@ class _FilterPill extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
-      selectedColor: AppColors.goLime.withValues(alpha: 0.35),
-      checkmarkColor: AppColors.ink,
     );
   }
 }

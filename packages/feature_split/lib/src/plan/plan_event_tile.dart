@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../shared/vamo_slidable_row.dart';
 import 'event_rsvp_models.dart';
-import 'plan_event_rsvp_chips.dart';
+import 'plan_event_rsvp_picker.dart';
 import 'plan_labels.dart';
 
 class PlanEventTile extends ConsumerWidget {
@@ -27,13 +28,14 @@ class PlanEventTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.vamoColors;
     final item = view.item;
     final dateLabel = item.startsAt == null
         ? null
         : DateFormat.yMMMd().format(item.startsAt!.toLocal());
     final placeLabel = item.notes?.trim();
 
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         padding: const EdgeInsetsDirectional.fromSTEB(12, 12, 12, 8),
@@ -45,7 +47,7 @@ class PlanEventTile extends ConsumerWidget {
               children: [
                 Icon(
                   item.kind.icon,
-                  color: AppColors.jadeTeal,
+                  color: colors.secondary,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -74,7 +76,7 @@ class PlanEventTile extends ConsumerWidget {
                           dateLabel,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.graphite,
+                                    color: colors.onSurfaceMuted,
                                   ),
                         ),
                       if (placeLabel != null && placeLabel.isNotEmpty)
@@ -93,23 +95,23 @@ class PlanEventTile extends ConsumerWidget {
                                 _RsvpCountPill(
                                   count: view.counts.going,
                                   label: labels.rsvpGoing,
-                                  foreground: AppColors.ink,
-                                  background: AppColors.jadeTeal
+                                  foreground: colors.onSurface,
+                                  background: colors.secondary
                                       .withValues(alpha: 0.18),
                                 ),
                               if (view.counts.maybe > 0)
                                 _RsvpCountPill(
                                   count: view.counts.maybe,
                                   label: labels.rsvpMaybe,
-                                  foreground: AppColors.graphite,
-                                  background: AppColors.mistGray,
+                                  foreground: colors.onSurfaceMuted,
+                                  background: colors.surfaceMuted,
                                 ),
                               if (view.counts.declined > 0)
                                 _RsvpCountPill(
                                   count: view.counts.declined,
                                   label: labels.rsvpDeclined,
-                                  foreground: AppColors.coralText,
-                                  background: AppColors.coralText
+                                  foreground: colors.error,
+                                  background: colors.error
                                       .withValues(alpha: 0.12),
                                 ),
                             ],
@@ -119,34 +121,29 @@ class PlanEventTile extends ConsumerWidget {
                   ),
                 ),
                 if (!readOnly)
-                  PopupMenuButton<String>(
-                    onSelected: (v) {
-                      if (v == 'edit') onEdit();
-                      if (v == 'delete') onDelete();
-                    },
-                    itemBuilder: (ctx) => [
-                      PopupMenuItem(
-                          value: 'edit', child: Text(labels.editItem)),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text(labels.deleteItem),
-                      ),
-                    ],
+                  PlanEventRsvpControl(
+                    planItemId: item.id,
+                    labels: labels,
+                    myStatus: view.myStatus,
                   ),
               ],
             ),
-            if (!readOnly) ...[
-              const SizedBox(height: 8),
-              PlanEventRsvpChips(
-                planItemId: item.id,
-                labels: labels,
-                myStatus: view.myStatus,
-                readOnly: false,
-              ),
-            ],
           ],
         ),
       ),
+    );
+
+    if (readOnly) return card;
+
+    return VamoSlidableRow(
+      editLabel: labels.editItem,
+      deleteLabel: labels.deleteItem,
+      deleteConfirmTitle: labels.deleteConfirmTitle,
+      deleteConfirmAction: labels.deleteItem,
+      cancelLabel: labels.cancelLabel,
+      onEdit: onEdit,
+      onDelete: onDelete,
+      child: card,
     );
   }
 }

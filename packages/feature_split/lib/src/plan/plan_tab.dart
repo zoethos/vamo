@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../shared/vamo_slidable_row.dart';
 import 'event_rsvp_models.dart';
 import 'plan_event_tile.dart';
 import 'plan_item_sheet.dart';
@@ -16,12 +17,14 @@ class PlanTab extends ConsumerStatefulWidget {
     required this.tripId,
     required this.labels,
     required this.readOnly,
-    this.showInlineAddAction = true,
+    this.showInlineAddAction = false,
   });
 
   final String tripId;
   final PlanTabLabels labels;
   final bool readOnly;
+
+  /// Legacy inline add controls — S38 uses header "+" + add menu instead.
   final bool showInlineAddAction;
 
   @override
@@ -29,20 +32,46 @@ class PlanTab extends ConsumerStatefulWidget {
 }
 
 class PlanTabState extends ConsumerState<PlanTab> {
-  /// Opens the add-plan-item sheet (used by trip-home FAB on the Plan tab).
   void openAddPlanItem() => _openSheet(context, null);
-  final _listNameController = TextEditingController();
-  final _listItemController = TextEditingController();
 
-  @override
-  void dispose() {
-    _listNameController.dispose();
-    _listItemController.dispose();
-    super.dispose();
+  /// Header "+" — choose event/plan item or checklist item.
+  Future<void> openAddMenu() async {
+    if (widget.readOnly) return;
+    final choice = await showModalBottomSheet<_PlanAddChoice>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.event_outlined),
+              title: Text(widget.labels.addPlanItem),
+              onTap: () => Navigator.pop(ctx, _PlanAddChoice.planItem),
+            ),
+            ListTile(
+              leading: const Icon(Icons.checklist_outlined),
+              title: Text(widget.labels.addChecklistItem),
+              onTap: () => Navigator.pop(ctx, _PlanAddChoice.checklistItem),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    switch (choice) {
+      case _PlanAddChoice.planItem:
+        await _openSheet(context, null);
+      case _PlanAddChoice.checklistItem:
+        await _openAddChecklistSheet();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
     final plans = ref.watch(tripPlanItemsProvider(widget.tripId));
     final lists = ref.watch(tripListItemsProvider(widget.tripId));
     final eventViews = ref.watch(tripPlanEventViewsProvider(widget.tripId));
@@ -69,30 +98,17 @@ class PlanTabState extends ConsumerState<PlanTab> {
 
             if (planItems.isEmpty && listItems.isEmpty) {
               return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AppEmptyState(
-                      screen: 'trip_plan',
-                      icon: Icons.view_kanban_outlined,
-                      title: widget.labels.emptyTitle,
-                      subtitle: widget.labels.emptySubtitle,
-                    ),
-                    if (!widget.readOnly && widget.showInlineAddAction) ...[
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () => _openSheet(context, null),
-                        icon: const Icon(Icons.add),
-                        label: Text(widget.labels.addPlanItem),
-                      ),
-                    ],
-                  ],
+                child: AppEmptyState(
+                  screen: 'trip_plan',
+                  icon: Icons.view_kanban_outlined,
+                  title: widget.labels.emptyTitle,
+                  subtitle: widget.labels.emptySubtitle,
                 ),
               );
             }
 
             return ListView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(space.x4),
               children: [
                 if (!widget.readOnly && widget.showInlineAddAction)
                   Align(
@@ -106,12 +122,12 @@ class PlanTabState extends ConsumerState<PlanTab> {
                 for (final section in grouped) ...[
                   Text(
                     section.dayKey ?? widget.labels.undatedSection,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.graphite,
-                        ),
+                    style: type.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurfaceMuted,
+                    ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: space.x2),
                   ...section.items.map(
                     (item) {
                       if (item.kind == PlanItemKind.activity) {
@@ -139,57 +155,24 @@ class PlanTabState extends ConsumerState<PlanTab> {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: space.x4),
                 ],
-                Text(
-                  widget.labels.checklistsSection,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                for (final entry in checklists.entries) ...[
-                  Text(entry.key,
-                      style: Theme.of(context).textTheme.labelLarge),
-                  ...entry.value.map(
-                    (item) => CheckboxListTile(
-                      value: item.isChecked,
-                      onChanged: widget.readOnly
-                          ? null
-                          : (_) => repo.toggleListItem(item.id),
-                      title: Text(item.label),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
+                if (checklists.isNotEmpty) ...[
+                  Text(
+                    widget.labels.checklistsSection,
+                    style: type.titleSmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                ],
-                if (!widget.readOnly) ...[
-                  TextField(
-                    controller: _listNameController,
-                    decoration: InputDecoration(
-                      labelText: widget.labels.defaultListName,
-                      hintText: widget.labels.defaultListName,
+                  SizedBox(height: space.x2),
+                  for (final entry in checklists.entries)
+                    _ChecklistSection(
+                      listName: entry.key,
+                      items: entry.value,
+                      readOnly: widget.readOnly,
+                      onToggle: (id) => repo.toggleListItem(id),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _listItemController,
-                          decoration: InputDecoration(
-                            hintText: widget.labels.addListItemHint,
-                          ),
-                          onSubmitted: (_) => _addListItem(repo),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => _addListItem(repo),
-                        icon: const Icon(Icons.add_circle_outline),
-                      ),
-                    ],
-                  ),
                 ],
               ],
             );
@@ -199,21 +182,78 @@ class PlanTabState extends ConsumerState<PlanTab> {
     );
   }
 
-  Future<void> _addListItem(PlanRepository repo) async {
-    final listName = _listNameController.text.trim().isEmpty
-        ? widget.labels.defaultListName
-        : _listNameController.text.trim();
-    final label = _listItemController.text.trim();
-    if (label.isEmpty) return;
-    await repo.addListItem(
-      tripId: widget.tripId,
-      listName: listName,
-      label: label,
+  Future<void> _openAddChecklistSheet() async {
+    final listNameController = TextEditingController(
+      text: widget.labels.defaultListName,
     );
-    _listItemController.clear();
-    if (_listNameController.text.isEmpty) {
-      _listNameController.text = listName;
-    }
+    final itemController = TextEditingController();
+    final repo = ref.read(planRepositoryProvider);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        final colors = ctx.vamoColors;
+        final space = ctx.vamoSpace;
+        return Padding(
+          padding: EdgeInsetsDirectional.only(
+            start: space.x4,
+            end: space.x4,
+            bottom: MediaQuery.viewInsetsOf(ctx).bottom + space.x4,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.labels.addChecklistItem,
+                style: Theme.of(ctx).textTheme.titleMedium,
+              ),
+              SizedBox(height: space.x3),
+              TextField(
+                controller: listNameController,
+                decoration: InputDecoration(
+                  labelText: widget.labels.defaultListName,
+                ),
+              ),
+              SizedBox(height: space.x2),
+              TextField(
+                controller: itemController,
+                decoration: InputDecoration(
+                  labelText: widget.labels.addListItemHint,
+                ),
+                textInputAction: TextInputAction.done,
+              ),
+              SizedBox(height: space.x3),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.secondary,
+                  foregroundColor: colors.onSecondary,
+                ),
+                onPressed: () async {
+                  final listName = listNameController.text.trim().isEmpty
+                      ? widget.labels.defaultListName
+                      : listNameController.text.trim();
+                  final label = itemController.text.trim();
+                  if (label.isEmpty) return;
+                  await repo.addListItem(
+                    tripId: widget.tripId,
+                    listName: listName,
+                    label: label,
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: Text(widget.labels.save),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    listNameController.dispose();
+    itemController.dispose();
   }
 
   Future<void> _openSheet(BuildContext context, PlanItemSummary? existing) {
@@ -245,6 +285,79 @@ class PlanTabState extends ConsumerState<PlanTab> {
   }
 }
 
+enum _PlanAddChoice { planItem, checklistItem }
+
+class _ChecklistSection extends StatelessWidget {
+  const _ChecklistSection({
+    required this.listName,
+    required this.items,
+    required this.readOnly,
+    required this.onToggle,
+  });
+
+  final String listName;
+  final List<TripListItemSummary> items;
+  final bool readOnly;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
+    final radius = context.vamoShape;
+
+    return Card(
+      margin: EdgeInsetsDirectional.only(bottom: space.x3),
+      color: colors.surfaceMuted,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius.cardBorderRadius,
+        side: BorderSide(color: colors.onSurfaceMuted.withValues(alpha: 0.25)),
+      ),
+      child: Padding(
+        padding: EdgeInsetsDirectional.fromSTEB(
+          space.x2,
+          space.x2,
+          space.x2,
+          space.x1,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              listName,
+              style: type.labelLarge.copyWith(
+                fontWeight: FontWeight.w700,
+                color: colors.onSurface,
+              ),
+            ),
+            SizedBox(height: space.x1),
+            for (final item in items)
+              CheckboxListTile(
+                value: item.isChecked,
+                onChanged: readOnly ? null : (_) => onToggle(item.id),
+                title: Text(
+                  item.label,
+                  style: type.bodyMedium.copyWith(color: colors.onSurface),
+                ),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsetsDirectional.zero,
+                dense: true,
+                shape: RoundedRectangleBorder(
+                  borderRadius: radius.controlBorderRadius,
+                ),
+                checkboxShape: RoundedRectangleBorder(
+                  borderRadius: radius.chipBorderRadius,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PlanItemTile extends StatelessWidget {
   const _PlanItemTile({
     required this.item,
@@ -262,29 +375,30 @@ class _PlanItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final colors = context.vamoColors;
+    final tile = Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Icon(item.kind.icon, color: AppColors.jadeTeal),
+        leading: Icon(item.kind.icon, color: colors.secondary),
         title: Text(item.title),
         subtitle: item.notes == null || item.notes!.isEmpty
             ? null
             : Text(item.notes!),
-        trailing: readOnly
-            ? null
-            : PopupMenuButton<String>(
-                onSelected: (v) {
-                  if (v == 'edit') onEdit();
-                  if (v == 'delete') onDelete();
-                },
-                itemBuilder: (ctx) => [
-                  PopupMenuItem(value: 'edit', child: Text(labels.editItem)),
-                  PopupMenuItem(
-                      value: 'delete', child: Text(labels.deleteItem)),
-                ],
-              ),
         onTap: readOnly ? null : onEdit,
       ),
+    );
+
+    if (readOnly) return tile;
+
+    return VamoSlidableRow(
+      editLabel: labels.editItem,
+      deleteLabel: labels.deleteItem,
+      deleteConfirmTitle: labels.deleteConfirmTitle,
+      deleteConfirmAction: labels.deleteItem,
+      cancelLabel: labels.cancelLabel,
+      onEdit: onEdit,
+      onDelete: onDelete,
+      child: tile,
     );
   }
 }

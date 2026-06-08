@@ -45,6 +45,7 @@ class MainShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final index = navigationShell.currentIndex;
+    final colors = context.vamoColors;
 
     return Scaffold(
       body: navigationShell,
@@ -56,9 +57,11 @@ class MainShell extends ConsumerWidget {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        color: AppColors.surface,
+        height: 56,
+        padding: EdgeInsets.zero,
+        color: colors.surface,
         child: Padding(
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: 8),
+          padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -140,22 +143,35 @@ class _NavSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.ink : AppColors.graphite;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(selected ? selectedIcon : icon, color: color, size: 24),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+    final colors = context.vamoColors;
+    final color = selected ? colors.onSurface : colors.onSurfaceMuted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.symmetric(horizontal: 2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(selected ? selectedIcon : icon, color: color, size: 22),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: color,
+                        fontSize: 10,
+                        height: 1.1,
+                      ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

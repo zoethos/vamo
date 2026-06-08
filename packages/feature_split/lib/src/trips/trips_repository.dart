@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import '../expenses/expenses_repository.dart';
 import '../plan/plan_repository.dart';
 import '../places/places_repository.dart';
 import '../settle/settlements_repository.dart';
+import 'trip_background_storage.dart';
 import 'trip_fx_models.dart';
 import 'trips_models.dart';
 
@@ -94,6 +97,8 @@ class TripsRepository {
         closeRequestedAt: row.closeRequestedAt,
         budgetMode: row.budgetMode,
         budgetCents: row.budgetCents,
+        backgroundStoragePath: row.backgroundPath,
+        backgroundLocalPath: row.backgroundLocalPath,
       );
     });
   }
@@ -250,6 +255,7 @@ class TripsRepository {
           ),
           budgetMode: Value((row['budget_mode'] as String?) ?? 'none'),
           budgetCents: Value(row['budget_cents'] as int?),
+          backgroundPath: Value(row['background_path'] as String?),
           createdAt: Value(created),
           updatedAt: Value(now),
         ),
@@ -500,7 +506,106 @@ class TripsRepository {
 
   static const _tripSelectFields =
       'id, name, destination, start_date, end_date, owner_id, base_currency, '
-      'lifecycle, close_requested_at, budget_mode, budget_cents, created_at';
+      'lifecycle, close_requested_at, budget_mode, budget_cents, background_path, '
+      'created_at';
+
+  /// Caches the hero background locally when only the remote path is known.
+  Future<String?> ensureTripBackgroundCached({
+    required String tripId,
+    required String storagePath,
+  }) async {
+    final trip = await _db.watchTrip(tripId).first;
+    final local = trip?.backgroundLocalPath;
+    if (local != null && local.isNotEmpty && await File(local).exists()) {
+      return local;
+    }
+
+    final result = await TripBackgroundStorage.cacheFromStorage(
+      client: _client,
+      tripId: tripId,
+      storagePath: storagePath,
+    );
+    if (result.isSuccess && result.localPath != null) {
+      await _db.upsertTrip(
+        LocalTripsCompanion(
+          id: Value(tripId),
+          backgroundLocalPath: Value(result.localPath),
+        ),
+      );
+      return result.localPath;
+    }
+    return null;
+  }
+
+  /// Sets the trip hero background — separate from [CaptureRepository.addPhoto].
+  Future<void> setTripBackground({
+    required String tripId,
+    required String sourcePath,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Must be signed in to set a trip background');
+    }
+
+    final localPath = await TripBackgroundStorage.persist(
+      tripId: tripId,
+      sourcePath: sourcePath,
+    );
+
+    await _db.upsertTrip(
+      LocalTripsCompanion(
+        id: Value(tripId),
+        backgroundLocalPath: Value(localPath),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+
+    try {
+      final storagePath = await _uploadTripBackground(
+        userId: userId,
+        tripId: tripId,
+        localPath: localPath,
+      );
+      await _client.rpc('set_trip_background', params: {
+        'p_trip_id': tripId,
+        'p_background_path': storagePath,
+      });
+      await _db.upsertTrip(
+        LocalTripsCompanion(
+          id: Value(tripId),
+          backgroundPath: Value(storagePath),
+          updatedAt: Value(DateTime.now().toUtc()),
+        ),
+      );
+    } catch (_) {
+      // Local hero still updates when remote/bucket is unavailable.
+    }
+  }
+
+  Future<String> _uploadTripBackground({
+    required String userId,
+    required String tripId,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    final ext = CaptureStorage.normalizeExt(
+      localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
+    );
+    final path = StoragePaths.tripBackground(
+      userId: userId,
+      tripId: tripId,
+      ext: ext,
+    );
+    await _client.storage.from(StoragePaths.tripBackgroundsBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: CaptureStorage.contentTypeForPath(localPath),
+            upsert: true,
+          ),
+        );
+    return path;
+  }
 
   DateTime? _timestamp(dynamic value) {
     if (value == null) return null;

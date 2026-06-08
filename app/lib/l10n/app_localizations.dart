@@ -183,6 +183,18 @@ abstract class AppLocalizations {
   /// **'Tap + to start one.'**
   String get tripsEmptySubtitle;
 
+  /// No description provided for @tripsEmptyUpcomingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No upcoming trips'**
+  String get tripsEmptyUpcomingTitle;
+
+  /// No description provided for @tripsEmptyPastTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No past trips'**
+  String get tripsEmptyPastTitle;
+
   /// No description provided for @tripsSyncPending.
   ///
   /// In en, this message translates to:
@@ -230,6 +242,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not sync your trips.'**
   String get tripsSyncError;
+
+  /// No description provided for @tripsSectionUpcoming.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get tripsSectionUpcoming;
+
+  /// No description provided for @tripsSectionPast.
+  ///
+  /// In en, this message translates to:
+  /// **'Past'**
+  String get tripsSectionPast;
+
+  /// No description provided for @tripsParticipants.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 Vamigo} other{{count} Vamigos}}'**
+  String tripsParticipants(int count);
+
+  /// No description provided for @tripsNotificationsTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get tripsNotificationsTooltip;
+
+  /// No description provided for @tripsCreateTripTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Create trip'**
+  String get tripsCreateTripTooltip;
 
   /// No description provided for @activityTitle.
   ///
@@ -495,11 +537,29 @@ abstract class AppLocalizations {
   /// **'Share a link — they can join mid-trip. Opens Vamo or the store.'**
   String get membersShareFootnote;
 
+  /// No description provided for @membersMakeCoAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Make co-admin'**
+  String get membersMakeCoAdmin;
+
+  /// No description provided for @membersRemoveCoAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove co-admin'**
+  String get membersRemoveCoAdmin;
+
   /// No description provided for @inviteAction.
   ///
   /// In en, this message translates to:
   /// **'Invite'**
   String get inviteAction;
+
+  /// No description provided for @tripHomeTabOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get tripHomeTabOverview;
 
   /// No description provided for @tripHomeTabExpenses.
   ///
@@ -512,6 +572,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Capture'**
   String get tripHomeTabCapture;
+
+  /// No description provided for @tripHomeMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories'**
+  String get tripHomeMemories;
 
   /// No description provided for @tripHomeTabBalances.
   ///
@@ -566,6 +632,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'It may have been removed or you no longer have access.'**
   String get tripHomeNotFoundSubtitle;
+
+  /// No description provided for @tripHomeTotalSpent.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Spent'**
+  String get tripHomeTotalSpent;
+
+  /// No description provided for @tripHomePerPerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Per person {amount}'**
+  String tripHomePerPerson(String amount);
+
+  /// No description provided for @tripHomeRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent activity'**
+  String get tripHomeRecentActivity;
+
+  /// No description provided for @tripHomeNoRecentActivity.
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses yet.'**
+  String get tripHomeNoRecentActivity;
+
+  /// No description provided for @tripHomeQuickExpenses.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses'**
+  String get tripHomeQuickExpenses;
+
+  /// No description provided for @tripHomeQuickPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Plans'**
+  String get tripHomeQuickPlans;
+
+  /// No description provided for @tripHomeQuickBalances.
+  ///
+  /// In en, this message translates to:
+  /// **'Balances'**
+  String get tripHomeQuickBalances;
+
+  /// No description provided for @tripHomeQuickMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get tripHomeQuickMembers;
+
+  /// No description provided for @tripHomeQuickMemories.
+  ///
+  /// In en, this message translates to:
+  /// **'Memories'**
+  String get tripHomeQuickMemories;
 
   /// No description provided for @balancesLoadError.
   ///
@@ -879,6 +999,24 @@ abstract class AppLocalizations {
   /// **'Clear date'**
   String get createTripClearDate;
 
+  /// No description provided for @datePickerCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get datePickerCancel;
+
+  /// No description provided for @datePickerSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get datePickerSkip;
+
+  /// No description provided for @datePickerSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get datePickerSelect;
+
   /// No description provided for @addExpenseTitle.
   ///
   /// In en, this message translates to:
@@ -1017,6 +1155,30 @@ abstract class AppLocalizations {
   /// **'Profile'**
   String get profileSection;
 
+  /// No description provided for @profileAppearanceSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get profileAppearanceSection;
+
+  /// No description provided for @profileAppearanceLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get profileAppearanceLight;
+
+  /// No description provided for @profileAppearanceDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get profileAppearanceDark;
+
+  /// No description provided for @profileAppearanceSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get profileAppearanceSystem;
+
   /// No description provided for @profileDisplayName.
   ///
   /// In en, this message translates to:
@@ -1100,6 +1262,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add to plan'**
   String get planAddItem;
+
+  /// No description provided for @planAddChecklistItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Add checklist item'**
+  String get planAddChecklistItem;
+
+  /// No description provided for @planDeleteConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this item?'**
+  String get planDeleteConfirmTitle;
 
   /// No description provided for @planAddListItemHint.
   ///
@@ -1202,6 +1376,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get planSave;
+
+  /// No description provided for @planEndBeforeStart.
+  ///
+  /// In en, this message translates to:
+  /// **'End must be on or after start.'**
+  String get planEndBeforeStart;
 
   /// No description provided for @planLoadError.
   ///

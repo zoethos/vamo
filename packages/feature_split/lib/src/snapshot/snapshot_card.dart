@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 
 import '../expenses/money_format.dart';
@@ -203,13 +204,11 @@ class SnapshotBrandedCard extends StatelessWidget {
                 textDirection: TextDirection.ltr,
                 child: Row(
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: theme.accent,
-                        shape: BoxShape.circle,
-                      ),
+                    VamoCircleIcon(
+                      diameter: 8,
+                      backgroundColor: theme.accent,
+                      shadow: true,
+                      child: const SizedBox.shrink(),
                     ),
                     const SizedBox(width: 10),
                     const Text(
@@ -258,15 +257,9 @@ class _MemberBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: fill,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
+    return VamoCircleIcon(
+      diameter: 40,
+      backgroundColor: fill,
       child: Text(
         initial,
         style: TextStyle(

@@ -5,9 +5,8 @@ import 'package:feature_split/src/expenses/expense_governance_labels.dart';
 import 'package:feature_split/src/expenses/expenses_providers.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 
-import 'invite_labels_test_support.dart';
+
 import 'trip_home_labels_test_support.dart';
-import 'package:feature_split/src/plan/plan_labels.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
 import 'package:feature_split/src/sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/trips/trip_budget_labels.dart';
@@ -16,6 +15,7 @@ import 'package:feature_split/src/expenses/expenses_repository.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
 import 'package:feature_split/src/places/places_repository.dart';
 import 'package:feature_split/src/settle/settlements_repository.dart';
+import 'package:feature_split/src/trips/trip_expenses_screen.dart';
 import 'package:feature_split/src/trips/trip_home_screen.dart';
 import 'package:feature_split/src/trips/trip_lifecycle_labels.dart';
 import 'package:feature_split/src/trips/trips_models.dart';
@@ -173,44 +173,6 @@ const _lifecycleLabels = TripLifecycleLabels(
 String _mockClosingDays(int days) =>
     'Trip closes in $days days unless someone objects.';
 
-final _planLabels = PlanTabLabels(
-  tabTitle: 'Plan',
-  emptyTitle: 'Nothing on the board yet',
-  emptySubtitle: 'Add items for the group.',
-  undatedSection: 'No date',
-  checklistsSection: 'Checklists',
-  addPlanItem: 'Add to plan',
-  addListItemHint: 'New checklist item',
-  defaultListName: 'Packing',
-  deleteItem: 'Delete',
-  editItem: 'Edit',
-  kindLodging: 'Lodging',
-  kindFlight: 'Flight',
-  kindTrain: 'Train',
-  kindActivity: 'Activity',
-  kindOther: 'Other',
-  sheetTitleAdd: 'Add plan item',
-  sheetTitleEdit: 'Edit plan item',
-  fieldTitle: 'Title',
-  fieldKind: 'Type',
-  fieldNotes: 'Notes',
-  fieldStart: 'Starts',
-  fieldEnd: 'Ends',
-  save: 'Save',
-  loadError: 'Could not load the plan.',
-  checklistsLoadError: 'Could not load checklists.',
-  rsvpGoing: 'Going',
-  rsvpMaybe: 'Maybe',
-  rsvpDeclined: 'Declined',
-  rsvpSummary: (going, maybe, declined) =>
-      '$going going · $maybe maybe · $declined declined',
-  eventRsvpHint: 'RSVP after save',
-  eventRsvpSection: 'RSVP',
-  eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
-);
-
-const _inviteLabels = testInviteLabels;
-
 const _governanceLabels = ExpenseGovernanceLabels(
   includedDisputedBy: _mockDisputedBy,
   includedPendingFrom: _mockPendingFrom,
@@ -323,12 +285,11 @@ List<Override> _tripHomeOverrides({
           displayName: 'Owner',
           role: 'owner',
         ),
-        if (currentUserId != detail.ownerId)
-          TripMemberView(
-            userId: currentUserId,
-            displayName: 'Member',
-            role: memberRole,
-          ),
+        TripMemberView(
+          userId: currentUserId == detail.ownerId ? 'member-1' : currentUserId,
+          displayName: 'Member',
+          role: currentUserId == detail.ownerId ? 'member' : memberRole,
+        ),
       ]),
     ),
     tripPlanItemsProvider(tripId).overrideWith((ref) => Stream.value([])),
@@ -361,13 +322,8 @@ Widget _tripHome({
       theme: AppTheme.light,
       home: TripHomeScreen(
         tripId: tripId,
-        inviteLabels: _inviteLabels,
-        planLabels: _planLabels,
-        governanceLabels: _governanceLabels,
-        budgetLabels: _budgetLabels,
         lifecycleLabels: _lifecycleLabels,
         tripHomeLabels: testTripHomeLabels,
-        balancesLabels: testBalancesTabLabels,
       ),
     ),
   );
@@ -390,13 +346,8 @@ Widget _tripHomeRouter({
         path: '/trips/:tripId',
         builder: (context, state) => TripHomeScreen(
           tripId: state.pathParameters['tripId']!,
-          inviteLabels: _inviteLabels,
-          planLabels: _planLabels,
-          governanceLabels: _governanceLabels,
-          budgetLabels: _budgetLabels,
           lifecycleLabels: _lifecycleLabels,
           tripHomeLabels: testTripHomeLabels,
-          balancesLabels: testBalancesTabLabels,
         ),
       ),
     ],
@@ -633,5 +584,94 @@ void main() {
     expect(find.text('Accept close'), findsOneWidget);
     expect(find.text('Object…'), findsOneWidget);
     expect(find.byIcon(Icons.more_vert), findsNothing);
+  });
+
+  testWidgets('trip home renders dashboard without tab strip', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await tester.pumpWidget(
+      _tripHome(
+        tripId: tripId,
+        overrides: _tripHomeOverrides(
+          tripId: tripId,
+          db: db,
+          currentUserId: 'owner',
+          memberRole: 'owner',
+          detail: const TripDetail(
+            id: tripId,
+            name: 'Dashboard trip',
+            baseCurrency: 'EUR',
+            ownerId: 'owner',
+            lifecycle: 'active',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.byType(TabBarView), findsNothing);
+    expect(find.text('Dashboard trip'), findsOneWidget);
+    expect(find.text(testTripHomeLabels.quickExpenses), findsOneWidget);
+    expect(find.text(testTripHomeLabels.quickBalances), findsOneWidget);
+  });
+
+  testWidgets('quick action opens expenses section route', (tester) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final router = GoRouter(
+      initialLocation: '/trips/$tripId',
+      routes: [
+        GoRoute(
+          path: '/trips/:tripId',
+          routes: [
+            GoRoute(
+              path: 'expenses',
+              builder: (context, state) => TripExpensesScreen(
+                tripId: state.pathParameters['tripId']!,
+                tripHomeLabels: testTripHomeLabels,
+                governanceLabels: _governanceLabels,
+                budgetLabels: _budgetLabels,
+              ),
+            ),
+          ],
+          builder: (context, state) => TripHomeScreen(
+            tripId: state.pathParameters['tripId']!,
+            lifecycleLabels: _lifecycleLabels,
+            tripHomeLabels: testTripHomeLabels,
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _tripHomeOverrides(
+          tripId: tripId,
+          db: db,
+          currentUserId: 'owner',
+          memberRole: 'owner',
+          detail: const TripDetail(
+            id: tripId,
+            name: 'Nav trip',
+            baseCurrency: 'EUR',
+            ownerId: 'owner',
+            lifecycle: 'active',
+          ),
+        ),
+        child: MaterialApp.router(
+          theme: AppTheme.light,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(testTripHomeLabels.quickExpenses));
+    await tester.pumpAndSettle();
+
+    expect(find.text(testTripHomeLabels.tabExpenses), findsOneWidget);
   });
 }

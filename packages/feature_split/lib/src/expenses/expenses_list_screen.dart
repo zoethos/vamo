@@ -104,7 +104,7 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> {
                 onToggle: () =>
                     setState(() => _balanceExpanded = !_balanceExpanded),
                 onTripTap: (tripId) =>
-                    context.push('${AppRoutes.trip(tripId)}?tab=balances'),
+                    context.push(AppRoutes.tripBalances(tripId)),
               ),
               const SizedBox(height: 16),
               _PeriodStrip(

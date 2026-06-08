@@ -33,6 +33,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   late TextEditingController _notes;
   DateTime? _startsAt;
   DateTime? _endsAt;
+  String? _dateRangeError;
 
   @override
   void initState() {
@@ -127,17 +128,33 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(widget.labels.fieldStart),
-                subtitle: Text(_startsAt?.toLocal().toString() ?? '—'),
+                subtitle: Text(
+                  _startsAt == null
+                      ? '—'
+                      : _startsAt!.toLocal().toString(),
+                ),
                 trailing: const Icon(Icons.calendar_today_outlined),
                 onTap: widget.readOnly ? null : () => _pickDate(isStart: true),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(widget.labels.fieldEnd),
-                subtitle: Text(_endsAt?.toLocal().toString() ?? '—'),
+                subtitle: Text(
+                  _endsAt == null ? '—' : _endsAt!.toLocal().toString(),
+                ),
                 trailing: const Icon(Icons.calendar_today_outlined),
                 onTap: widget.readOnly ? null : () => _pickDate(isStart: false),
               ),
+              if (_dateRangeError != null)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(top: 4),
+                  child: Text(
+                    _dateRangeError!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                  ),
+                ),
               if (_isActivity &&
                   widget.existing != null &&
                   eventView != null) ...[
@@ -184,6 +201,11 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   onPressed: () async {
                     final title = _title.text.trim();
                     if (title.isEmpty) return;
+                    _validateDateRange();
+                    if (_dateRangeError != null) {
+                      setState(() {});
+                      return;
+                    }
                     await widget.onSave(
                       PlanItemInput(
                         tripId: widget.tripId,
@@ -205,21 +227,60 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     );
   }
 
+  void _validateDateRange() {
+    if (_startsAt != null &&
+        _endsAt != null &&
+        _endsAt!.isBefore(_startsAt!)) {
+      _dateRangeError = widget.labels.endBeforeStart;
+    } else {
+      _dateRangeError = null;
+    }
+  }
+
   Future<void> _pickDate({required bool isStart}) async {
     final initial = (isStart ? _startsAt : _endsAt) ?? DateTime.now();
-    final date = await showDatePicker(
+    final result = await showVamoDatePicker(
       context: context,
+      labels: VamoDatePickerLabels(
+        cancel: widget.labels.datePickerCancel,
+        skip: widget.labels.datePickerSkip,
+        select: widget.labels.datePickerSelect,
+      ),
       initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      firstDate: isStart ? DateTime(2020) : (_startsAt ?? DateTime(2020)),
     );
-    if (date == null || !mounted) return;
+    if (!mounted) return;
+    if (result.outcome == VamoDatePickOutcome.cancelled) return;
+
+    if (result.outcome == VamoDatePickOutcome.skipped) {
+      setState(() {
+        if (isStart) {
+          _startsAt = null;
+        } else {
+          _endsAt = null;
+        }
+        _validateDateRange();
+      });
+      return;
+    }
+
+    final date = result.date!;
     if (!context.mounted) return;
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
     );
-    if (time == null || !mounted) return;
+    if (time == null || !mounted) {
+      setState(() {
+        if (isStart) {
+          _startsAt = DateTime(date.year, date.month, date.day).toUtc();
+        } else {
+          _endsAt = DateTime(date.year, date.month, date.day).toUtc();
+        }
+        _validateDateRange();
+      });
+      return;
+    }
     final combined = DateTime(
       date.year,
       date.month,
@@ -233,6 +294,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       } else {
         _endsAt = combined;
       }
+      _validateDateRange();
     });
   }
 }

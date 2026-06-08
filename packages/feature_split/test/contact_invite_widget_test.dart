@@ -107,7 +107,9 @@ void main() {
     required ContactInviteGateway gateway,
     ContactInviteShare? shareInvite,
   }) {
-    return ProviderScope(
+    return MediaQuery(
+      data: const MediaQueryData(size: Size(480, 900)),
+      child: ProviderScope(
       overrides: [
         analyticsProvider.overrideWithValue(DebugAnalytics()),
         invitesRepositoryProvider.overrideWith(
@@ -143,6 +145,7 @@ void main() {
             contactInviteShare: shareInvite,
           ),
         ),
+      ),
       ),
     );
   }

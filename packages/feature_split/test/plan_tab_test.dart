@@ -43,6 +43,13 @@ void main() {
     eventRsvpHint: 'RSVP after save',
     eventRsvpSection: 'RSVP',
     eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
+    datePickerCancel: 'Cancel',
+    datePickerSkip: 'Skip',
+    datePickerSelect: 'Select',
+    addChecklistItem: 'Add checklist item',
+    deleteConfirmTitle: 'Delete this item?',
+    endBeforeStart: 'End must be on or after start.',
+    cancelLabel: 'Cancel',
   );
 
   testWidgets('read-only plan tab hides add controls', (tester) async {

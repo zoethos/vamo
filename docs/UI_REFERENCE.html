@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vamo — UI Element Reference</title>
+<style>
+  :root{
+    --cream:#FBFAF7; --surface:#FFFFFF; --ink:#0C0E16; --graphite:#2A2E3A;
+    --mist:#E9ECF2; --plum:#6A2D6F; --coral:#FF5B4D; --teal:#07595C;
+    --jade:#00C2A8; --lime:#C6FF00; --sky:#21B7D7; --mango:#FFD166; --sunrise:#FF8A3D;
+    --tag:#1b2330;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#eef0f4;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45}
+  header.page{background:var(--ink);color:#fff;padding:28px 32px}
+  header.page h1{margin:0 0 6px;font-size:24px}
+  header.page p{margin:0;color:#b9c0cc;font-size:14px;max-width:780px}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+  .intro{background:#fff;border:1px solid #dfe3ea;border-radius:12px;padding:16px 18px;margin:18px 0 28px;font-size:14px}
+  .intro code{background:#f1f3f7;padding:1px 5px;border-radius:4px;font-size:13px}
+  .screen{display:grid;grid-template-columns:320px 1fr;gap:26px;align-items:start;
+    background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-bottom:26px}
+  @media(max-width:760px){.screen{grid-template-columns:1fr}}
+  .screen h2{grid-column:1/-1;margin:0 0 2px;font-size:18px}
+  .screen h2 small{color:#7a828f;font-weight:400;font-size:13px}
+  /* phone */
+  .phone{width:300px;border:10px solid #11141c;border-radius:34px;overflow:hidden;
+    background:var(--cream);position:relative;box-shadow:0 8px 28px rgba(0,0,0,.18)}
+  .phone .status{height:22px;background:rgba(0,0,0,.04);display:flex;align-items:center;
+    justify-content:space-between;padding:0 12px;font-size:9px;color:#555}
+  .scr{position:relative}
+  .blk{position:relative;margin:8px 10px;border-radius:10px}
+  .cap{font-size:11px;color:#5c6470}
+  .mut{color:#8a93a0}
+  /* numbered callout badge */
+  .n{position:absolute;top:-7px;left:-7px;z-index:5;background:var(--tag);color:#fff;
+    width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff}
+  .n.r{left:auto;right:-7px}
+  /* element styles */
+  .appbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-weight:700}
+  .ico{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid #fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.25);display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--teal)}
+  .chips{display:flex;gap:6px;padding:6px 10px;flex-wrap:wrap}
+  .chip{font-size:10px;padding:4px 9px;border-radius:20px;background:var(--mist);color:var(--ink)}
+  .chip.on{background:#d7f7ef;color:var(--teal);font-weight:700}
+  .hero{height:120px;background:linear-gradient(135deg,var(--coral),var(--plum));position:relative;border-radius:0}
+  .hero.tall{height:150px}
+  .hero .ttl{position:absolute;left:12px;bottom:26px;color:#fff;font-weight:800;font-size:18px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+  .hero .dts{position:absolute;left:12px;bottom:10px;color:#fff;font-size:10px;opacity:.92}
+  .hero .topr{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+  .hero .cam{position:absolute;right:10px;bottom:10px}
+  .avstrip{display:flex;gap:6px;padding:8px 12px;align-items:center}
+  .av{width:26px;height:26px;border-radius:50%;background:var(--mist);border:2px solid #fff;
+    box-shadow:0 1px 2px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--graphite)}
+  .card{background:#fff;border:1px solid #eceef2;border-radius:14px;padding:12px;margin:8px 10px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+  .card.float{margin-top:-22px}
+  .donut{width:46px;height:46px;border-radius:50%;border:8px solid var(--graphite);float:right}
+  .donut.multi{border-color:var(--sunrise);border-right-color:var(--jade);border-bottom-color:var(--sky)}
+  .qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:6px 10px}
+  .qt{background:#fff;border:1px solid #eceef2;border-radius:12px;padding:8px 2px;text-align:center;font-size:9px}
+  .qt .qi{color:var(--teal);font-size:14px}
+  .sech{font-weight:700;font-size:13px;padding:8px 12px 2px}
+  .row{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #eceef2;border-radius:12px;padding:9px;margin:6px 10px}
+  .row .li{width:30px;height:30px;border-radius:8px;background:var(--sunrise);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+  .row .gr{flex:1}.row .gr b{font-size:11px}.row .gr div{font-size:9px;color:#8a93a0}
+  .row .am{text-align:right;font-size:11px;font-weight:700}
+  .row .am small{display:block;font-weight:400;color:#8a93a0}
+  .fab{position:absolute;right:14px;bottom:14px;width:40px;height:40px;border-radius:14px;
+    background:var(--lime);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,.2)}
+  .bnav{display:flex;justify-content:space-around;align-items:center;border-top:1px solid #e6e9ee;padding:6px 0;background:#fff;position:relative}
+  .bnav span{font-size:8px;color:#7a828f;text-align:center}
+  .bnav .center{width:34px;height:34px;border-radius:12px;background:var(--lime);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:18px;margin-top:-14px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  .seg{display:inline-flex;border:1px solid var(--mist);border-radius:9px;overflow:hidden;font-size:9px}
+  .seg b{padding:3px 7px}.seg b.on{background:#d7f7ef;color:var(--teal)}
+  .pill{font-size:9px;padding:3px 8px;border-radius:20px;background:#d7f7ef;color:var(--teal);font-weight:700;border:1px solid #fff}
+  .donutBig{width:90px;height:90px;border-radius:50%;border:14px solid var(--jade);border-top-color:var(--coral);margin:8px auto}
+  /* legend */
+  .legend{font-size:13px}
+  .legend h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#7a828f}
+  .legend ol{margin:0;padding-left:0;list-style:none;counter-reset:l}
+  .legend li{counter-increment:l;position:relative;padding:6px 0 6px 30px;border-bottom:1px dashed #e6e9ee}
+  .legend li::before{content:counter(l);position:absolute;left:0;top:6px;background:var(--tag);color:#fff;
+    width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .legend b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--plum)}
+  .legend small{color:#8a93a0}
+  .gloss{background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-top:10px}
+  .gloss table{width:100%;border-collapse:collapse;font-size:13px}
+  .gloss th,.gloss td{text-align:left;padding:7px 8px;border-bottom:1px solid #eef0f4;vertical-align:top}
+  .gloss th{color:#7a828f;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .gloss code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--plum);font-size:12px}
+  .file{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#5c6470}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Vamo — UI Element Reference</h1>
+  <p>Annotated wireframes of each screen with a canonical name for every element. Use these names
+  (e.g. “hero-badge”, “participant-strip”, “total-spent-card”) to describe changes precisely.
+  Mockups are schematic, not pixel-accurate — they map names to elements, not exact styling.</p>
+</header>
+<div class="wrap">
+  <div class="intro">
+    <b>How to use:</b> each screen shows numbered callouts ① ② ③ … on its elements; the legend beside it
+    gives the <b style="color:var(--plum);font-family:monospace">canonical-name</b> for each number.
+    The <b>Glossary</b> at the bottom maps every name to what it is and the code file it lives in.
+  </div>
+
+  <!-- ============ MY TRIPS ============ -->
+  <section class="screen">
+    <h2>1 · My Trips <small>(Trips tab — trips_list_screen.dart)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="appbar blk"><span class="n">1</span><span>◆ Your trips</span><span>🔔 ＋</span><span class="n r">2</span></div>
+        <div class="chips blk"><span class="n">3</span><span class="chip on">All</span><span class="chip">Upcoming</span><span class="chip">Past</span><span class="chip">Drafts</span></div>
+        <div class="blk"><span class="n">4</span>
+          <div class="hero" style="margin:0 10px;border-radius:12px">
+            <div class="ttl">Hawaii</div><div class="dts">Aug 1 – Aug 22, 2026 · 3 going</div>
+            <div style="position:absolute;left:12px;bottom:4px;width:60%;height:3px;background:rgba(255,255,255,.4);border-radius:2px"><div style="width:66%;height:100%;background:#fff;border-radius:2px"></div></div>
+          </div></div>
+        <div class="sech blk"><span class="n">5</span>Upcoming</div>
+        <div class="row blk"><span class="n">6</span><div class="li" style="background:linear-gradient(135deg,var(--coral),var(--plum))"></div><div class="gr"><b>Cassino</b><div>Jun 17 – Jun 19, 2026 · 2 going</div></div></div>
+        <div class="bnav blk"><span class="n">7</span><span>🧳<br>Trips</span><span>📈<br>Activity</span><span class="center">＋</span><span>🧾<br>Expenses</span><span>👤<br>Profile</span></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>app-bar</b> — <small>app-logo + screen-title (“Your trips”)</small></li>
+      <li><b>notification-bell</b> + <b>add-trip-button</b> <small>(the “+”)</small></li>
+      <li><b>filter-chips</b> <small>(All / Upcoming / Past / Drafts)</small></li>
+      <li><b>featured-trip-card</b> <small>= hero-backdrop + trip-title-overlay + trip-dates + participant-count + acceptance-bar</small></li>
+      <li><b>section-header</b> <small>(“Upcoming” / “Past”)</small></li>
+      <li><b>compact-trip-card</b> <small>= card-thumbnail + card-title + card-dates</small></li>
+      <li><b>bottom-nav</b> <small>(Trips · Activity · center-fab · Expenses · Profile)</small></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ TRIP DASHBOARD ============ -->
+  <section class="screen">
+    <h2>2 · Trip Dashboard / Overview <small>(trip_dashboard_tab.dart — the trip landing)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="blk" style="margin:0"><span class="n">1</span>
+          <div class="hero tall">
+            <div class="topr"><span class="ico">‹</span><span class="ico">⋯</span></div>
+            <div class="cam"><span class="ico" style="width:26px;height:26px">📷</span><span class="n r">3</span></div>
+            <div class="ttl" style="bottom:30px">Serapo</div><div class="dts" style="bottom:18px">Jun 26, 2026</div>
+          </div></div>
+        <div class="avstrip blk"><span class="n">4</span><span class="av">👤</span><span class="av">👤</span><span class="av" style="background:#fff;color:var(--teal)">＋</span></div>
+        <div class="card float blk"><span class="n">5</span>
+          <div class="donut"></div>
+          <div class="cap">Total Spent</div><div style="font-size:18px;font-weight:800">€40.09</div><div class="cap mut">Per person €20.04</div>
+          <span class="n r" style="top:14px">6</span>
+        </div>
+        <div class="qgrid blk"><span class="n">7</span>
+          <div class="qt"><div class="qi">🧾</div>Expenses</div><div class="qt"><div class="qi">📅</div>Plans</div>
+          <div class="qt"><div class="qi">👛</div>Balances</div><div class="qt"><div class="qi">👥</div>Members</div></div>
+        <div class="sech blk"><span class="n">8</span>Recent activity</div>
+        <div class="row blk"><span class="n">9</span><div class="li">🍴</div><div class="gr"><b>Borri Books</b><div>SOC. Libreria</div></div><div class="am">€40.09<small>Today</small></div></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>hero-badge</b> / <b>hero-backdrop</b> <small>(full-bleed trip image/gradient)</small></li>
+      <li><b>back-button</b> + <b>overflow-menu</b> (⋯)</li>
+      <li><b>camera-button</b> <small>(capture / change-background entry)</small></li>
+      <li><b>participant-strip</b> <small>= member-avatar(s) + add-member-button</small></li>
+      <li><b>total-spent-card</b> <small>= total-spent-label + total-amount + per-person</small></li>
+      <li><b>category-donut</b> <small>(spend by category color)</small></li>
+      <li><b>quick-action-grid</b> <small>= quick-action-tile ×4 (Expenses/Plans/Balances/Members)</small></li>
+      <li><b>recent-activity-section</b> <small>(section-header)</small></li>
+      <li><b>activity-row</b> <small>= category-icon + activity-description + activity-amount + relative-time</small></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ EXPENSES ============ -->
+  <section class="screen">
+    <h2>3 · Expenses section <small>(/trips/:id/expenses)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="appbar blk"><span class="n">1</span><span>‹ Expenses</span><span>⚙</span></div>
+        <div class="chips blk"><span class="n">2</span><span class="chip on">All</span><span class="chip">Unsettled</span><span class="chip">My expenses</span></div>
+        <div class="sech blk mut"><span class="n">3</span>Today</div>
+        <div class="row blk"><span class="n">4</span><div class="li">🍴</div><div class="gr"><b>Dinner</b><div>You paid · 👥👥</div></div><div class="am">€128.40 ›</div></div>
+        <div class="row blk"><div class="li" style="background:var(--sky)">🚗</div><div class="gr"><b>Ferry tickets</b><div>Marco paid · 👥</div></div><div class="am">€86.00 ›</div></div>
+        <div class="card blk" style="text-align:center"><span class="n">5</span><b>Total spent €214.40</b></div>
+        <div class="fab blk">＋<span class="n r">6</span></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>section-app-bar</b> <small>(title + back-button)</small></li>
+      <li><b>expense-filter-chips</b> <small>(All / Unsettled / My expenses)</small></li>
+      <li><b>day-group-header</b></li>
+      <li><b>expense-row</b> <small>= category-icon + expense-title + payer-label + avatar-stack + expense-amount</small></li>
+      <li><b>total-footer</b></li>
+      <li><b>add-expense-fab</b></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ BALANCES ============ -->
+  <section class="screen">
+    <h2>4 · Balances section <small>(/trips/:id/balances)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="appbar blk"><span class="n">1</span><span>‹ Balances</span><span>ⓘ</span></div>
+        <div class="blk" style="text-align:center"><span class="n">2</span><div class="donutBig"></div><div class="cap">Net balance</div><b style="font-size:18px">€386.20</b><div class="pill" style="display:inline-block;margin-top:4px">You're owed</div></div>
+        <div class="row blk"><span class="n">3</span><div class="gr"><b>● Owed to you</b></div><div class="am">€586.20</div></div>
+        <div class="row blk"><div class="gr"><b>● You owe</b></div><div class="am">€200.00</div></div>
+        <div class="sech blk"><span class="n">4</span>Settle up</div>
+        <div class="row blk"><span class="n">5</span><div class="av">M</div><div class="gr"><b>Marco</b><div>owes you</div></div><div class="am">€120.50</div></div>
+        <div class="card blk" style="background:var(--lime);text-align:center;color:var(--ink)"><span class="n">6</span><b>Settle up</b></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>section-app-bar</b></li>
+      <li><b>net-balance-donut</b> <small>(+ net-balance-amount + balance-status-pill)</small></li>
+      <li><b>balance-legend</b> <small>(owed-to-you / you-owe)</small></li>
+      <li><b>settle-up-header</b></li>
+      <li><b>settle-row</b> <small>= member-avatar + who-owes-whom + amount</small></li>
+      <li><b>settle-up-cta</b></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ MEMBERS ============ -->
+  <section class="screen">
+    <h2>5 · Members section <small>(/trips/:id/members)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="appbar blk"><span class="n">1</span><span>‹ Members</span></div>
+        <div class="sech blk"><span class="n">2</span>Add members</div>
+        <div class="qgrid blk" style="grid-template-columns:repeat(3,1fr)"><span class="n">3</span>
+          <div class="qt"><div class="qi">🔗</div>Invite link</div><div class="qt"><div class="qi">▣</div>QR code</div><div class="qt"><div class="qi">👥</div>Contacts</div></div>
+        <div class="row blk"><span class="n">4</span><div class="av">Y</div><div class="gr"><b>You</b><div>Admin</div></div><div class="am">⋮</div></div>
+        <div class="row blk"><div class="av">M</div><div class="gr"><b>Marco</b><div>Co-admin</div></div><div class="am">⋮</div></div>
+        <div class="fab blk">＋<span class="n r">5</span></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>section-app-bar</b></li>
+      <li><b>add-members-header</b></li>
+      <li><b>add-members-row</b> <small>= invite-link-tile + qr-tile + contacts-tile</small></li>
+      <li><b>member-row</b> <small>= member-avatar + member-name + member-role + role-menu</small></li>
+      <li><b>invite-fab</b></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ PLAN ============ -->
+  <section class="screen">
+    <h2>6 · Plan section <small>(/trips/:id/plan)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr">
+        <div class="appbar blk"><span class="n">1</span><span>‹ Plan</span><span>＋</span><span class="n r">2</span></div>
+        <div class="sech blk mut">Events</div>
+        <div class="card blk"><span class="n">3</span><b style="font-size:12px">Sunset Hike</b><div class="cap">Sat, Jun 14 · 5:30 PM</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <span class="pill" style="background:#d7f7ef">✓ Going</span><span class="n r" style="top:auto;bottom:-4px">4</span>
+            <span class="cap">👥👥👥 +2</span></div></div>
+        <div class="sech blk"><span class="n">5</span>Checklists</div>
+        <div class="row blk"><span class="n">6</span><div class="gr"><b>☑ Bring water</b></div><div class="am cap">swipe ←</div></div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>section-app-bar</b></li>
+      <li><b>add-plan-button</b> <small>(small “+” → add menu: event / checklist)</small></li>
+      <li><b>event-card</b> <small>= event-title + event-datetime + going-avatars</small></li>
+      <li><b>rsvp-state-icon</b> <small>(tap → shared rsvp-picker: Going/Maybe/Declined)</small></li>
+      <li><b>checklist-section</b> <small>(named list)</small></li>
+      <li><b>checklist-item</b> <small>= checkbox + label (swipe-left to delete)</small></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ ADD MENU ============ -->
+  <section class="screen">
+    <h2>7 · “Add to your trip” menu <small>(CaptureChoiceSheet — bottom sheet)</small></h2>
+    <div class="phone">
+      <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
+      <div class="scr" style="background:rgba(0,0,0,.35);min-height:360px;position:relative">
+        <div style="position:absolute;bottom:0;left:0;right:0;background:#fff;border-radius:18px 18px 0 0;padding:14px 10px">
+          <div style="width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 12px"></div>
+          <div class="sech blk" style="padding-left:4px"><span class="n">1</span>Add to your trip</div>
+          <div class="qgrid blk" style="grid-template-columns:repeat(2,1fr)"><span class="n">2</span>
+            <div class="qt" style="padding:14px 2px"><div class="qi">📝</div>Note</div>
+            <div class="qt" style="padding:14px 2px"><div class="qi">📷</div>Photo</div>
+            <div class="qt" style="padding:14px 2px"><div class="qi">🎬</div>Video</div>
+            <div class="qt" style="padding:14px 2px"><div class="qi">🖼</div>Background<span class="n r">3</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="legend"><h3>Element names</h3><ol>
+      <li><b>add-menu</b> <small>(bottom sheet — title “Add to your trip”)</small></li>
+      <li><b>add-menu-grid</b> <small>= add-tile ×N (Note / Photo / Video)</small></li>
+      <li><b>change-background-tile</b> <small>(sets hero-badge background; not a capture)</small></li>
+    </ol></div>
+  </section>
+
+  <!-- ============ GLOSSARY ============ -->
+  <div class="gloss">
+    <h2 style="margin-top:0">Glossary — canonical names → code</h2>
+    <table>
+      <tr><th>Name</th><th>What it is</th><th>Code file</th></tr>
+      <tr><td><code>hero-badge</code> / <code>hero-backdrop</code></td><td>Full-bleed trip image/gradient at the top of the dashboard (and the featured-trip-card on My Trips).</td><td class="file">trip_dashboard_tab.dart · trip_visual_backdrop.dart</td></tr>
+      <tr><td><code>participant-strip</code></td><td>Row of member-avatars + add-member-button over the hero.</td><td class="file">member_avatar_row.dart</td></tr>
+      <tr><td><code>member-avatar</code> / <code>add-member-button</code></td><td>Circular member icon (white ring) / the “+” to invite.</td><td class="file">member_avatar_row.dart · vamo_avatar.dart</td></tr>
+      <tr><td><code>total-spent-card</code></td><td>Card with total-spent-label, total-amount, per-person, category-donut.</td><td class="file">trip_dashboard_tab.dart (_TotalSpentCard)</td></tr>
+      <tr><td><code>category-donut</code> / <code>net-balance-donut</code></td><td>Ring chart: spend-by-category (dashboard) / owed-vs-owe (balances). Colors from the category catalog.</td><td class="file">category_donut.dart · category_catalog.dart</td></tr>
+      <tr><td><code>quick-action-grid</code> / <code>quick-action-tile</code></td><td>The 4 square buttons: Expenses / Plans / Balances / Members.</td><td class="file">trip_dashboard_tab.dart (_QuickActionsRow)</td></tr>
+      <tr><td><code>activity-row</code></td><td>Recent-activity item: category-icon + description + amount + relative-time.</td><td class="file">dashboard_activity_row.dart</td></tr>
+      <tr><td><code>featured-trip-card</code> / <code>compact-trip-card</code></td><td>My Trips: the large next-trip card / the smaller upcoming cards.</td><td class="file">featured_trip_card.dart · compact_trip_card.dart</td></tr>
+      <tr><td><code>filter-chips</code></td><td>All / Upcoming / Past / Drafts (My Trips); All / Unsettled / My expenses (Expenses).</td><td class="file">trips_list_screen.dart · expenses</td></tr>
+      <tr><td><code>bottom-nav</code></td><td>App-level nav: Trips · Activity · center-fab · Expenses · Profile.</td><td class="file">main_shell.dart</td></tr>
+      <tr><td><code>expense-row</code></td><td>category-icon + expense-title + payer-label + avatar-stack + expense-amount.</td><td class="file">trip_expense_list_tile.dart</td></tr>
+      <tr><td><code>settle-row</code> / <code>settle-up-cta</code></td><td>Who-owes-whom row / the lime “Settle up” button.</td><td class="file">balances_tab.dart</td></tr>
+      <tr><td><code>add-members-row</code></td><td>invite-link-tile + qr-tile + contacts-tile.</td><td class="file">members_tab.dart · trip_icon_action_tile.dart</td></tr>
+      <tr><td><code>member-row</code></td><td>member-avatar + member-name + member-role + role-menu.</td><td class="file">members_tab.dart</td></tr>
+      <tr><td><code>event-card</code> / <code>rsvp-state-icon</code></td><td>Plan event + the per-card RSVP status (tap → rsvp-picker).</td><td class="file">plan_event_tile.dart</td></tr>
+      <tr><td><code>checklist-section</code> / <code>checklist-item</code></td><td>Named collaborative list / a checkable line (swipe-left to delete).</td><td class="file">plan_tab.dart</td></tr>
+      <tr><td><code>add-menu</code> / <code>change-background-tile</code></td><td>The “Add to your trip” sheet / the tile that sets the hero-badge background.</td><td class="file">capture_action_sheet.dart</td></tr>
+      <tr><td><code>camera-button</code></td><td>Hero capture/add entry (opens the add-menu).</td><td class="file">trip_dashboard_tab.dart</td></tr>
+    </table>
+  </div>
+</div>
+</body>
+</html>

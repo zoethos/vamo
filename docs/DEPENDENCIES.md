@@ -150,6 +150,7 @@ Not every transitive dep — only the ones with real lock-in or risk.
 | `firebase_core` / `firebase_messaging` | Push | Med-high | tied to FCM |
 | `posthog_flutter` | Analytics SDK | Low-med | event names are ours |
 | `app_links` | Deep-link channel (single handler) | Med | never re-add engine deep-linking alongside |
+| `flutter_slidable` | Swipe edit/delete on list rows (S38) | Low | two-action panes + a11y long-press fallback |
 | `share_plus`, `qr_flutter`, `package_info_plus`, `flutter_dotenv`, `image`, `connectivity_plus` | Misc utilities | Low | |
 | `url_launcher` | SMS/email compose for S26 contact invite (`sms:` / `mailto:`) | Low | Android `<queries>` for sms/mailto only; no broad contacts permission |
 

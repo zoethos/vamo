@@ -41,37 +41,28 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: goldenTestTheme(),
-        home: DefaultTabController(
-          length: 2,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Amalfi crew'),
-              leading: const BackButton(),
-              actions: [
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_horiz),
-                  tooltip: 'More',
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
-                      value: 'settings',
-                      child: Text('Trip settings'),
-                    ),
-                    PopupMenuItem(
-                      value: 'share',
-                      child: Text('Share snapshot'),
-                    ),
-                  ],
-                  onSelected: (_) {},
-                ),
-              ],
-              bottom: const TabBar(
-                tabs: [
-                  Tab(text: 'Expenses'),
-                  Tab(text: 'Plan'),
+        home: Scaffold(
+          appBar: AppBar(
+            leading: const BackButton(),
+            actions: [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz),
+                tooltip: 'More',
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'settings',
+                    child: Text('Trip settings'),
+                  ),
+                  PopupMenuItem(
+                    value: 'share',
+                    child: Text('Share snapshot'),
+                  ),
                 ],
+                onSelected: (_) {},
               ),
-            ),
+            ],
           ),
+          body: const SizedBox.shrink(),
         ),
       ),
     );

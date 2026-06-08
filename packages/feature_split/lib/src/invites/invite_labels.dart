@@ -23,6 +23,8 @@ class InviteLabels {
     required this.membersInviteHintSolo,
     required this.membersShareFootnote,
     required this.membersCountOnTrip,
+    required this.membersMakeCoAdmin,
+    required this.membersRemoveCoAdmin,
   });
 
   final String showQr;
@@ -47,4 +49,6 @@ class InviteLabels {
   final String membersInviteHintSolo;
   final String membersShareFootnote;
   final String Function(int count) membersCountOnTrip;
+  final String membersMakeCoAdmin;
+  final String membersRemoveCoAdmin;
 }

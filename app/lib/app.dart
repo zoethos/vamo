@@ -86,11 +86,14 @@ class _VamoAppState extends ConsumerState<VamoApp> {
     final router = ref.watch(routerProvider);
     final localeOverride = ref.watch(devLocaleOverrideProvider);
     final locale = resolveDevLocale(localeOverride);
+    final themePreference = ref.watch(themePreferenceProvider);
 
     return MaterialApp.router(
       title: 'Vamo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themePreference.themeMode,
       locale: locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,

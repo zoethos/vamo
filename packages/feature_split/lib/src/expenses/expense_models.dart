@@ -19,6 +19,7 @@ class ExpenseSummary {
     this.capturedAt,
     this.placeLabel,
     this.placeId,
+    this.category,
   });
 
   final String id;
@@ -43,6 +44,7 @@ class ExpenseSummary {
   final DateTime? capturedAt;
   final String? placeLabel;
   final String? placeId;
+  final String? category;
 
   String? get displayPlaceLabel => placeLabel;
 

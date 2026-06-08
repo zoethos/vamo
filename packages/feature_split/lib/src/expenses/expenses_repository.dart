@@ -122,6 +122,7 @@ class ExpensesRepository {
       capturedAt: r.capturedAt,
       placeLabel: placeLabel,
       placeId: r.placeId,
+      category: r.category,
       status: ExpenseStatus.parse(r.status),
     );
   }
@@ -574,6 +575,7 @@ class ExpensesRepository {
     required String currency,
     required int baseCents,
     required double fxRate,
+    String? category,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in');
@@ -604,6 +606,7 @@ class ExpensesRepository {
       'p_base_cents': baseCents,
       'p_fx_rate': fxRate,
       'p_description': description.trim(),
+      'p_category': category,
     });
 
     await syncExpensesForTrips([tripId]);
@@ -614,6 +617,27 @@ class ExpensesRepository {
     );
 
     return expenseId;
+  }
+
+  /// Updates expense category locally and queues remote patch (S40).
+  Future<void> updateExpenseCategory({
+    required String expenseId,
+    required String? category,
+  }) async {
+    await _db.upsertExpense(
+      LocalExpensesCompanion(
+        id: Value(expenseId),
+        category: Value(category),
+      ),
+    );
+    await _syncQueue.enqueue(
+      kind: SyncKind.expenseUpdate,
+      payload: {
+        'id': expenseId,
+        'category': category,
+      },
+    );
+    unawaited(_syncWorker.flush());
   }
 
   Future<void> commitExpense(String expenseId) async {

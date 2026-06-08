@@ -15,6 +15,9 @@ class CreateTripLabels {
     required this.submit,
     required this.endBeforeStart,
     required this.clearDate,
+    required this.datePickerCancel,
+    required this.datePickerSkip,
+    required this.datePickerSelect,
   });
 
   final String title;
@@ -31,4 +34,7 @@ class CreateTripLabels {
   final String submit;
   final String endBeforeStart;
   final String clearDate;
+  final String datePickerCancel;
+  final String datePickerSkip;
+  final String datePickerSelect;
 }

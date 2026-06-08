@@ -28,6 +28,16 @@ abstract final class StoragePaths {
   }) =>
       '$userId/$tripId/receipts/$expenseId${_normalizeExt(ext)}';
 
+  static const tripBackgroundsBucket = 'trip-backgrounds';
+
+  /// `{userId}/{tripId}/background{ext}` — hero badge; not a capture photo.
+  static String tripBackground({
+    required String userId,
+    required String tripId,
+    required String ext,
+  }) =>
+      '$userId/$tripId/background${_normalizeExt(ext)}';
+
   static String _normalizeExt(String ext) {
     final lower = ext.toLowerCase();
     if (lower.isEmpty || lower == '.') return '.jpg';

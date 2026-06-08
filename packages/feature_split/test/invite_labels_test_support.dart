@@ -24,6 +24,8 @@ const testInviteLabels = InviteLabels(
   membersShareFootnote:
       'Share a link — they can join mid-trip. Opens Vamo or the store.',
   membersCountOnTrip: _membersCountOnTrip,
+  membersMakeCoAdmin: 'Make co-admin',
+  membersRemoveCoAdmin: 'Remove co-admin',
 );
 
 String _contactInviteBody(String webUrl, String appUri) =>

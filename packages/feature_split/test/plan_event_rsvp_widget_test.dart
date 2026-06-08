@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:feature_split/src/plan/event_rsvp_models.dart';
 import 'package:feature_split/src/plan/plan_labels.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
+import 'package:feature_split/src/plan/plan_event_rsvp_picker.dart';
 import 'package:feature_split/src/plan/plan_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,6 +45,13 @@ final _planTabLabels = PlanTabLabels(
   eventRsvpHint: 'RSVP after save',
   eventRsvpSection: 'RSVP',
   eventRsvpUpdateFailed: 'Could not update RSVP. Try again.',
+  datePickerCancel: 'Cancel',
+  datePickerSkip: 'Skip',
+  datePickerSelect: 'Select',
+  addChecklistItem: 'Add checklist item',
+  deleteConfirmTitle: 'Delete this item?',
+  endBeforeStart: 'End must be on or after start.',
+  cancelLabel: 'Cancel',
 );
 
 void main() {
@@ -64,7 +72,8 @@ void main() {
     await _pumpPlanTab(tester, db: db, readOnly: false);
     expect(find.text('Beach day'), findsOneWidget);
     expect(find.text('Hotel stay'), findsOneWidget);
-    expect(find.text(_planTabLabels.rsvpGoing), findsNWidgets(1));
+    expect(find.byType(PlanEventRsvpControl), findsOneWidget);
+    expect(find.text(_planTabLabels.eventRsvpSection), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
@@ -84,7 +93,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('tapping selected RSVP chip withdraws via clearEventRsvp',
+  testWidgets('tapping selected RSVP in picker withdraws via clearEventRsvp',
       (tester) async {
     final db = await _seedEventPlan(myStatus: EventRsvpStatus.going);
     final client = SupabaseClient(
@@ -140,7 +149,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Going').first);
+    await tester.tap(find.byType(PlanEventRsvpControl));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Going').last);
     await tester.pumpAndSettle();
 
     expect(spy.clearCalls, 1);
@@ -152,7 +163,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('tapping declined RSVP chip sets declined status',
+  testWidgets('tapping declined RSVP in picker sets declined status',
       (tester) async {
     final db = await _seedEventPlan();
     final client = SupabaseClient(
@@ -208,7 +219,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Declined').first);
+    await tester.tap(find.byType(PlanEventRsvpControl));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Declined').last);
     await tester.pumpAndSettle();
 
     expect(spy.setCalls, 1);
@@ -221,7 +234,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('failed RSVP update shows error and leaves chip unselected',
+  testWidgets('failed RSVP update shows error and leaves state unset',
       (tester) async {
     final db = await _seedEventPlan();
     final client = SupabaseClient(
@@ -278,16 +291,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Going').first);
+    await tester.tap(find.byType(PlanEventRsvpControl));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Going').last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(spy.setCalls, 1);
     expect(find.text(_planTabLabels.eventRsvpUpdateFailed), findsOneWidget);
-    final button = tester.widget<SegmentedButton<EventRsvpStatus>>(
-      find.byType(SegmentedButton<EventRsvpStatus>),
-    );
-    expect(button.selected, isEmpty);
+    expect(find.byType(PlanEventRsvpControl), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

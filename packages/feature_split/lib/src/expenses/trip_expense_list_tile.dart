@@ -29,6 +29,7 @@ class TripExpenseListTile extends ConsumerWidget {
     this.localReceiptPath,
     this.receiptThumbnailPath,
     this.placeLabel,
+    this.category,
     this.status = ExpenseStatus.committed,
     this.consentLabel,
     required this.proposalRowPrefix,
@@ -49,6 +50,7 @@ class TripExpenseListTile extends ConsumerWidget {
   final String? localReceiptPath;
   final String? receiptThumbnailPath;
   final String? placeLabel;
+  final String? category;
   final ExpenseStatus status;
   final String? consentLabel;
   final String proposalRowPrefix;
@@ -72,6 +74,7 @@ class TripExpenseListTile extends ConsumerWidget {
         receiptPath: receiptPath,
         localReceiptPath: localReceiptPath,
         placeLabel: placeLabel,
+        category: category,
       );
 
   @override
@@ -99,6 +102,8 @@ class TripExpenseListTile extends ConsumerWidget {
           expense: _expense,
         ),
       );
+    } else {
+      leading = _CategoryLeading(category: category);
     }
 
     return Card(
@@ -165,13 +170,35 @@ class TripExpenseListTile extends ConsumerWidget {
               ),
         ),
         onTap: onTap ??
-            (leading == null
-                ? null
-                : () => openExpenseReceiptViewer(
+            (_hasReceipt
+                ? () => openExpenseReceiptViewer(
                       context,
                       ref,
                       expense: _expense,
-                    )),
+                    )
+                : null),
+      ),
+    );
+  }
+}
+
+class _CategoryLeading extends StatelessWidget {
+  const _CategoryLeading({this.category});
+
+  final String? category;
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = CategoryCatalog.resolve(category);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: entry.color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Icon(entry.icon, color: entry.color, size: 22),
       ),
     );
   }

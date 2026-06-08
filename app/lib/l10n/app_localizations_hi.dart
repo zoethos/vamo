@@ -45,6 +45,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get tripsEmptySubtitle => 'Tap + to start one.';
 
   @override
+  String get tripsEmptyUpcomingTitle => 'No upcoming trips';
+
+  @override
+  String get tripsEmptyPastTitle => 'No past trips';
+
+  @override
   String tripsSyncPending(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -75,6 +81,29 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get tripsSyncError => 'Could not sync your trips.';
+
+  @override
+  String get tripsSectionUpcoming => 'Upcoming';
+
+  @override
+  String get tripsSectionPast => 'Past';
+
+  @override
+  String tripsParticipants(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Vamigos',
+      one: '1 Vamigo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tripsNotificationsTooltip => 'Notifications';
+
+  @override
+  String get tripsCreateTripTooltip => 'Create trip';
 
   @override
   String get activityTitle => 'Activity';
@@ -227,13 +256,25 @@ class AppLocalizationsHi extends AppLocalizations {
       'Share a link — they can join mid-trip. Opens Vamo or the store.';
 
   @override
+  String get membersMakeCoAdmin => 'Make co-admin';
+
+  @override
+  String get membersRemoveCoAdmin => 'Remove co-admin';
+
+  @override
   String get inviteAction => 'Invite';
+
+  @override
+  String get tripHomeTabOverview => 'Overview';
 
   @override
   String get tripHomeTabExpenses => 'Expenses';
 
   @override
   String get tripHomeTabCapture => 'Capture';
+
+  @override
+  String get tripHomeMemories => 'Memories';
 
   @override
   String get tripHomeTabBalances => 'Balances';
@@ -262,6 +303,35 @@ class AppLocalizationsHi extends AppLocalizations {
   @override
   String get tripHomeNotFoundSubtitle =>
       'It may have been removed or you no longer have access.';
+
+  @override
+  String get tripHomeTotalSpent => 'Total Spent';
+
+  @override
+  String tripHomePerPerson(String amount) {
+    return 'Per person $amount';
+  }
+
+  @override
+  String get tripHomeRecentActivity => 'Recent activity';
+
+  @override
+  String get tripHomeNoRecentActivity => 'No expenses yet.';
+
+  @override
+  String get tripHomeQuickExpenses => 'Expenses';
+
+  @override
+  String get tripHomeQuickPlans => 'Plans';
+
+  @override
+  String get tripHomeQuickBalances => 'Balances';
+
+  @override
+  String get tripHomeQuickMembers => 'Members';
+
+  @override
+  String get tripHomeQuickMemories => 'Memories';
 
   @override
   String get balancesLoadError => 'Could not load balances.';
@@ -441,6 +511,15 @@ class AppLocalizationsHi extends AppLocalizations {
   String get createTripClearDate => 'Clear date';
 
   @override
+  String get datePickerCancel => 'Cancel';
+
+  @override
+  String get datePickerSkip => 'Skip';
+
+  @override
+  String get datePickerSelect => 'Select';
+
+  @override
   String get addExpenseTitle => 'Add expense';
 
   @override
@@ -511,6 +590,18 @@ class AppLocalizationsHi extends AppLocalizations {
   String get profileSection => 'Profile';
 
   @override
+  String get profileAppearanceSection => 'Appearance';
+
+  @override
+  String get profileAppearanceLight => 'Light';
+
+  @override
+  String get profileAppearanceDark => 'Dark';
+
+  @override
+  String get profileAppearanceSystem => 'System';
+
+  @override
   String get profileDisplayName => 'Display name';
 
   @override
@@ -553,6 +644,12 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get planAddItem => 'Add to plan';
+
+  @override
+  String get planAddChecklistItem => 'Add checklist item';
+
+  @override
+  String get planDeleteConfirmTitle => 'Delete this item?';
 
   @override
   String get planAddListItemHint => 'New checklist item';
@@ -604,6 +701,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get planSave => 'Save';
+
+  @override
+  String get planEndBeforeStart => 'End must be on or after start.';
 
   @override
   String get planLoadError => 'Could not load the plan.';

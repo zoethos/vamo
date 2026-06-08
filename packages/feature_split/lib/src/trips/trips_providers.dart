@@ -1,4 +1,6 @@
 import 'package:app_core/app_core.dart';
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../expenses/expenses_providers.dart';
@@ -23,6 +25,27 @@ final tripsListProvider = StreamProvider<List<TripSummary>>((ref) {
 final tripDetailProvider =
     StreamProvider.family<TripDetail?, String>((ref, tripId) {
   return ref.watch(tripsRepositoryProvider).watchTrip(tripId);
+});
+
+/// Resolved local file path for the user-set hero background, if any.
+final tripHeroBackgroundProvider =
+    FutureProvider.family<String?, String>((ref, tripId) async {
+  ref.watch(tripDetailProvider(tripId));
+  final detail = ref.read(tripDetailProvider(tripId)).valueOrNull;
+  if (detail == null) return null;
+
+  final local = detail.backgroundLocalPath;
+  if (local != null && local.isNotEmpty && File(local).existsSync()) {
+    return local;
+  }
+
+  final remote = detail.backgroundStoragePath;
+  if (remote == null || remote.isEmpty) return null;
+
+  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
+        tripId: tripId,
+        storagePath: remote,
+      );
 });
 
 final tripMemberCountProvider =

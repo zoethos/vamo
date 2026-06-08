@@ -41,7 +41,9 @@ Widget pumpMembersTab({
   required ContactInviteGateway gateway,
   ThemeData? theme,
 }) {
-  return ProviderScope(
+  return MediaQuery(
+    data: const MediaQueryData(size: Size(480, 900)),
+    child: ProviderScope(
     overrides: [
       analyticsProvider.overrideWithValue(DebugAnalytics()),
       invitesRepositoryProvider.overrideWith(
@@ -78,6 +80,7 @@ Widget pumpMembersTab({
           contactInviteGateway: gateway,
         ),
       ),
+    ),
     ),
   );
 }

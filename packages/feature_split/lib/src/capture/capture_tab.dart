@@ -13,9 +13,14 @@ import 'capture_repository.dart';
 
 /// Slice 8 — solo trip memories (notes + photos) feeding the snapshot card.
 class CaptureTab extends ConsumerStatefulWidget {
-  const CaptureTab({super.key, required this.tripId});
+  const CaptureTab({
+    super.key,
+    required this.tripId,
+    this.showInlineAddActions = true,
+  });
 
   final String tripId;
+  final bool showInlineAddActions;
 
   @override
   ConsumerState<CaptureTab> createState() => _CaptureTabState();
@@ -56,6 +61,10 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
+
     final notes = ref.watch(tripNotesProvider(widget.tripId));
     final photos = ref.watch(tripPhotosProvider(widget.tripId));
 
@@ -79,78 +88,75 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
           final empty = noteList.isEmpty && photoList.isEmpty;
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(space.x4),
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => context.push(
-                        AppRoutes.tripAddCaptureNote(widget.tripId),
+              if (widget.showInlineAddActions) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push(
+                          AppRoutes.tripAddCaptureNote(widget.tripId),
+                        ),
+                        icon: const Icon(Icons.note_add_outlined),
+                        label: const Text('Add note'),
                       ),
-                      icon: const Icon(Icons.note_add_outlined),
-                      label: const Text('Add note'),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _uploadingPhoto ? null : _pickPhoto,
-                      icon: _uploadingPhoto
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.add_photo_alternate_outlined),
-                      label: const Text('Add photo'),
+                    SizedBox(width: space.x3),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _uploadingPhoto ? null : _pickPhoto,
+                        icon: _uploadingPhoto
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colors.onPrimary,
+                                ),
+                              )
+                            : const Icon(Icons.add_photo_alternate_outlined),
+                        label: const Text('Add photo'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Memories appear on your shared snapshot card.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.graphite),
-              ),
+                  ],
+                ),
+                SizedBox(height: space.x2),
+                Text(
+                  'Memories appear on your shared snapshot card.',
+                  style: type.bodySmall.copyWith(color: colors.onSurfaceMuted),
+                ),
+              ],
               if (empty) ...[
-                const SizedBox(height: 48),
-                const Icon(Icons.auto_stories_outlined,
-                    size: 56, color: AppColors.jadeTeal),
-                const SizedBox(height: 16),
+                SizedBox(height: space.x12),
+                Icon(
+                  Icons.auto_stories_outlined,
+                  size: 56,
+                  color: colors.emptyStateIcon,
+                ),
+                SizedBox(height: space.x4),
                 Text(
                   'Capture your trip',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.ink,
-                      ),
+                  style: type.titleLarge.copyWith(color: colors.onSurface),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: space.x2),
                 Text(
                   'Add notes and photos — they show up when you share your snapshot.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: AppColors.graphite),
+                  style: type.bodyMedium.copyWith(color: colors.onSurfaceMuted),
                 ),
               ],
               if (photoList.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                SizedBox(height: space.x6),
                 Text(
                   'Photos',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: type.titleMedium.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: space.x3),
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -171,20 +177,20 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                 ),
               ],
               if (noteList.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                SizedBox(height: space.x6),
                 Text(
                   'Notes',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  style: type.titleMedium.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: space.x2),
                 ...noteList.map((n) {
                   final when =
                       DateFormat.MMMd().format(n.capturedAt.toLocal());
                   return Card(
-                    margin: const EdgeInsets.only(bottom: 10),
+                    margin: EdgeInsets.only(bottom: space.x2 + 2),
                     child: ListTile(
                       title: Text(n.title),
                       subtitle: Text(
@@ -263,6 +269,7 @@ class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final path = _photo.displayPath;
     if (path != null && path.isNotEmpty && File(path).existsSync()) {
       return ClipRRect(
@@ -285,9 +292,9 @@ class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: ColoredBox(
-        color: AppColors.blush,
+        color: colors.surfaceMuted,
         child: Center(
-          child: Icon(Icons.photo_outlined, color: AppColors.graphite),
+          child: Icon(Icons.photo_outlined, color: colors.onSurfaceMuted),
         ),
       ),
     );

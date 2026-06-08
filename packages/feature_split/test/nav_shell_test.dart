@@ -59,7 +59,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(
+          theme: AppTheme.light,
+          routerConfig: router,
+        ),
       ),
     );
     await tester.pumpAndSettle();

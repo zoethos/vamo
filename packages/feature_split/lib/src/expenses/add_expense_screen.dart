@@ -21,6 +21,7 @@ import 'receipt_ocr.dart';
 import 'receipt_ocr_form_prefill.dart';
 import '../places/places_repository.dart';
 import 'add_expense_screen_labels.dart';
+import 'expense_category_picker.dart';
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
 class AddExpenseScreen extends ConsumerStatefulWidget {
@@ -51,6 +52,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   final _descriptionController = TextEditingController();
 
   String? _payerId;
+  String _selectedCategoryKey = CategoryCatalog.other.key;
   String _expenseCurrency = 'EUR';
   bool _currencySyncedToTrip = false;
   String? _fxPreview;
@@ -331,6 +333,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     if (_ocrSuggested.contains(OcrSuggestionField.title) &&
                         !isPropose)
                       const OcrSuggestionChip(),
+                    const SizedBox(height: 16),
+                    ExpenseCategoryPicker(
+                      selectedKey: _selectedCategoryKey,
+                      enabled: !_saving,
+                      onChanged: (key) =>
+                          setState(() => _selectedCategoryKey = key),
+                    ),
                     if (!isPropose) ...[
                       if (_placeLabel != null && _placeLabel!.isNotEmpty) ...[
                         const SizedBox(height: 12),
@@ -668,6 +677,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               currency: _expenseCurrency,
               baseCents: baseCents,
               fxRate: fxRate,
+              category: _selectedCategoryKey,
             );
       } else {
         await ref.read(expensesRepositoryProvider).addExpense(
@@ -677,6 +687,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 amountCents: cents,
                 expenseCurrency: _expenseCurrency,
                 payerId: payerId,
+                category: _selectedCategoryKey,
                 receiptSourcePath: _receiptSourcePath,
                 capturedLat: _receiptMetadata?.lat,
                 capturedLng: _receiptMetadata?.lng,

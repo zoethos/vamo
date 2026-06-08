@@ -9,6 +9,7 @@ import '../trips/trips_providers.dart';
 import 'expense_consent_providers.dart';
 import 'expense_governance.dart';
 import 'expense_governance_labels.dart';
+import 'expense_category_picker.dart';
 import 'expense_models.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
@@ -37,7 +38,7 @@ Future<void> showExpenseDetailSheet({
   );
 }
 
-class _ExpenseDetailSheet extends ConsumerWidget {
+class _ExpenseDetailSheet extends ConsumerStatefulWidget {
   const _ExpenseDetailSheet({
     required this.expense,
     required this.labels,
@@ -53,7 +54,60 @@ class _ExpenseDetailSheet extends ConsumerWidget {
   final bool canManageProposals;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ExpenseDetailSheet> createState() => _ExpenseDetailSheetState();
+}
+
+class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
+  late String _selectedCategoryKey;
+  bool _categorySaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategoryKey = _canonicalKeyFor(widget.expense.category);
+  }
+
+  String _canonicalKeyFor(String? raw) {
+    final resolved = CategoryCatalog.resolve(raw);
+    return CategoryCatalog.canonical
+            .any((entry) => entry.key == resolved.key)
+        ? resolved.key
+        : CategoryCatalog.other.key;
+  }
+
+  Future<void> _onCategoryChanged(String key) async {
+    if (key == _selectedCategoryKey || widget.readOnly) return;
+    setState(() {
+      _selectedCategoryKey = key;
+      _categorySaving = true;
+    });
+    try {
+      await ref.read(expensesRepositoryProvider).updateExpenseCategory(
+            expenseId: widget.expense.id,
+            category: key,
+          );
+      ref.invalidate(tripExpensesProvider(widget.expense.tripId));
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'expense_detail',
+        action: 'update_category',
+        error: e,
+      );
+      setState(
+        () => _selectedCategoryKey = _canonicalKeyFor(widget.expense.category),
+      );
+    } finally {
+      if (mounted) setState(() => _categorySaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final expense = widget.expense;
+    final labels = widget.labels;
     final shares =
         ref.watch(tripExpenseSharesProvider(expense.tripId)).valueOrNull ?? [];
     final members =
@@ -65,6 +119,8 @@ class _ExpenseDetailSheet extends ConsumerWidget {
         .where((s) => s.expenseId == expense.id && s.userId == currentUserId)
         .firstOrNull;
     final repo = ref.read(expensesRepositoryProvider);
+    final canEditCategory =
+        !widget.readOnly && expense.status != ExpenseStatus.cancelled;
 
     return SafeArea(
       child: Padding(
@@ -86,6 +142,14 @@ class _ExpenseDetailSheet extends ConsumerWidget {
                       fontStyle: FontStyle.italic,
                     ),
               ),
+            if (canEditCategory) ...[
+              const SizedBox(height: 16),
+              ExpenseCategoryPicker(
+                selectedKey: _selectedCategoryKey,
+                enabled: !_categorySaving,
+                onChanged: _onCategoryChanged,
+              ),
+            ],
             const SizedBox(height: 16),
             for (final share in shares.where((s) => s.expenseId == expense.id))
               ListTile(
@@ -140,8 +204,8 @@ class _ExpenseDetailSheet extends ConsumerWidget {
               ),
             ],
             if (expense.status == ExpenseStatus.proposed &&
-                canManageProposals &&
-                !readOnly) ...[
+                widget.canManageProposals &&
+                !widget.readOnly) ...[
               const SizedBox(height: 12),
               FilledButton(
                 onPressed: () => _commitProposal(context, ref, repo),
@@ -178,6 +242,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
     WidgetRef ref,
     ExpensesRepository repo,
   ) async {
+    final expense = widget.expense;
     final trip = ref.read(tripDetailProvider(expense.tripId)).valueOrNull;
     final burnDown = ref.read(tripBudgetBurnDownProvider(expense.tripId));
     if (trip != null &&
@@ -190,7 +255,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
         )) {
       final ok = await confirmFormalOverBudgetCommit(
         context: context,
-        labels: budgetLabels,
+        labels: widget.budgetLabels,
       );
       if (!ok) return;
     }
@@ -223,7 +288,7 @@ class _ExpenseDetailSheet extends ConsumerWidget {
     }
     try {
       await repo.respondToShare(
-        expenseId: expense.id,
+        expenseId: widget.expense.id,
         accept: accept,
         reason: reason,
       );
@@ -246,20 +311,20 @@ class _ExpenseDetailSheet extends ConsumerWidget {
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(labels.disputeReasonTitle),
+        title: Text(widget.labels.disputeReasonTitle),
         content: TextField(
           controller: controller,
-          decoration: InputDecoration(hintText: labels.disputeReasonHint),
+          decoration: InputDecoration(hintText: widget.labels.disputeReasonHint),
           maxLines: 3,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(labels.cancel),
+            child: Text(widget.labels.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text),
-            child: Text(labels.submit),
+            child: Text(widget.labels.submit),
           ),
         ],
       ),

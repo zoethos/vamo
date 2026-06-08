@@ -18,6 +18,8 @@ class SplitLabels {
         title: l10n.tripsTitle,
         emptyTitle: l10n.tripsEmptyTitle,
         emptySubtitle: l10n.tripsEmptySubtitle,
+        emptyUpcomingTitle: l10n.tripsEmptyUpcomingTitle,
+        emptyPastTitle: l10n.tripsEmptyPastTitle,
         syncPendingLabel: l10n.tripsSyncPending,
         syncSubtitle: l10n.tripsSyncSubtitle,
         filterAll: l10n.tripsFilterAll,
@@ -26,6 +28,11 @@ class SplitLabels {
         filterDrafts: l10n.tripsFilterDrafts,
         loadError: l10n.tripsLoadError,
         syncError: l10n.tripsSyncError,
+        sectionUpcoming: l10n.tripsSectionUpcoming,
+        sectionPast: l10n.tripsSectionPast,
+        participants: l10n.tripsParticipants,
+        notificationsTooltip: l10n.tripsNotificationsTooltip,
+        createTripTooltip: l10n.tripsCreateTripTooltip,
       );
 
   static ActivityScreenLabels activity(AppLocalizations l10n) =>
@@ -104,6 +111,13 @@ class SplitLabels {
         eventRsvpHint: l10n.planEventRsvpHint,
         eventRsvpSection: l10n.planEventRsvpSection,
         eventRsvpUpdateFailed: l10n.eventRsvpUpdateFailed,
+        datePickerCancel: l10n.datePickerCancel,
+        datePickerSkip: l10n.datePickerSkip,
+        datePickerSelect: l10n.datePickerSelect,
+        addChecklistItem: l10n.planAddChecklistItem,
+        deleteConfirmTitle: l10n.planDeleteConfirmTitle,
+        endBeforeStart: l10n.planEndBeforeStart,
+        cancelLabel: l10n.datePickerCancel,
       );
 
   static ExpenseGovernanceLabels governance(AppLocalizations l10n) =>
@@ -222,6 +236,8 @@ class SplitLabels {
         membersInviteHintSolo: l10n.membersInviteHintSolo,
         membersShareFootnote: l10n.membersShareFootnote,
         membersCountOnTrip: l10n.membersCountOnTrip,
+        membersMakeCoAdmin: l10n.membersMakeCoAdmin,
+        membersRemoveCoAdmin: l10n.membersRemoveCoAdmin,
       );
 
   static ProfileScreenLabels profile(AppLocalizations l10n) =>
@@ -234,6 +250,10 @@ class SplitLabels {
         tagline: l10n.brandTagline,
         loadError: l10n.profileLoadError,
         profileSection: l10n.profileSection,
+        appearanceSection: l10n.profileAppearanceSection,
+        appearanceLight: l10n.profileAppearanceLight,
+        appearanceDark: l10n.profileAppearanceDark,
+        appearanceSystem: l10n.profileAppearanceSystem,
         displayName: l10n.profileDisplayName,
         displayNameHint: l10n.profileDisplayNameHint,
         defaultCurrency: l10n.profileDefaultCurrency,
@@ -257,8 +277,10 @@ class SplitLabels {
       );
 
   static TripHomeLabels tripHome(AppLocalizations l10n) => TripHomeLabels(
+        tabOverview: l10n.tripHomeTabOverview,
         tabExpenses: l10n.tripHomeTabExpenses,
         tabCapture: l10n.tripHomeTabCapture,
+        memoriesTitle: l10n.tripHomeMemories,
         tabBalances: l10n.tripHomeTabBalances,
         tabMembers: l10n.tripHomeTabMembers,
         moreMenu: l10n.tripHomeMoreMenu,
@@ -268,6 +290,15 @@ class SplitLabels {
         loadError: l10n.tripHomeLoadError,
         notFoundTitle: l10n.tripHomeNotFoundTitle,
         notFoundSubtitle: l10n.tripHomeNotFoundSubtitle,
+        totalSpentLabel: l10n.tripHomeTotalSpent,
+        perPersonLabel: l10n.tripHomePerPerson,
+        recentActivity: l10n.tripHomeRecentActivity,
+        noRecentActivity: l10n.tripHomeNoRecentActivity,
+        quickExpenses: l10n.tripHomeQuickExpenses,
+        quickPlans: l10n.tripHomeQuickPlans,
+        quickBalances: l10n.tripHomeQuickBalances,
+        quickMembers: l10n.tripHomeQuickMembers,
+        quickMemories: l10n.tripHomeQuickMemories,
       );
 
   static BalancesTabLabels balances(AppLocalizations l10n) => BalancesTabLabels(
@@ -333,6 +364,9 @@ class SplitLabels {
         submit: l10n.createTripSubmit,
         endBeforeStart: l10n.createTripEndBeforeStart,
         clearDate: l10n.createTripClearDate,
+        datePickerCancel: l10n.datePickerCancel,
+        datePickerSkip: l10n.datePickerSkip,
+        datePickerSelect: l10n.datePickerSelect,
       );
 
   static AddExpenseScreenLabels addExpense(AppLocalizations l10n) =>

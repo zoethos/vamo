@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 13);
+    expect(db.schemaVersion, 14);
 
     await db.upsertTrip(
       LocalTripsCompanion(

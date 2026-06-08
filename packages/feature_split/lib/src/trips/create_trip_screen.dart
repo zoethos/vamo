@@ -32,6 +32,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _saving = false;
+  String? _dateRangeError;
 
   static const _currencies = kProfileCurrencies;
 
@@ -133,17 +134,24 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               label: labels.startDate,
               value: _startDate,
               onPick: _pickStart,
-              onClear: () => setState(() => _startDate = null),
-              clearTooltip: labels.clearDate,
+              optionalHint: labels.startDate,
             ),
             const SizedBox(height: 12),
             _DateRow(
               label: labels.endDate,
               value: _endDate,
               onPick: _pickEnd,
-              onClear: () => setState(() => _endDate = null),
-              clearTooltip: labels.clearDate,
+              optionalHint: labels.endDate,
             ),
+            if (_dateRangeError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _dateRangeError!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+              ),
+            ],
             const SizedBox(height: 32),
             FilledButton(
               onPressed: _saving ? null : _save,
@@ -164,35 +172,76 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     );
   }
 
+  void _validateDateRange() {
+    if (_startDate != null &&
+        _endDate != null &&
+        _endDate!.isBefore(_startDate!)) {
+      _dateRangeError = widget.labels.endBeforeStart;
+    } else {
+      _dateRangeError = null;
+    }
+  }
+
   Future<void> _pickStart() async {
-    final picked = await showDatePicker(
+    final result = await showVamoDatePicker(
       context: context,
-      initialDate: _startDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
+      labels: VamoDatePickerLabels(
+        cancel: widget.labels.datePickerCancel,
+        skip: widget.labels.datePickerSkip,
+        select: widget.labels.datePickerSelect,
+      ),
+      initialDate: _startDate,
     );
-    if (picked != null && mounted) setState(() => _startDate = picked);
+    if (!mounted) return;
+    switch (result.outcome) {
+      case VamoDatePickOutcome.skipped:
+        setState(() {
+          _startDate = null;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.selected:
+        setState(() {
+          _startDate = result.date;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.cancelled:
+        break;
+    }
   }
 
   Future<void> _pickEnd() async {
-    final initial = _endDate ?? _startDate ?? DateTime.now();
-    final picked = await showDatePicker(
+    final result = await showVamoDatePicker(
       context: context,
-      initialDate: initial,
+      labels: VamoDatePickerLabels(
+        cancel: widget.labels.datePickerCancel,
+        skip: widget.labels.datePickerSkip,
+        select: widget.labels.datePickerSelect,
+      ),
+      initialDate: _endDate ?? _startDate,
       firstDate: _startDate ?? DateTime(2020),
-      lastDate: DateTime(2035),
     );
-    if (picked != null && mounted) setState(() => _endDate = picked);
+    if (!mounted) return;
+    switch (result.outcome) {
+      case VamoDatePickOutcome.skipped:
+        setState(() {
+          _endDate = null;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.selected:
+        setState(() {
+          _endDate = result.date;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.cancelled:
+        break;
+    }
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_startDate != null &&
-        _endDate != null &&
-        _endDate!.isBefore(_startDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.labels.endBeforeStart)),
-      );
+    _validateDateRange();
+    if (_dateRangeError != null) {
+      setState(() {});
       return;
     }
 
@@ -240,39 +289,26 @@ class _DateRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onPick,
-    required this.onClear,
-    required this.clearTooltip,
+    required this.optionalHint,
   });
 
   final String label;
   final DateTime? value;
   final VoidCallback onPick;
-  final VoidCallback onClear;
-  final String clearTooltip;
+  final String optionalHint;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final formatted = value == null ? null : DateFormat.yMMMd().format(value!);
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton(
-            onPressed: onPick,
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(formatted ?? label),
-            ),
-          ),
-        ),
-        if (value != null) ...[
-          const SizedBox(width: 8),
-          IconButton(
-            tooltip: clearTooltip,
-            onPressed: onClear,
-            icon: const Icon(Icons.clear),
-          ),
-        ],
-      ],
+    return OutlinedButton(
+      onPressed: onPick,
+      style: OutlinedButton.styleFrom(
+        alignment: AlignmentDirectional.centerStart,
+        foregroundColor: colors.onSurface,
+        side: BorderSide(color: colors.border),
+      ),
+      child: Text(formatted ?? optionalHint),
     );
   }
 }

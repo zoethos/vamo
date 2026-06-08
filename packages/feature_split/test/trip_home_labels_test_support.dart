@@ -1,9 +1,36 @@
 import 'package:feature_split/src/balances/balances_tab_labels.dart';
 import 'package:feature_split/src/trips/trip_home_labels.dart';
 
+TripHomeLabels tripHomeLabelsTestDefaults() => const TripHomeLabels(
+      tabOverview: 'Overview',
+      tabExpenses: 'Expenses',
+      tabCapture: 'Capture',
+      memoriesTitle: 'Memories',
+      tabBalances: 'Balances',
+      tabMembers: 'Members',
+      moreMenu: 'More',
+      tripSettings: 'Trip settings',
+      shareSnapshot: 'Share snapshot',
+      addExpense: 'Add expense',
+      loadError: 'Could not load this trip.',
+      notFoundTitle: 'Trip not found',
+      notFoundSubtitle: 'It may have been removed or you no longer have access.',
+      totalSpentLabel: 'Total Spent',
+      perPersonLabel: _perPerson,
+      recentActivity: 'Recent activity',
+      noRecentActivity: 'No expenses yet.',
+      quickExpenses: 'Expenses',
+      quickPlans: 'Plans',
+      quickBalances: 'Balances',
+      quickMembers: 'Members',
+      quickMemories: 'Memories',
+    );
+
 const testTripHomeLabels = TripHomeLabels(
+  tabOverview: 'Overview',
   tabExpenses: 'Expenses',
   tabCapture: 'Capture',
+  memoriesTitle: 'Memories',
   tabBalances: 'Balances',
   tabMembers: 'Members',
   moreMenu: 'More',
@@ -13,7 +40,18 @@ const testTripHomeLabels = TripHomeLabels(
   loadError: 'Could not load this trip.',
   notFoundTitle: 'Trip not found',
   notFoundSubtitle: 'It may have been removed or you no longer have access.',
+  totalSpentLabel: 'Total Spent',
+  perPersonLabel: _perPerson,
+  recentActivity: 'Recent activity',
+  noRecentActivity: 'No expenses yet.',
+  quickExpenses: 'Expenses',
+  quickPlans: 'Plans',
+  quickBalances: 'Balances',
+  quickMembers: 'Members',
+  quickMemories: 'Memories',
 );
+
+String _perPerson(String amount) => 'Per person $amount';
 
 final testBalancesTabLabels = BalancesTabLabels(
   loadError: 'Could not load balances.',

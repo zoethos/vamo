@@ -15,6 +15,8 @@
   "tripsTitle": "Your trips",
   "tripsEmptyTitle": "No trips yet",
   "tripsEmptySubtitle": "Tap + to start one.",
+  "tripsEmptyUpcomingTitle": "No upcoming trips",
+  "tripsEmptyPastTitle": "No past trips",
   "tripsSyncPending": "{count, plural, =1{1 change waiting to sync} other{{count} changes waiting to sync}}",
   "@tripsSyncPending": {
     "placeholders": {
@@ -30,6 +32,16 @@
   "tripsFilterDrafts": "Drafts",
   "tripsLoadError": "Could not load your trips.",
   "tripsSyncError": "Could not sync your trips.",
+  "tripsSectionUpcoming": "Upcoming",
+  "tripsSectionPast": "Past",
+  "tripsParticipants": "{count, plural, =1{1 Vamigo} other{{count} Vamigos}}",
+  "@tripsParticipants": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tripsNotificationsTooltip": "Notifications",
+  "tripsCreateTripTooltip": "Create trip",
   "activityTitle": "Activity",
   "activityEmptyTitle": "Nothing yet",
   "activityEmptySubtitle": "Expenses and settlements will show up here.",
@@ -96,9 +108,13 @@
     }
   },
   "membersShareFootnote": "Share a link — they can join mid-trip. Opens Vamo or the store.",
+  "membersMakeCoAdmin": "Make co-admin",
+  "membersRemoveCoAdmin": "Remove co-admin",
   "inviteAction": "Invite",
+  "tripHomeTabOverview": "Overview",
   "tripHomeTabExpenses": "Expenses",
   "tripHomeTabCapture": "Capture",
+  "tripHomeMemories": "Memories",
   "tripHomeTabBalances": "Balances",
   "tripHomeTabMembers": "Members",
   "tripHomeMoreMenu": "More",
@@ -108,6 +124,20 @@
   "tripHomeLoadError": "Could not load this trip.",
   "tripHomeNotFoundTitle": "Trip not found",
   "tripHomeNotFoundSubtitle": "It may have been removed or you no longer have access.",
+  "tripHomeTotalSpent": "Total Spent",
+  "tripHomePerPerson": "Per person {amount}",
+  "@tripHomePerPerson": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "tripHomeRecentActivity": "Recent activity",
+  "tripHomeNoRecentActivity": "No expenses yet.",
+  "tripHomeQuickExpenses": "Expenses",
+  "tripHomeQuickPlans": "Plans",
+  "tripHomeQuickBalances": "Balances",
+  "tripHomeQuickMembers": "Members",
+  "tripHomeQuickMemories": "Memories",
   "balancesLoadError": "Could not load balances.",
   "balancesWhoOwesTitle": "Who owes whom",
   "balancesWhoOwesHint": "Fewest payments to clear the trip.",
@@ -203,6 +233,9 @@
   "createTripSubmit": "Create trip",
   "createTripEndBeforeStart": "End date must be on or after start date.",
   "createTripClearDate": "Clear date",
+  "datePickerCancel": "Cancel",
+  "datePickerSkip": "Skip",
+  "datePickerSelect": "Select",
   "addExpenseTitle": "Add expense",
   "addExpenseTripNotFound": "Trip not found",
   "addExpenseScanReceipt": "Scan receipt",
@@ -226,6 +259,10 @@
   "profileSaved": "Profile saved.",
   "profileLoadError": "Could not load your profile.",
   "profileSection": "Profile",
+  "profileAppearanceSection": "Appearance",
+  "profileAppearanceLight": "Light",
+  "profileAppearanceDark": "Dark",
+  "profileAppearanceSystem": "System",
   "profileDisplayName": "Display name",
   "profileDisplayNameHint": "How Vamigos see you",
   "profileDefaultCurrency": "Default trip currency",
@@ -240,6 +277,8 @@
   "planUndatedSection": "No date",
   "planChecklistsSection": "Checklists",
   "planAddItem": "Add to plan",
+  "planAddChecklistItem": "Add checklist item",
+  "planDeleteConfirmTitle": "Delete this item?",
   "planAddListItemHint": "New checklist item",
   "planDefaultListName": "Packing",
   "planDeleteItem": "Delete",
@@ -257,6 +296,7 @@
   "planFieldStart": "Starts",
   "planFieldEnd": "Ends",
   "planSave": "Save",
+  "planEndBeforeStart": "End must be on or after start.",
   "planLoadError": "Could not load the plan.",
   "planChecklistsLoadError": "Could not load checklists.",
   "eventRsvpGoing": "Going",

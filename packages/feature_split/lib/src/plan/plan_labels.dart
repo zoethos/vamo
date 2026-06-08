@@ -34,6 +34,13 @@ class PlanTabLabels {
     required this.eventRsvpHint,
     required this.eventRsvpSection,
     required this.eventRsvpUpdateFailed,
+    required this.datePickerCancel,
+    required this.datePickerSkip,
+    required this.datePickerSelect,
+    required this.addChecklistItem,
+    required this.deleteConfirmTitle,
+    required this.endBeforeStart,
+    required this.cancelLabel,
   });
 
   final String emptyTitle;
@@ -68,6 +75,13 @@ class PlanTabLabels {
   final String eventRsvpHint;
   final String eventRsvpSection;
   final String eventRsvpUpdateFailed;
+  final String datePickerCancel;
+  final String datePickerSkip;
+  final String datePickerSelect;
+  final String addChecklistItem;
+  final String deleteConfirmTitle;
+  final String endBeforeStart;
+  final String cancelLabel;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
         PlanItemKind.lodging => kindLodging,

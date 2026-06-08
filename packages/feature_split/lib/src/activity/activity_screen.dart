@@ -133,8 +133,10 @@ class _ActivityTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsetsDirectional.only(bottom: 8),
       child: ListTile(
-        leading: CircleAvatar(
+        leading: VamoCircleIcon(
+          diameter: 40,
           backgroundColor: _chipColor.withValues(alpha: 0.25),
+          shadow: false,
           child: Icon(_icon, color: AppColors.ink, size: 20),
         ),
         title: Text(item.title),
