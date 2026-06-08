@@ -1,6 +1,0 @@
-# melos_managed_dependency_overrides: app_core,feature_split
-dependency_overrides:
-  app_core:
-    path: ..\\packages\\app_core
-  feature_split:
-    path: ..\\packages\\feature_split
