@@ -58,15 +58,6 @@ class CaptureChoiceSheet extends ConsumerStatefulWidget {
 
 class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   final _picker = ImagePicker();
-  _CaptureChoice? _busy;
-
-  int? get _loadingIndex => switch (_busy) {
-        _CaptureChoice.photo => 0,
-        _CaptureChoice.video => 1,
-        _CaptureChoice.note => 2,
-        _CaptureChoice.background => 3,
-        null => null,
-      };
 
   Future<void> _dismiss() async {
     final onDismiss = widget.onDismiss;
@@ -110,38 +101,38 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   }
 
   Future<void> _addPhoto() async {
+    final routeContext = widget.navigationContext ?? context;
+    final container = ProviderScope.containerOf(routeContext);
     final picked = await _pickImage(
       source: ImageSource.gallery,
       maxWidth: 1600,
       maxHeight: 1600,
       imageQuality: 80,
     );
-    if (picked == null || !mounted) return;
+    if (picked == null) return;
 
-    setState(() => _busy = _CaptureChoice.photo);
+    await _dismiss();
+    if (!routeContext.mounted) return;
+
     try {
-      await ref.read(captureRepositoryProvider).addPhoto(
+      await container.read(captureRepositoryProvider).addPhoto(
             tripId: widget.tripId,
             sourcePath: picked.path,
           );
-      if (!mounted) return;
-      await _dismiss();
     } catch (e) {
-      final routeContext = widget.navigationContext ?? context;
       if (!routeContext.mounted) return;
-      showActionError(
+      _showActionError(
         routeContext,
-        ref,
-        screen: 'trip_home',
+        container,
         action: 'add_capture_photo',
         error: e,
       );
-    } finally {
-      if (mounted) setState(() => _busy = null);
     }
   }
 
   Future<void> _setBackground() async {
+    final routeContext = widget.navigationContext ?? context;
+    final container = ProviderScope.containerOf(routeContext);
     try {
       final picked = await _pickImage(
         source: ImageSource.gallery,
@@ -149,29 +140,45 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         maxHeight: 1920,
         imageQuality: 85,
       );
-      if (picked == null || !mounted) return;
-      setState(() => _busy = _CaptureChoice.background);
-      await ref.read(tripsRepositoryProvider).setTripBackground(
+      if (picked == null) return;
+
+      await _dismiss();
+      if (!routeContext.mounted) return;
+
+      await container.read(tripsRepositoryProvider).setTripBackground(
             tripId: widget.tripId,
             sourcePath: picked.path,
           );
-      if (!mounted) return;
-      await _dismiss();
     } catch (e, st) {
       debugPrint('SET-BG-FAIL [trip_home/set_trip_background]: $e\n$st');
-      final routeContext = widget.navigationContext ?? context;
       if (!routeContext.mounted) return;
-      showActionError(
+      _showActionError(
         routeContext,
-        ref,
-        screen: 'trip_home',
+        container,
         action: 'set_trip_background',
         error: e,
         stackTrace: st,
       );
-    } finally {
-      if (mounted) setState(() => _busy = null);
     }
+  }
+
+  void _showActionError(
+    BuildContext context,
+    ProviderContainer container, {
+    required String action,
+    required Object error,
+    StackTrace? stackTrace,
+  }) {
+    reportAndLog(
+      error,
+      stackTrace ?? StackTrace.current,
+      screen: 'trip_home',
+      action: action,
+      analytics: container.read(analyticsProvider),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(formatActionFailureMessage(error))),
+    );
   }
 
   Future<void> _addVideo() async {
@@ -218,10 +225,7 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   Widget build(BuildContext context) {
     return VamoCarousel(
       items: _items(),
-      loadingIndex: _loadingIndex,
       onDismiss: widget.onDismiss,
     );
   }
 }
-
-enum _CaptureChoice { photo, video, note, background }

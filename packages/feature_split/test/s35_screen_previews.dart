@@ -317,7 +317,7 @@ Widget pumpTripDashboardTab({
       tripsRepositoryProvider.overrideWith((ref) => buildPreviewTripsRepository(db)),
       tripDetailProvider(trip.id).overrideWith((ref) => Stream.value(trip)),
       tripHeroBackgroundProvider(trip.id)
-          .overrideWith((ref) => Future.value(heroBackgroundPath)),
+          .overrideWith((ref) => heroBackgroundPath),
       tripMyMemberProvider(trip.id).overrideWith((ref) => Stream.value(null)),
       tripHasCloseObjectionProvider(trip.id)
           .overrideWith((ref) => Stream.value(false)),
