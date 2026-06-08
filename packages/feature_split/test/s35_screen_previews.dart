@@ -1,13 +1,7 @@
 import 'package:app_core/app_core.dart';
-import 'package:drift/native.dart';
-import 'package:feature_split/src/capture/capture_repository.dart';
 import 'package:feature_split/src/expenses/expense_governance.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 import 'package:feature_split/src/expenses/expenses_providers.dart';
-import 'package:feature_split/src/expenses/expenses_repository.dart';
-import 'package:feature_split/src/plan/plan_repository.dart';
-import 'package:feature_split/src/places/places_repository.dart';
-import 'package:feature_split/src/settle/settlements_repository.dart';
 import 'package:feature_split/src/trips/compact_trip_card.dart';
 import 'package:feature_split/src/trips/dashboard_activity_row.dart';
 import 'package:feature_split/src/trips/featured_trip_card.dart';
@@ -21,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'trip_home_labels_test_support.dart';
+import 'trips_repository_test_support.dart';
 
 class _PreviewAuthRepository extends AuthRepository {
   _PreviewAuthRepository(SupabaseClient client) : super(client);
@@ -41,63 +36,8 @@ class _PreviewAuthRepository extends AuthRepository {
   Stream<AuthState> get authStateChanges => const Stream.empty();
 }
 
-TripsRepository buildPreviewTripsRepository(AppDatabase db) {
-  final client = SupabaseClient(
-    'http://localhost',
-    'anon-key',
-    authOptions: const AuthClientOptions(autoRefreshToken: false),
-  );
-  final analytics = DebugAnalytics();
-  final queue = SyncQueue(db);
-  final syncWorker = SyncWorker(
-    queue: queue,
-    client: client,
-    analytics: analytics,
-    flushWithoutSession: true,
-    testExecute: (_) async {},
-  );
-  final fxRates = FxRatesClient();
-  return TripsRepository(
-    db: db,
-    client: client,
-    analytics: analytics,
-    expenses: ExpensesRepository(
-      db: db,
-      client: client,
-      analytics: analytics,
-      fxRates: fxRates,
-      syncQueue: queue,
-      syncWorker: syncWorker,
-    ),
-    settlements: SettlementsRepository(
-      db: db,
-      client: client,
-      analytics: analytics,
-      syncQueue: queue,
-      syncWorker: syncWorker,
-    ),
-    capture: CaptureRepository(
-      db: db,
-      client: client,
-      syncQueue: queue,
-      syncWorker: syncWorker,
-    ),
-    places: PlacesRepository(
-      db: db,
-      client: client,
-      analytics: analytics,
-      syncQueue: queue,
-    ),
-    plan: PlanRepository(
-      db: db,
-      client: client,
-      analytics: analytics,
-      syncQueue: queue,
-      syncWorker: syncWorker,
-    ),
-    syncQueue: queue,
-  );
-}
+TripsRepository buildPreviewTripsRepository(AppDatabase db) =>
+    buildTestTripsRepository(db);
 
 final s35SampleTrip = TripSummary(
   id: 'trip-amalfi',
@@ -298,11 +238,11 @@ final dashboardPreviewExpenses = [
 
 Widget pumpTripDashboardTab({
   required ThemeData theme,
+  required AppDatabase db,
   TripDetail? detail,
   String? heroBackgroundPath,
 }) {
   final trip = detail ?? s35TripDetail;
-  final db = AppDatabase.forTesting(NativeDatabase.memory());
   final client = SupabaseClient(
     'http://localhost',
     'anon-key',

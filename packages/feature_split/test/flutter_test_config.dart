@@ -5,12 +5,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'platform_test_support.dart';
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await _loadGoldenFonts();
   goldenFileComparator = _TolerantLocalFileComparator(
     Uri.parse('test/flutter_test_config.dart'),
   );
+  setUp(setUpFakePathProvider);
+  tearDown(tearDownFakePathProvider);
   await testMain();
 }
 

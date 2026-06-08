@@ -1,3 +1,5 @@
+import 'package:app_core/app_core.dart';
+import 'package:drift/native.dart';
 import 'package:feature_split/src/trips/trip_dashboard_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,10 +33,12 @@ void main() {
 
   group('S41 dashboard goldens', () {
     testWidgets('dashboard light small', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
-        child: pumpTripDashboardTab(theme: goldenTestTheme()),
+        child: pumpTripDashboardTab(theme: goldenTestTheme(), db: db),
       );
       await expectLater(
         find.byType(TripDashboardTab),
@@ -43,11 +47,14 @@ void main() {
     });
 
     testWidgets('dashboard dark small', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
         child: pumpTripDashboardTab(
           theme: goldenTestTheme(brightness: Brightness.dark),
+          db: db,
         ),
       );
       await expectLater(
@@ -57,11 +64,13 @@ void main() {
     });
 
     testWidgets('dashboard light rtl', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
         textDirection: TextDirection.rtl,
-        child: pumpTripDashboardTab(theme: goldenTestTheme()),
+        child: pumpTripDashboardTab(theme: goldenTestTheme(), db: db),
       );
       await expectLater(
         find.byType(TripDashboardTab),

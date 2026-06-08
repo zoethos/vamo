@@ -32,8 +32,14 @@ class _StubAuthRepository extends AuthRepository {
   Stream<AuthState> get authStateChanges => const Stream.empty();
 }
 
-List<Override> tripsListTestOverrides(List<TripSummary> trips) {
-  final db = AppDatabase.forTesting(NativeDatabase.memory());
+List<Override> tripsListTestOverrides(
+  List<TripSummary> trips, {
+  AppDatabase? database,
+}) {
+  final db = database ?? AppDatabase.forTesting(NativeDatabase.memory());
+  if (database == null) {
+    addTearDown(db.close);
+  }
   final client = SupabaseClient(
     'http://localhost',
     'anon-key',

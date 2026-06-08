@@ -7,6 +7,7 @@ import 'package:feature_split/src/expenses/expense_models.dart';
 
 
 import 'trip_home_labels_test_support.dart';
+import 'trips_repository_test_support.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
 import 'package:feature_split/src/sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/trips/trip_budget_labels.dart';
@@ -271,6 +272,8 @@ List<Override> _tripHomeOverrides({
       ),
     ),
     tripRealtimeBindingProvider(tripId).overrideWith((ref) {}),
+    tripsSyncProvider.overrideWith((ref) async {}),
+    tripHeroBackgroundProvider(tripId).overrideWith((ref) => null),
     tripDetailProvider(tripId).overrideWith((ref) => Stream.value(detail)),
     tripMemberCountProvider(tripId).overrideWith((ref) => Stream.value(1)),
     tripMyMemberProvider(tripId).overrideWith((ref) => Stream.value(myMember)),
@@ -308,7 +311,9 @@ List<Override> _tripHomeOverrides({
       (ref, args) => memberRole,
     ),
     if (tripsRepo != null)
-      tripsRepositoryProvider.overrideWith((ref) => tripsRepo),
+      tripsRepositoryProvider.overrideWith((ref) => tripsRepo)
+    else
+      tripsRepositoryProvider.overrideWith((ref) => buildTestTripsRepository(db)),
   ];
 }
 
