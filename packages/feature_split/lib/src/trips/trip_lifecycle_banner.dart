@@ -92,7 +92,7 @@ class _TripLifecycleBannerState extends ConsumerState<TripLifecycleBanner> {
               child: TextButton(
                 onPressed: () =>
                     context.push(AppRoutes.tripCloseReport(tripId)),
-                child: Text(closeReportLabel),
+                child: Text(widget.closeReportLabel),
               ),
             ),
           ],
@@ -171,7 +171,7 @@ class _TripLifecycleBannerState extends ConsumerState<TripLifecycleBanner> {
               TextButton(
                 onPressed: () =>
                     context.push(AppRoutes.tripCloseReport(tripId)),
-                child: Text(closeReportLabel),
+                child: Text(widget.closeReportLabel),
               ),
             ],
           ),
