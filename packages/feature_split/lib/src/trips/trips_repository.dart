@@ -76,6 +76,10 @@ class TripsRepository {
                   endDate: r.endDate,
                   baseCurrency: r.baseCurrency,
                   lifecycle: r.lifecycle,
+                  budgetMode: r.budgetMode,
+                  budgetCents: r.budgetCents,
+                  backgroundStoragePath: r.backgroundPath,
+                  backgroundLocalPath: r.backgroundLocalPath,
                 ),
               )
               .toList(),

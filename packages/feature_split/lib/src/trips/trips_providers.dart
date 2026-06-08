@@ -22,10 +22,23 @@ final tripsListProvider = StreamProvider<List<TripSummary>>((ref) {
   return ref.watch(tripsRepositoryProvider).watchTripSummaries();
 });
 
-final tripDetailProvider =
-    StreamProvider.family<TripDetail?, String>((ref, tripId) {
-  return ref.watch(tripsRepositoryProvider).watchTrip(tripId);
-});
+Future<String?> _resolveTripBackgroundImage(
+  Ref ref, {
+  required String tripId,
+  String? localPath,
+  String? storagePath,
+}) async {
+  if (localPath != null &&
+      localPath.isNotEmpty &&
+      File(localPath).existsSync()) {
+    return localPath;
+  }
+  if (storagePath == null || storagePath.isEmpty) return null;
+  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
+        tripId: tripId,
+        storagePath: storagePath,
+      );
+}
 
 /// Resolved local file path for the user-set hero background, if any.
 final tripHeroBackgroundProvider =
@@ -34,18 +47,38 @@ final tripHeroBackgroundProvider =
   final detail = ref.read(tripDetailProvider(tripId)).valueOrNull;
   if (detail == null) return null;
 
-  final local = detail.backgroundLocalPath;
+  return _resolveTripBackgroundImage(
+    ref,
+    tripId: tripId,
+    localPath: detail.backgroundLocalPath,
+    storagePath: detail.backgroundStoragePath,
+  );
+});
+
+/// My Trips card backdrop — local path from the list stream, else remote cache.
+final tripCardBackgroundImageProvider =
+    Provider.family<String?, String>((ref, tripId) {
+  final trip = ref.watch(
+    tripsListProvider.select(
+      (async) => async.valueOrNull?.where((t) => t.id == tripId).firstOrNull,
+    ),
+  );
+  if (trip == null) return null;
+
+  final local = trip.backgroundLocalPath;
   if (local != null && local.isNotEmpty && File(local).existsSync()) {
     return local;
   }
 
-  final remote = detail.backgroundStoragePath;
+  final remote = trip.backgroundStoragePath;
   if (remote == null || remote.isEmpty) return null;
 
-  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
-        tripId: tripId,
-        storagePath: remote,
-      );
+  return ref.watch(tripHeroBackgroundProvider(tripId)).valueOrNull;
+});
+
+final tripDetailProvider =
+    StreamProvider.family<TripDetail?, String>((ref, tripId) {
+  return ref.watch(tripsRepositoryProvider).watchTrip(tripId);
 });
 
 final tripMemberCountProvider =

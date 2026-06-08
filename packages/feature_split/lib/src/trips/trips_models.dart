@@ -10,6 +10,8 @@ class TripSummary {
     this.lifecycle = 'active',
     this.budgetMode = 'none',
     this.budgetCents,
+    this.backgroundStoragePath,
+    this.backgroundLocalPath,
   });
 
   final String id;
@@ -21,6 +23,8 @@ class TripSummary {
   final String lifecycle;
   final String budgetMode;
   final int? budgetCents;
+  final String? backgroundStoragePath;
+  final String? backgroundLocalPath;
 }
 
 /// Trip home header fields.

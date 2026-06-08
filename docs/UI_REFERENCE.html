@@ -107,6 +107,10 @@
     <b>How to use:</b> each screen shows numbered callouts ① ② ③ … on its elements; the legend beside it
     gives the <b style="color:var(--plum);font-family:monospace">canonical-name</b> for each number.
     The <b>Glossary</b> at the bottom maps every name to what it is and the code file it lives in.
+    <p style="margin:10px 0 0"><b>Updated 2026-06-09:</b> unified "+" actions — every view uses a single
+    <b>top-right app-bar "+"</b>; the bottom-nav center "+" and all section FABs were removed, bottom nav
+    is now 4 items. <b>Memories</b> is a quick-action tile (grid is scrollable). The <b>capture-carousel</b>
+    Background option now works (hero-background save fixed). Members' duplicate invite buttons removed.</p>
   </div>
 
   <!-- ============ MY TRIPS ============ -->
@@ -124,7 +128,7 @@
           </div></div>
         <div class="sech blk"><span class="n">5</span>Upcoming</div>
         <div class="row blk"><span class="n">6</span><div class="li" style="background:linear-gradient(135deg,var(--coral),var(--plum))"></div><div class="gr"><b>Cassino</b><div>Jun 17 – Jun 19, 2026 · 2 going</div></div></div>
-        <div class="bnav blk"><span class="n">7</span><span>🧳<br>Trips</span><span>📈<br>Activity</span><span class="center">＋</span><span>🧾<br>Expenses</span><span>👤<br>Profile</span></div>
+        <div class="bnav blk"><span class="n">7</span><span>🧳<br>Trips</span><span>📈<br>Activity</span><span>🧾<br>Expenses</span><span>👤<br>Profile</span></div>
       </div>
     </div>
     <div class="legend"><h3>Element names</h3><ol>
@@ -134,7 +138,7 @@
       <li><b>featured-trip-card</b> <small>= hero-backdrop + trip-title-overlay + trip-dates + participant-count + acceptance-bar</small></li>
       <li><b>section-header</b> <small>(“Upcoming” / “Past”)</small></li>
       <li><b>compact-trip-card</b> <small>= card-thumbnail + card-title + card-dates</small></li>
-      <li><b>bottom-nav</b> <small>(Trips · Activity · center-fab · Expenses · Profile)</small></li>
+      <li><b>bottom-nav</b> <small>(Trips · Activity · Expenses · Profile — 4 items, no center "+"; add a trip via the top-right "+")</small></li>
     </ol></div>
   </section>
 
@@ -156,9 +160,9 @@
           <div class="cap">Total Spent</div><div style="font-size:18px;font-weight:800">€40.09</div><div class="cap mut">Per person €20.04</div>
           <span class="n r" style="top:14px">6</span>
         </div>
-        <div class="qgrid blk"><span class="n">7</span>
+        <div class="qgrid blk" style="grid-template-columns:repeat(5,1fr)"><span class="n">7</span>
           <div class="qt"><div class="qi">🧾</div>Expenses</div><div class="qt"><div class="qi">📅</div>Plans</div>
-          <div class="qt"><div class="qi">👛</div>Balances</div><div class="qt"><div class="qi">👥</div>Members</div></div>
+          <div class="qt"><div class="qi">👛</div>Balances</div><div class="qt"><div class="qi">👥</div>Members</div><div class="qt"><div class="qi">🖼</div>Memories</div></div>
         <div class="sech blk"><span class="n">8</span>Recent activity</div>
         <div class="row blk"><span class="n">9</span><div class="li">🍴</div><div class="gr"><b>Borri Books</b><div>SOC. Libreria</div></div><div class="am">€40.09<small>Today</small></div></div>
       </div>
@@ -166,11 +170,11 @@
     <div class="legend"><h3>Element names</h3><ol>
       <li><b>hero-badge</b> / <b>hero-backdrop</b> <small>(full-bleed trip image/gradient)</small></li>
       <li><b>back-button</b> + <b>overflow-menu</b> (⋯)</li>
-      <li><b>camera-button</b> <small>(capture / change-background entry)</small></li>
+      <li><b>camera-button</b> <small>(opens the capture-carousel: photo / video / note / change-background)</small></li>
       <li><b>participant-strip</b> <small>= member-avatar(s) + add-member-button</small></li>
       <li><b>total-spent-card</b> <small>= total-spent-label + total-amount + per-person</small></li>
       <li><b>category-donut</b> <small>(spend by category color)</small></li>
-      <li><b>quick-action-grid</b> <small>= quick-action-tile ×4 (Expenses/Plans/Balances/Members)</small></li>
+      <li><b>quick-action-grid</b> <small>= quick-action-tile ×5, horizontally scrollable (Expenses / Plans / Balances / Members / Memories)</small></li>
       <li><b>recent-activity-section</b> <small>(section-header)</small></li>
       <li><b>activity-row</b> <small>= category-icon + activity-description + activity-amount + relative-time</small></li>
     </ol></div>
@@ -182,13 +186,12 @@
     <div class="phone">
       <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
       <div class="scr">
-        <div class="appbar blk"><span class="n">1</span><span>‹ Expenses</span><span>⚙</span></div>
+        <div class="appbar blk"><span class="n">1</span><span>‹ Expenses</span><span>＋</span><span class="n r">6</span></div>
         <div class="chips blk"><span class="n">2</span><span class="chip on">All</span><span class="chip">Unsettled</span><span class="chip">My expenses</span></div>
         <div class="sech blk mut"><span class="n">3</span>Today</div>
         <div class="row blk"><span class="n">4</span><div class="li">🍴</div><div class="gr"><b>Dinner</b><div>You paid · 👥👥</div></div><div class="am">€128.40 ›</div></div>
         <div class="row blk"><div class="li" style="background:var(--sky)">🚗</div><div class="gr"><b>Ferry tickets</b><div>Marco paid · 👥</div></div><div class="am">€86.00 ›</div></div>
         <div class="card blk" style="text-align:center"><span class="n">5</span><b>Total spent €214.40</b></div>
-        <div class="fab blk">＋<span class="n r">6</span></div>
       </div>
     </div>
     <div class="legend"><h3>Element names</h3><ol>
@@ -197,7 +200,7 @@
       <li><b>day-group-header</b></li>
       <li><b>expense-row</b> <small>= category-icon + expense-title + payer-label + avatar-stack + expense-amount</small></li>
       <li><b>total-footer</b></li>
-      <li><b>add-expense-fab</b></li>
+      <li><b>add-expense-button</b> <small>(top-right "+" in the app bar — no FAB)</small></li>
     </ol></div>
   </section>
 
@@ -232,13 +235,12 @@
     <div class="phone">
       <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
       <div class="scr">
-        <div class="appbar blk"><span class="n">1</span><span>‹ Members</span></div>
+        <div class="appbar blk"><span class="n">1</span><span>‹ Members</span><span>＋</span><span class="n r">5</span></div>
         <div class="sech blk"><span class="n">2</span>Add members</div>
         <div class="qgrid blk" style="grid-template-columns:repeat(3,1fr)"><span class="n">3</span>
           <div class="qt"><div class="qi">🔗</div>Invite link</div><div class="qt"><div class="qi">▣</div>QR code</div><div class="qt"><div class="qi">👥</div>Contacts</div></div>
         <div class="row blk"><span class="n">4</span><div class="av">Y</div><div class="gr"><b>You</b><div>Admin</div></div><div class="am">⋮</div></div>
         <div class="row blk"><div class="av">M</div><div class="gr"><b>Marco</b><div>Co-admin</div></div><div class="am">⋮</div></div>
-        <div class="fab blk">＋<span class="n r">5</span></div>
       </div>
     </div>
     <div class="legend"><h3>Element names</h3><ol>
@@ -246,7 +248,7 @@
       <li><b>add-members-header</b></li>
       <li><b>add-members-row</b> <small>= invite-link-tile + qr-tile + contacts-tile</small></li>
       <li><b>member-row</b> <small>= member-avatar + member-name + member-role + role-menu</small></li>
-      <li><b>invite-fab</b></li>
+      <li><b>invite-button</b> <small>(top-right "+" → invite flow; the two old lime buttons were removed)</small></li>
     </ol></div>
   </section>
 
@@ -316,11 +318,12 @@
       <tr><td><code>member-avatar</code> / <code>add-member-button</code></td><td>Circular member icon (white ring) / the “+” to invite.</td><td class="file">member_avatar_row.dart · vamo_avatar.dart</td></tr>
       <tr><td><code>total-spent-card</code></td><td>Card with total-spent-label, total-amount, per-person, category-donut.</td><td class="file">trip_dashboard_tab.dart (_TotalSpentCard)</td></tr>
       <tr><td><code>category-donut</code> / <code>net-balance-donut</code></td><td>Ring chart: spend-by-category (dashboard) / owed-vs-owe (balances). Colors from the category catalog.</td><td class="file">category_donut.dart · category_catalog.dart</td></tr>
-      <tr><td><code>quick-action-grid</code> / <code>quick-action-tile</code></td><td>The 4 square buttons: Expenses / Plans / Balances / Members.</td><td class="file">trip_dashboard_tab.dart (_QuickActionsRow)</td></tr>
+      <tr><td><code>quick-action-grid</code> / <code>quick-action-tile</code></td><td>5 square buttons, horizontally scrollable: Expenses / Plans / Balances / Members / Memories.</td><td class="file">trip_dashboard_tab.dart (_QuickActionsRow)</td></tr>
+      <tr><td><code>add-button</code> (convention)</td><td><b>Every view's add action is a single top-right app-bar "+"</b> (add-trip, add-expense, add-plan-item, invite, capture). No FABs; no bottom-nav "+".</td><td class="file">all section screens</td></tr>
       <tr><td><code>activity-row</code></td><td>Recent-activity item: category-icon + description + amount + relative-time.</td><td class="file">dashboard_activity_row.dart</td></tr>
       <tr><td><code>featured-trip-card</code> / <code>compact-trip-card</code></td><td>My Trips: the large next-trip card / the smaller upcoming cards.</td><td class="file">featured_trip_card.dart · compact_trip_card.dart</td></tr>
       <tr><td><code>filter-chips</code></td><td>All / Upcoming / Past / Drafts (My Trips); All / Unsettled / My expenses (Expenses).</td><td class="file">trips_list_screen.dart · expenses</td></tr>
-      <tr><td><code>bottom-nav</code></td><td>App-level nav: Trips · Activity · center-fab · Expenses · Profile.</td><td class="file">main_shell.dart</td></tr>
+      <tr><td><code>bottom-nav</code></td><td>App-level nav: Trips · Activity · Expenses · Profile (4 items; center "+" FAB removed).</td><td class="file">main_shell.dart</td></tr>
       <tr><td><code>expense-row</code></td><td>category-icon + expense-title + payer-label + avatar-stack + expense-amount.</td><td class="file">trip_expense_list_tile.dart</td></tr>
       <tr><td><code>settle-row</code> / <code>settle-up-cta</code></td><td>Who-owes-whom row / the lime “Settle up” button.</td><td class="file">balances_tab.dart</td></tr>
       <tr><td><code>add-members-row</code></td><td>invite-link-tile + qr-tile + contacts-tile.</td><td class="file">members_tab.dart · trip_icon_action_tile.dart</td></tr>

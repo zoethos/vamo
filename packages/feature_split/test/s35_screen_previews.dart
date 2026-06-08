@@ -133,6 +133,9 @@ Widget pumpFeaturedTripCard({
 }) {
   return ProviderScope(
     overrides: [
+      tripsSyncProvider.overrideWith((ref) async {}),
+      tripsListProvider.overrideWith((ref) => Stream.value([s35SampleTrip])),
+      tripCardBackgroundImageProvider(s35SampleTrip.id).overrideWith((ref) => null),
       tripMembersForExpenseProvider(s35SampleTrip.id).overrideWith(
         (ref) => Stream.value(
           List.generate(
@@ -168,6 +171,9 @@ Widget pumpCompactTripCard({
   final resolved = trip ?? s35SecondTrip;
   return ProviderScope(
     overrides: [
+      tripsSyncProvider.overrideWith((ref) async {}),
+      tripsListProvider.overrideWith((ref) => Stream.value([resolved])),
+      tripCardBackgroundImageProvider(resolved.id).overrideWith((ref) => null),
       tripMembersForExpenseProvider(resolved.id).overrideWith(
         (ref) => Stream.value([
           const TripMemberView(

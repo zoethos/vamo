@@ -62,3 +62,4 @@ supabase/.temp/
 
 # Temporary: leftover locked by a tool session - delete folder, then remove this line
 /Vamo/
+app/flutter_*.png
