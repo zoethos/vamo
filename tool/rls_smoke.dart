@@ -948,6 +948,42 @@ Future<void> main() async {
         'un-notified member blocks deemed close',
         unnotifiedBlocks['lifecycle'] == 'closing',
       ));
+
+      final eightDaysAgo = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 8))
+          .toIso8601String();
+      await serviceClient.rpc('rls_smoke_set_close_notified_at', params: {
+        'p_trip_id': tripId,
+        'p_user_id': userB,
+        'p_at': eightDaysAgo,
+      });
+      await serviceClient.rpc('mark_close_reminder_sent', params: {
+        'p_trip_id': tripId,
+        'p_user_id': userB,
+      });
+      final remindedOnce = await clientB
+          .from('trip_members')
+          .select('close_reminded_at')
+          .eq('trip_id', tripId)
+          .eq('user_id', userB)
+          .single();
+      final firstReminded = remindedOnce['close_reminded_at'] as String?;
+      await serviceClient.rpc('mark_close_reminder_sent', params: {
+        'p_trip_id': tripId,
+        'p_user_id': userB,
+      });
+      final remindedTwice = await clientB
+          .from('trip_members')
+          .select('close_reminded_at')
+          .eq('trip_id', tripId)
+          .eq('user_id', userB)
+          .single();
+      results.add(_Check(
+        'day-7 reminder single-shot (close_reminded_at)',
+        firstReminded != null &&
+            remindedTwice['close_reminded_at'] == firstReminded,
+      ));
     }
 
     await clientB.rpc('object_to_trip_close', params: {
@@ -979,7 +1015,7 @@ Future<void> main() async {
           .toUtc()
           .subtract(const Duration(days: 15))
           .toIso8601String();
-      for (final uid in [userA, userB, userC]) {
+      for (final uid in [userA, userB]) {
         await serviceClient.rpc('rls_smoke_set_close_notified_at', params: {
           'p_trip_id': tripId,
           'p_user_id': uid,
