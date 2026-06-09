@@ -1,7 +1,10 @@
 # Secrets
 .env
 *.env.local
-tool/rls-smoke.local.ps1
+# Local smoke runners hold service-role keys + project creds — NEVER commit.
+tool/rls-smoke.local*.ps1
+tool/rls_smokeTest.ps1
+tool/*.local.ps1
 
 # Service-account / credential keys — NEVER commit. Canonical home is the
 # Supabase secret store / Vault, never on disk in the repo.
