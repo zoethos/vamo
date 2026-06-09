@@ -87,9 +87,16 @@ class NotificationsInboxScreen extends ConsumerWidget {
     }
     final route = item.route;
     if (route != null && route.isNotEmpty && context.mounted) {
-      context.push(route);
+      navigateToNotificationRoute(context, route);
     }
   }
+}
+
+/// Shell roots (e.g. `/trips`) must use [GoRouter.go], not push — push re-reserves
+/// the branch navigator key and crashes. Exposed for widget tests.
+@visibleForTesting
+void navigateToNotificationRoute(BuildContext context, String route) {
+  context.go(route);
 }
 
 class _NotificationRow extends StatelessWidget {
