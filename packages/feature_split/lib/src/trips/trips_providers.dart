@@ -22,37 +22,37 @@ final tripsListProvider = StreamProvider<List<TripSummary>>((ref) {
   return ref.watch(tripsRepositoryProvider).watchTripSummaries();
 });
 
-Future<String?> _resolveTripBackgroundImage(
-  Ref ref, {
-  required String tripId,
-  String? localPath,
-  String? storagePath,
-}) async {
-  if (localPath != null &&
-      localPath.isNotEmpty &&
-      File(localPath).existsSync()) {
-    return localPath;
-  }
-  if (storagePath == null || storagePath.isEmpty) return null;
-  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
-        tripId: tripId,
-        storagePath: storagePath,
-      );
-}
-
-/// Resolved local file path for the user-set hero background, if any.
-final tripHeroBackgroundProvider =
+/// Remote-only hero cache when [TripDetail.backgroundStoragePath] is set and
+/// no usable local file exists yet.
+final tripRemoteBackgroundCacheProvider =
     FutureProvider.family<String?, String>((ref, tripId) async {
   ref.watch(tripDetailProvider(tripId));
   final detail = ref.read(tripDetailProvider(tripId)).valueOrNull;
   if (detail == null) return null;
 
-  return _resolveTripBackgroundImage(
-    ref,
-    tripId: tripId,
-    localPath: detail.backgroundLocalPath,
-    storagePath: detail.backgroundStoragePath,
-  );
+  final remote = detail.backgroundStoragePath;
+  if (remote == null || remote.isEmpty) return null;
+
+  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
+        tripId: tripId,
+        storagePath: remote,
+      );
+});
+
+/// Resolved local file path for the user-set hero background, if any.
+final tripHeroBackgroundProvider = Provider.family<String?, String>((ref, tripId) {
+  final detail = ref.watch(tripDetailProvider(tripId)).valueOrNull;
+  if (detail == null) return null;
+
+  final local = detail.backgroundLocalPath;
+  if (local != null && local.isNotEmpty && File(local).existsSync()) {
+    return local;
+  }
+
+  final remote = detail.backgroundStoragePath;
+  if (remote == null || remote.isEmpty) return null;
+
+  return ref.watch(tripRemoteBackgroundCacheProvider(tripId)).valueOrNull;
 });
 
 /// My Trips card backdrop — local path from the list stream, else remote cache.
@@ -73,7 +73,7 @@ final tripCardBackgroundImageProvider =
   final remote = trip.backgroundStoragePath;
   if (remote == null || remote.isEmpty) return null;
 
-  return ref.watch(tripHeroBackgroundProvider(tripId)).valueOrNull;
+  return ref.watch(tripRemoteBackgroundCacheProvider(tripId)).valueOrNull;
 });
 
 final tripDetailProvider =

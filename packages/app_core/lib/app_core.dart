@@ -38,6 +38,7 @@ export 'src/design/app_colors.dart';
 export 'src/design/app_theme.dart';
 export 'src/design/brand_assets.dart';
 export 'src/design/vamo_avatar.dart';
+export 'src/design/vamo_carousel.dart';
 export 'src/design/vamo_circle_icon.dart';
 export 'src/design/vamo_date_picker.dart';
 export 'src/env/env.dart';

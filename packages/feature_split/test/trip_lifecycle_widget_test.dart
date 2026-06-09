@@ -7,6 +7,7 @@ import 'package:feature_split/src/expenses/expense_models.dart';
 
 
 import 'trip_home_labels_test_support.dart';
+import 'trips_repository_test_support.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
 import 'package:feature_split/src/sync/trip_realtime_binding.dart';
 import 'package:feature_split/src/trips/trip_budget_labels.dart';
@@ -271,6 +272,8 @@ List<Override> _tripHomeOverrides({
       ),
     ),
     tripRealtimeBindingProvider(tripId).overrideWith((ref) {}),
+    tripsSyncProvider.overrideWith((ref) async {}),
+    tripHeroBackgroundProvider(tripId).overrideWith((ref) => null),
     tripDetailProvider(tripId).overrideWith((ref) => Stream.value(detail)),
     tripMemberCountProvider(tripId).overrideWith((ref) => Stream.value(1)),
     tripMyMemberProvider(tripId).overrideWith((ref) => Stream.value(myMember)),
@@ -308,7 +311,9 @@ List<Override> _tripHomeOverrides({
       (ref, args) => memberRole,
     ),
     if (tripsRepo != null)
-      tripsRepositoryProvider.overrideWith((ref) => tripsRepo),
+      tripsRepositoryProvider.overrideWith((ref) => tripsRepo)
+    else
+      tripsRepositoryProvider.overrideWith((ref) => buildTestTripsRepository(db)),
   ];
 }
 
@@ -362,6 +367,10 @@ Widget _tripHomeRouter({
   );
 }
 
+Future<void> _flushPendingTimers(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
 void main() {
   const tripId = 'trip-lifecycle-ui';
 
@@ -396,6 +405,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Trips list'), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets(
@@ -436,6 +446,7 @@ void main() {
     expect(find.text('Cancel trip'), findsOneWidget);
     expect(find.text('Request close'), findsNothing);
     expect(find.text("I'm done"), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets(
@@ -476,6 +487,7 @@ void main() {
     expect(find.text('Request close'), findsOneWidget);
     expect(find.text("I'm done"), findsOneWidget);
     expect(find.text('Cancel trip'), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('request close shows confirm dialog before RPC', (tester) async {
@@ -526,6 +538,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(spy.requestCloseCalls, 1);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('ongoing member sees done only in overflow', (tester) async {
@@ -555,6 +568,7 @@ void main() {
     expect(find.text("I'm done"), findsOneWidget);
     expect(find.text('Request close'), findsNothing);
     expect(find.text('Cancel trip'), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('closing banner keeps accept and object actions', (tester) async {
@@ -584,6 +598,7 @@ void main() {
     expect(find.text('Accept close'), findsOneWidget);
     expect(find.text('Object…'), findsOneWidget);
     expect(find.byIcon(Icons.more_vert), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('trip home renders dashboard without tab strip', (tester) async {
@@ -615,6 +630,7 @@ void main() {
     expect(find.text('Dashboard trip'), findsOneWidget);
     expect(find.text(testTripHomeLabels.quickExpenses), findsOneWidget);
     expect(find.text(testTripHomeLabels.quickBalances), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('quick action opens expenses section route', (tester) async {
@@ -673,5 +689,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(testTripHomeLabels.tabExpenses), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 }

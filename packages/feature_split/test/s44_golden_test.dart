@@ -42,6 +42,7 @@ void main() {
   }
 
   Widget carouselSheet({
+    required AppDatabase db,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
   }) {
@@ -65,9 +66,7 @@ void main() {
                   padding: const EdgeInsetsDirectional.only(end: 16),
                   child: ProviderScope(
                     overrides: [
-                      appDatabaseProvider.overrideWithValue(
-                        AppDatabase.forTesting(NativeDatabase.memory()),
-                      ),
+                      appDatabaseProvider.overrideWithValue(db),
                       supabaseClientProvider.overrideWithValue(
                         SupabaseClient(
                           'http://localhost',
@@ -133,10 +132,12 @@ void main() {
 
   group('S44 capture flyout goldens', () {
     testWidgets('vertical wheel flyout light small', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
-        child: carouselSheet(brightness: Brightness.light),
+        child: carouselSheet(db: db, brightness: Brightness.light),
       );
       await expectLater(
         find.byType(Scaffold),
@@ -145,11 +146,14 @@ void main() {
     });
 
     testWidgets('vertical wheel flyout dark rtl', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
         textDirection: TextDirection.rtl,
         child: carouselSheet(
+          db: db,
           brightness: Brightness.dark,
           textDirection: TextDirection.rtl,
         ),

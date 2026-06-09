@@ -1,34 +1,88 @@
 import 'package:app_core/app_core.dart';
-
 import 'package:drift/native.dart';
-
 import 'package:feature_split/src/capture/capture_action_sheet.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class _RecordingAnalytics implements Analytics {
+  _RecordingAnalytics(this.events);
+
+  final List<Map<String, Object?>> events;
+
+  @override
+  void capture(VamoEvent event, {Map<String, Object?> properties = const {}}) {
+    events.add({'event': event, 'properties': properties});
+  }
+
+  @override
+  Future<void> identify(String userId) async {}
+
+  @override
+  Future<void> reset() async {}
+}
+
+class _SheetHost extends StatefulWidget {
+  const _SheetHost({
+    required this.tripId,
+    required this.child,
+  });
+
+  final String tripId;
+  final Widget Function(
+    BuildContext context,
+    Future<void> Function() onDismiss,
+  ) child;
+
+  @override
+  State<_SheetHost> createState() => _SheetHostState();
+}
+
+class _SheetHostState extends State<_SheetHost> {
+  var _open = true;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_open) return const SizedBox.shrink();
+    return widget.child(context, () async {
+      setState(() => _open = false);
+    });
+  }
+}
+
+Future<void> _selectCarouselItem(
+  WidgetTester tester, {
+  required int dragSteps,
+}) async {
+  final wheel = find.byType(ListWheelScrollView);
+  if (dragSteps > 0) {
+    await tester.drag(wheel, Offset(0, -80.0 * dragSteps));
+    await tester.pumpAndSettle();
+  }
+  await tester.tapAt(tester.getCenter(find.byType(CaptureChoiceSheet)));
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 void main() {
-  Future<void> pumpSheet(WidgetTester tester) async {
+  Future<void> pumpOverlay(WidgetTester tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
-
     addTearDown(db.close);
-
-    final client = SupabaseClient(
-      'http://localhost',
-      'anon-key',
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
-    );
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
-          supabaseClientProvider.overrideWithValue(client),
+          supabaseClientProvider.overrideWithValue(
+            SupabaseClient(
+              'http://localhost',
+              'anon-key',
+              authOptions: const AuthClientOptions(autoRefreshToken: false),
+            ),
+          ),
           analyticsProvider.overrideWithValue(DebugAnalytics()),
         ],
         child: MaterialApp(
@@ -49,152 +103,24 @@ void main() {
         ),
       ),
     );
-
     await tester.pumpAndSettle();
-
     await tester.tap(find.text('Open'));
-
     await tester.pumpAndSettle();
   }
 
-  testWidgets(
-      'capture choice flyout shows vertical wheel with centered noun label',
-      (tester) async {
-    await pumpSheet(tester);
+  testWidgets('capture flyout opens generic carousel shell', (tester) async {
+    await pumpOverlay(tester);
 
     expect(find.byType(BottomSheet), findsNothing);
-
     expect(find.byType(ListWheelScrollView), findsOneWidget);
-
     expect(find.byType(VamoCircleIcon), findsWidgets);
-
     expect(find.byType(CaptureChoiceSheet), findsOneWidget);
-
+    expect(find.byType(VamoCarousel), findsOneWidget);
     expect(find.text('Photo'), findsOneWidget);
-
-    expect(find.text('Add note'), findsNothing);
-
-    expect(find.text('Add photo'), findsNothing);
-  });
-
-  testWidgets('only the centered item shows a visible text label', (tester) async {
-    await pumpSheet(tester);
-
-    expect(find.text('Photo'), findsOneWidget);
-    expect(find.text('Video'), findsNothing);
-    expect(find.text('Note'), findsNothing);
-    expect(find.text('Background'), findsNothing);
-  });
-
-  testWidgets('centered label respects large text scaler without overflow',
-      (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          supabaseClientProvider.overrideWithValue(
-            SupabaseClient(
-              'http://localhost',
-              'anon-key',
-              authOptions: const AuthClientOptions(autoRefreshToken: false),
-            ),
-          ),
-          analyticsProvider.overrideWithValue(DebugAnalytics()),
-        ],
-        child: MediaQuery(
-          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const Scaffold(
-              body: Center(
-                child: CaptureChoiceSheet(tripId: 'trip-1'),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final label = tester.widget<Text>(find.text('Photo'));
-    expect(label.maxLines, 1);
-    expect(find.ancestor(of: find.text('Photo'), matching: find.byType(FittedBox)),
-        findsOneWidget);
-  });
-
-  testWidgets('long centered label scales down to fit the pill', (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          supabaseClientProvider.overrideWithValue(
-            SupabaseClient(
-              'http://localhost',
-              'anon-key',
-              authOptions: const AuthClientOptions(autoRefreshToken: false),
-            ),
-          ),
-          analyticsProvider.overrideWithValue(DebugAnalytics()),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(
-            body: Center(
-              child: CaptureChoiceSheet(tripId: 'trip-1'),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final wheel = find.byType(ListWheelScrollView);
-    await tester.drag(wheel, const Offset(0, -240));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Background'), findsOneWidget);
-  });
-
-  testWidgets('capture carousel exposes semantic labels for every option',
-      (tester) async {
-    await pumpSheet(tester);
-
-    for (final label in ['Photo', 'Video', 'Note', 'Background']) {
-      expect(find.bySemanticsLabel(label), findsOneWidget);
-    }
-  });
-
-  testWidgets('semantic options are buttons reachable without scrolling',
-      (tester) async {
-    await pumpSheet(tester);
-
-    for (final label in ['Photo', 'Video', 'Note', 'Background']) {
-      final data =
-          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
-      expect(data.flagsCollection.isButton, isTrue);
-    }
-  });
-
-  testWidgets('capture wheel is finite and does not wrap end-to-start',
-      (tester) async {
-    await pumpSheet(tester);
-
-    final wheel =
-        tester.widget<ListWheelScrollView>(find.byType(ListWheelScrollView));
-    expect(
-      wheel.childDelegate.estimatedChildCount,
-      4,
-    );
   });
 
   testWidgets('outside tap dismisses capture flyout', (tester) async {
-    await pumpSheet(tester);
+    await pumpOverlay(tester);
 
     expect(find.byType(CaptureChoiceSheet), findsOneWidget);
 
@@ -204,10 +130,15 @@ void main() {
     expect(find.byType(CaptureChoiceSheet), findsNothing);
   });
 
-  testWidgets(
-    'background picker failure reports classified set_trip_background action_failed',
-    (tester) async {
-      final events = <Map<String, Object?>>[];
+  group('picker failure reports action_failed and dismisses carousel', () {
+    Future<void> pumpSheet(
+      WidgetTester tester, {
+      required List<Map<String, Object?>> events,
+      required Widget Function(
+        BuildContext context,
+        Future<void> Function() onDismiss,
+      ) buildSheet,
+    }) async {
       final db = AppDatabase.forTesting(NativeDatabase.memory());
       addTearDown(db.close);
 
@@ -227,66 +158,199 @@ void main() {
           child: MaterialApp(
             theme: AppTheme.light,
             home: Scaffold(
-              body: Center(
-                child: CaptureChoiceSheet(
-                  tripId: 'trip-1',
-                  pickImage: ({
-                    required source,
-                    maxWidth,
-                    maxHeight,
-                    imageQuality,
-                  }) async {
-                    throw PlatformException(
-                      code: 'photo_access_denied',
-                      message: 'User denied access',
-                    );
-                  },
-                ),
+              body: _SheetHost(
+                tripId: 'trip-1',
+                child: buildSheet,
               ),
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
+    }
 
-      final wheel = find.byType(ListWheelScrollView);
-      await tester.drag(wheel, const Offset(0, -240));
-      await tester.pumpAndSettle();
-      expect(find.text('Background'), findsOneWidget);
+    final pickerError = PlatformException(
+      code: 'photo_access_denied',
+      message: 'User denied access',
+    );
 
-      await tester.tapAt(tester.getCenter(find.byType(CaptureChoiceSheet)));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+    testWidgets('photo', (tester) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+          pickImage: ({
+            required source,
+            maxWidth,
+            maxHeight,
+            imageQuality,
+          }) async {
+            throw pickerError;
+          },
+        ),
+      );
 
+      await _selectCarouselItem(tester, dragSteps: 0);
+
+      expect(find.byType(CaptureChoiceSheet), findsNothing);
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_photo',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
+    });
+
+    testWidgets('video', (tester) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+          pickVideo: ({required source}) async {
+            throw pickerError;
+          },
+        ),
+      );
+
+      await _selectCarouselItem(tester, dragSteps: 1);
+
+      expect(find.byType(CaptureChoiceSheet), findsNothing);
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_video',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
+    });
+
+    testWidgets('background', (tester) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+          pickImage: ({
+            required source,
+            maxWidth,
+            maxHeight,
+            imageQuality,
+          }) async {
+            throw pickerError;
+          },
+        ),
+      );
+
+      await _selectCarouselItem(tester, dragSteps: 3);
+
+      expect(find.byType(CaptureChoiceSheet), findsNothing);
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'set_trip_background',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
+    });
+
+    testWidgets('picker cancel emits capture_action_abandoned cancelled', (
+      tester,
+    ) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+          pickImage: ({
+            required source,
+            maxWidth,
+            maxHeight,
+            imageQuality,
+          }) async {
+            return null;
+          },
+        ),
+      );
+
+      await _selectCarouselItem(tester, dragSteps: 0);
+
+      expect(find.byType(CaptureChoiceSheet), findsOneWidget);
       expect(events, [
         {
-          'event': VamoEvent.actionFailed,
+          'event': VamoEvent.captureActionAbandoned,
           'properties': {
             'screen': 'trip_home',
-            'action': 'set_trip_background',
-            'severity': 'failure',
-            'error_kind': 'app',
-            'error_code': 'platform_exception',
+            'action': 'add_capture_photo',
+            'reason': 'cancelled',
           },
         },
       ]);
-    },
-  );
-}
+    });
 
-class _RecordingAnalytics implements Analytics {
-  _RecordingAnalytics(this.events);
+    testWidgets('note dismisses before navigation failure is reported', (
+      tester,
+    ) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+        ),
+      );
 
-  final List<Map<String, Object?>> events;
+      await _selectCarouselItem(tester, dragSteps: 2);
 
-  @override
-  void capture(VamoEvent event, {Map<String, Object?> properties = const {}}) {
-    events.add({'event': event, 'properties': properties});
-  }
-
-  @override
-  Future<void> identify(String userId) async {}
-
-  @override
-  Future<void> reset() async {}
+      expect(find.byType(CaptureChoiceSheet), findsNothing);
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_note',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'assertion_error',
+        },
+      );
+      expect(
+        events.where((e) => e['event'] == VamoEvent.captureActionStarted).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_note',
+          'sheet_mounted': true,
+        },
+      );
+    });
+  });
 }

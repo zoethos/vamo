@@ -85,8 +85,7 @@ List<Override> _tripHomeOverrides({
     ),
     tripRealtimeBindingProvider(tripId).overrideWith((ref) {}),
     tripDetailProvider(tripId).overrideWith((ref) => Stream.value(detail)),
-    tripHeroBackgroundProvider(tripId)
-        .overrideWith((ref) => Future.value(null)),
+    tripHeroBackgroundProvider(tripId).overrideWith((ref) => null),
     tripMemberCountProvider(tripId).overrideWith((ref) => Stream.value(2)),
     tripMyMemberProvider(tripId).overrideWith((ref) => Stream.value(null)),
     tripHasCloseObjectionProvider(tripId)

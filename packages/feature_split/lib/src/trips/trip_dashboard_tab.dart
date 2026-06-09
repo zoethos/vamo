@@ -75,8 +75,7 @@ class TripDashboardTab extends ConsumerWidget {
         space.x3;
     final heroBackgroundHeight =
         heroTopInset + heroContentHeight + cardHeroOverlap;
-    final heroBackgroundPath =
-        ref.watch(tripHeroBackgroundProvider(tripId)).valueOrNull;
+    final heroBackgroundPath = ref.watch(tripHeroBackgroundProvider(tripId));
     final phase = resolveTripPhase(
       lifecycle: TripLifecycle.parse(detail.lifecycle),
       startDateIso: detail.startDate,
