@@ -1,4 +1,4 @@
-// Daily trip lifecycle jobs — S17/S22 (notice, reminders, deemed close, settle nudge).
+// Daily trip lifecycle jobs — S17/S22/S46 (record-first notices; push best-effort).
 // Deploy: supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
 // Schedule: daily cron AFTER device-verified nudges (see docs/SCHEDULED_JOBS.md).
 
@@ -7,6 +7,10 @@ import {
   loadServiceAccount,
   sendPushToUserDevices,
 } from "../_shared/fcm.ts";
+import {
+  recordNotification,
+  shouldStampAfterRecord,
+} from "../_shared/notifications.ts";
 
 interface TripInfo {
   name: string;
@@ -53,6 +57,13 @@ Deno.serve(async (req) => {
   const serviceAccount = loadServiceAccount();
   const pushEnabled = serviceAccount != null;
 
+  const recordStats = {
+    close_notices_recorded: 0,
+    day7_reminders_recorded: 0,
+    deemed_closed_notices_recorded: 0,
+    settle_nudges_recorded: 0,
+  };
+
   const pushStats = {
     close_notices: 0,
     day7_reminders: 0,
@@ -77,30 +88,43 @@ Deno.serve(async (req) => {
 
   if (noticeErr) {
     console.error("close notice query failed", noticeErr);
-  } else if (noticeRows?.length && pushEnabled) {
+  } else if (noticeRows?.length) {
     for (const row of noticeRows as TripMemberRow[]) {
       const name = tripName(row);
-      const result = await sendPushToUserDevices(
-        supabase,
-        serviceAccount!,
-        row.user_id,
-        {
-          title: "Trip is closing",
-          body:
-            `${name} — review balances. Auto-closes 14 days after you're notified.`,
-          route: tripRoute(row.trip_id, "/close-report"),
-        },
-      );
-      pushStats.push_sent += result.sent;
-      pushStats.push_failed += result.failed;
-      pushStats.push_pruned += result.pruned;
+      const route = tripRoute(row.trip_id, "/close-report");
+      const title = "Trip is closing";
+      const body =
+        `${name} — review balances. Auto-closes 14 days after you're notified.`;
 
-      if (result.sent > 0) {
+      const recordId = await recordNotification(supabase, {
+        userId: row.user_id,
+        tripId: row.trip_id,
+        type: "close_notice",
+        title,
+        body,
+        route,
+      });
+      if (shouldStampAfterRecord(recordId)) {
+        recordStats.close_notices_recorded++;
         await supabase.rpc("_stamp_member_close_notified", {
           p_trip_id: row.trip_id,
           p_user_id: row.user_id,
         });
-        pushStats.close_notices++;
+      }
+
+      if (pushEnabled) {
+        const result = await sendPushToUserDevices(
+          supabase,
+          serviceAccount!,
+          row.user_id,
+          { title, body, route },
+        );
+        pushStats.push_sent += result.sent;
+        pushStats.push_failed += result.failed;
+        pushStats.push_pruned += result.pruned;
+        if (result.sent > 0) {
+          pushStats.close_notices++;
+        }
       }
     }
   }
@@ -119,38 +143,48 @@ Deno.serve(async (req) => {
 
   if (remindErr) {
     console.error("day7 query failed", remindErr);
-  } else if (remindRows?.length && pushEnabled) {
+  } else if (remindRows?.length) {
     for (const row of remindRows as TripMemberRow[]) {
       const notifiedAt = Date.parse(row.close_notified_at ?? "");
       if (Number.isNaN(notifiedAt) || now < notifiedAt + sevenDaysMs) {
         continue;
       }
 
+      const name = tripName(row);
+      const route = tripRoute(row.trip_id, "/close-report");
+      const title = "7 days left";
+      const body = `7 days left to review ${name} before it closes.`;
+
+      const recordId = await recordNotification(supabase, {
+        userId: row.user_id,
+        tripId: row.trip_id,
+        type: "close_reminder",
+        title,
+        body,
+        route,
+      });
+      if (shouldStampAfterRecord(recordId)) {
+        recordStats.day7_reminders_recorded++;
+        await supabase.rpc("mark_close_reminder_sent", {
+          p_trip_id: row.trip_id,
+          p_user_id: row.user_id,
+        });
+      }
+
       if (pushEnabled) {
-        const name = tripName(row);
         const result = await sendPushToUserDevices(
           supabase,
           serviceAccount!,
           row.user_id,
-          {
-            title: "7 days left",
-            body: `7 days left to review ${name} before it closes.`,
-            route: tripRoute(row.trip_id, "/close-report"),
-          },
+          { title, body, route },
         );
         pushStats.push_sent += result.sent;
         pushStats.push_failed += result.failed;
         pushStats.push_pruned += result.pruned;
-        if (result.sent === 0) continue;
-      } else {
-        continue;
+        if (result.sent > 0) {
+          pushStats.day7_reminders++;
+        }
       }
-
-      await supabase.rpc("mark_close_reminder_sent", {
-        p_trip_id: row.trip_id,
-        p_user_id: row.user_id,
-      });
-      pushStats.day7_reminders++;
     }
   }
 
@@ -165,67 +199,104 @@ Deno.serve(async (req) => {
     });
   }
 
-  if (pushEnabled) {
-    const deemedCount = (jobResult as Record<string, number>)?.deemed_closed ?? 0;
-    if (deemedCount > 0) {
-      const { data: closedTrips } = await supabase
-        .from("trips")
-        .select("id, name")
-        .eq("lifecycle", "closed")
-        .gte("closed_at", new Date(now - 86_400_000).toISOString());
+  const deemedCount = (jobResult as Record<string, number>)?.deemed_closed ?? 0;
+  if (deemedCount > 0) {
+    const { data: closedTrips } = await supabase
+      .from("trips")
+      .select("id, name")
+      .eq("lifecycle", "closed")
+      .gte("closed_at", new Date(now - 86_400_000).toISOString());
 
-      for (const trip of closedTrips ?? []) {
-        const { data: members } = await supabase
-          .from("trip_members")
-          .select("user_id")
-          .eq("trip_id", trip.id)
-          .eq("status", "active");
+    for (const trip of closedTrips ?? []) {
+      const { data: members } = await supabase
+        .from("trip_members")
+        .select("user_id")
+        .eq("trip_id", trip.id)
+        .eq("status", "active");
 
-        for (const member of members ?? []) {
+      for (const member of members ?? []) {
+        const userId = member.user_id as string;
+        const route = tripRoute(trip.id, "/close-report");
+        const title = "Trip closed";
+        const body = `${trip.name} closed. Settle up when ready.`;
+
+        const recordId = await recordNotification(supabase, {
+          userId,
+          tripId: trip.id,
+          type: "deemed_closed",
+          title,
+          body,
+          route,
+        });
+        if (shouldStampAfterRecord(recordId)) {
+          recordStats.deemed_closed_notices_recorded++;
+        }
+
+        if (pushEnabled) {
           const result = await sendPushToUserDevices(
             supabase,
             serviceAccount!,
-            member.user_id as string,
-            {
-              title: "Trip closed",
-              body: `${trip.name} closed. Settle up when ready.`,
-              route: tripRoute(trip.id, "/close-report"),
-            },
+            userId,
+            { title, body, route },
           );
           pushStats.push_sent += result.sent;
           pushStats.push_failed += result.failed;
-          pushStats.deemed_closed_notices += result.sent > 0 ? 1 : 0;
+          pushStats.push_pruned += result.pruned;
+          if (result.sent > 0) {
+            pushStats.deemed_closed_notices++;
+          }
         }
       }
     }
+  }
 
-    const { data: nudgeMembers } = await supabase
-      .from("trip_members")
-      .select("trip_id, user_id, settle_nudged_at, trips!inner(name, lifecycle)")
-      .eq("status", "active")
-      .eq("trips.lifecycle", "closed")
-      .not("settle_nudged_at", "is", null)
-      .gte("settle_nudged_at", new Date(now - 86_400_000).toISOString());
+  const { data: nudgeMembers } = await supabase
+    .from("trip_members")
+    .select("trip_id, user_id, settle_nudged_at, trips!inner(name, lifecycle)")
+    .eq("status", "active")
+    .eq("trips.lifecycle", "closed")
+    .not("settle_nudged_at", "is", null)
+    .gte("settle_nudged_at", new Date(now - 86_400_000).toISOString());
 
-    for (const row of (nudgeMembers ?? []) as TripMemberRow[]) {
-      const name = tripName(row);
+  for (const row of (nudgeMembers ?? []) as TripMemberRow[]) {
+    const name = tripName(row);
+    const route = tripRoute(row.trip_id);
+    const title = "Balance to settle";
+    const body = `You still have a balance to settle in ${name}.`;
+
+    const recordId = await recordNotification(supabase, {
+      userId: row.user_id,
+      tripId: row.trip_id,
+      type: "settle_nudge",
+      title,
+      body,
+      route,
+    });
+    if (shouldStampAfterRecord(recordId)) {
+      recordStats.settle_nudges_recorded++;
+    }
+
+    if (pushEnabled) {
       const result = await sendPushToUserDevices(
         supabase,
         serviceAccount!,
         row.user_id,
-        {
-          title: "Balance to settle",
-          body: `You still have a balance to settle in ${name}.`,
-          route: tripRoute(row.trip_id),
-        },
+        { title, body, route },
       );
       pushStats.push_sent += result.sent;
       pushStats.push_failed += result.failed;
-      pushStats.settle_nudges += result.sent > 0 ? 1 : 0;
+      pushStats.push_pruned += result.pruned;
+      if (result.sent > 0) {
+        pushStats.settle_nudges++;
+      }
     }
   }
 
-  const detail = { ...(jobResult as Record<string, unknown>), push: pushStats };
+  const detail = {
+    ...(jobResult as Record<string, unknown>),
+    recorded: recordStats,
+    push: pushStats,
+  };
 
   const { data: heartbeatId, error: hbError } = await supabase.rpc(
     "record_job_heartbeat",

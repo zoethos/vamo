@@ -18,5 +18,6 @@ final testTripsListLabels = TripsListScreenLabels(
   sectionPast: 'Past',
   participants: (count) => '$count Vamigos',
   notificationsTooltip: 'Notifications',
+  notificationsUnreadBadge: (count) => '$count unread',
   createTripTooltip: 'Create trip',
 );

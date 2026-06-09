@@ -32,7 +32,22 @@ class SplitLabels {
         sectionPast: l10n.tripsSectionPast,
         participants: l10n.tripsParticipants,
         notificationsTooltip: l10n.tripsNotificationsTooltip,
+        notificationsUnreadBadge: l10n.notificationsUnreadBadge,
         createTripTooltip: l10n.tripsCreateTripTooltip,
+      );
+
+  static NotificationLabels notifications(AppLocalizations l10n) =>
+      NotificationLabels(
+        inboxTitle: l10n.notificationsInboxTitle,
+        emptyTitle: l10n.notificationsEmptyTitle,
+        emptySubtitle: l10n.notificationsEmptySubtitle,
+        markAllRead: l10n.notificationsMarkAllRead,
+        unreadBadge: (count) => l10n.notificationsUnreadBadge(count),
+        typeCloseNotice: l10n.notificationTypeCloseNotice,
+        typeCloseReminder: l10n.notificationTypeCloseReminder,
+        typeDeemedClosed: l10n.notificationTypeDeemedClosed,
+        typeSettleNudge: l10n.notificationTypeSettleNudge,
+        typeGeneric: l10n.notificationTypeGeneric,
       );
 
   static ActivityScreenLabels activity(AppLocalizations l10n) =>

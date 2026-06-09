@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:app_core/app_core.dart';
 import 'package:feature_split/src/capture/capture_repository.dart';
 import 'package:feature_split/src/expenses/expenses_repository.dart';
+import 'package:feature_split/src/notifications/notifications_repository.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
 import 'package:feature_split/src/places/places_repository.dart';
 import 'package:feature_split/src/settle/settlements_repository.dart';
@@ -34,10 +35,26 @@ Future<SupabaseClient> createSignedInTestClient(String userId) async {
   return client;
 }
 
+NotificationsRepository buildTestNotificationsRepository(
+  AppDatabase db, {
+  SupabaseClient? client,
+}) {
+  return NotificationsRepository(
+    db: db,
+    client: client ??
+        SupabaseClient(
+          'http://localhost',
+          'anon-key',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
+  );
+}
+
 /// Builds a fully wired [TripsRepository] against an in-memory [AppDatabase].
 TripsRepository buildTestTripsRepository(
   AppDatabase db, {
   SupabaseClient? client,
+  NotificationsRepository? notifications,
 }) {
   final resolved = client ??
       SupabaseClient(
@@ -94,5 +111,7 @@ TripsRepository buildTestTripsRepository(
       syncWorker: syncWorker,
     ),
     syncQueue: queue,
+    notifications:
+        notifications ?? buildTestNotificationsRepository(db, client: resolved),
   );
 }

@@ -5,6 +5,7 @@ import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:feature_split/src/capture/capture_repository.dart';
 import 'package:feature_split/src/expenses/expenses_repository.dart';
+import 'package:feature_split/src/notifications/notifications_repository.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
 import 'package:feature_split/src/places/places_repository.dart';
 import 'package:feature_split/src/settle/settlements_repository.dart';
@@ -76,6 +77,7 @@ TripsRepository _buildTripsRepository(AppDatabase db) {
       syncWorker: syncWorker,
     ),
     syncQueue: queue,
+    notifications: NotificationsRepository(db: db, client: client),
   );
 }
 

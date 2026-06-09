@@ -267,6 +267,66 @@ abstract class AppLocalizations {
   /// **'Notifications'**
   String get tripsNotificationsTooltip;
 
+  /// No description provided for @notificationsInboxTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notificationsInboxTitle;
+
+  /// No description provided for @notificationsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up'**
+  String get notificationsEmptyTitle;
+
+  /// No description provided for @notificationsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip notices and reminders will show up here.'**
+  String get notificationsEmptySubtitle;
+
+  /// No description provided for @notificationsMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notificationsMarkAllRead;
+
+  /// No description provided for @notificationsUnreadBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 unread} other{{count} unread}}'**
+  String notificationsUnreadBadge(int count);
+
+  /// No description provided for @notificationTypeCloseNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip closing'**
+  String get notificationTypeCloseNotice;
+
+  /// No description provided for @notificationTypeCloseReminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Close reminder'**
+  String get notificationTypeCloseReminder;
+
+  /// No description provided for @notificationTypeDeemedClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip closed'**
+  String get notificationTypeDeemedClosed;
+
+  /// No description provided for @notificationTypeSettleNudge.
+  ///
+  /// In en, this message translates to:
+  /// **'Settle up'**
+  String get notificationTypeSettleNudge;
+
+  /// No description provided for @notificationTypeGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Notice'**
+  String get notificationTypeGeneric;
+
   /// No description provided for @tripsCreateTripTooltip.
   ///
   /// In en, this message translates to:

@@ -103,6 +103,45 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tripsNotificationsTooltip => 'Notifications';
 
   @override
+  String get notificationsInboxTitle => 'Notifications';
+
+  @override
+  String get notificationsEmptyTitle => 'All caught up';
+
+  @override
+  String get notificationsEmptySubtitle =>
+      'Trip notices and reminders will show up here.';
+
+  @override
+  String get notificationsMarkAllRead => 'Mark all read';
+
+  @override
+  String notificationsUnreadBadge(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unread',
+      one: '1 unread',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notificationTypeCloseNotice => 'Trip closing';
+
+  @override
+  String get notificationTypeCloseReminder => 'Close reminder';
+
+  @override
+  String get notificationTypeDeemedClosed => 'Trip closed';
+
+  @override
+  String get notificationTypeSettleNudge => 'Settle up';
+
+  @override
+  String get notificationTypeGeneric => 'Notice';
+
+  @override
   String get tripsCreateTripTooltip => 'Create trip';
 
   @override

@@ -14,6 +14,7 @@ abstract final class AppRoutes {
   static const suggestFeature = '/profile/suggest';
   static const tripCreate = '/trips/create';
 
+  static const notifications = '/notifications';
   static String trip(String id) => '/trips/$id';
   static String tripExpenses(String tripId) => '/trips/$tripId/expenses';
   static String tripPlan(String tripId) => '/trips/$tripId/plan';

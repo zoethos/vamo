@@ -22,6 +22,7 @@ part 'app_database.g.dart';
   LocalTripFxRates,
   LocalPlanItemRsvps,
   LocalSyncOutbox,
+  LocalNotifications,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -30,7 +31,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -131,6 +132,9 @@ class AppDatabase extends _$AppDatabase {
               localTripMembers,
               localTripMembers.settleNudgedAt,
             );
+          }
+          if (from < 16 && to >= 16) {
+            await m.createTable(localNotifications);
           }
         },
       );
@@ -436,6 +440,54 @@ class AppDatabase extends _$AppDatabase {
     return into(localPlanItemRsvps).insertOnConflictUpdate(row);
   }
 
+  Stream<List<LocalNotification>> watchNotifications(String userId) {
+    return (select(localNotifications)
+          ..where((n) => n.userId.equals(userId))
+          ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+        .watch();
+  }
+
+  Stream<int> watchUnreadNotificationCount(String userId) {
+    return (select(localNotifications)
+          ..where((n) => n.userId.equals(userId))
+          ..where((n) => n.readAt.isNull()))
+        .watch()
+        .map((rows) => rows.length);
+  }
+
+  Future<void> upsertNotification(LocalNotificationsCompanion row) {
+    return into(localNotifications).insertOnConflictUpdate(row);
+  }
+
+  Future<void> markNotificationReadLocal(String id) async {
+    await (update(localNotifications)..where((n) => n.id.equals(id))).write(
+      LocalNotificationsCompanion(
+        readAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  Future<void> markAllNotificationsReadLocal(String userId) async {
+    await (update(localNotifications)
+          ..where((n) => n.userId.equals(userId))
+          ..where((n) => n.readAt.isNull()))
+        .write(
+      LocalNotificationsCompanion(
+        readAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+  }
+
+  Future<void> pruneNotifications(Set<String> remoteIds) async {
+    final local = await select(localNotifications).get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id)) {
+        await (delete(localNotifications)..where((n) => n.id.equals(row.id)))
+            .go();
+      }
+    }
+  }
+
   Future<void> prunePlanItemRsvpsForTrip(
     String tripId,
     Set<String> remoteIds,
@@ -525,6 +577,8 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
     await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId)))
+        .go();
+    await (delete(localNotifications)..where((n) => n.tripId.equals(tripId)))
         .go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();

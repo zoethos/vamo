@@ -81,6 +81,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const AuthCallbackScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        name: 'notifications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final l10n = AppLocalizations.of(context);
+          return NotificationsInboxScreen(
+            labels: SplitLabels.notifications(l10n),
+          );
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           final l10n = AppLocalizations.of(context);

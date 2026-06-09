@@ -14,7 +14,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 type JsonRecord = Record<string, unknown>;
-type SupabaseClientLike = ReturnType<typeof createClient<any, "public", any>>;
+type SupabaseClientLike = ReturnType<typeof createClient<unknown, "public", unknown>>;
 
 interface ResolveThemeRequest {
   trip_id?: unknown;

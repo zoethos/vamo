@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../invites/invite_flow.dart';
+import '../notifications/notifications_providers.dart';
 import 'compact_trip_card.dart';
 import 'featured_trip_card.dart';
 import 'trip_format.dart';
@@ -32,6 +33,7 @@ class TripsListScreenLabels {
     required this.sectionPast,
     required this.participants,
     required this.notificationsTooltip,
+    required this.notificationsUnreadBadge,
     required this.createTripTooltip,
   });
 
@@ -52,6 +54,7 @@ class TripsListScreenLabels {
   final String sectionPast;
   final String Function(int count) participants;
   final String notificationsTooltip;
+  final String Function(int count) notificationsUnreadBadge;
   final String createTripTooltip;
 }
 
@@ -221,22 +224,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
           ],
         ),
         actions: [
-          VamoCircleIcon(
-            diameter: 40,
-            backgroundColor: colors.surface,
-            shadow: false,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifications coming soon')),
-              );
-            },
-            tooltip: widget.labels.notificationsTooltip,
-            child: Icon(
-              Icons.notifications_outlined,
-              color: colors.secondary,
-              size: 22,
-            ),
-          ),
+          _NotificationsBell(labels: widget.labels),
           SizedBox(width: space.x1),
           IconButton(
             tooltip: widget.labels.createTripTooltip,
@@ -443,6 +431,69 @@ class _FilterPill extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onTap(),
+    );
+  }
+}
+
+class _NotificationsBell extends ConsumerWidget {
+  const _NotificationsBell({required this.labels});
+
+  final TripsListScreenLabels labels;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final unread = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
+    final badgeLabel = unread > 0
+        ? (unread > 9 ? '9+' : '$unread')
+        : null;
+
+    return Semantics(
+      button: true,
+      label: badgeLabel == null
+          ? labels.notificationsTooltip
+          : '${labels.notificationsTooltip}, ${labels.notificationsUnreadBadge(unread)}',
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          VamoCircleIcon(
+            diameter: 40,
+            backgroundColor: colors.surface,
+            shadow: false,
+            onTap: () => context.push(AppRoutes.notifications),
+            tooltip: labels.notificationsTooltip,
+            child: Icon(
+              Icons.notifications_outlined,
+              color: colors.secondary,
+              size: 22,
+            ),
+          ),
+          if (badgeLabel != null)
+            PositionedDirectional(
+              top: -2,
+              end: -2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: colors.surface, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  badgeLabel,
+                  style: type.labelSmall.copyWith(
+                    color: colors.onPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -107,7 +107,7 @@ function isRetryableFcmStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
-async function sendFcmV1(
+function sendFcmV1(
   accessToken: string,
   projectId: string,
   deviceToken: string,

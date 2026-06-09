@@ -41,6 +41,21 @@
     }
   },
   "tripsNotificationsTooltip": "Notifications",
+  "notificationsInboxTitle": "Notifications",
+  "notificationsEmptyTitle": "All caught up",
+  "notificationsEmptySubtitle": "Trip notices and reminders will show up here.",
+  "notificationsMarkAllRead": "Mark all read",
+  "notificationsUnreadBadge": "{count, plural, =1{1 unread} other{{count} unread}}",
+  "@notificationsUnreadBadge": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "notificationTypeCloseNotice": "Trip closing",
+  "notificationTypeCloseReminder": "Close reminder",
+  "notificationTypeDeemedClosed": "Trip closed",
+  "notificationTypeSettleNudge": "Settle up",
+  "notificationTypeGeneric": "Notice",
   "tripsCreateTripTooltip": "Create trip",
   "activityTitle": "Activity",
   "activityEmptyTitle": "Nothing yet",

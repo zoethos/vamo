@@ -219,3 +219,19 @@ class LocalSyncOutbox extends Table {
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
+
+/// S46 — in-app notification inbox (pull-only; mirrors public.notifications).
+class LocalNotifications extends Table {
+  TextColumn get id => text()();
+  TextColumn get userId => text()();
+  TextColumn get tripId => text().nullable()();
+  TextColumn get type => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text()();
+  TextColumn get route => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get readAt => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
