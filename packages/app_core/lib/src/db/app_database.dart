@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../analytics/action_failure.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -222,9 +223,7 @@ class AppDatabase extends _$AppDatabase {
         expenses$.listen((rows) {
           receipts = rows
               .where(
-                (e) =>
-                    e.receiptPath != null ||
-                    e.localReceiptPath != null,
+                (e) => e.receiptPath != null || e.localReceiptPath != null,
               )
               .length;
           emit();
@@ -261,6 +260,12 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> upsertTrip(LocalTripsCompanion trip) {
     return into(localTrips).insertOnConflictUpdate(trip);
+  }
+
+  /// Partial-safe update of an existing trip row (no insert path, so a partial
+  /// companion can't fail Drift insert-integrity validation). Returns rows affected.
+  Future<int> updateTripFields(String tripId, LocalTripsCompanion fields) {
+    return (update(localTrips)..where((t) => t.id.equals(tripId))).write(fields);
   }
 
   Stream<List<LocalTripFxRate>> watchTripFxRates(String tripId) {
@@ -309,9 +314,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> upsertExpenseShare(LocalExpenseSharesCompanion share) async {
     assert(share.id.present, 'upsertExpenseShare requires id');
     final id = share.id.value;
-    final updated =
-        await (update(localExpenseShares)..where((s) => s.id.equals(id)))
-            .write(share);
+    final updated = await (update(localExpenseShares)
+          ..where((s) => s.id.equals(id)))
+        .write(share);
     if (updated == 0) {
       await into(localExpenseShares).insertOnConflictUpdate(share);
     }
@@ -389,8 +394,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> upsertPlanItem(LocalPlanItemsCompanion row) async {
     assert(row.id.present, 'upsertPlanItem requires id');
     final id = row.id.value;
-    final updated =
-        await (update(localPlanItems)..where((p) => p.id.equals(id))).write(row);
+    final updated = await (update(localPlanItems)
+          ..where((p) => p.id.equals(id)))
+        .write(row);
     if (updated == 0) {
       await into(localPlanItems).insertOnConflictUpdate(row);
     }
@@ -399,17 +405,16 @@ class AppDatabase extends _$AppDatabase {
   Future<void> upsertListItem(LocalTripListItemsCompanion row) async {
     assert(row.id.present, 'upsertListItem requires id');
     final id = row.id.value;
-    final updated =
-        await (update(localTripListItems)..where((l) => l.id.equals(id)))
-            .write(row);
+    final updated = await (update(localTripListItems)
+          ..where((l) => l.id.equals(id)))
+        .write(row);
     if (updated == 0) {
       await into(localTripListItems).insertOnConflictUpdate(row);
     }
   }
 
   Future<void> deletePlanItem(String id) async {
-    await (delete(localPlanItemRsvps)
-          ..where((r) => r.planItemId.equals(id)))
+    await (delete(localPlanItemRsvps)..where((r) => r.planItemId.equals(id)))
         .go();
     await (delete(localPlanItems)..where((p) => p.id.equals(id))).go();
   }
@@ -505,8 +510,7 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localSettlements)..where((s) => s.tripId.equals(tripId)))
         .go();
     await (delete(localTripNotes)..where((n) => n.tripId.equals(tripId))).go();
-    await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId)))
-        .go();
+    await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItemRsvps)
@@ -520,7 +524,8 @@ class AppDatabase extends _$AppDatabase {
         .go();
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
-    await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId))).go();
+    await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId)))
+        .go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();
     await (delete(localTrips)..where((t) => t.id.equals(tripId))).go();
@@ -535,8 +540,7 @@ class AppDatabase extends _$AppDatabase {
           ..where((e) => e.tripId.equals(tripId)))
         .get();
     for (final row in local) {
-      if (!remoteExpenseIds.contains(row.id) &&
-          !excludeIds.contains(row.id)) {
+      if (!remoteExpenseIds.contains(row.id) && !excludeIds.contains(row.id)) {
         await deleteExpense(row.id);
       }
     }
@@ -566,7 +570,15 @@ class AppDatabase extends _$AppDatabase {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'db',
+        action: 'delete_local_file',
+        severity: ActionFailureSeverity.degraded,
+      );
+    }
   }
 }
 

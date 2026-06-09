@@ -68,13 +68,15 @@ class _JoinTripScreenState extends ConsumerState<JoinTripScreen> {
       await ref.read(syncCoordinatorProvider).syncNow();
       if (!mounted) return;
       context.go(AppRoutes.trip(tripId));
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (!mounted) return;
-      ref.read(analyticsProvider).reportActionFailed(
-            screen: 'join',
-            action: 'join_trip',
-            error: e,
-          );
+      reportAndLog(
+        e,
+        stackTrace,
+        screen: 'join',
+        action: 'join_trip',
+        analytics: ref.read(analyticsProvider),
+      );
       setState(() {
         _error = formatActionFailureMessage(e);
         _joining = false;

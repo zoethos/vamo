@@ -87,7 +87,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           return MainShell(
             navigationShell: navigationShell,
             labels: SplitLabels.shell(l10n),
-            expensesFabLabels: SplitLabels.expensesFab(l10n),
           );
         },
         branches: [

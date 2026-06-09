@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../analytics/action_failure.dart';
+
 /// User-facing theme preference for light/dark inspection.
 enum VamoThemePreference {
   light,
@@ -58,7 +60,14 @@ class FileThemePreferencePersistence implements ThemePreferencePersistence {
     try {
       final dir = await getApplicationSupportDirectory();
       return File('${dir.path}/$_fileName');
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'settings',
+        action: 'theme_preference_file',
+        severity: ActionFailureSeverity.degraded,
+      );
       return null;
     }
   }

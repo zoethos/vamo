@@ -18,8 +18,15 @@ Future<void> main() async {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     try {
       await Firebase.initializeApp();
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Replace app/android/app/google-services.json for real FCM (see RUN.md).
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'app_lifecycle',
+        action: 'firebase_initialize',
+        severity: ActionFailureSeverity.degraded,
+      );
     }
   }
   await initPostHog();

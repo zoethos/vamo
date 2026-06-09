@@ -69,12 +69,7 @@ class SplitLabels {
         unresolvedBadge: l10n.expensesUnresolvedBadge,
         pickerTitle: l10n.expensesPickerTitle,
         pickerLastUsed: l10n.expensesPickerLastUsed,
-      );
-
-  static ExpensesFabLabels expensesFab(AppLocalizations l10n) =>
-      ExpensesFabLabels(
-        pickerTitle: l10n.expensesPickerTitle,
-        pickerLastUsed: l10n.expensesPickerLastUsed,
+        addExpenseTooltip: l10n.addExpenseTitle,
       );
 
   static PlanTabLabels plan(AppLocalizations l10n) => PlanTabLabels(

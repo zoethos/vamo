@@ -166,9 +166,10 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
           showBalances: showBalances,
           onCapture: readOnly
               ? null
-              : () => showCaptureActionSheet(
+              : (anchorLink) => showCaptureActionSheet(
                     context: context,
                     tripId: widget.tripId,
+                    anchorLink: anchorLink,
                   ),
           onExpenses: () => context.push(AppRoutes.tripExpenses(widget.tripId)),
           onPlans: () => context.push(AppRoutes.tripPlan(widget.tripId)),

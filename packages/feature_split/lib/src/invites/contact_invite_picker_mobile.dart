@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:app_core/app_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'contact_invite_gateway.dart';
@@ -50,7 +51,14 @@ class AndroidContactInviteGateway implements ContactInviteGateway {
     );
     try {
       return await launchUrl(uri);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'contact_invite',
+        action: 'compose_sms',
+        severity: ActionFailureSeverity.degraded,
+      );
       return false;
     }
   }
@@ -73,7 +81,14 @@ class AndroidContactInviteGateway implements ContactInviteGateway {
     );
     try {
       return await launchUrl(uri);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'contact_invite',
+        action: 'compose_email',
+        severity: ActionFailureSeverity.degraded,
+      );
       return false;
     }
   }

@@ -1,4 +1,4 @@
-import 'dart:ui' show lerpDouble;
+import 'dart:async';
 
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
@@ -10,380 +10,329 @@ import '../signals/coming_soon_sheet.dart';
 import '../trips/trips_repository.dart';
 import 'capture_repository.dart';
 
-/// Compact capture choices (S30 / S44 carousel) — not the full [CaptureTab] feed.
+const _captureScreen = 'trip_home';
+
+/// Compact capture choices (S30 / S44 carousel), shown as a hero-anchored flyout.
 Future<void> showCaptureActionSheet({
   required BuildContext context,
   required String tripId,
+  LayerLink? anchorLink,
 }) {
-  return showModalBottomSheet<void>(
+  final container = ProviderScope.containerOf(context, listen: false);
+  return showVamoCarouselOverlay(
     context: context,
-    showDragHandle: true,
-    useSafeArea: true,
-    isScrollControlled: true,
-    builder: (ctx) => CaptureChoiceSheet(tripId: tripId),
+    anchorLink: anchorLink,
+    flyoutBuilder: (dismiss) => UncontrolledProviderScope(
+      container: container,
+      child: CaptureChoiceSheet(
+        tripId: tripId,
+        navigationContext: context,
+        providerContainer: container,
+        onDismiss: dismiss,
+      ),
+    ),
   );
 }
 
+/// Test override for [ImagePicker.pickImage] — production uses [ImagePicker].
+typedef CapturePickImage = Future<XFile?> Function({
+  required ImageSource source,
+  double? maxWidth,
+  double? maxHeight,
+  int? imageQuality,
+});
+
+/// Test override for [ImagePicker.pickVideo] — production uses [ImagePicker].
+typedef CapturePickVideo = Future<XFile?> Function({
+  required ImageSource source,
+});
+
 class CaptureChoiceSheet extends ConsumerStatefulWidget {
-  const CaptureChoiceSheet({super.key, required this.tripId});
+  const CaptureChoiceSheet({
+    super.key,
+    required this.tripId,
+    this.navigationContext,
+    this.providerContainer,
+    this.onDismiss,
+    @visibleForTesting this.pickImage,
+    @visibleForTesting this.pickVideo,
+  });
 
   final String tripId;
+  final BuildContext? navigationContext;
+
+  /// Trip-home scope, captured before the overlay opens — never the flyout scope.
+  final ProviderContainer? providerContainer;
+  final Future<void> Function()? onDismiss;
+
+  @visibleForTesting
+  final CapturePickImage? pickImage;
+
+  @visibleForTesting
+  final CapturePickVideo? pickVideo;
 
   @override
   ConsumerState<CaptureChoiceSheet> createState() => _CaptureChoiceSheetState();
 }
 
 class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
-  static const _viewportFraction = 0.3;
-  static const _carouselHeight = 132.0;
-
   final _picker = ImagePicker();
-  late final PageController _pageController;
-  _CaptureChoice? _busy;
 
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: _viewportFraction);
+  BuildContext get _routeContext => widget.navigationContext ?? context;
+
+  ProviderContainer get _rootContainer {
+    final passed = widget.providerContainer;
+    if (passed != null) return passed;
+    return ProviderScope.containerOf(_routeContext, listen: false);
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _addNote() async {
-    Navigator.pop(context);
-    await context.push(AppRoutes.tripAddCaptureNote(widget.tripId));
-  }
-
-  Future<void> _addPhoto() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 80,
-    );
-    if (picked == null || !mounted) return;
-
-    setState(() => _busy = _CaptureChoice.photo);
-    try {
-      await ref.read(captureRepositoryProvider).addPhoto(
-            tripId: widget.tripId,
-            sourcePath: picked.path,
-          );
-      if (!mounted) return;
+  Future<void> _dismiss() async {
+    final onDismiss = widget.onDismiss;
+    if (onDismiss != null) {
+      await onDismiss();
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
       Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      showActionError(
-        context,
-        ref,
-        screen: 'trip_home',
-        action: 'add_capture_photo',
-        error: e,
-      );
-    } finally {
-      if (mounted) setState(() => _busy = null);
     }
   }
 
-  Future<void> _setBackground() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1920,
-      maxHeight: 1920,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
-
-    setState(() => _busy = _CaptureChoice.background);
-    try {
-      await ref.read(tripsRepositoryProvider).setTripBackground(
-            tripId: widget.tripId,
-            sourcePath: picked.path,
-          );
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
+  void _reportActionError({
+    required String action,
+    required Object error,
+    required StackTrace stackTrace,
+    required ProviderContainer container,
+  }) {
+    final routeContext = _routeContext;
+    if (routeContext.mounted) {
       showActionError(
-        context,
+        routeContext,
         ref,
         screen: 'trip_home',
-        action: 'set_trip_background',
-        error: e,
+        action: action,
+        error: error,
+        stackTrace: stackTrace,
       );
-    } finally {
-      if (mounted) setState(() => _busy = null);
+      return;
+    }
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'trip_home',
+      action: action,
+      analytics: container.read(analyticsProvider),
+    );
+  }
+
+  void _dismissOverlayFireAndForget({
+    required Analytics analytics,
+    required String action,
+  }) {
+    unawaited(
+      _dismiss().catchError((Object e, StackTrace st) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'dismiss_failed',
+        );
+      }),
+    );
+  }
+
+  Future<void> _runCaptureAction({
+    required String action,
+    required Future<XFile?> Function() pick,
+    required Future<void> Function(String path, ProviderContainer container) run,
+  }) async {
+    final container = _rootContainer;
+    final analytics = container.read(analyticsProvider);
+    try {
+      final picked = await pick();
+      if (picked == null) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'cancelled',
+        );
+        return;
+      }
+      final sheetMounted = mounted;
+      analytics.reportCaptureActionStarted(
+        screen: _captureScreen,
+        action: action,
+        sheetMounted: sheetMounted,
+      );
+      if (!sheetMounted) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'unmounted_after_pick',
+        );
+      }
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      await run(picked.path, container);
+      analytics.reportCaptureActionCompleted(
+        screen: _captureScreen,
+        action: action,
+      );
+    } catch (e, st) {
+      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      _reportActionError(
+        action: action,
+        error: e,
+        stackTrace: st,
+        container: container,
+      );
     }
   }
 
-  Future<void> _addVideo() async {
-    final picked = await _picker.pickVideo(source: ImageSource.gallery);
-    if (picked == null || !mounted) return;
-    if (!context.mounted) return;
-    Navigator.pop(context);
-    await showComingSoonSheet(
-      context: context,
-      ref: ref,
-      interestEvent: VamoEvent.recapInterestTapped,
-      feature: 'capture_video',
-      title: 'Trip videos',
-      description:
-          'Short video memories from your trip will land here in a later wave.',
+  Future<void> _runDismissAction({
+    required String action,
+    required Future<void> Function() run,
+  }) async {
+    final container = _rootContainer;
+    final analytics = container.read(analyticsProvider);
+    try {
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      analytics.reportCaptureActionStarted(
+        screen: _captureScreen,
+        action: action,
+        sheetMounted: mounted,
+      );
+      await run();
+      analytics.reportCaptureActionCompleted(
+        screen: _captureScreen,
+        action: action,
+      );
+    } catch (e, st) {
+      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
+      _reportActionError(
+        action: action,
+        error: e,
+        stackTrace: st,
+        container: container,
+      );
+    }
+  }
+
+  Future<void> _addNote() {
+    final routeContext = _routeContext;
+    return _runDismissAction(
+      action: 'add_capture_note',
+      run: () => routeContext.push(AppRoutes.tripAddCaptureNote(widget.tripId)),
     );
   }
 
-  List<_CaptureChoiceItem> _items() => [
-        _CaptureChoiceItem(
-          choice: _CaptureChoice.photo,
-          icon: Icons.add_photo_alternate_outlined,
+  Future<XFile?> _pickImage({
+    required ImageSource source,
+    double? maxWidth,
+    double? maxHeight,
+    int? imageQuality,
+  }) {
+    final override = widget.pickImage;
+    if (override != null) {
+      return override(
+        source: source,
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+        imageQuality: imageQuality,
+      );
+    }
+    return _picker.pickImage(
+      source: source,
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      imageQuality: imageQuality,
+    );
+  }
+
+  Future<XFile?> _pickVideo({required ImageSource source}) {
+    final override = widget.pickVideo;
+    if (override != null) {
+      return override(source: source);
+    }
+    return _picker.pickVideo(source: source);
+  }
+
+  Future<void> _addPhoto() {
+    return _runCaptureAction(
+      action: 'add_capture_photo',
+      pick: () => _pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+      ),
+      run: (path, container) => container.read(captureRepositoryProvider).addPhoto(
+            tripId: widget.tripId,
+            sourcePath: path,
+          ),
+    );
+  }
+
+  Future<void> _setBackground() {
+    return _runCaptureAction(
+      action: 'set_trip_background',
+      pick: () => _pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      ),
+      run: (path, container) =>
+          container.read(tripsRepositoryProvider).setTripBackground(
+                tripId: widget.tripId,
+                sourcePath: path,
+              ),
+    );
+  }
+
+  Future<void> _addVideo() {
+    final routeContext = _routeContext;
+    return _runCaptureAction(
+      action: 'add_capture_video',
+      pick: () => _pickVideo(source: ImageSource.gallery),
+      run: (_, container) => showComingSoonSheet(
+        context: routeContext,
+        ref: ref,
+        interestEvent: VamoEvent.recapInterestTapped,
+        feature: 'capture_video',
+        title: 'Trip videos',
+        description:
+            'Short video memories from your trip will land here in a later wave.',
+      ),
+    );
+  }
+
+  List<VamoCarouselItem> _items() => [
+        VamoCarouselItem(
+          icon: Icons.photo_camera_rounded,
           label: 'Photo',
-          onTap: _addPhoto,
+          onSelected: _addPhoto,
         ),
-        _CaptureChoiceItem(
-          choice: _CaptureChoice.video,
-          icon: Icons.videocam_outlined,
+        VamoCarouselItem(
+          icon: Icons.videocam_rounded,
           label: 'Video',
-          onTap: _addVideo,
+          onSelected: _addVideo,
         ),
-        _CaptureChoiceItem(
-          choice: _CaptureChoice.note,
-          icon: Icons.note_add_outlined,
+        VamoCarouselItem(
+          icon: Icons.edit_note_rounded,
           label: 'Note',
-          onTap: _addNote,
+          onSelected: _addNote,
         ),
-        _CaptureChoiceItem(
-          choice: _CaptureChoice.background,
-          icon: Icons.image_outlined,
+        VamoCarouselItem(
+          icon: Icons.wallpaper_rounded,
           label: 'Background',
-          onTap: _setBackground,
+          onSelected: _setBackground,
         ),
       ];
 
-  double _focusFor(int index) {
-    if (!_pageController.hasClients ||
-        !_pageController.position.haveDimensions) {
-      return index == _pageController.initialPage ? 1 : 0;
-    }
-    final page = _pageController.page ?? _pageController.initialPage.toDouble();
-    return (1 - (page - index).abs()).clamp(0.0, 1.0);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final colors = context.vamoColors;
-    final type = context.vamoType;
-    final space = context.vamoSpace;
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final items = _items();
-
-    final disabled = _busy != null;
-
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(
-        0,
-        space.x1,
-        0,
-        space.x3 + bottomInset,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ExcludeSemantics(
-            child: SizedBox(
-              height: _carouselHeight,
-              child: AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, _) {
-                  return PageView(
-                  controller: _pageController,
-                  clipBehavior: Clip.none,
-                  padEnds: true,
-                  children: [
-                    for (var index = 0; index < items.length; index++)
-                      _CaptureCarouselSlot(
-                        item: items[index],
-                        focus: _focusFor(index),
-                        colors: colors,
-                        type: type,
-                        space: space,
-                        motion: context.vamoMotion,
-                        busy: _busy == items[index].choice,
-                        disabled:
-                            _busy != null && _busy != items[index].choice,
-                      ),
-                  ],
-                  );
-                },
-              ),
-            ),
-          ),
-          // Screen-reader / tap-through fallback — no swipe required.
-          SizedBox(
-            width: 0,
-            height: 0,
-            child: Column(
-              children: [
-                for (final item in items)
-                  Semantics(
-                    button: true,
-                    label: item.label,
-                    enabled: !disabled || _busy == item.choice,
-                    onTap: disabled && _busy != item.choice
-                        ? null
-                        : item.onTap,
-                    child: const SizedBox(width: 0, height: 0),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CaptureCarouselSlot extends StatelessWidget {
-  const _CaptureCarouselSlot({
-    required this.item,
-    required this.focus,
-    required this.colors,
-    required this.type,
-    required this.space,
-    required this.motion,
-    required this.busy,
-    required this.disabled,
-  });
-
-  final _CaptureChoiceItem item;
-  final double focus;
-  final VamoSemanticColors colors;
-  final VamoTypeScale type;
-  final VamoSpacing space;
-  final VamoMotion motion;
-  final bool busy;
-  final bool disabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final scale = lerpDouble(0.72, 1.12, focus) ?? 1;
-    final circleSize = lerpDouble(48, 72, focus) ?? 56;
-    final iconSize = lerpDouble(22, 28, focus) ?? 24;
-    final showLabel = focus > 0.72;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: disabled ? null : item.onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Transform.scale(
-            scale: scale,
-            child: _CaptureChoiceOrb(
-              diameter: circleSize,
-              icon: item.icon,
-              iconSize: iconSize,
-              colors: colors,
-              busy: busy,
-              dimmed: disabled,
-            ),
-          ),
-          SizedBox(height: space.x2),
-          SizedBox(
-            height: 20,
-            child: AnimatedOpacity(
-              opacity: showLabel ? 1 : 0,
-              duration: motion.instant,
-              child: Text(
-                item.label,
-                style: type.labelSmall.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-enum _CaptureChoice { photo, video, note, background }
-
-class _CaptureChoiceItem {
-  const _CaptureChoiceItem({
-    required this.choice,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final _CaptureChoice choice;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-}
-
-class _CaptureChoiceOrb extends StatelessWidget {
-  const _CaptureChoiceOrb({
-    required this.diameter,
-    required this.icon,
-    required this.iconSize,
-    required this.colors,
-    required this.busy,
-    required this.dimmed,
-  });
-
-  final double diameter;
-  final IconData icon;
-  final double iconSize;
-  final VamoSemanticColors colors;
-  final bool busy;
-  final bool dimmed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: dimmed ? 0.45 : 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colors.surface,
-          border: Border.all(
-            color: colors.divider.withValues(alpha: 0.7),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: colors.onSurface.withValues(alpha: 0.08),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: SizedBox(
-          width: diameter,
-          height: diameter,
-          child: Center(
-            child: busy
-                ? SizedBox(
-                    width: iconSize,
-                    height: iconSize,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colors.secondary,
-                    ),
-                  )
-                : Icon(icon, color: colors.secondary, size: iconSize),
-          ),
-        ),
-      ),
+    return VamoCarousel(
+      items: _items(),
+      onDismiss: widget.onDismiss,
     );
   }
 }

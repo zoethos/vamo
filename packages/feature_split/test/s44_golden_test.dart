@@ -42,6 +42,7 @@ void main() {
   }
 
   Widget carouselSheet({
+    required AppDatabase db,
     required Brightness brightness,
     TextDirection textDirection = TextDirection.ltr,
   }) {
@@ -50,25 +51,38 @@ void main() {
       home: Directionality(
         textDirection: textDirection,
         child: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: ProviderScope(
-              overrides: [
-                appDatabaseProvider.overrideWithValue(
-                  AppDatabase.forTesting(NativeDatabase.memory()),
-                ),
-                supabaseClientProvider.overrideWithValue(
-                  SupabaseClient(
-                    'http://localhost',
-                    'anon-key',
-                    authOptions:
-                        const AuthClientOptions(autoRefreshToken: false),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              TripVisualBackdrop(
+                tripName: 'Amalfi Coast',
+                destination: 'Italy',
+                backgroundImagePath: heroFixturePath,
+                child: const GradientScrim(heightFactor: 0.85),
+              ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 16),
+                  child: ProviderScope(
+                    overrides: [
+                      appDatabaseProvider.overrideWithValue(db),
+                      supabaseClientProvider.overrideWithValue(
+                        SupabaseClient(
+                          'http://localhost',
+                          'anon-key',
+                          authOptions: const AuthClientOptions(
+                            autoRefreshToken: false,
+                          ),
+                        ),
+                      ),
+                      analyticsProvider.overrideWithValue(DebugAnalytics()),
+                    ],
+                    child: const CaptureChoiceSheet(tripId: 'trip-1'),
                   ),
                 ),
-                analyticsProvider.overrideWithValue(DebugAnalytics()),
-              ],
-              child: const CaptureChoiceSheet(tripId: 'trip-1'),
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -116,31 +130,36 @@ void main() {
     );
   }
 
-  group('S44 capture carousel goldens', () {
-    testWidgets('carousel menu light small', (tester) async {
+  group('S44 capture flyout goldens', () {
+    testWidgets('vertical wheel flyout light small', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
-        child: carouselSheet(brightness: Brightness.light),
+        child: carouselSheet(db: db, brightness: Brightness.light),
       );
       await expectLater(
-        find.byType(CaptureChoiceSheet),
+        find.byType(Scaffold),
         matchesGoldenFile('goldens/s44_capture_carousel_light_small.png'),
       );
     });
 
-    testWidgets('carousel menu dark rtl', (tester) async {
+    testWidgets('vertical wheel flyout dark rtl', (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       await pumpSurface(
         tester,
         surface: phone,
         textDirection: TextDirection.rtl,
         child: carouselSheet(
+          db: db,
           brightness: Brightness.dark,
           textDirection: TextDirection.rtl,
         ),
       );
       await expectLater(
-        find.byType(CaptureChoiceSheet),
+        find.byType(Scaffold),
         matchesGoldenFile('goldens/s44_capture_carousel_dark_rtl.png'),
       );
     });

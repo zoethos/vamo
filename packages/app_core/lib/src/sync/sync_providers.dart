@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analytics/analytics_providers.dart';
+import '../analytics/action_failure.dart';
 import '../auth/auth_providers.dart';
 import '../db/database_provider.dart';
 import '../supabase/supabase_providers.dart';
@@ -49,14 +50,19 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
 final pendingSyncCountProvider = StreamProvider<int>((ref) {
   final queue = ref.watch(syncQueueProvider);
   final db = ref.watch(appDatabaseProvider);
-  return db.select(db.localSyncOutbox).watch().asyncMap((_) => queue.countPending());
+  return db
+      .select(db.localSyncOutbox)
+      .watch()
+      .asyncMap((_) => queue.countPending());
 });
 
 /// Starts connectivity + auth-driven sync. Mount once under [ProviderScope].
 final syncLifecycleProvider = Provider<void>((ref) {
   final coordinator = ref.watch(syncCoordinatorProvider);
+  debugBreadcrumb('mounted', screen: 'sync', action: 'sync_lifecycle');
 
   Future<void> runSync() async {
+    debugBreadcrumb('triggered', screen: 'sync', action: 'sync_now');
     await coordinator.syncNow();
   }
 

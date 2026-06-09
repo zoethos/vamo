@@ -60,11 +60,13 @@ Future<void> openExpenseReceiptViewer(
   if (!context.mounted) return;
 
   if (result.error != null && result.hadRemoteAttachment) {
-    ref.read(analyticsProvider).reportActionFailed(
-          screen: 'trip_home',
-          action: 'load_receipt',
-          error: result.error!,
-        );
+    reportAndLog(
+      result.error!,
+      StackTrace.current,
+      screen: 'trip_home',
+      action: 'load_receipt',
+      analytics: ref.read(analyticsProvider),
+    );
   }
 
   await Navigator.of(context).push<void>(

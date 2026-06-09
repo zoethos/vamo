@@ -16,6 +16,7 @@ final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
     client: ref.watch(supabaseClientProvider),
     syncQueue: ref.watch(syncQueueProvider),
     syncWorker: ref.watch(syncWorkerProvider),
+    analytics: ref.watch(analyticsProvider),
   );
 });
 
@@ -26,15 +27,18 @@ class CaptureRepository {
     required SupabaseClient client,
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
+    Analytics? analytics,
   })  : _db = db,
         _client = client,
         _syncQueue = syncQueue,
-        _syncWorker = syncWorker;
+        _syncWorker = syncWorker,
+        _analytics = analytics;
 
   final AppDatabase _db;
   final SupabaseClient _client;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
+  final Analytics? _analytics;
   final _uuid = const Uuid();
 
   static const _capturesBucket = StoragePaths.capturesBucket;
@@ -141,6 +145,12 @@ class CaptureRepository {
     required String title,
     required String body,
   }) async {
+    debugBreadcrumb(
+      'add note start',
+      screen: 'capture',
+      action: 'add_note',
+      details: {'tripId': tripId},
+    );
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
       throw StateError('Must be signed in to add a note');
@@ -175,6 +185,12 @@ class CaptureRepository {
     );
     unawaited(_syncWorker.flush());
 
+    debugBreadcrumb(
+      'add note queued',
+      screen: 'capture',
+      action: 'add_note',
+      details: {'tripId': tripId},
+    );
     return id;
   }
 
@@ -183,6 +199,12 @@ class CaptureRepository {
     required String sourcePath,
     String? caption,
   }) async {
+    debugBreadcrumb(
+      'add photo start',
+      screen: 'capture',
+      action: 'add_photo',
+      details: {'tripId': tripId},
+    );
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
       throw StateError('Must be signed in to add a photo');
@@ -232,8 +254,22 @@ class CaptureRepository {
           storagePath: Value(storagePath),
         ),
       );
-    } catch (_) {
+      debugBreadcrumb(
+        'remote photo synced',
+        screen: 'capture',
+        action: 'upload_photo_remote',
+        details: {'tripId': tripId},
+      );
+    } catch (error, stackTrace) {
       // Photo stays local-only if bucket missing or offline — still on Drift.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'capture',
+        action: 'upload_photo_remote',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
     }
 
     return id;

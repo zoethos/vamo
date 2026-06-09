@@ -7,6 +7,7 @@ import '../expenses/expenses_providers.dart';
 import 'trip_format.dart';
 import 'trip_visual_backdrop.dart';
 import 'trips_models.dart';
+import 'trips_providers.dart';
 
 /// Large hero card for the next upcoming trip (S35).
 class FeaturedTripCard extends ConsumerWidget {
@@ -28,6 +29,8 @@ class FeaturedTripCard extends ConsumerWidget {
     final dates = formatTripDateRange(trip.startDate, trip.endDate);
     final memberCount =
         ref.watch(tripMembersForExpenseProvider(trip.id)).valueOrNull?.length;
+    final backgroundImagePath =
+        ref.watch(tripCardBackgroundImageProvider(trip.id));
 
     return Semantics(
       button: true,
@@ -43,6 +46,7 @@ class FeaturedTripCard extends ConsumerWidget {
             child: TripVisualBackdrop(
               tripName: trip.name,
               destination: trip.destination,
+              backgroundImagePath: backgroundImagePath,
               child: Stack(
                 fit: StackFit.expand,
                 children: [

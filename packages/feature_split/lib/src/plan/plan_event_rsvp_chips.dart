@@ -118,8 +118,15 @@ class _PlanEventRsvpChipsState extends ConsumerState<PlanEventRsvpChips> {
       await ref
           .read(planRepositoryProvider)
           .clearEventRsvp(planItemId: widget.planItemId);
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'plan',
+        action: 'clear_event_rsvp',
+        analytics: ref.read(analyticsProvider),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.labels.eventRsvpUpdateFailed)),
       );
@@ -142,8 +149,15 @@ class _PlanEventRsvpChipsState extends ConsumerState<PlanEventRsvpChips> {
           status: status,
         );
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'plan',
+        action: 'update_event_rsvp',
+        analytics: ref.read(analyticsProvider),
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(widget.labels.eventRsvpUpdateFailed)),
       );

@@ -5,13 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../env/env.dart';
+import '../analytics/action_failure.dart';
 import 'fx_rates_persistence.dart';
 import 'fx_snapshot.dart';
 
 /// Fetches pivot rates (EUR) from the edge function or exchangerate.host, rebases
 /// to the trip currency, and falls back to stale cache when offline.
 class FxRatesClient {
-  FxRatesClient({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  FxRatesClient({http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
 
   final http.Client _http;
 
@@ -44,7 +46,14 @@ class FxRatesClient {
       return _staleForTripBase(tripBase);
     } on FormatException {
       return _staleForTripBase(tripBase);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'fx',
+        action: 'fetch_rates',
+        severity: ActionFailureSeverity.degraded,
+      );
       return _staleForTripBase(tripBase);
     }
   }
@@ -130,8 +139,7 @@ class FxRatesClient {
   }) {
     _throwIfApiError(body);
 
-    final base =
-        (body['base'] as String? ?? expectedBase).toUpperCase();
+    final base = (body['base'] as String? ?? expectedBase).toUpperCase();
     final ratesRaw = body['rates'] as Map<String, dynamic>?;
     if (ratesRaw == null || ratesRaw.isEmpty) {
       throw FxRatesException('FX response missing rates');

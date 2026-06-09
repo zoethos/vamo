@@ -66,6 +66,15 @@ class TripExpensesScreen extends ConsumerWidget {
           appBar: AppBar(
             leading: TripSectionBackButton(tripId: tripId),
             title: Text(tripHomeLabels.tabExpenses),
+            actions: [
+              if (!readOnly)
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: tripHomeLabels.addExpense,
+                  onPressed: () =>
+                      context.push(AppRoutes.tripAddExpense(tripId)),
+                ),
+            ],
           ),
           body: TripExpensesTab(
             tripId: tripId,
@@ -74,16 +83,6 @@ class TripExpensesScreen extends ConsumerWidget {
             governanceLabels: governanceLabels,
             budgetLabels: budgetLabels,
           ),
-          floatingActionButton: readOnly
-              ? null
-              : FloatingActionButton.extended(
-                  backgroundColor: AppColors.goLime,
-                  foregroundColor: AppColors.ink,
-                  onPressed: () =>
-                      context.push(AppRoutes.tripAddExpense(tripId)),
-                  icon: const Icon(Icons.add),
-                  label: Text(tripHomeLabels.addExpense),
-                ),
         );
       },
     );

@@ -45,7 +45,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
             tripId: widget.tripId,
             sourcePath: picked.path,
           );
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (!mounted) return;
       showActionError(
         context,
@@ -53,6 +53,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
         screen: 'trip_home',
         action: 'add_capture_photo',
         error: e,
+        stackTrace: stackTrace,
       );
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -187,8 +188,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
                 ),
                 SizedBox(height: space.x2),
                 ...noteList.map((n) {
-                  final when =
-                      DateFormat.MMMd().format(n.capturedAt.toLocal());
+                  final when = DateFormat.MMMd().format(n.capturedAt.toLocal());
                   return Card(
                     margin: EdgeInsets.only(bottom: space.x2 + 2),
                     child: ListTile(
@@ -252,11 +252,13 @@ class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
       return;
     }
     _lastReportedError = error;
-    ref.read(analyticsProvider).reportActionFailed(
-          screen: 'trip_home',
-          action: 'load_photo',
-          error: error,
-        );
+    reportAndLog(
+      error,
+      StackTrace.current,
+      screen: 'trip_home',
+      action: 'load_photo',
+      analytics: ref.read(analyticsProvider),
+    );
   }
 
   Future<void> _retry() async {

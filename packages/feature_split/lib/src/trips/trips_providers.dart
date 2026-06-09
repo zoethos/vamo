@@ -22,16 +22,26 @@ final tripsListProvider = StreamProvider<List<TripSummary>>((ref) {
   return ref.watch(tripsRepositoryProvider).watchTripSummaries();
 });
 
-final tripDetailProvider =
-    StreamProvider.family<TripDetail?, String>((ref, tripId) {
-  return ref.watch(tripsRepositoryProvider).watchTrip(tripId);
-});
-
-/// Resolved local file path for the user-set hero background, if any.
-final tripHeroBackgroundProvider =
+/// Remote-only hero cache when [TripDetail.backgroundStoragePath] is set and
+/// no usable local file exists yet.
+final tripRemoteBackgroundCacheProvider =
     FutureProvider.family<String?, String>((ref, tripId) async {
   ref.watch(tripDetailProvider(tripId));
   final detail = ref.read(tripDetailProvider(tripId)).valueOrNull;
+  if (detail == null) return null;
+
+  final remote = detail.backgroundStoragePath;
+  if (remote == null || remote.isEmpty) return null;
+
+  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
+        tripId: tripId,
+        storagePath: remote,
+      );
+});
+
+/// Resolved local file path for the user-set hero background, if any.
+final tripHeroBackgroundProvider = Provider.family<String?, String>((ref, tripId) {
+  final detail = ref.watch(tripDetailProvider(tripId)).valueOrNull;
   if (detail == null) return null;
 
   final local = detail.backgroundLocalPath;
@@ -42,10 +52,33 @@ final tripHeroBackgroundProvider =
   final remote = detail.backgroundStoragePath;
   if (remote == null || remote.isEmpty) return null;
 
-  return ref.read(tripsRepositoryProvider).ensureTripBackgroundCached(
-        tripId: tripId,
-        storagePath: remote,
-      );
+  return ref.watch(tripRemoteBackgroundCacheProvider(tripId)).valueOrNull;
+});
+
+/// My Trips card backdrop — local path from the list stream, else remote cache.
+final tripCardBackgroundImageProvider =
+    Provider.family<String?, String>((ref, tripId) {
+  final trip = ref.watch(
+    tripsListProvider.select(
+      (async) => async.valueOrNull?.where((t) => t.id == tripId).firstOrNull,
+    ),
+  );
+  if (trip == null) return null;
+
+  final local = trip.backgroundLocalPath;
+  if (local != null && local.isNotEmpty && File(local).existsSync()) {
+    return local;
+  }
+
+  final remote = trip.backgroundStoragePath;
+  if (remote == null || remote.isEmpty) return null;
+
+  return ref.watch(tripRemoteBackgroundCacheProvider(tripId)).valueOrNull;
+});
+
+final tripDetailProvider =
+    StreamProvider.family<TripDetail?, String>((ref, tripId) {
+  return ref.watch(tripsRepositoryProvider).watchTrip(tripId);
 });
 
 final tripMemberCountProvider =

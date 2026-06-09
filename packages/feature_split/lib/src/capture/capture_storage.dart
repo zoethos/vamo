@@ -81,7 +81,15 @@ abstract final class CaptureStorage {
       if (await file.exists()) {
         await file.delete();
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'capture',
+        action: 'delete_local_file',
+        severity: ActionFailureSeverity.degraded,
+      );
+    }
   }
 
   static Future<void> clearAll() async {

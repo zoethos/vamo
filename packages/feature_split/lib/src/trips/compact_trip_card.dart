@@ -7,6 +7,7 @@ import '../expenses/expenses_providers.dart';
 import 'trip_format.dart';
 import 'trip_visual_backdrop.dart';
 import 'trips_models.dart';
+import 'trips_providers.dart';
 
 /// Smaller trip row with leading gradient thumbnail (S35).
 class CompactTripCard extends ConsumerWidget {
@@ -28,6 +29,8 @@ class CompactTripCard extends ConsumerWidget {
     final dates = formatTripDateRange(trip.startDate, trip.endDate);
     final memberCount =
         ref.watch(tripMembersForExpenseProvider(trip.id)).valueOrNull?.length;
+    final backgroundImagePath =
+        ref.watch(tripCardBackgroundImageProvider(trip.id));
 
     return Semantics(
       button: true,
@@ -50,6 +53,7 @@ class CompactTripCard extends ConsumerWidget {
                     child: TripVisualBackdrop(
                       tripName: trip.name,
                       destination: trip.destination,
+                      backgroundImagePath: backgroundImagePath,
                     ),
                   ),
                 ),
