@@ -7,9 +7,6 @@ import 'app_semantic_colors.dart';
 import 'app_theme_context.dart';
 import 'vamo_circle_icon.dart';
 
-/// Flyout axis for [showVamoCarousel]. Only [vertical] is implemented today.
-enum VamoCarouselAxis { vertical, horizontal }
-
 /// One selectable orb in a [VamoCarousel] / [showVamoCarousel] flyout.
 class VamoCarouselItem {
   const VamoCarouselItem({
@@ -37,8 +34,10 @@ Future<void> showVamoCarousel({
   LayerLink? anchor,
   required List<VamoCarouselItem> items,
   int? loadingIndex,
-  VamoCarouselAxis axis = VamoCarouselAxis.vertical,
 }) {
+  if (items.isEmpty) {
+    return Future.value();
+  }
   return showVamoCarouselOverlay(
     context: context,
     anchorLink: anchor,
@@ -46,7 +45,6 @@ Future<void> showVamoCarousel({
       items: items,
       loadingIndex: loadingIndex,
       onDismiss: dismiss,
-      axis: axis,
     ),
   );
 }
@@ -84,13 +82,11 @@ class VamoCarousel extends StatefulWidget {
     required this.items,
     this.loadingIndex,
     this.onDismiss,
-    this.axis = VamoCarouselAxis.vertical,
   });
 
   final List<VamoCarouselItem> items;
   final int? loadingIndex;
   final Future<void> Function()? onDismiss;
-  final VamoCarouselAxis axis;
 
   @override
   State<VamoCarousel> createState() => _VamoCarouselState();
@@ -101,31 +97,32 @@ class _VamoCarouselState extends State<VamoCarousel> {
   static const _flyoutHeight = _VamoCarouselMetrics.flyoutHeight;
   static const _wheelItemExtent = _VamoCarouselMetrics.wheelItemExtent;
 
-  late final FixedExtentScrollController _wheelController;
+  FixedExtentScrollController? _wheelController;
   var _selectedIndex = 0;
   var _scrollIndex = 0.0;
 
   @override
   void initState() {
     super.initState();
-    assert(
-      widget.axis == VamoCarouselAxis.vertical,
-      'Only vertical carousels are implemented',
-    );
+    if (widget.items.isEmpty) return;
+    assert(widget.items.isNotEmpty, 'VamoCarousel requires at least one item');
     _wheelController = FixedExtentScrollController();
-    _wheelController.addListener(_syncWheelScroll);
+    _wheelController!.addListener(_syncWheelScroll);
   }
 
   @override
   void dispose() {
-    _wheelController.removeListener(_syncWheelScroll);
-    _wheelController.dispose();
+    _wheelController?.removeListener(_syncWheelScroll);
+    _wheelController?.dispose();
     super.dispose();
   }
 
   void _syncWheelScroll() {
-    if (!_wheelController.hasClients) return;
-    final next = _wheelController.offset / _wheelItemExtent;
+    final controller = _wheelController;
+    if (controller == null || !controller.hasClients || widget.items.isEmpty) {
+      return;
+    }
+    final next = controller.offset / _wheelItemExtent;
     final index = next.round().clamp(0, widget.items.length - 1);
     if ((next - _scrollIndex).abs() > 0.001 || index != _selectedIndex) {
       setState(() {
@@ -157,6 +154,10 @@ class _VamoCarouselState extends State<VamoCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final colors = context.vamoColors;
     final type = context.vamoType;
     final space = context.vamoSpace;
@@ -213,7 +214,7 @@ class _VamoCarouselState extends State<VamoCarousel> {
                   ),
                   Positioned.fill(
                     child: ListWheelScrollView.useDelegate(
-                      controller: _wheelController,
+                      controller: _wheelController!,
                       physics: const FixedExtentScrollPhysics(),
                       itemExtent: _wheelItemExtent,
                       diameterRatio: 2.6,

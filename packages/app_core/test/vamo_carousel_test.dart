@@ -128,6 +128,19 @@ void main() {
           tester.widget<ListWheelScrollView>(find.byType(ListWheelScrollView));
       expect(wheel.childDelegate.estimatedChildCount, 4);
     });
+
+    testWidgets('empty items render shrink without indexing', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(body: VamoCarousel(items: const [])),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(ListWheelScrollView), findsNothing);
+      expect(find.byType(VamoCarousel), findsOneWidget);
+    });
   });
 
   group('showVamoCarousel overlay', () {
@@ -201,6 +214,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selected, isTrue);
+    });
+
+    testWidgets('showVamoCarousel no-ops when items are empty', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => showVamoCarousel(
+                    context: context,
+                    items: const [],
+                  ),
+                  child: const Text('Open empty'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open empty'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(VamoCarousel), findsNothing);
+      expect(find.byKey(kVamoCarouselOverlayKey), findsNothing);
     });
   });
 }

@@ -22,7 +22,8 @@ final tripsListProvider = StreamProvider<List<TripSummary>>((ref) {
   return ref.watch(tripsRepositoryProvider).watchTripSummaries();
 });
 
-/// Remote-only hero cache download (when [backgroundStoragePath] exists locally).
+/// Remote-only hero cache when [TripDetail.backgroundStoragePath] is set and
+/// no usable local file exists yet.
 final tripRemoteBackgroundCacheProvider =
     FutureProvider.family<String?, String>((ref, tripId) async {
   ref.watch(tripDetailProvider(tripId));

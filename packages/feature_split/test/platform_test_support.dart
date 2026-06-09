@@ -58,8 +58,15 @@ void tearDownFakePathProvider() {
     PathProviderPlatform.instance = _savedPathProvider!;
     _savedPathProvider = null;
   }
-  _pathProviderRoot?.deleteSync(recursive: true);
+  final root = _pathProviderRoot;
   _pathProviderRoot = null;
+  if (root != null) {
+    try {
+      root.deleteSync(recursive: true);
+    } on FileSystemException {
+      // Windows may still hold open handles from Image/File widgets.
+    }
+  }
 }
 
 /// Temp directory root used by the active fake path provider, if any.

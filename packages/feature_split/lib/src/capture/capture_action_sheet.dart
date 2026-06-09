@@ -36,6 +36,11 @@ typedef CapturePickImage = Future<XFile?> Function({
   int? imageQuality,
 });
 
+/// Test override for [ImagePicker.pickVideo] — production uses [ImagePicker].
+typedef CapturePickVideo = Future<XFile?> Function({
+  required ImageSource source,
+});
+
 class CaptureChoiceSheet extends ConsumerStatefulWidget {
   const CaptureChoiceSheet({
     super.key,
@@ -43,6 +48,7 @@ class CaptureChoiceSheet extends ConsumerStatefulWidget {
     this.navigationContext,
     this.onDismiss,
     @visibleForTesting this.pickImage,
+    @visibleForTesting this.pickVideo,
   });
 
   final String tripId;
@@ -52,12 +58,17 @@ class CaptureChoiceSheet extends ConsumerStatefulWidget {
   @visibleForTesting
   final CapturePickImage? pickImage;
 
+  @visibleForTesting
+  final CapturePickVideo? pickVideo;
+
   @override
   ConsumerState<CaptureChoiceSheet> createState() => _CaptureChoiceSheetState();
 }
 
 class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   final _picker = ImagePicker();
+
+  BuildContext get _routeContext => widget.navigationContext ?? context;
 
   Future<void> _dismiss() async {
     final onDismiss = widget.onDismiss;
@@ -70,11 +81,65 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     }
   }
 
-  Future<void> _addNote() async {
-    final routeContext = widget.navigationContext ?? context;
-    await _dismiss();
-    if (!routeContext.mounted) return;
-    await routeContext.push(AppRoutes.tripAddCaptureNote(widget.tripId));
+  Future<void> _runCaptureAction({
+    required String action,
+    required Future<XFile?> Function() pick,
+    required Future<void> Function(String path, ProviderContainer container) run,
+  }) async {
+    final routeContext = _routeContext;
+    try {
+      final picked = await pick();
+      if (picked == null || !mounted) return;
+      final container = ProviderScope.containerOf(routeContext, listen: false);
+      await _dismiss();
+      if (!routeContext.mounted) return;
+      await run(picked.path, container);
+    } catch (e, st) {
+      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
+      if (!routeContext.mounted) return;
+      if (mounted) {
+        await _dismiss();
+      }
+      showActionError(
+        routeContext,
+        ref,
+        screen: 'trip_home',
+        action: action,
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _runDismissAction({
+    required String action,
+    required Future<void> Function() run,
+  }) async {
+    final routeContext = _routeContext;
+    try {
+      await _dismiss();
+      if (!routeContext.mounted) return;
+      await run();
+    } catch (e, st) {
+      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
+      if (!routeContext.mounted) return;
+      showActionError(
+        routeContext,
+        ref,
+        screen: 'trip_home',
+        action: action,
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _addNote() {
+    final routeContext = _routeContext;
+    return _runDismissAction(
+      action: 'add_capture_note',
+      run: () => routeContext.push(AppRoutes.tripAddCaptureNote(widget.tripId)),
+    );
   }
 
   Future<XFile?> _pickImage({
@@ -100,101 +165,61 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     );
   }
 
-  Future<void> _addPhoto() async {
-    final routeContext = widget.navigationContext ?? context;
-    final container = ProviderScope.containerOf(routeContext);
-    final picked = await _pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 80,
-    );
-    if (picked == null) return;
-
-    await _dismiss();
-    if (!routeContext.mounted) return;
-
-    try {
-      await container.read(captureRepositoryProvider).addPhoto(
-            tripId: widget.tripId,
-            sourcePath: picked.path,
-          );
-    } catch (e) {
-      if (!routeContext.mounted) return;
-      _showActionError(
-        routeContext,
-        container,
-        action: 'add_capture_photo',
-        error: e,
-      );
+  Future<XFile?> _pickVideo({required ImageSource source}) {
+    final override = widget.pickVideo;
+    if (override != null) {
+      return override(source: source);
     }
+    return _picker.pickVideo(source: source);
   }
 
-  Future<void> _setBackground() async {
-    final routeContext = widget.navigationContext ?? context;
-    final container = ProviderScope.containerOf(routeContext);
-    try {
-      final picked = await _pickImage(
+  Future<void> _addPhoto() {
+    return _runCaptureAction(
+      action: 'add_capture_photo',
+      pick: () => _pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+      ),
+      run: (path, container) => container.read(captureRepositoryProvider).addPhoto(
+            tripId: widget.tripId,
+            sourcePath: path,
+          ),
+    );
+  }
+
+  Future<void> _setBackground() {
+    return _runCaptureAction(
+      action: 'set_trip_background',
+      pick: () => _pickImage(
         source: ImageSource.gallery,
         maxWidth: 1920,
         maxHeight: 1920,
         imageQuality: 85,
-      );
-      if (picked == null) return;
-
-      await _dismiss();
-      if (!routeContext.mounted) return;
-
-      await container.read(tripsRepositoryProvider).setTripBackground(
-            tripId: widget.tripId,
-            sourcePath: picked.path,
-          );
-    } catch (e, st) {
-      debugPrint('SET-BG-FAIL [trip_home/set_trip_background]: $e\n$st');
-      if (!routeContext.mounted) return;
-      _showActionError(
-        routeContext,
-        container,
-        action: 'set_trip_background',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  void _showActionError(
-    BuildContext context,
-    ProviderContainer container, {
-    required String action,
-    required Object error,
-    StackTrace? stackTrace,
-  }) {
-    reportAndLog(
-      error,
-      stackTrace ?? StackTrace.current,
-      screen: 'trip_home',
-      action: action,
-      analytics: container.read(analyticsProvider),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(formatActionFailureMessage(error))),
+      ),
+      run: (path, container) =>
+          container.read(tripsRepositoryProvider).setTripBackground(
+                tripId: widget.tripId,
+                sourcePath: path,
+              ),
     );
   }
 
-  Future<void> _addVideo() async {
-    final picked = await _picker.pickVideo(source: ImageSource.gallery);
-    if (picked == null || !mounted) return;
-    final routeContext = widget.navigationContext ?? context;
-    await _dismiss();
-    if (!routeContext.mounted) return;
-    await showComingSoonSheet(
-      context: routeContext,
-      ref: ref,
-      interestEvent: VamoEvent.recapInterestTapped,
-      feature: 'capture_video',
-      title: 'Trip videos',
-      description:
-          'Short video memories from your trip will land here in a later wave.',
+  Future<void> _addVideo() {
+    final routeContext = _routeContext;
+    return _runCaptureAction(
+      action: 'add_capture_video',
+      pick: () => _pickVideo(source: ImageSource.gallery),
+      run: (_, __) => showComingSoonSheet(
+        context: routeContext,
+        ref: ref,
+        interestEvent: VamoEvent.recapInterestTapped,
+        feature: 'capture_video',
+        title: 'Trip videos',
+        description:
+            'Short video memories from your trip will land here in a later wave.',
+      ),
     );
   }
 

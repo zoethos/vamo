@@ -77,6 +77,60 @@ class _SheetHostState extends State<_SheetHost> {
   }
 }
 
+class _E2EHost extends StatefulWidget {
+  const _E2EHost({
+    required this.tripId,
+    required this.fixturePath,
+    required this.onDismissed,
+  });
+
+  final String tripId;
+  final String fixturePath;
+  final VoidCallback onDismissed;
+
+  @override
+  State<_E2EHost> createState() => _E2EHostState();
+}
+
+class _E2EHostState extends State<_E2EHost> {
+  var _sheetOpen = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          _HeroProbe(tripId: widget.tripId),
+          if (_sheetOpen)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: CaptureChoiceSheet(
+                  tripId: widget.tripId,
+                  navigationContext: context,
+                  onDismiss: () async {
+                    setState(() => _sheetOpen = false);
+                    widget.onDismissed();
+                  },
+                  pickImage: ({
+                    required source,
+                    maxWidth,
+                    maxHeight,
+                    imageQuality,
+                  }) async {
+                    return XFile(widget.fixturePath);
+                  },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HeroProbe extends ConsumerWidget {
   const _HeroProbe({required this.tripId});
 
@@ -200,6 +254,76 @@ void main() {
     expect(dismissed, isTrue);
     expect(find.byType(CaptureChoiceSheet), findsNothing);
   });
+
+  testWidgets(
+    'background pick dismisses carousel, persists locally, and updates hero',
+    (tester) async {
+      var dismissed = false;
+      final overrides = [
+        appDatabaseProvider.overrideWithValue(db),
+        supabaseClientProvider.overrideWithValue(client),
+        analyticsProvider.overrideWithValue(DebugAnalytics()),
+        authRepositoryProvider.overrideWith(
+          (ref) => _StubAuthRepository(
+            User(
+              id: ownerId,
+              appMetadata: const {},
+              userMetadata: const {},
+              aud: 'authenticated',
+              createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
+            ),
+          ),
+        ),
+        tripsRepositoryProvider.overrideWith((ref) => repo),
+        tripsSyncProvider.overrideWith((ref) async {}),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: overrides,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: _E2EHost(
+              tripId: tripId,
+              fixturePath: fixturePath,
+              onDismissed: () => dismissed = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _selectBackground(tester);
+
+      String? storedPath;
+      for (var i = 0; i < 60; i++) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pump(const Duration(milliseconds: 50));
+        if (dismissed) {
+          storedPath = await _readBackgroundLocalPath(db, tripId);
+          if (storedPath != null) break;
+        }
+      }
+
+      expect(dismissed, isTrue);
+      expect(find.byType(CaptureChoiceSheet), findsNothing);
+      expect(storedPath, isNotNull);
+      expect(File(storedPath!).existsSync(), isTrue);
+
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final backdrop = tester.widget<TripVisualBackdrop>(
+        find.byType(TripVisualBackdrop),
+      );
+      expect(backdrop.backgroundImagePath, storedPath);
+      expect(find.byType(Image), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 600));
+    },
+  );
 
   testWidgets('tripHeroBackgroundProvider shows the Drift local path', (
     tester,

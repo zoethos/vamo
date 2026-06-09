@@ -367,6 +367,10 @@ Widget _tripHomeRouter({
   );
 }
 
+Future<void> _flushPendingTimers(WidgetTester tester) async {
+  await tester.pump(const Duration(milliseconds: 600));
+}
+
 void main() {
   const tripId = 'trip-lifecycle-ui';
 
@@ -401,6 +405,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Trips list'), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets(
@@ -441,6 +446,7 @@ void main() {
     expect(find.text('Cancel trip'), findsOneWidget);
     expect(find.text('Request close'), findsNothing);
     expect(find.text("I'm done"), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets(
@@ -481,6 +487,7 @@ void main() {
     expect(find.text('Request close'), findsOneWidget);
     expect(find.text("I'm done"), findsOneWidget);
     expect(find.text('Cancel trip'), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('request close shows confirm dialog before RPC', (tester) async {
@@ -531,6 +538,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(spy.requestCloseCalls, 1);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('ongoing member sees done only in overflow', (tester) async {
@@ -560,6 +568,7 @@ void main() {
     expect(find.text("I'm done"), findsOneWidget);
     expect(find.text('Request close'), findsNothing);
     expect(find.text('Cancel trip'), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('closing banner keeps accept and object actions', (tester) async {
@@ -589,6 +598,7 @@ void main() {
     expect(find.text('Accept close'), findsOneWidget);
     expect(find.text('Object…'), findsOneWidget);
     expect(find.byIcon(Icons.more_vert), findsNothing);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('trip home renders dashboard without tab strip', (tester) async {
@@ -620,6 +630,7 @@ void main() {
     expect(find.text('Dashboard trip'), findsOneWidget);
     expect(find.text(testTripHomeLabels.quickExpenses), findsOneWidget);
     expect(find.text(testTripHomeLabels.quickBalances), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 
   testWidgets('quick action opens expenses section route', (tester) async {
@@ -678,5 +689,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(testTripHomeLabels.tabExpenses), findsOneWidget);
+    await _flushPendingTimers(tester);
   });
 }
