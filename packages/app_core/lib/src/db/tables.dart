@@ -33,6 +33,9 @@ class LocalTripMembers extends Table {
   DateTimeColumn get closeAcceptedAt => dateTime().nullable()();
   DateTimeColumn get closeObjectedAt => dateTime().nullable()();
   TextColumn get closeObjectionReason => text().nullable()();
+  DateTimeColumn get closeNotifiedAt => dateTime().nullable()();
+  DateTimeColumn get closeRemindedAt => dateTime().nullable()();
+  DateTimeColumn get settleNudgedAt => dateTime().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {tripId, userId};

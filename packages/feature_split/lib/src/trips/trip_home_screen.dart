@@ -81,6 +81,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
             showBalances: false,
             menuActions: const [],
             repo: ref.read(tripsRepositoryProvider),
+            lifecycle: TripLifecycle.parse(detail.lifecycle),
             body: const Center(child: CircularProgressIndicator()),
           ),
           error: (e, _) => Scaffold(
@@ -132,6 +133,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
               showBalances: showBalances,
               menuActions: menuActions,
               repo: repo,
+              lifecycle: lifecycle,
             );
           },
         );
@@ -147,8 +149,13 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
     required bool showBalances,
     required List<TripLifecycleMenuAction> menuActions,
     required TripsRepository repo,
+    required TripLifecycle lifecycle,
     Widget? body,
   }) {
+    final showCloseReport = lifecycle == TripLifecycle.closing ||
+        lifecycle == TripLifecycle.closed ||
+        lifecycle == TripLifecycle.unresolved;
+
     final dashboard = body ??
         TripDashboardTab(
           tripId: widget.tripId,
@@ -204,6 +211,10 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
                   context.push(AppRoutes.tripSnapshot(widget.tripId));
                   return;
                 }
+                if (value == 'close_report') {
+                  context.push(AppRoutes.tripCloseReport(widget.tripId));
+                  return;
+                }
                 if (value.startsWith('lifecycle:')) {
                   final actionName = value.substring('lifecycle:'.length);
                   final action = TripLifecycleMenuAction.values.firstWhere(
@@ -228,6 +239,11 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
                     ),
                   ),
                 if (menuActions.isNotEmpty) const PopupMenuDivider(),
+                if (showCloseReport)
+                  PopupMenuItem(
+                    value: 'close_report',
+                    child: Text(widget.tripHomeLabels.closeReport),
+                  ),
                 PopupMenuItem(
                   value: 'settings',
                   child: Text(widget.tripHomeLabels.tripSettings),

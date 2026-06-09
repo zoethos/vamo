@@ -162,6 +162,7 @@ class TripDashboardTab extends ConsumerWidget {
               tripId: tripId,
               detail: detail,
               labels: lifecycleLabels,
+              closeReportLabel: labels.closeReport,
             ),
           ),
           SizedBox(height: space.x3),

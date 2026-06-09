@@ -7,6 +7,8 @@ export 'src/activity/activity_screen.dart';
 export 'src/auth/auth_labels.dart';
 export 'src/balances/balances_tab_labels.dart';
 export 'src/expenses/add_expense_screen_labels.dart';
+export 'src/trips/close_report_labels.dart';
+export 'src/trips/close_report_screen.dart';
 export 'src/trips/create_trip_labels.dart';
 export 'src/trips/trip_home_labels.dart';
 export 'src/auth/auth_callback_screen.dart';

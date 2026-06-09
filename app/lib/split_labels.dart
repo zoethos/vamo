@@ -281,6 +281,7 @@ class SplitLabels {
         moreMenu: l10n.tripHomeMoreMenu,
         tripSettings: l10n.tripHomeSettings,
         shareSnapshot: l10n.tripHomeShareSnapshot,
+        closeReport: l10n.tripHomeCloseReport,
         addExpense: l10n.tripHomeAddExpense,
         loadError: l10n.tripHomeLoadError,
         notFoundTitle: l10n.tripHomeNotFoundTitle,
@@ -326,6 +327,27 @@ class SplitLabels {
         markedNotReceived: l10n.balancesMarkedNotReceived,
         markCancelled: l10n.balancesMarkCancelled,
         someoneFallback: l10n.expenseSomeoneFallback,
+      );
+
+  static CloseReportLabels closeReport(AppLocalizations l10n) =>
+      CloseReportLabels(
+        title: l10n.closeReportTitle,
+        loadError: l10n.closeReportLoadError,
+        notAvailable: l10n.closeReportNotAvailable,
+        balancesTitle: l10n.closeReportBalancesTitle,
+        membersTitle: l10n.closeReportMembersTitle,
+        disputedTitle: l10n.closeReportDisputedTitle,
+        consentAccepted: l10n.closeReportConsentAccepted,
+        consentObjected: l10n.closeReportConsentObjected,
+        consentDeemed: l10n.closeReportConsentDeemed,
+        consentPending: l10n.closeReportConsentPending,
+        consentNotNotified: l10n.closeReportConsentNotNotified,
+        balanceLine: (name, isOwed, amount) => l10n.closeReportBalanceLine(
+          name,
+          isOwed ? l10n.closeReportNetOwed : l10n.closeReportNetOwes,
+          amount,
+        ),
+        noBalances: l10n.closeReportNoBalances,
       );
 
   static AuthLabels auth(AppLocalizations l10n) => AuthLabels(
