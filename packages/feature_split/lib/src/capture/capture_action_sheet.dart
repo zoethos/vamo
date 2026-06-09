@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,20 +10,24 @@ import '../signals/coming_soon_sheet.dart';
 import '../trips/trips_repository.dart';
 import 'capture_repository.dart';
 
+const _captureScreen = 'trip_home';
+
 /// Compact capture choices (S30 / S44 carousel), shown as a hero-anchored flyout.
 Future<void> showCaptureActionSheet({
   required BuildContext context,
   required String tripId,
   LayerLink? anchorLink,
 }) {
+  final container = ProviderScope.containerOf(context, listen: false);
   return showVamoCarouselOverlay(
     context: context,
     anchorLink: anchorLink,
     flyoutBuilder: (dismiss) => UncontrolledProviderScope(
-      container: ProviderScope.containerOf(context),
+      container: container,
       child: CaptureChoiceSheet(
         tripId: tripId,
         navigationContext: context,
+        providerContainer: container,
         onDismiss: dismiss,
       ),
     ),
@@ -46,6 +52,7 @@ class CaptureChoiceSheet extends ConsumerStatefulWidget {
     super.key,
     required this.tripId,
     this.navigationContext,
+    this.providerContainer,
     this.onDismiss,
     @visibleForTesting this.pickImage,
     @visibleForTesting this.pickVideo,
@@ -53,6 +60,9 @@ class CaptureChoiceSheet extends ConsumerStatefulWidget {
 
   final String tripId;
   final BuildContext? navigationContext;
+
+  /// Trip-home scope, captured before the overlay opens — never the flyout scope.
+  final ProviderContainer? providerContainer;
   final Future<void> Function()? onDismiss;
 
   @visibleForTesting
@@ -70,6 +80,12 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
 
   BuildContext get _routeContext => widget.navigationContext ?? context;
 
+  ProviderContainer get _rootContainer {
+    final passed = widget.providerContainer;
+    if (passed != null) return passed;
+    return ProviderScope.containerOf(_routeContext, listen: false);
+  }
+
   Future<void> _dismiss() async {
     final onDismiss = widget.onDismiss;
     if (onDismiss != null) {
@@ -81,32 +97,92 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     }
   }
 
-  Future<void> _runCaptureAction({
+  void _reportActionError({
     required String action,
-    required Future<XFile?> Function() pick,
-    required Future<void> Function(String path, ProviderContainer container) run,
-  }) async {
+    required Object error,
+    required StackTrace stackTrace,
+    required ProviderContainer container,
+  }) {
     final routeContext = _routeContext;
-    try {
-      final picked = await pick();
-      if (picked == null || !mounted) return;
-      final container = ProviderScope.containerOf(routeContext, listen: false);
-      await _dismiss();
-      if (!routeContext.mounted) return;
-      await run(picked.path, container);
-    } catch (e, st) {
-      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
-      if (!routeContext.mounted) return;
-      if (mounted) {
-        await _dismiss();
-      }
+    if (routeContext.mounted) {
       showActionError(
         routeContext,
         ref,
         screen: 'trip_home',
         action: action,
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'trip_home',
+      action: action,
+      analytics: container.read(analyticsProvider),
+    );
+  }
+
+  void _dismissOverlayFireAndForget({
+    required Analytics analytics,
+    required String action,
+  }) {
+    unawaited(
+      _dismiss().catchError((Object e, StackTrace st) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'dismiss_failed',
+        );
+      }),
+    );
+  }
+
+  Future<void> _runCaptureAction({
+    required String action,
+    required Future<XFile?> Function() pick,
+    required Future<void> Function(String path, ProviderContainer container) run,
+  }) async {
+    final container = _rootContainer;
+    final analytics = container.read(analyticsProvider);
+    try {
+      final picked = await pick();
+      if (picked == null) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'cancelled',
+        );
+        return;
+      }
+      final sheetMounted = mounted;
+      analytics.reportCaptureActionStarted(
+        screen: _captureScreen,
+        action: action,
+        sheetMounted: sheetMounted,
+      );
+      if (!sheetMounted) {
+        analytics.reportCaptureActionAbandoned(
+          screen: _captureScreen,
+          action: action,
+          reason: 'unmounted_after_pick',
+        );
+      }
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      await run(picked.path, container);
+      analytics.reportCaptureActionCompleted(
+        screen: _captureScreen,
+        action: action,
+      );
+    } catch (e, st) {
+      debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      _reportActionError(
+        action: action,
         error: e,
         stackTrace: st,
+        container: container,
       );
     }
   }
@@ -115,21 +191,27 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     required String action,
     required Future<void> Function() run,
   }) async {
-    final routeContext = _routeContext;
+    final container = _rootContainer;
+    final analytics = container.read(analyticsProvider);
     try {
-      await _dismiss();
-      if (!routeContext.mounted) return;
+      _dismissOverlayFireAndForget(analytics: analytics, action: action);
+      analytics.reportCaptureActionStarted(
+        screen: _captureScreen,
+        action: action,
+        sheetMounted: mounted,
+      );
       await run();
+      analytics.reportCaptureActionCompleted(
+        screen: _captureScreen,
+        action: action,
+      );
     } catch (e, st) {
       debugPrint('CAPTURE-FAIL [$action]: $e\n$st');
-      if (!routeContext.mounted) return;
-      showActionError(
-        routeContext,
-        ref,
-        screen: 'trip_home',
+      _reportActionError(
         action: action,
         error: e,
         stackTrace: st,
+        container: container,
       );
     }
   }
@@ -211,7 +293,7 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     return _runCaptureAction(
       action: 'add_capture_video',
       pick: () => _pickVideo(source: ImageSource.gallery),
-      run: (_, __) => showComingSoonSheet(
+      run: (_, container) => showComingSoonSheet(
         context: routeContext,
         ref: ref,
         interestEvent: VamoEvent.recapInterestTapped,

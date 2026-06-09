@@ -182,6 +182,7 @@ void main() {
         buildSheet: (context, onDismiss) => CaptureChoiceSheet(
           tripId: 'trip-1',
           navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
           onDismiss: onDismiss,
           pickImage: ({
             required source,
@@ -197,13 +198,16 @@ void main() {
       await _selectCarouselItem(tester, dragSteps: 0);
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
-      expect(events.single['properties'], {
-        'screen': 'trip_home',
-        'action': 'add_capture_photo',
-        'severity': 'failure',
-        'error_kind': 'app',
-        'error_code': 'platform_exception',
-      });
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_photo',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
     });
 
     testWidgets('video', (tester) async {
@@ -214,6 +218,7 @@ void main() {
         buildSheet: (context, onDismiss) => CaptureChoiceSheet(
           tripId: 'trip-1',
           navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
           onDismiss: onDismiss,
           pickVideo: ({required source}) async {
             throw pickerError;
@@ -224,13 +229,16 @@ void main() {
       await _selectCarouselItem(tester, dragSteps: 1);
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
-      expect(events.single['properties'], {
-        'screen': 'trip_home',
-        'action': 'add_capture_video',
-        'severity': 'failure',
-        'error_kind': 'app',
-        'error_code': 'platform_exception',
-      });
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_video',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
     });
 
     testWidgets('background', (tester) async {
@@ -241,6 +249,7 @@ void main() {
         buildSheet: (context, onDismiss) => CaptureChoiceSheet(
           tripId: 'trip-1',
           navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
           onDismiss: onDismiss,
           pickImage: ({
             required source,
@@ -256,13 +265,54 @@ void main() {
       await _selectCarouselItem(tester, dragSteps: 3);
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
-      expect(events.single['properties'], {
-        'screen': 'trip_home',
-        'action': 'set_trip_background',
-        'severity': 'failure',
-        'error_kind': 'app',
-        'error_code': 'platform_exception',
-      });
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'set_trip_background',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'platform_exception',
+        },
+      );
+    });
+
+    testWidgets('picker cancel emits capture_action_abandoned cancelled', (
+      tester,
+    ) async {
+      final events = <Map<String, Object?>>[];
+      await pumpSheet(
+        tester,
+        events: events,
+        buildSheet: (context, onDismiss) => CaptureChoiceSheet(
+          tripId: 'trip-1',
+          navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
+          onDismiss: onDismiss,
+          pickImage: ({
+            required source,
+            maxWidth,
+            maxHeight,
+            imageQuality,
+          }) async {
+            return null;
+          },
+        ),
+      );
+
+      await _selectCarouselItem(tester, dragSteps: 0);
+
+      expect(find.byType(CaptureChoiceSheet), findsOneWidget);
+      expect(events, [
+        {
+          'event': VamoEvent.captureActionAbandoned,
+          'properties': {
+            'screen': 'trip_home',
+            'action': 'add_capture_photo',
+            'reason': 'cancelled',
+          },
+        },
+      ]);
     });
 
     testWidgets('note dismisses before navigation failure is reported', (
@@ -275,6 +325,7 @@ void main() {
         buildSheet: (context, onDismiss) => CaptureChoiceSheet(
           tripId: 'trip-1',
           navigationContext: context,
+          providerContainer: ProviderScope.containerOf(context, listen: false),
           onDismiss: onDismiss,
         ),
       );
@@ -282,13 +333,24 @@ void main() {
       await _selectCarouselItem(tester, dragSteps: 2);
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
-      expect(events.single['properties'], {
-        'screen': 'trip_home',
-        'action': 'add_capture_note',
-        'severity': 'failure',
-        'error_kind': 'app',
-        'error_code': 'assertion_error',
-      });
+      expect(
+        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_note',
+          'severity': 'failure',
+          'error_kind': 'app',
+          'error_code': 'assertion_error',
+        },
+      );
+      expect(
+        events.where((e) => e['event'] == VamoEvent.captureActionStarted).single['properties'],
+        {
+          'screen': 'trip_home',
+          'action': 'add_capture_note',
+          'sheet_mounted': true,
+        },
+      );
     });
   });
 }

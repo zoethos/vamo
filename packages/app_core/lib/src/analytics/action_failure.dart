@@ -156,6 +156,52 @@ extension AnalyticsActionFailure on Analytics {
   }
 }
 
+/// Capture carousel lifecycle — every early exit must call [reportCaptureActionAbandoned].
+extension AnalyticsCaptureAction on Analytics {
+  void reportCaptureActionStarted({
+    required String screen,
+    required String action,
+    bool sheetMounted = true,
+  }) {
+    capture(
+      VamoEvent.captureActionStarted,
+      properties: {
+        'screen': screen,
+        'action': action,
+        'sheet_mounted': sheetMounted,
+      },
+    );
+  }
+
+  void reportCaptureActionCompleted({
+    required String screen,
+    required String action,
+  }) {
+    capture(
+      VamoEvent.captureActionCompleted,
+      properties: {
+        'screen': screen,
+        'action': action,
+      },
+    );
+  }
+
+  void reportCaptureActionAbandoned({
+    required String screen,
+    required String action,
+    required String reason,
+  }) {
+    capture(
+      VamoEvent.captureActionAbandoned,
+      properties: {
+        'screen': screen,
+        'action': action,
+        'reason': reason,
+      },
+    );
+  }
+}
+
 const _postgrestAuthCodes = {
   'PGRST301',
   '42501',

@@ -531,6 +531,7 @@ class TripsRepository {
       storagePath: storagePath,
     );
     if (result.isSuccess && result.localPath != null) {
+      await TripBackgroundStorage.evictHeroImageCache(result.localPath!);
       await _db.upsertTrip(
         LocalTripsCompanion(
           id: Value(tripId),
@@ -562,6 +563,7 @@ class TripsRepository {
       tripId: tripId,
       sourcePath: sourcePath,
     );
+    await TripBackgroundStorage.evictHeroImageCache(localPath);
 
     await _db.updateTripFields(
       tripId,

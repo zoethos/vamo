@@ -234,6 +234,71 @@ void main() {
       },
     ]);
   });
+
+  group('AnalyticsCaptureAction', () {
+    test('reports capture lifecycle events', () {
+      final events = <Map<String, Object?>>[];
+      final analytics = _RecordingAnalytics(events);
+
+      analytics.reportCaptureActionStarted(
+        screen: 'trip_home',
+        action: 'set_trip_background',
+        sheetMounted: false,
+      );
+      analytics.reportCaptureActionAbandoned(
+        screen: 'trip_home',
+        action: 'set_trip_background',
+        reason: 'unmounted_after_pick',
+      );
+      analytics.reportCaptureActionCompleted(
+        screen: 'trip_home',
+        action: 'set_trip_background',
+      );
+
+      expect(events, [
+        {
+          'event': VamoEvent.captureActionStarted,
+          'properties': {
+            'screen': 'trip_home',
+            'action': 'set_trip_background',
+            'sheet_mounted': false,
+          },
+        },
+        {
+          'event': VamoEvent.captureActionAbandoned,
+          'properties': {
+            'screen': 'trip_home',
+            'action': 'set_trip_background',
+            'reason': 'unmounted_after_pick',
+          },
+        },
+        {
+          'event': VamoEvent.captureActionCompleted,
+          'properties': {
+            'screen': 'trip_home',
+            'action': 'set_trip_background',
+          },
+        },
+      ]);
+    });
+
+    test('cancelled abandon carries reason', () {
+      final events = <Map<String, Object?>>[];
+      final analytics = _RecordingAnalytics(events);
+
+      analytics.reportCaptureActionAbandoned(
+        screen: 'trip_home',
+        action: 'add_capture_photo',
+        reason: 'cancelled',
+      );
+
+      expect(events.single['properties'], {
+        'screen': 'trip_home',
+        'action': 'add_capture_photo',
+        'reason': 'cancelled',
+      });
+    });
+  });
 }
 
 Object _sqliteException() {

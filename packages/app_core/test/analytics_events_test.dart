@@ -20,7 +20,7 @@ void main() {
   });
 
   test('VamoEvent.productSignals lists layer 2–4 events', () {
-    expect(VamoEvent.productSignals, hasLength(32));
+    expect(VamoEvent.productSignals, hasLength(35));
     expect(
       VamoEvent.productSignals.map((e) => e.name),
       containsAll([
@@ -29,6 +29,9 @@ void main() {
         'empty_state_shown',
         'flow_abandoned',
         'action_failed',
+        'capture_action_started',
+        'capture_action_completed',
+        'capture_action_abandoned',
         'plus_interest_tapped',
         'recap_interest_tapped',
         'map_interest_tapped',
