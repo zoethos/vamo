@@ -74,6 +74,21 @@ class CaptureRepository {
     }
   }
 
+  Stream<List<TripVideoView>> watchTripVideos(String tripId) async* {
+    await for (final rows in _db.watchTripVideos(tripId)) {
+      final views = <TripVideoView>[];
+      for (final row in rows) {
+        final loaded = await loadVideoAttachment(row);
+        if (loaded.displayPath != null ||
+            loaded.loadError != null ||
+            loaded.hasRemoteStoragePath) {
+          views.add(loaded);
+        }
+      }
+      yield views;
+    }
+  }
+
   Future<TripPhotoView> loadPhotoAttachment(LocalTripPhoto row) async {
     final local = row.localPath;
     if (local != null && local.isNotEmpty && await File(local).exists()) {
@@ -138,6 +153,80 @@ class CaptureRepository {
           ..where((p) => p.id.equals(photoId)))
         .getSingle();
     return loadPhotoAttachment(row);
+  }
+
+  Future<TripVideoView> loadVideoAttachment(LocalTripVideo row) async {
+    final local = row.localPath;
+    if (local != null && local.isNotEmpty && await File(local).exists()) {
+      return TripVideoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: local,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        storagePath: row.storagePath,
+      );
+    }
+
+    final remote = row.storagePath;
+    if (remote == null || remote.isEmpty) {
+      return TripVideoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: local,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+      );
+    }
+
+    final result = await CaptureStorage.cacheVideoFromStorage(
+      client: _client,
+      tripId: row.tripId,
+      videoId: row.id,
+      storagePath: remote,
+    );
+    if (result.isSuccess) {
+      await _db.upsertTripVideo(
+        LocalTripVideosCompanion(
+          id: Value(row.id),
+          localPath: Value(result.localPath),
+        ),
+      );
+      return TripVideoView(
+        id: row.id,
+        tripId: row.tripId,
+        displayPath: result.localPath,
+        caption: row.caption,
+        capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        storagePath: remote,
+      );
+    }
+
+    return TripVideoView(
+      id: row.id,
+      tripId: row.tripId,
+      displayPath: local,
+      caption: row.caption,
+      capturedAt: row.capturedAt,
+      capturedLat: row.capturedLat,
+      capturedLng: row.capturedLng,
+      loadError: result.error,
+      hasRemoteStoragePath: true,
+      storagePath: remote,
+    );
+  }
+
+  Future<TripVideoView> retryVideoLoad(String videoId) async {
+    final row = await (_db.select(_db.localTripVideos)
+          ..where((v) => v.id.equals(videoId)))
+        .getSingle();
+    return loadVideoAttachment(row);
   }
 
   Future<String> addNote({
@@ -275,6 +364,93 @@ class CaptureRepository {
     return id;
   }
 
+  Future<String> addVideo({
+    required String tripId,
+    required String sourcePath,
+    String? caption,
+    double? capturedLat,
+    double? capturedLng,
+  }) async {
+    debugBreadcrumb(
+      'add video start',
+      screen: 'capture',
+      action: 'add_video',
+      details: {'tripId': tripId},
+    );
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Must be signed in to add a video');
+    }
+
+    final id = _uuid.v4();
+    final localPath = await CaptureStorage.persistVideo(
+      tripId: tripId,
+      videoId: id,
+      sourcePath: sourcePath,
+    );
+    final capturedAt = DateTime.now().toUtc();
+    final now = capturedAt;
+
+    await _db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: Value(id),
+        tripId: Value(tripId),
+        localPath: Value(localPath),
+        storagePath: const Value.absent(),
+        caption: Value(caption?.trim()),
+        capturedAt: Value(capturedAt),
+        capturedLat: Value(capturedLat),
+        capturedLng: Value(capturedLng),
+        createdBy: Value(userId),
+        createdAt: Value(now),
+      ),
+    );
+
+    String? storagePath;
+    try {
+      storagePath = await _uploadVideo(
+        userId: userId,
+        tripId: tripId,
+        videoId: id,
+        localPath: localPath,
+      );
+      await _client.from('trip_videos').insert({
+        'id': id,
+        'trip_id': tripId,
+        'storage_path': storagePath,
+        'caption': caption?.trim(),
+        'captured_at': capturedAt.toIso8601String(),
+        'captured_lat': capturedLat,
+        'captured_lng': capturedLng,
+        'created_by': userId,
+      });
+      await _db.upsertTripVideo(
+        LocalTripVideosCompanion(
+          id: Value(id),
+          storagePath: Value(storagePath),
+        ),
+      );
+      debugBreadcrumb(
+        'remote video synced',
+        screen: 'capture',
+        action: 'upload_video_remote',
+        details: {'tripId': tripId},
+      );
+    } catch (error, stackTrace) {
+      // Video stays local-only if bucket missing, offline, or upload is too heavy.
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'capture',
+        action: 'upload_video_remote',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
+    }
+
+    return id;
+  }
+
   Future<String> _uploadPhoto({
     required String userId,
     required String tripId,
@@ -289,6 +465,33 @@ class CaptureRepository {
       userId: userId,
       tripId: tripId,
       photoId: photoId,
+      ext: ext,
+    );
+    await _client.storage.from(_capturesBucket).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: CaptureStorage.contentTypeForPath(localPath),
+            upsert: true,
+          ),
+        );
+    return path;
+  }
+
+  Future<String> _uploadVideo({
+    required String userId,
+    required String tripId,
+    required String videoId,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    final ext = CaptureStorage.normalizeVideoExt(
+      localPath.contains('.') ? '.${localPath.split('.').last}' : '.mp4',
+    );
+    final path = StoragePaths.captureVideo(
+      userId: userId,
+      tripId: tripId,
+      videoId: videoId,
       ext: ext,
     );
     await _client.storage.from(_capturesBucket).uploadBinary(
@@ -363,6 +566,49 @@ class CaptureRepository {
           storagePath: Value(storagePath),
           caption: Value(row['caption'] as String?),
           capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          createdBy: Value(row['created_by'] as String),
+          createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        ),
+      );
+    }
+
+    final videoRows = await _client
+        .from('trip_videos')
+        .select(
+          'id, trip_id, storage_path, caption, captured_at, captured_lat, captured_lng, created_by, created_at',
+        )
+        .inFilter('trip_id', ids)
+        .order('captured_at', ascending: false);
+
+    for (final row in (videoRows as List).cast<Map<String, dynamic>>()) {
+      final id = row['id'] as String;
+      final existing = await (_db.select(_db.localTripVideos)
+            ..where((v) => v.id.equals(id)))
+          .getSingleOrNull();
+
+      final tripId = row['trip_id'] as String;
+      final storagePath = row['storage_path'] as String;
+      var localPath = existing?.localPath;
+      if (localPath == null || !await File(localPath).exists()) {
+        final cached = await CaptureStorage.cacheVideoFromStorage(
+          client: _client,
+          tripId: tripId,
+          videoId: id,
+          storagePath: storagePath,
+        );
+        localPath = cached.localPath;
+      }
+
+      await _db.upsertTripVideo(
+        LocalTripVideosCompanion(
+          id: Value(id),
+          tripId: Value(tripId),
+          localPath: Value(localPath),
+          storagePath: Value(storagePath),
+          caption: Value(row['caption'] as String?),
+          capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          capturedLat: Value((row['captured_lat'] as num?)?.toDouble()),
+          capturedLng: Value((row['captured_lng'] as num?)?.toDouble()),
           createdBy: Value(row['created_by'] as String),
           createdAt: Value(DateTime.parse(row['created_at'] as String)),
         ),

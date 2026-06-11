@@ -150,6 +150,7 @@ class TripsRepository {
   Future<void> clearLocal() async {
     await CaptureStorage.clearAll();
     await _db.delete(_db.localSyncOutbox).go();
+    await _db.delete(_db.localTripVideos).go();
     await _db.delete(_db.localTripPhotos).go();
     await _db.delete(_db.localTripNotes).go();
     await _db.delete(_db.localSettlements).go();

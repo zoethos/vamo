@@ -4,11 +4,12 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema v13 includes plan, governance, budget, and rsvp tables', () async {
+  test('schema v13 includes plan, governance, budget, and rsvp tables',
+      () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 16);
+    expect(db.schemaVersion, 17);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertPlanItem(
@@ -41,7 +42,8 @@ void main() {
     expect(lists, hasLength(1));
   });
 
-  test('v9 to v13 migration step creates plan, governance, budget, and rsvp', () async {
+  test('v9 to v13 migration step creates plan, governance, budget, and rsvp',
+      () async {
     final executor = NativeDatabase.memory();
     final db = AppDatabase.forTesting(executor);
     addTearDown(db.close);
@@ -51,7 +53,8 @@ void main() {
     await db.customStatement('DROP TABLE IF EXISTS local_trip_fx_rates');
     await db.customStatement('DROP TABLE IF EXISTS local_plan_item_rsvps');
     await db.customStatement('ALTER TABLE local_expenses DROP COLUMN status');
-    await db.customStatement('ALTER TABLE local_expense_shares DROP COLUMN response');
+    await db.customStatement(
+        'ALTER TABLE local_expense_shares DROP COLUMN response');
     await db.customStatement(
       'ALTER TABLE local_expense_shares DROP COLUMN response_reason',
     );
@@ -59,7 +62,8 @@ void main() {
       'ALTER TABLE local_expense_shares DROP COLUMN responded_at',
     );
     await db.customStatement('ALTER TABLE local_trips DROP COLUMN budget_mode');
-    await db.customStatement('ALTER TABLE local_trips DROP COLUMN budget_cents');
+    await db
+        .customStatement('ALTER TABLE local_trips DROP COLUMN budget_cents');
     await db.customStatement('PRAGMA user_version = 9');
 
     final migrator = db.createMigrator();

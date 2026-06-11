@@ -70,6 +70,7 @@ class TripRealtimeSubscriber {
     'trip_members',
     'trip_notes',
     'trip_photos',
+    'trip_videos',
     'trip_plan_items', // also receives touch updates from set/clear_event_rsvp (S21)
     'trip_list_items',
   ];

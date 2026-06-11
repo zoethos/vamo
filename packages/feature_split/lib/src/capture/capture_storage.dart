@@ -21,6 +21,18 @@ abstract final class CaptureStorage {
     return dest;
   }
 
+  static Future<String> persistVideo({
+    required String tripId,
+    required String videoId,
+    required String sourcePath,
+  }) async {
+    final folder = await _videosFolder(tripId);
+    final ext = normalizeVideoExt(p.extension(sourcePath));
+    final dest = p.join(folder.path, '$videoId$ext');
+    await File(sourcePath).copy(dest);
+    return dest;
+  }
+
   static Future<String> persistReceipt({
     required String tripId,
     required String expenseId,
@@ -47,6 +59,26 @@ abstract final class CaptureStorage {
         final folder = await _tripFolder(tripId);
         final ext = normalizeExt(p.extension(storagePath));
         final dest = p.join(folder.path, '$photoId$ext');
+        await File(dest).writeAsBytes(bytes);
+        return dest;
+      },
+    );
+  }
+
+  static Future<StorageAttachmentLoadResult> cacheVideoFromStorage({
+    required SupabaseClient client,
+    required String tripId,
+    required String videoId,
+    required String storagePath,
+  }) {
+    return StorageAttachmentLoader.downloadToCache(
+      client: client,
+      bucket: StoragePaths.capturesBucket,
+      storagePath: storagePath,
+      persistBytes: (bytes) async {
+        final folder = await _videosFolder(tripId);
+        final ext = normalizeVideoExt(p.extension(storagePath));
+        final dest = p.join(folder.path, '$videoId$ext');
         await File(dest).writeAsBytes(bytes);
         return dest;
       },
@@ -118,9 +150,24 @@ abstract final class CaptureStorage {
     return folder;
   }
 
+  static Future<Directory> _videosFolder(String tripId) async {
+    final trip = await _tripFolder(tripId);
+    final folder = Directory(p.join(trip.path, 'videos'));
+    if (!await folder.exists()) {
+      await folder.create(recursive: true);
+    }
+    return folder;
+  }
+
   static String normalizeExt(String ext) {
     final lower = ext.toLowerCase();
     if (lower.isEmpty || lower == '.') return '.jpg';
+    return lower;
+  }
+
+  static String normalizeVideoExt(String ext) {
+    final lower = ext.toLowerCase();
+    if (lower.isEmpty || lower == '.') return '.mp4';
     return lower;
   }
 
@@ -134,6 +181,13 @@ abstract final class CaptureStorage {
       case '.heic':
       case '.heif':
         return 'image/heic';
+      case '.mp4':
+      case '.m4v':
+        return 'video/mp4';
+      case '.mov':
+        return 'video/quicktime';
+      case '.webm':
+        return 'video/webm';
       default:
         return 'image/jpeg';
     }

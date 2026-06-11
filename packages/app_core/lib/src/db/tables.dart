@@ -144,6 +144,23 @@ class LocalTripPhotos extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// S30 — solo capture videos (local file + optional remote storage path).
+class LocalTripVideos extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get localPath => text().nullable()();
+  TextColumn get storagePath => text().nullable()();
+  TextColumn get caption => text().nullable()();
+  DateTimeColumn get capturedAt => dateTime()();
+  RealColumn get capturedLat => real().nullable()();
+  RealColumn get capturedLng => real().nullable()();
+  TextColumn get createdBy => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
 /// S18 — TripBoard plan items (mirrors trip_plan_items).
 class LocalPlanItems extends Table {
   TextColumn get id => text()();

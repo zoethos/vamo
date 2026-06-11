@@ -19,6 +19,15 @@ abstract final class StoragePaths {
   }) =>
       '$userId/$tripId/$photoId${_normalizeExt(ext)}';
 
+  /// `{userId}/{tripId}/videos/{videoId}{ext}`
+  static String captureVideo({
+    required String userId,
+    required String tripId,
+    required String videoId,
+    required String ext,
+  }) =>
+      '$userId/$tripId/videos/$videoId${_normalizeExt(ext)}';
+
   /// `{userId}/{tripId}/receipts/{expenseId}{ext}` — 4-segment receipt path.
   static String expenseReceipt({
     required String userId,

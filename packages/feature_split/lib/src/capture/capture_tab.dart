@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'capture_models.dart';
 import 'capture_providers.dart';
@@ -68,6 +69,7 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
 
     final notes = ref.watch(tripNotesProvider(widget.tripId));
     final photos = ref.watch(tripPhotosProvider(widget.tripId));
+    final videos = ref.watch(tripVideosProvider(widget.tripId));
 
     return notes.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -85,126 +87,171 @@ class _CaptureTabState extends ConsumerState<CaptureTab> {
           kind: classifyActionFailureKind(e),
           onRetry: () => ref.invalidate(tripPhotosProvider(widget.tripId)),
         ),
-        data: (photoList) {
-          final empty = noteList.isEmpty && photoList.isEmpty;
+        data: (photoList) => videos.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => AppErrorState(
+            screen: 'trip_home',
+            message: formatActionFailureMessage(e),
+            kind: classifyActionFailureKind(e),
+            onRetry: () => ref.invalidate(tripVideosProvider(widget.tripId)),
+          ),
+          data: (videoList) {
+            final empty =
+                noteList.isEmpty && photoList.isEmpty && videoList.isEmpty;
 
-          return ListView(
-            padding: EdgeInsets.all(space.x4),
-            children: [
-              if (widget.showInlineAddActions) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.push(
-                          AppRoutes.tripAddCaptureNote(widget.tripId),
+            return ListView(
+              padding: EdgeInsets.all(space.x4),
+              children: [
+                if (widget.showInlineAddActions) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.push(
+                            AppRoutes.tripAddCaptureNote(widget.tripId),
+                          ),
+                          icon: const Icon(Icons.note_add_outlined),
+                          label: const Text('Add note'),
                         ),
-                        icon: const Icon(Icons.note_add_outlined),
-                        label: const Text('Add note'),
                       ),
-                    ),
-                    SizedBox(width: space.x3),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _uploadingPhoto ? null : _pickPhoto,
-                        icon: _uploadingPhoto
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: colors.onPrimary,
-                                ),
-                              )
-                            : const Icon(Icons.add_photo_alternate_outlined),
-                        label: const Text('Add photo'),
+                      SizedBox(width: space.x3),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _uploadingPhoto ? null : _pickPhoto,
+                          icon: _uploadingPhoto
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: colors.onPrimary,
+                                  ),
+                                )
+                              : const Icon(Icons.add_photo_alternate_outlined),
+                          label: const Text('Add photo'),
+                        ),
                       ),
+                    ],
+                  ),
+                  SizedBox(height: space.x2),
+                  Text(
+                    'Memories appear on your shared snapshot card.',
+                    style:
+                        type.bodySmall.copyWith(color: colors.onSurfaceMuted),
+                  ),
+                ],
+                if (empty) ...[
+                  SizedBox(height: space.x12),
+                  Icon(
+                    Icons.auto_stories_outlined,
+                    size: 56,
+                    color: colors.emptyStateIcon,
+                  ),
+                  SizedBox(height: space.x4),
+                  Text(
+                    'Capture your trip',
+                    textAlign: TextAlign.center,
+                    style: type.titleLarge.copyWith(color: colors.onSurface),
+                  ),
+                  SizedBox(height: space.x2),
+                  Text(
+                    'Add notes, photos, and videos — they show up when you share your snapshot.',
+                    textAlign: TextAlign.center,
+                    style:
+                        type.bodyMedium.copyWith(color: colors.onSurfaceMuted),
+                  ),
+                ],
+                if (photoList.isNotEmpty) ...[
+                  SizedBox(height: space.x6),
+                  Text(
+                    'Photos',
+                    style: type.titleMedium.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
-                SizedBox(height: space.x2),
-                Text(
-                  'Memories appear on your shared snapshot card.',
-                  style: type.bodySmall.copyWith(color: colors.onSurfaceMuted),
-                ),
-              ],
-              if (empty) ...[
-                SizedBox(height: space.x12),
-                Icon(
-                  Icons.auto_stories_outlined,
-                  size: 56,
-                  color: colors.emptyStateIcon,
-                ),
-                SizedBox(height: space.x4),
-                Text(
-                  'Capture your trip',
-                  textAlign: TextAlign.center,
-                  style: type.titleLarge.copyWith(color: colors.onSurface),
-                ),
-                SizedBox(height: space.x2),
-                Text(
-                  'Add notes and photos — they show up when you share your snapshot.',
-                  textAlign: TextAlign.center,
-                  style: type.bodyMedium.copyWith(color: colors.onSurfaceMuted),
-                ),
-              ],
-              if (photoList.isNotEmpty) ...[
-                SizedBox(height: space.x6),
-                Text(
-                  'Photos',
-                  style: type.titleMedium.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
                   ),
-                ),
-                SizedBox(height: space.x3),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                  SizedBox(height: space.x3),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: photoList.length,
+                    itemBuilder: (context, i) {
+                      final photo = photoList[i];
+                      return CapturePhotoCell(
+                        key: ValueKey(photo.id),
+                        tripId: widget.tripId,
+                        photo: photo,
+                      );
+                    },
                   ),
-                  itemCount: photoList.length,
-                  itemBuilder: (context, i) {
-                    final photo = photoList[i];
-                    return CapturePhotoCell(
-                      key: ValueKey(photo.id),
-                      tripId: widget.tripId,
-                      photo: photo,
+                ],
+                if (videoList.isNotEmpty) ...[
+                  SizedBox(height: space.x6),
+                  Text(
+                    'Videos',
+                    style: type.titleMedium.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: space.x3),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                      childAspectRatio: 1.3,
+                    ),
+                    itemCount: videoList.length,
+                    itemBuilder: (context, i) {
+                      final video = videoList[i];
+                      return CaptureVideoCell(
+                        key: ValueKey(video.id),
+                        tripId: widget.tripId,
+                        video: video,
+                      );
+                    },
+                  ),
+                ],
+                if (noteList.isNotEmpty) ...[
+                  SizedBox(height: space.x6),
+                  Text(
+                    'Notes',
+                    style: type.titleMedium.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(height: space.x2),
+                  ...noteList.map((n) {
+                    final when =
+                        DateFormat.MMMd().format(n.capturedAt.toLocal());
+                    return Card(
+                      margin: EdgeInsets.only(bottom: space.x2 + 2),
+                      child: ListTile(
+                        title: Text(n.title),
+                        subtitle: Text(
+                          n.body.isEmpty ? when : '${n.body}\n$when',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     );
-                  },
-                ),
+                  }),
+                ],
               ],
-              if (noteList.isNotEmpty) ...[
-                SizedBox(height: space.x6),
-                Text(
-                  'Notes',
-                  style: type.titleMedium.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: space.x2),
-                ...noteList.map((n) {
-                  final when = DateFormat.MMMd().format(n.capturedAt.toLocal());
-                  return Card(
-                    margin: EdgeInsets.only(bottom: space.x2 + 2),
-                    child: ListTile(
-                      title: Text(n.title),
-                      subtitle: Text(
-                        n.body.isEmpty ? when : '${n.body}\n$when',
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -297,6 +344,159 @@ class _CapturePhotoCellState extends ConsumerState<CapturePhotoCell> {
         color: colors.surfaceMuted,
         child: Center(
           child: Icon(Icons.photo_outlined, color: colors.onSurfaceMuted),
+        ),
+      ),
+    );
+  }
+}
+
+class CaptureVideoCell extends ConsumerStatefulWidget {
+  const CaptureVideoCell({
+    super.key,
+    required this.tripId,
+    required this.video,
+  });
+
+  final String tripId;
+  final TripVideoView video;
+
+  @override
+  ConsumerState<CaptureVideoCell> createState() => _CaptureVideoCellState();
+}
+
+class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
+  late TripVideoView _video;
+  Object? _lastReportedError;
+
+  @override
+  void initState() {
+    super.initState();
+    _video = widget.video;
+    _reportLoadFailure(_video.loadError);
+  }
+
+  @override
+  void didUpdateWidget(covariant CaptureVideoCell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.video.id != widget.video.id ||
+        oldWidget.video.loadError != widget.video.loadError) {
+      _video = widget.video;
+      _reportLoadFailure(_video.loadError);
+    }
+  }
+
+  void _reportLoadFailure(Object? error) {
+    if (error == null ||
+        !widget.video.hasRemoteStoragePath ||
+        identical(error, _lastReportedError)) {
+      return;
+    }
+    _lastReportedError = error;
+    reportAndLog(
+      error,
+      StackTrace.current,
+      screen: 'trip_home',
+      action: 'load_video',
+      analytics: ref.read(analyticsProvider),
+    );
+  }
+
+  Future<void> _retry() async {
+    final loaded =
+        await ref.read(captureRepositoryProvider).retryVideoLoad(_video.id);
+    if (!mounted) return;
+    setState(() => _video = loaded);
+    _reportLoadFailure(loaded.loadError);
+  }
+
+  Future<void> _openVideo() async {
+    final path = _video.displayPath;
+    if (path == null || path.isEmpty) return;
+    try {
+      final opened = await launchUrl(
+        Uri.file(path),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        throw StateError('No app available to open this video');
+      }
+    } catch (e, stackTrace) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'trip_home',
+        action: 'open_video',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final path = _video.displayPath;
+    final exists = path != null && path.isNotEmpty && File(path).existsSync();
+    if (exists) {
+      final label = (_video.caption?.trim().isNotEmpty ?? false)
+          ? _video.caption!.trim()
+          : DateFormat.MMMd().format(_video.capturedAt.toLocal());
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          color: colors.surfaceMuted,
+          child: InkWell(
+            onTap: _openVideo,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: colors.primary,
+                    size: 44,
+                  ),
+                ),
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: type.labelMedium.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_video.loadError != null && _video.hasRemoteStoragePath) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: StorageUnavailablePlaceholder(
+          compact: true,
+          label: 'Video unavailable',
+          onRetry: _retry,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: ColoredBox(
+        color: colors.surfaceMuted,
+        child: Center(
+          child: Icon(Icons.videocam_outlined, color: colors.onSurfaceMuted),
         ),
       ),
     );

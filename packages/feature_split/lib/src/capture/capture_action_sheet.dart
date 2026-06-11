@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../signals/coming_soon_sheet.dart';
 import '../trips/trips_repository.dart';
 import 'capture_repository.dart';
 
@@ -45,6 +44,7 @@ typedef CapturePickImage = Future<XFile?> Function({
 /// Test override for [ImagePicker.pickVideo] — production uses [ImagePicker].
 typedef CapturePickVideo = Future<XFile?> Function({
   required ImageSource source,
+  Duration? maxDuration,
 });
 
 class CaptureChoiceSheet extends ConsumerStatefulWidget {
@@ -142,7 +142,8 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   Future<void> _runCaptureAction({
     required String action,
     required Future<XFile?> Function() pick,
-    required Future<void> Function(String path, ProviderContainer container) run,
+    required Future<void> Function(String path, ProviderContainer container)
+        run,
   }) async {
     final container = _rootContainer;
     final analytics = container.read(analyticsProvider);
@@ -247,12 +248,15 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
     );
   }
 
-  Future<XFile?> _pickVideo({required ImageSource source}) {
+  Future<XFile?> _pickVideo({
+    required ImageSource source,
+    Duration? maxDuration,
+  }) {
     final override = widget.pickVideo;
     if (override != null) {
-      return override(source: source);
+      return override(source: source, maxDuration: maxDuration);
     }
-    return _picker.pickVideo(source: source);
+    return _picker.pickVideo(source: source, maxDuration: maxDuration);
   }
 
   Future<void> _addPhoto() {
@@ -264,10 +268,11 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         maxHeight: 1600,
         imageQuality: 80,
       ),
-      run: (path, container) => container.read(captureRepositoryProvider).addPhoto(
-            tripId: widget.tripId,
-            sourcePath: path,
-          ),
+      run: (path, container) =>
+          container.read(captureRepositoryProvider).addPhoto(
+                tripId: widget.tripId,
+                sourcePath: path,
+              ),
     );
   }
 
@@ -289,19 +294,17 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   }
 
   Future<void> _addVideo() {
-    final routeContext = _routeContext;
     return _runCaptureAction(
       action: 'add_capture_video',
-      pick: () => _pickVideo(source: ImageSource.gallery),
-      run: (_, container) => showComingSoonSheet(
-        context: routeContext,
-        ref: ref,
-        interestEvent: VamoEvent.recapInterestTapped,
-        feature: 'capture_video',
-        title: 'Trip videos',
-        description:
-            'Short video memories from your trip will land here in a later wave.',
+      pick: () => _pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(seconds: 60),
       ),
+      run: (path, container) =>
+          container.read(captureRepositoryProvider).addVideo(
+                tripId: widget.tripId,
+                sourcePath: path,
+              ),
     );
   }
 

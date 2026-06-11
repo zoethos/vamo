@@ -13,6 +13,11 @@ final tripPhotosProvider =
   return ref.watch(captureRepositoryProvider).watchTripPhotos(tripId);
 });
 
+final tripVideosProvider =
+    StreamProvider.family<List<TripVideoView>, String>((ref, tripId) {
+  return ref.watch(captureRepositoryProvider).watchTripVideos(tripId);
+});
+
 final captureSnapshotHighlightProvider =
     Provider.family<CaptureSnapshotHighlight, String>((ref, tripId) {
   final notes = ref.watch(tripNotesProvider(tripId)).valueOrNull ?? [];

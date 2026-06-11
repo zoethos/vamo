@@ -38,6 +38,33 @@ class TripPhotoView {
   final String? storagePath;
 }
 
+/// Video for solo trip capture — local path when cached; [loadError] when remote exists but fetch failed.
+class TripVideoView {
+  const TripVideoView({
+    required this.id,
+    required this.tripId,
+    this.displayPath,
+    this.caption,
+    required this.capturedAt,
+    this.capturedLat,
+    this.capturedLng,
+    this.loadError,
+    this.hasRemoteStoragePath = false,
+    this.storagePath,
+  });
+
+  final String id;
+  final String tripId;
+  final String? displayPath;
+  final String? caption;
+  final DateTime capturedAt;
+  final double? capturedLat;
+  final double? capturedLng;
+  final Object? loadError;
+  final bool hasRemoteStoragePath;
+  final String? storagePath;
+}
+
 /// Highlights for the branded snapshot card.
 class CaptureSnapshotHighlight {
   const CaptureSnapshotHighlight({

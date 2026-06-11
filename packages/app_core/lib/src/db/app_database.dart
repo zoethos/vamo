@@ -16,6 +16,7 @@ part 'app_database.g.dart';
   LocalSettlements,
   LocalTripNotes,
   LocalTripPhotos,
+  LocalTripVideos,
   LocalPlaces,
   LocalPlanItems,
   LocalTripListItems,
@@ -31,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -135,6 +136,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 16 && to >= 16) {
             await m.createTable(localNotifications);
+          }
+          if (from < 17 && to >= 17) {
+            await m.createTable(localTripVideos);
           }
         },
       );
@@ -269,7 +273,8 @@ class AppDatabase extends _$AppDatabase {
   /// Partial-safe update of an existing trip row (no insert path, so a partial
   /// companion can't fail Drift insert-integrity validation). Returns rows affected.
   Future<int> updateTripFields(String tripId, LocalTripsCompanion fields) {
-    return (update(localTrips)..where((t) => t.id.equals(tripId))).write(fields);
+    return (update(localTrips)..where((t) => t.id.equals(tripId)))
+        .write(fields);
   }
 
   Stream<List<LocalTripFxRate>> watchTripFxRates(String tripId) {
@@ -363,12 +368,23 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<LocalTripVideo>> watchTripVideos(String tripId) {
+    return (select(localTripVideos)
+          ..where((v) => v.tripId.equals(tripId))
+          ..orderBy([(v) => OrderingTerm.desc(v.capturedAt)]))
+        .watch();
+  }
+
   Future<void> upsertTripNote(LocalTripNotesCompanion row) {
     return into(localTripNotes).insertOnConflictUpdate(row);
   }
 
   Future<void> upsertTripPhoto(LocalTripPhotosCompanion row) {
     return into(localTripPhotos).insertOnConflictUpdate(row);
+  }
+
+  Future<void> upsertTripVideo(LocalTripVideosCompanion row) {
+    return into(localTripVideos).insertOnConflictUpdate(row);
   }
 
   Future<void> deleteTripNote(String id) {
@@ -551,6 +567,12 @@ class AppDatabase extends _$AppDatabase {
     for (final photo in photos) {
       await _deleteLocalFileBestEffort(photo.localPath);
     }
+    final videos = await (select(localTripVideos)
+          ..where((v) => v.tripId.equals(tripId)))
+        .get();
+    for (final video in videos) {
+      await _deleteLocalFileBestEffort(video.localPath);
+    }
 
     final expenseIds = await (select(localExpenses)
           ..where((e) => e.tripId.equals(tripId)))
@@ -563,6 +585,7 @@ class AppDatabase extends _$AppDatabase {
         .go();
     await (delete(localTripNotes)..where((n) => n.tripId.equals(tripId))).go();
     await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localTripVideos)..where((v) => v.tripId.equals(tripId))).go();
     await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItemRsvps)
