@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import 'capture_models.dart';
 import 'capture_providers.dart';
@@ -412,25 +412,15 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
   Future<void> _openVideo() async {
     final path = _video.displayPath;
     if (path == null || path.isEmpty) return;
-    try {
-      final opened = await launchUrl(
-        Uri.file(path),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!opened) {
-        throw StateError('No app available to open this video');
-      }
-    } catch (e, stackTrace) {
-      if (!mounted) return;
-      showActionError(
-        context,
-        ref,
-        screen: 'trip_home',
-        action: 'open_video',
-        error: e,
-        stackTrace: stackTrace,
-      );
-    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => CaptureVideoPlayerScreen(
+          path: path,
+          title: _video.caption,
+        ),
+      ),
+    );
   }
 
   @override
@@ -497,6 +487,176 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
         color: colors.surfaceMuted,
         child: Center(
           child: Icon(Icons.videocam_outlined, color: colors.onSurfaceMuted),
+        ),
+      ),
+    );
+  }
+}
+
+class CaptureVideoPlayerScreen extends ConsumerStatefulWidget {
+  const CaptureVideoPlayerScreen({
+    super.key,
+    required this.path,
+    this.title,
+  });
+
+  final String path;
+  final String? title;
+
+  @override
+  ConsumerState<CaptureVideoPlayerScreen> createState() =>
+      _CaptureVideoPlayerScreenState();
+}
+
+class _CaptureVideoPlayerScreenState
+    extends ConsumerState<CaptureVideoPlayerScreen> {
+  late final VideoPlayerController _controller;
+  late final Future<void> _initialize;
+  Object? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.file(File(widget.path));
+    _controller.addListener(_onVideoChanged);
+    _initialize = _controller.initialize().then((_) async {
+      await _controller.play();
+      if (mounted) setState(() {});
+    }).catchError((Object error, StackTrace stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'trip_home',
+        action: 'play_video',
+        analytics: ref.read(analyticsProvider),
+      );
+      if (mounted) setState(() => _loadError = error);
+      Error.throwWithStackTrace(error, stackTrace);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onVideoChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onVideoChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _togglePlay() async {
+    if (!_controller.value.isInitialized) return;
+    if (_controller.value.isPlaying) {
+      await _controller.pause();
+    } else {
+      await _controller.play();
+    }
+  }
+
+  Future<void> _seekTo(double milliseconds) {
+    return _controller.seekTo(
+      Duration(milliseconds: milliseconds.round()),
+    );
+  }
+
+  String _formatDuration(Duration value) {
+    final minutes = value.inMinutes.remainder(60).toString();
+    final seconds = value.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hours = value.inHours;
+    if (hours == 0) return '$minutes:$seconds';
+    return '$hours:${minutes.padLeft(2, '0')}:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.title?.trim();
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(
+          title == null || title.isEmpty ? 'Video' : title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: SafeArea(
+        child: FutureBuilder<void>(
+          future: _initialize,
+          builder: (context, snapshot) {
+            if (_loadError != null || snapshot.hasError) {
+              final error = _loadError ?? snapshot.error!;
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    formatActionFailureMessage(error),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              );
+            }
+            if (snapshot.connectionState != ConnectionState.done ||
+                !_controller.value.isInitialized) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final value = _controller.value;
+            final durationMs = value.duration.inMilliseconds;
+            final positionMs = value.position.inMilliseconds.clamp(
+              0,
+              durationMs == 0 ? 1 : durationMs,
+            );
+
+            return Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio:
+                          value.aspectRatio == 0 ? 16 / 9 : value.aspectRatio,
+                      child: VideoPlayer(_controller),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: _togglePlay,
+                        color: Colors.white,
+                        icon: Icon(
+                          value.isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                      ),
+                      Text(
+                        _formatDuration(value.position),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      Expanded(
+                        child: Slider(
+                          value: positionMs.toDouble(),
+                          max: (durationMs == 0 ? 1 : durationMs).toDouble(),
+                          onChanged: _seekTo,
+                        ),
+                      ),
+                      Text(
+                        _formatDuration(value.duration),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

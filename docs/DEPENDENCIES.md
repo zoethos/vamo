@@ -148,6 +148,7 @@ Not every transitive dep — only the ones with real lock-in or risk.
 | `google_mlkit_text_recognition` | **On-device** OCR (privacy claim) | Med | on-device is a privacy promise — keep it on-device |
 | `geocoding` | Place resolution | Low | |
 | `firebase_core` / `firebase_messaging` | Push | Med-high | tied to FCM |
+| `video_player` | In-app playback for captured trip videos (S30) | Low-med | avoids fragile external `file://` handoff for private app files; thumbnail generation remains deferred |
 | `posthog_flutter` | Analytics SDK | Low-med | event names are ours |
 | `app_links` | Deep-link channel (single handler) | Med | never re-add engine deep-linking alongside |
 | `flutter_slidable` | Swipe edit/delete on list rows (S38) | Low | two-action panes + a11y long-press fallback |
