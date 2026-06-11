@@ -37,6 +37,6 @@ Updated: 2026-06-11.
 | S26 | Contact invite (growth) | ✅ merged (`1c6ed4b`) | permissionless selected contact invite; no `READ_CONTACTS`; uses S25 `/j/<token>` + `ch=contact`; device-pass debt remains before tester confidence |
 | S27 | Mobile UI polish I | ✅ merged (`bd20a0ab`) | tester-readiness polish + Linux golden stabilization; `s27_polish_golden_test.dart` present |
 | S29 | Design system foundation | 📋 backlog (`S29_DESIGN_SYSTEM_FOUNDATION_PROMPT.md`) | token/component substrate for deeper polish; parked until founder/design direction |
-| S46 | Notifications primitive + inbox | 🔶 branch ready (`feature/notification-center`) | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. CI green locally; remaining gates: cloud RLS smoke, deploy/invoke `trip-lifecycle-jobs`, and 2-device no-push/push verification before enabling cron. |
+| S46 | Notifications primitive + inbox | 🔶 branch ready (`feature/notification-center`) | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. CI + cloud RLS smoke green; remaining gates: deploy/invoke `trip-lifecycle-jobs` and 2-device no-push/push verification before enabling cron. |
 
 Wave-1 slices S1–S14: shipped and verified (v0.1.0). Gate check after S22.

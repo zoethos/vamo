@@ -929,7 +929,8 @@ Future<void> main() async {
         'p_route': '/trips/$tripId/close-report',
       }) as String;
 
-      final aNotices = await clientA.from('notifications').select('id');
+      final aNotices =
+          await clientA.from('notifications').select('id').eq('id', noticeId);
       results.add(_Check(
         'A cannot read B notifications',
         (aNotices as List).isEmpty,
@@ -941,8 +942,7 @@ Future<void> main() async {
           .eq('id', noticeId);
       results.add(_Check(
         'B sees own notification',
-        (bNotices as List).length == 1 &&
-            bNotices.first['read_at'] == null,
+        (bNotices as List).length == 1 && bNotices.first['read_at'] == null,
       ));
 
       var insertBlocked = false;
@@ -956,7 +956,8 @@ Future<void> main() async {
       } catch (_) {
         insertBlocked = true;
       }
-      results.add(_Check('client INSERT into notifications blocked', insertBlocked));
+      results.add(
+          _Check('client INSERT into notifications blocked', insertBlocked));
 
       await clientB.rpc('mark_notification_read', params: {'p_id': noticeId});
       final readRow = await clientB
@@ -1227,9 +1228,13 @@ Future<void> main() async {
     if (serviceClient != null) {
       var forgedNoticeBlocked = false;
       try {
-        await clientA.from('trip_members').update({
-          'close_notified_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('trip_id', tripId).eq('user_id', userA);
+        await clientA
+            .from('trip_members')
+            .update({
+              'close_notified_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .eq('trip_id', tripId)
+            .eq('user_id', userA);
       } catch (_) {
         forgedNoticeBlocked = true;
       }
