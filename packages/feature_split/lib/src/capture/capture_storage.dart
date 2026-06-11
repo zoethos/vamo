@@ -74,6 +74,7 @@ abstract final class CaptureStorage {
     required String videoId,
     required String storagePath,
   }) async {
+    String? partialCachePath;
     try {
       final signed = await client.storage
           .from(StoragePaths.capturesBucket)
@@ -105,6 +106,7 @@ abstract final class CaptureStorage {
         final folder = await _videosFolder(tripId);
         final ext = normalizeVideoExt(p.extension(storagePath));
         final dest = p.join(folder.path, '$videoId$ext');
+        partialCachePath = dest;
         await response.stream.pipe(File(dest).openWrite());
         try {
           await ensureVideoSizeAllowed(dest);
@@ -122,6 +124,7 @@ abstract final class CaptureStorage {
         hadRemoteAttachment: true,
       );
     } catch (e) {
+      await deleteLocalFileBestEffort(partialCachePath);
       return StorageAttachmentLoadResult.failure(
         e,
         hadRemoteAttachment: true,
