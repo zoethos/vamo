@@ -44,7 +44,7 @@ Migration `0014_push_devices_and_jobs.sql` creates `job_heartbeats` and
 
 ## 3. Trip lifecycle jobs (S22 — daily, **enable only after device gate**)
 
-Migration `0028_s22_close_notice.sql` updates `run_trip_lifecycle_jobs()` for
+Migration `0029_s22_close_notice.sql` updates `run_trip_lifecycle_jobs()` for
 **per-member** deemed close (`trip_members.close_notified_at + 14 days`). Push
 dispatch lives in the Edge Function (service-role, member-targeted FCM).
 
