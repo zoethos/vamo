@@ -12,9 +12,10 @@ Updated: 2026-06-11.
    `feature/capture-video` on top of the S46 notification branch. The current app
    already uses the S44/S45 carousel add surface, so S30 wires video into that
    surface rather than resurrecting the older Capture-FAB sheet.
-3. **S22 held** — PR #20 remains blocked on the device + cron dry-run gate. Before
-   resuming, rebase it and move its current `0025_s22_close_notice.sql` to the
-   next free migration ordinal, because production already has S25 as `0026`.
+3. **S22 activation held** — code is already on `main` and its migration is
+   `0029_s22_close_notice.sql`. Remaining work is operational: confirm the cloud
+   migration frontier, schedule `trip-lifecycle-jobs`, run the cron dry-run, and
+   device-verify the notice/nudge/close-report flow.
 4. **Internal build** — resume Play/internal tester work around whichever slice
    is actively being shipped.
 
@@ -31,7 +32,7 @@ Updated: 2026-06-11.
 | S21 | W2·R8 (EventList) | ✅ merged (`1ba8a9e`) | EventList + RSVP + realtime (0022–0024: parent-touch, clear RPC, cascade guard); plan-propagation hardening incl. autoDispose binding + flush-before-RSVP (`84b3620`); UI fixes (back-nav fallback, tab-aware FAB, no dup Plan CTA). smoke 76/76 |
 | — | **Wave 2 internal build (S15–S20)** | 🔶 in progress | S16 verified; **release-signed `.aab` built** (upload key CN=Tiziano Rocca/Vamo, R8 proguard fix for ML Kit Latin-only). Next: Play internal upload → app-signing-key SHA-256 → assetlinks → testers (`SHIP_INTERNAL.md` 5–8) |
 | — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
-| S22 | W2·R7 (close report) + P1 nudge | 🔶 PR #20 held | device + cron gate before merge; cron unscheduled; **renumber migration on rebase** (old PR slot `0025`, prod frontier includes S25 `0026`) |
+| S22 | W2·R7 (close report) + P1 nudge | ✅ code merged / 🔶 activation gate | code landed on `main` with `0029_s22_close_notice.sql`; cron remains unscheduled. Remaining: cloud frontier confirmation, cron dry-run, and device notice/nudge/close-report verification |
 | S23 | W2·R10 (AI theme resolver) | ✅ merged (`47d0c9b2`) | provider-neutral adapter, default OpenAI; `destination_themes` per `AI_THEMING_SPEC.md` |
 | S24 | P1 retention basics | ⬜ | |
 | S25 | P1 share pages | ✅ live | PR #23; preview-first `/j/[token]`; member count only; production smoke verified after Vercel publishable key fix |
