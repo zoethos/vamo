@@ -367,6 +367,7 @@ class CaptureVideoCell extends ConsumerStatefulWidget {
 class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
   late TripVideoView _video;
   Object? _lastReportedError;
+  bool _loadingRemote = false;
 
   @override
   void initState() {
@@ -379,7 +380,11 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
   void didUpdateWidget(covariant CaptureVideoCell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.video.id != widget.video.id ||
-        oldWidget.video.loadError != widget.video.loadError) {
+        oldWidget.video.displayPath != widget.video.displayPath ||
+        oldWidget.video.loadError != widget.video.loadError ||
+        oldWidget.video.hasRemoteStoragePath !=
+            widget.video.hasRemoteStoragePath ||
+        oldWidget.video.storagePath != widget.video.storagePath) {
       _video = widget.video;
       _reportLoadFailure(_video.loadError);
     }
@@ -401,22 +406,56 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
     );
   }
 
+  String _tileLabel() {
+    return (_video.caption?.trim().isNotEmpty ?? false)
+        ? _video.caption!.trim()
+        : DateFormat.MMMd().format(_video.capturedAt.toLocal());
+  }
+
+  Future<TripVideoView?> _cacheRemoteVideo() async {
+    if (_loadingRemote || !_video.hasRemoteStoragePath) return null;
+    setState(() => _loadingRemote = true);
+    try {
+      final loaded =
+          await ref.read(captureRepositoryProvider).retryVideoLoad(_video.id);
+      if (!mounted) return null;
+      setState(() => _video = loaded);
+      _reportLoadFailure(loaded.loadError);
+      return loaded;
+    } catch (e, stackTrace) {
+      if (!mounted) return null;
+      showActionError(
+        context,
+        ref,
+        screen: 'trip_home',
+        action: 'load_video',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    } finally {
+      if (mounted) setState(() => _loadingRemote = false);
+    }
+  }
+
   Future<void> _retry() async {
-    final loaded =
-        await ref.read(captureRepositoryProvider).retryVideoLoad(_video.id);
-    if (!mounted) return;
-    setState(() => _video = loaded);
-    _reportLoadFailure(loaded.loadError);
+    await _cacheRemoteVideo();
   }
 
   Future<void> _openVideo() async {
-    final path = _video.displayPath;
-    if (path == null || path.isEmpty) return;
+    var path = _video.displayPath;
+    if (path == null || path.isEmpty || !File(path).existsSync()) {
+      final loaded = await _cacheRemoteVideo();
+      if (!mounted) return;
+      path = loaded?.displayPath;
+    }
+    if (path == null || path.isEmpty || !File(path).existsSync()) return;
+    final playbackPath = path;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => CaptureVideoPlayerScreen(
-          path: path,
+          path: playbackPath,
           title: _video.caption,
         ),
       ),
@@ -430,9 +469,7 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
     final path = _video.displayPath;
     final exists = path != null && path.isNotEmpty && File(path).existsSync();
     if (exists) {
-      final label = (_video.caption?.trim().isNotEmpty ?? false)
-          ? _video.caption!.trim()
-          : DateFormat.MMMd().format(_video.capturedAt.toLocal());
+      final label = _tileLabel();
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: Material(
@@ -448,6 +485,50 @@ class _CaptureVideoCellState extends ConsumerState<CaptureVideoCell> {
                     color: colors.primary,
                     size: 44,
                   ),
+                ),
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 8,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: type.labelMedium.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_video.hasRemoteStoragePath && _video.loadError == null) {
+      final label = _tileLabel();
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Material(
+          color: colors.surfaceMuted,
+          child: InkWell(
+            onTap: _loadingRemote ? null : _openVideo,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Center(
+                  child: _loadingRemote
+                      ? const SizedBox.square(
+                          dimension: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.play_circle_outline_rounded,
+                          color: colors.primary,
+                          size: 44,
+                        ),
                 ),
                 Positioned(
                   left: 8,

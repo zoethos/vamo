@@ -171,16 +171,27 @@ class CaptureRepository {
     }
 
     final remote = row.storagePath;
+    return TripVideoView(
+      id: row.id,
+      tripId: row.tripId,
+      caption: row.caption,
+      capturedAt: row.capturedAt,
+      capturedLat: row.capturedLat,
+      capturedLng: row.capturedLng,
+      hasRemoteStoragePath: remote != null && remote.isNotEmpty,
+      storagePath: remote,
+    );
+  }
+
+  Future<TripVideoView> _cacheVideoAttachment(LocalTripVideo row) async {
+    final local = row.localPath;
+    if (local != null && local.isNotEmpty && await File(local).exists()) {
+      return loadVideoAttachment(row);
+    }
+
+    final remote = row.storagePath;
     if (remote == null || remote.isEmpty) {
-      return TripVideoView(
-        id: row.id,
-        tripId: row.tripId,
-        displayPath: local,
-        caption: row.caption,
-        capturedAt: row.capturedAt,
-        capturedLat: row.capturedLat,
-        capturedLng: row.capturedLng,
-      );
+      return loadVideoAttachment(row);
     }
 
     final result = await CaptureStorage.cacheVideoFromStorage(
@@ -226,7 +237,7 @@ class CaptureRepository {
     final row = await (_db.select(_db.localTripVideos)
           ..where((v) => v.id.equals(videoId)))
         .getSingle();
-    return loadVideoAttachment(row);
+    return _cacheVideoAttachment(row);
   }
 
   Future<String> addNote({
@@ -484,7 +495,6 @@ class CaptureRepository {
     required String videoId,
     required String localPath,
   }) async {
-    final bytes = await File(localPath).readAsBytes();
     final ext = CaptureStorage.normalizeVideoExt(
       localPath.contains('.') ? '.${localPath.split('.').last}' : '.mp4',
     );
@@ -494,11 +504,11 @@ class CaptureRepository {
       videoId: videoId,
       ext: ext,
     );
-    await _client.storage.from(_capturesBucket).uploadBinary(
+    await _client.storage.from(_capturesBucket).upload(
           path,
-          bytes,
+          File(localPath),
           fileOptions: FileOptions(
-            contentType: CaptureStorage.contentTypeForPath(localPath),
+            contentType: CaptureStorage.videoContentTypeForPath(localPath),
             upsert: true,
           ),
         );
@@ -589,14 +599,8 @@ class CaptureRepository {
       final tripId = row['trip_id'] as String;
       final storagePath = row['storage_path'] as String;
       var localPath = existing?.localPath;
-      if (localPath == null || !await File(localPath).exists()) {
-        final cached = await CaptureStorage.cacheVideoFromStorage(
-          client: _client,
-          tripId: tripId,
-          videoId: id,
-          storagePath: storagePath,
-        );
-        localPath = cached.localPath;
+      if (localPath != null && !await File(localPath).exists()) {
+        localPath = null;
       }
 
       await _db.upsertTripVideo(
