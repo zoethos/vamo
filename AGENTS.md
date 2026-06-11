@@ -100,6 +100,41 @@ Before merging to `main`:
    - Push notification receipt.
    - Deep-link opening into the installed app.
 
+## Architecture And Business Logic Governance
+
+For every feature slice, agents must decide where business logic belongs -
+a reusable pure module, a service, an adapter, or (rarely) a package - instead
+of inlining it in screens, widgets, repositories, edge functions, or one-off
+helpers.
+
+Before implementing, check whether the change introduces:
+- repeated business rules or calculations (clone risk)
+- UI code making product-policy decisions
+- repositories mixing domain rules with Drift, Supabase, sync, storage, or
+  analytics
+- direct platform/provider dependencies where a gateway/adapter would isolate
+  them
+- a rule implemented in Dart that is also enforced server-side (RLS/RPC/edge) -
+  name the single source of truth and avoid silent client/server drift
+- bulky code where a lightweight pure function would be easier to test
+
+Prefer:
+- pure Dart/TS logic for rules, calculations, validation, grouping, state
+  transitions, and permission decisions
+- thin UI that renders state and delegates decisions
+- repositories that orchestrate persistence/network/sync - not product policy
+- small provider/platform adapters at dependency boundaries
+
+Extraction discipline (avoid the opposite failure - premature abstraction):
+- Default = inline pure helper in the existing package.
+- Promote to a new package only when a module is pure, tested, stable, and
+  reused by 2+ surfaces or it isolates a heavy dependency. Package extraction is
+  the justified exception, not the reflex. Do not create package sprawl.
+
+Every feature-slice handoff must state the architecture decision -
+"inline" / "pure helper" / "adapter/gateway" / "package candidate" - with a
+one-line reason.
+
 ## Merge, Push, And Cleanup
 
 1. Merge finished feature/fix branches into `main` with `--no-ff`:
