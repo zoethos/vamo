@@ -43,6 +43,8 @@ Vamo/app/pubspec.lock
 *.g.dart
 *.freezed.dart
 *.gr.dart
+# Flutter-generated localizations (regenerated on `flutter pub get` via generate: true)
+app/lib/l10n/app_localizations*.dart
 
 # Melos
 .melos_tool/
