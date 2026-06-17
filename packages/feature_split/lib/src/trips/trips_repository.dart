@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:app_core/app_core.dart';
@@ -28,6 +29,7 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
     places: ref.watch(placesRepositoryProvider),
     plan: ref.watch(planRepositoryProvider),
     syncQueue: ref.watch(syncQueueProvider),
+    syncWorker: ref.watch(syncWorkerProvider),
     notifications: ref.watch(notificationsRepositoryProvider),
   );
 });
@@ -45,17 +47,19 @@ class TripsRepository {
     required PlacesRepository places,
     required PlanRepository plan,
     required SyncQueue syncQueue,
+    required SyncWorker syncWorker,
     required NotificationsRepository notifications,
-  })  : _db = db,
-        _client = client,
-        _analytics = analytics,
-        _expenses = expenses,
-        _settlements = settlements,
-        _capture = capture,
-        _places = places,
-        _plan = plan,
-        _syncQueue = syncQueue,
-        _notifications = notifications;
+  }) : _db = db,
+       _client = client,
+       _analytics = analytics,
+       _expenses = expenses,
+       _settlements = settlements,
+       _capture = capture,
+       _places = places,
+       _plan = plan,
+       _syncQueue = syncQueue,
+       _syncWorker = syncWorker,
+       _notifications = notifications;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -66,29 +70,30 @@ class TripsRepository {
   final PlacesRepository _places;
   final PlanRepository _plan;
   final SyncQueue _syncQueue;
+  final SyncWorker _syncWorker;
   final NotificationsRepository _notifications;
   final _uuid = const Uuid();
 
   Stream<List<TripSummary>> watchTripSummaries() {
     return _db.watchAllTrips().map(
-          (rows) => rows
-              .map(
-                (r) => TripSummary(
-                  id: r.id,
-                  name: r.name,
-                  destination: r.destination,
-                  startDate: r.startDate,
-                  endDate: r.endDate,
-                  baseCurrency: r.baseCurrency,
-                  lifecycle: r.lifecycle,
-                  budgetMode: r.budgetMode,
-                  budgetCents: r.budgetCents,
-                  backgroundStoragePath: r.backgroundPath,
-                  backgroundLocalPath: r.backgroundLocalPath,
-                ),
-              )
-              .toList(),
-        );
+      (rows) => rows
+          .map(
+            (r) => TripSummary(
+              id: r.id,
+              name: r.name,
+              destination: r.destination,
+              startDate: r.startDate,
+              endDate: r.endDate,
+              baseCurrency: r.baseCurrency,
+              lifecycle: r.lifecycle,
+              budgetMode: r.budgetMode,
+              budgetCents: r.budgetCents,
+              backgroundStoragePath: r.backgroundPath,
+              backgroundLocalPath: r.backgroundLocalPath,
+            ),
+          )
+          .toList(),
+    );
   }
 
   Stream<TripDetail?> watchTrip(String id) {
@@ -113,7 +118,9 @@ class TripsRepository {
   }
 
   Stream<List<TripFxRateRow>> watchTripFxRates(String tripId) {
-    return _db.watchTripFxRates(tripId).map(
+    return _db
+        .watchTripFxRates(tripId)
+        .map(
           (rows) => rows
               .map(
                 (r) => TripFxRateRow(
@@ -135,9 +142,9 @@ class TripsRepository {
   }
 
   Stream<bool> watchTripHasCloseObjection(String tripId) {
-    return _db.watchActiveMembers(tripId).map(
-          (members) => members.any((m) => m.closeObjectedAt != null),
-        );
+    return _db
+        .watchActiveMembers(tripId)
+        .map((members) => members.any((m) => m.closeObjectedAt != null));
   }
 
   Stream<int> watchActiveMemberCount(String tripId) =>
@@ -172,14 +179,12 @@ class TripsRepository {
     try {
       await _pullTripsAndMembers(remoteTripIds: {tripId}, onlyTripId: tripId);
       await _places.syncPlacesForTrips([tripId]);
-      await _expenses.syncExpensesForTrips(
-        [tripId],
-        excludeExpenseIds: pending.expenseIds,
-      );
-      await _settlements.syncSettlementsForTrips(
-        [tripId],
-        excludeSettlementIds: pending.settlementIds,
-      );
+      await _expenses.syncExpensesForTrips([
+        tripId,
+      ], excludeExpenseIds: pending.expenseIds);
+      await _settlements.syncSettlementsForTrips([
+        tripId,
+      ], excludeSettlementIds: pending.settlementIds);
       await _capture.syncCaptureForTrips([tripId]);
       await _plan.syncPlanForTrips(
         [tripId],
@@ -235,15 +240,17 @@ class TripsRepository {
   }) async {
     final tripRows = onlyTripId == null
         ? await _client
-            .from('trips')
-            .select(_tripSelectFields)
-            .order('created_at', ascending: false)
+              .from('trips')
+              .select(_tripSelectFields)
+              .order('created_at', ascending: false)
         : await _client
-            .from('trips')
-            .select(_tripSelectFields)
-            .eq('id', onlyTripId);
+              .from('trips')
+              .select(_tripSelectFields)
+              .eq('id', onlyTripId);
 
-    final memberQuery = _client.from('trip_members').select(
+    final memberQuery = _client
+        .from('trip_members')
+        .select(
           'trip_id, user_id, role, status, completed_at, close_accepted_at, '
           'close_objected_at, close_objection_reason, close_notified_at, '
           'close_reminded_at, settle_nudged_at, profiles(display_name)',
@@ -267,9 +274,7 @@ class TripsRepository {
           ownerId: Value(row['owner_id'] as String),
           baseCurrency: Value(row['base_currency'] as String),
           lifecycle: Value((row['lifecycle'] as String?) ?? 'active'),
-          closeRequestedAt: Value(
-            _timestamp(row['close_requested_at']),
-          ),
+          closeRequestedAt: Value(_timestamp(row['close_requested_at'])),
           budgetMode: Value((row['budget_mode'] as String?) ?? 'none'),
           budgetCents: Value(row['budget_cents'] as int?),
           backgroundPath: Value(row['background_path'] as String?),
@@ -293,9 +298,7 @@ class TripsRepository {
           completedAt: Value(_timestamp(row['completed_at'])),
           closeAcceptedAt: Value(_timestamp(row['close_accepted_at'])),
           closeObjectedAt: Value(_timestamp(row['close_objected_at'])),
-          closeObjectionReason: Value(
-            row['close_objection_reason'] as String?,
-          ),
+          closeObjectionReason: Value(row['close_objection_reason'] as String?),
           closeNotifiedAt: Value(_timestamp(row['close_notified_at'])),
           closeRemindedAt: Value(_timestamp(row['close_reminded_at'])),
           settleNudgedAt: Value(_timestamp(row['settle_nudged_at'])),
@@ -359,9 +362,9 @@ class TripsRepository {
       );
     } catch (e) {
       await (_db.delete(_db.localTrips)..where((t) => t.id.equals(id))).go();
-      await (_db.delete(_db.localTripMembers)
-            ..where((m) => m.tripId.equals(id)))
-          .go();
+      await (_db.delete(
+        _db.localTripMembers,
+      )..where((m) => m.tripId.equals(id))).go();
       rethrow;
     }
 
@@ -383,11 +386,10 @@ class TripsRepository {
     required String userId,
     required String role,
   }) async {
-    await _client.rpc('set_member_role', params: {
-      'p_trip_id': tripId,
-      'p_user_id': userId,
-      'p_role': role,
-    });
+    await _client.rpc(
+      'set_member_role',
+      params: {'p_trip_id': tripId, 'p_user_id': userId, 'p_role': role},
+    );
     await syncTripFromRemote(tripId);
   }
 
@@ -434,10 +436,10 @@ class TripsRepository {
     required String tripId,
     required String reason,
   }) async {
-    await _client.rpc('object_to_trip_close', params: {
-      'p_trip_id': tripId,
-      'p_reason': reason.trim(),
-    });
+    await _client.rpc(
+      'object_to_trip_close',
+      params: {'p_trip_id': tripId, 'p_reason': reason.trim()},
+    );
     await syncTripFromRemote(tripId);
     _analytics.capture(
       VamoEvent.closeObjected,
@@ -476,15 +478,11 @@ class TripsRepository {
     required String mode,
     int? budgetCents,
   }) async {
-    await _client.rpc('set_trip_budget', params: {
-      'p_trip_id': tripId,
-      'p_mode': mode,
-      'p_cents': budgetCents,
-    });
-    _analytics.capture(
-      VamoEvent.tripBudgetSet,
-      properties: {'mode': mode},
+    await _client.rpc(
+      'set_trip_budget',
+      params: {'p_trip_id': tripId, 'p_mode': mode, 'p_cents': budgetCents},
     );
+    _analytics.capture(VamoEvent.tripBudgetSet, properties: {'mode': mode});
     await syncTripFromRemote(tripId);
   }
 
@@ -492,10 +490,10 @@ class TripsRepository {
     required String tripId,
     required String currency,
   }) async {
-    await _client.rpc('capture_trip_fx_rate', params: {
-      'p_trip_id': tripId,
-      'p_currency': currency.toUpperCase(),
-    });
+    await _client.rpc(
+      'capture_trip_fx_rate',
+      params: {'p_trip_id': tripId, 'p_currency': currency.toUpperCase()},
+    );
     _analytics.capture(
       VamoEvent.rateRefreshed,
       properties: {'currency': currency.toUpperCase()},
@@ -508,13 +506,9 @@ class TripsRepository {
     if (ids.isEmpty) return;
     final rows = await _client
         .from('trip_fx_rates')
-        .select(
-          'id, trip_id, currency, rate, source, captured_at, captured_by',
-        )
+        .select('id, trip_id, currency, rate, source, captured_at, captured_by')
         .inFilter('trip_id', ids.toList());
-    final remoteIdsByTrip = <String, Set<String>>{
-      for (final id in ids) id: {},
-    };
+    final remoteIdsByTrip = <String, Set<String>>{for (final id in ids) id: {}};
     for (final row in (rows as List).cast<Map<String, dynamic>>()) {
       final tripId = row['trip_id'] as String;
       if (!ids.contains(tripId)) continue;
@@ -527,8 +521,9 @@ class TripsRepository {
           currency: Value((row['currency'] as String).toUpperCase()),
           rate: Value((row['rate'] as num).toDouble()),
           source: Value(row['source'] as String),
-          capturedAt:
-              Value(DateTime.parse(row['captured_at'] as String).toUtc()),
+          capturedAt: Value(
+            DateTime.parse(row['captured_at'] as String).toUtc(),
+          ),
           capturedBy: Value(row['captured_by'] as String),
         ),
       );
@@ -626,10 +621,10 @@ class TripsRepository {
         action: 'set_trip_background_remote',
         details: {'tripId': tripId},
       );
-      await _client.rpc('set_trip_background', params: {
-        'p_trip_id': tripId,
-        'p_background_path': storagePath,
-      });
+      await _client.rpc(
+        'set_trip_background',
+        params: {'p_trip_id': tripId, 'p_background_path': storagePath},
+      );
       await _db.updateTripFields(
         tripId,
         LocalTripsCompanion(
@@ -653,7 +648,36 @@ class TripsRepository {
         severity: ActionFailureSeverity.degraded,
         analytics: _analytics,
       );
+      final storagePath = _tripBackgroundStoragePath(
+        userId: userId,
+        tripId: tripId,
+        localPath: localPath,
+      );
+      await _syncQueue.enqueue(
+        kind: SyncKind.tripBackgroundUpload,
+        payload: {
+          'trip_id': tripId,
+          'local_path': localPath,
+          'storage_path': storagePath,
+        },
+      );
+      unawaited(_syncWorker.flush());
     }
+  }
+
+  String _tripBackgroundStoragePath({
+    required String userId,
+    required String tripId,
+    required String localPath,
+  }) {
+    final ext = CaptureStorage.normalizeExt(
+      localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
+    );
+    return StoragePaths.tripBackground(
+      userId: userId,
+      tripId: tripId,
+      ext: ext,
+    );
   }
 
   Future<String> _uploadTripBackground({
@@ -662,15 +686,14 @@ class TripsRepository {
     required String localPath,
   }) async {
     final bytes = await File(localPath).readAsBytes();
-    final ext = CaptureStorage.normalizeExt(
-      localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
-    );
-    final path = StoragePaths.tripBackground(
+    final path = _tripBackgroundStoragePath(
       userId: userId,
       tripId: tripId,
-      ext: ext,
+      localPath: localPath,
     );
-    await _client.storage.from(StoragePaths.tripBackgroundsBucket).uploadBinary(
+    await _client.storage
+        .from(StoragePaths.tripBackgroundsBucket)
+        .uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(

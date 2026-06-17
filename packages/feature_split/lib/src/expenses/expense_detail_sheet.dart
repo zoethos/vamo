@@ -155,13 +155,15 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(
-                  names[share.userId] ?? labels.someoneFallback,
+                  names[share.userId] ??
+                      fallbackMemberDisplayName(userId: share.userId),
                 ),
                 subtitle: Text(
                   _shareSubtitle(
                     labels: labels,
                     memberName:
-                        names[share.userId] ?? labels.someoneFallback,
+                        names[share.userId] ??
+                        fallbackMemberDisplayName(userId: share.userId),
                     response: share.response,
                   ),
                 ),

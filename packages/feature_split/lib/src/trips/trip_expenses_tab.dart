@@ -59,7 +59,8 @@ class TripExpensesTab extends ConsumerWidget {
           for (final flag in consentFlags)
             flag.expenseId: governanceLabels.consentDisplayLabel(
               memberName:
-                  nameByUserId[flag.userId] ?? governanceLabels.someoneFallback,
+                  nameByUserId[flag.userId] ??
+                  fallbackMemberDisplayName(userId: flag.userId),
               response: flag.response,
             ),
         };
@@ -106,7 +107,7 @@ class TripExpensesTab extends ConsumerWidget {
                     return const SizedBox.shrink();
                   }
                   final payer = nameByUserId[e.payerId] ??
-                      governanceLabels.someoneFallback;
+                      fallbackMemberDisplayName(userId: e.payerId);
                   final locale = Localizations.localeOf(context).toString();
                   return TripExpenseListTile(
                     description: e.description,

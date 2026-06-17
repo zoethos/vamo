@@ -94,7 +94,8 @@ class CloseReportScreen extends ConsumerWidget {
               final disputedLabels = consentFlags
                   .map(
                     (f) => governanceLabels.consentDisplayLabel(
-                      memberName: nameById[f.userId] ?? f.userId,
+                      memberName: nameById[f.userId] ??
+                          fallbackMemberDisplayName(userId: f.userId),
                       response: f.response,
                     ),
                   )
@@ -129,7 +130,8 @@ class CloseReportScreen extends ConsumerWidget {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: data.nets.entries.map((entry) {
-                          final name = nameById[entry.key] ?? entry.key;
+                          final name = nameById[entry.key] ??
+                              fallbackMemberDisplayName(userId: entry.key);
                           final amount = formatMoneyFromCents(
                             entry.value.abs(),
                             data.currency,
@@ -162,8 +164,11 @@ class CloseReportScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   ...memberRows.map((member) {
-                    final displayName =
-                        member.displayName ?? nameById[member.userId] ?? member.userId;
+                    final displayName = fallbackMemberDisplayName(
+                      userId: member.userId,
+                      displayName:
+                          member.displayName ?? nameById[member.userId],
+                    );
                     final consent = resolveCloseMemberConsent(
                       closeAcceptedAt: member.closeAcceptedAt,
                       closeObjectedAt: member.closeObjectedAt,

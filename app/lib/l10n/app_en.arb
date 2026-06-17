@@ -295,6 +295,15 @@
   "profileSignOut": "Sign out",
   "profileSave": "Save changes",
   "profileSaved": "Profile saved.",
+  "profilePendingMediaTitle": "Media still uploading",
+  "profilePendingMediaBody": "{count, plural, =1{1 media upload is still waiting. Signing out now will remove the local copy from this device.} other{{count} media uploads are still waiting. Signing out now will remove the local copies from this device.}}",
+  "@profilePendingMediaBody": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "profilePendingMediaStay": "Stay signed in",
+  "profilePendingMediaDiscard": "Discard and sign out",
   "profileLoadError": "Could not load your profile.",
   "profileSection": "Profile",
   "profileAppearanceSection": "Appearance",
@@ -306,8 +315,12 @@
   "profileTagCaptureLocationHelper": "When on, new trip photos can save location and original photo time from the image file. Existing photos are not scanned.",
   "profileDisplayName": "Display name",
   "profileDisplayNameHint": "How Vamigos see you",
+  "profileDisplayNameRequired": "Add your display name.",
+  "profileDisplayNameReserved": "Choose a display name other than Vamigo.",
   "profileDefaultCurrency": "Default trip currency",
   "profileDefaultCurrencyHelper": "Used when you create a new trip",
+  "profileCompletionTitle": "Finish your profile",
+  "profileCompletionSubtitle": "Add the name other trip members will see on expenses, balances, and notifications.",
   "profileBilling": "Billing",
   "profilePlusSheetDescription": "Upgrade anytime; downgrade or cancel at the end of your billing cycle — no dark patterns.",
   "profilePosthogActive": "PostHog is active.",
