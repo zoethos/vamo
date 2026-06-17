@@ -393,6 +393,21 @@ class TripsRepository {
     await syncTripFromRemote(tripId);
   }
 
+  /// Owner-only: move trip start/end dates (RPC `update_trip_dates`).
+  /// Server enforces the phase rules (start locked once the trip has started).
+  Future<void> updateTripDates({
+    required String tripId,
+    required String? startDate,
+    required String? endDate,
+  }) async {
+    await _client.rpc('update_trip_dates', params: {
+      'p_trip_id': tripId,
+      'p_start_date': startDate,
+      'p_end_date': endDate,
+    });
+    await syncTripFromRemote(tripId);
+  }
+
   Future<void> requestTripClose(String tripId) async {
     await _client.rpc('request_trip_close', params: {'p_trip_id': tripId});
     await syncTripFromRemote(tripId);

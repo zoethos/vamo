@@ -87,4 +87,65 @@ void main() {
       );
     });
   });
+
+  group('tripDatesEditability', () {
+    final now = DateTime.utc(2026, 6, 5, 12);
+
+    test('not started (future start) allows both dates', () {
+      final e = tripDatesEditability(
+        lifecycle: TripLifecycle.active,
+        startDateIso: '2026-12-01',
+        now: now,
+      );
+      expect(e.canEditStart, isTrue);
+      expect(e.canEditEnd, isTrue);
+      expect(e.any, isTrue);
+    });
+
+    test('undated active trip counts as not started (both editable)', () {
+      final e = tripDatesEditability(
+        lifecycle: TripLifecycle.active,
+        startDateIso: null,
+        now: now,
+      );
+      expect(e.canEditStart, isTrue);
+      expect(e.canEditEnd, isTrue);
+    });
+
+    test('started (start today or past) locks start, keeps end', () {
+      final today = tripDatesEditability(
+        lifecycle: TripLifecycle.active,
+        startDateIso: '2026-06-05',
+        now: now,
+      );
+      expect(today.canEditStart, isFalse);
+      expect(today.canEditEnd, isTrue);
+
+      final past = tripDatesEditability(
+        lifecycle: TripLifecycle.active,
+        startDateIso: '2026-01-01',
+        now: now,
+      );
+      expect(past.canEditStart, isFalse);
+      expect(past.canEditEnd, isTrue);
+    });
+
+    test('non-active trips block all date edits', () {
+      for (final lifecycle in [
+        TripLifecycle.closing,
+        TripLifecycle.closed,
+        TripLifecycle.cancelled,
+        TripLifecycle.unresolved,
+      ]) {
+        final e = tripDatesEditability(
+          lifecycle: lifecycle,
+          startDateIso: '2026-12-01',
+          now: now,
+        );
+        expect(e.canEditStart, isFalse, reason: '$lifecycle start');
+        expect(e.canEditEnd, isFalse, reason: '$lifecycle end');
+        expect(e.any, isFalse, reason: '$lifecycle any');
+      }
+    });
+  });
 }

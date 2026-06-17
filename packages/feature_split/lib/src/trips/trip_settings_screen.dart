@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../expenses/expense_consent_providers.dart';
 import '../expenses/money_format.dart';
@@ -36,6 +37,12 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
   String? _capturingCurrency;
   bool _budgetFormSynced = false;
 
+  DateTime? _startDate;
+  DateTime? _endDate;
+  bool _datesFormSynced = false;
+  bool _savingDates = false;
+  String? _dateRangeError;
+
   @override
   void dispose() {
     _budgetAmountController.dispose();
@@ -51,6 +58,21 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
           (detail.budgetCents! / 100).toStringAsFixed(2);
     }
   }
+
+  void _syncDatesForm(TripDetail detail) {
+    if (_datesFormSynced) return;
+    _datesFormSynced = true;
+    _startDate = _parseIsoDate(detail.startDate);
+    _endDate = _parseIsoDate(detail.endDate);
+  }
+
+  static DateTime? _parseIsoDate(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    return DateTime.tryParse(iso);
+  }
+
+  static String? _isoDate(DateTime? d) =>
+      d == null ? null : DateFormat('yyyy-MM-dd').format(d);
 
   @override
   Widget build(BuildContext context) {
@@ -81,11 +103,20 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
         }
 
         _syncBudgetForm(detail);
+        _syncDatesForm(detail);
 
         final readOnly = isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
         final canManage = canManageTripBudgetAndFx(
           tripReadOnly: readOnly,
           memberRole: role,
+        );
+
+        final isOwner =
+            currentUserId != null && detail.ownerId == currentUserId;
+        final datesEditability = tripDatesEditability(
+          lifecycle: TripLifecycle.parse(detail.lifecycle),
+          startDateIso: detail.startDate,
+          now: DateTime.now(),
         );
 
         return Scaffold(
@@ -99,6 +130,10 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
           body: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              if (isOwner && datesEditability.any) ...[
+                ..._buildDatesSection(detail, datesEditability),
+                const SizedBox(height: 28),
+              ],
               Text(
                 widget.labels.budgetSectionTitle,
                 style: Theme.of(context).textTheme.titleMedium,
@@ -266,6 +301,153 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
     );
   }
 
+  List<Widget> _buildDatesSection(
+    TripDetail detail,
+    TripDatesEditability editability,
+  ) {
+    final labels = widget.labels;
+    return [
+      Text(
+        labels.datesSectionTitle,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      const SizedBox(height: 12),
+      _DateField(
+        label: labels.startDateLabel,
+        value: _startDate,
+        enabled: editability.canEditStart && !_savingDates,
+        onPick: editability.canEditStart ? _pickStartDate : null,
+      ),
+      if (!editability.canEditStart) ...[
+        const SizedBox(height: 6),
+        Text(
+          labels.startDateLockedHint,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.graphite,
+              ),
+        ),
+      ],
+      const SizedBox(height: 12),
+      _DateField(
+        label: labels.endDateLabel,
+        value: _endDate,
+        enabled: editability.canEditEnd && !_savingDates,
+        onPick: editability.canEditEnd ? _pickEndDate : null,
+      ),
+      if (_dateRangeError != null) ...[
+        const SizedBox(height: 8),
+        Text(
+          _dateRangeError!,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
+        ),
+      ],
+      const SizedBox(height: 12),
+      FilledButton(
+        onPressed: _savingDates ? null : () => _saveDates(detail),
+        child: _savingDates
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(labels.saveDates),
+      ),
+    ];
+  }
+
+  VamoDatePickerLabels get _datePickerLabels => VamoDatePickerLabels(
+        cancel: widget.labels.datePickerCancel,
+        skip: widget.labels.datePickerSkip,
+        select: widget.labels.datePickerSelect,
+      );
+
+  Future<void> _pickStartDate() async {
+    final result = await showVamoDatePicker(
+      context: context,
+      labels: _datePickerLabels,
+      initialDate: _startDate,
+    );
+    if (!mounted) return;
+    switch (result.outcome) {
+      case VamoDatePickOutcome.skipped:
+        setState(() {
+          _startDate = null;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.selected:
+        setState(() {
+          _startDate = result.date;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.cancelled:
+        break;
+    }
+  }
+
+  Future<void> _pickEndDate() async {
+    final result = await showVamoDatePicker(
+      context: context,
+      labels: _datePickerLabels,
+      initialDate: _endDate ?? _startDate,
+      firstDate: _startDate ?? DateTime(2020),
+    );
+    if (!mounted) return;
+    switch (result.outcome) {
+      case VamoDatePickOutcome.skipped:
+        setState(() {
+          _endDate = null;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.selected:
+        setState(() {
+          _endDate = result.date;
+          _validateDateRange();
+        });
+      case VamoDatePickOutcome.cancelled:
+        break;
+    }
+  }
+
+  void _validateDateRange() {
+    if (_startDate != null &&
+        _endDate != null &&
+        _endDate!.isBefore(_startDate!)) {
+      _dateRangeError = widget.labels.endBeforeStart;
+    } else {
+      _dateRangeError = null;
+    }
+  }
+
+  Future<void> _saveDates(TripDetail detail) async {
+    _validateDateRange();
+    if (_dateRangeError != null) {
+      setState(() {});
+      return;
+    }
+    setState(() => _savingDates = true);
+    try {
+      await ref.read(tripsRepositoryProvider).updateTripDates(
+            tripId: widget.tripId,
+            startDate: _isoDate(_startDate),
+            endDate: _isoDate(_endDate),
+          );
+    } catch (e) {
+      if (mounted) {
+        showActionError(
+          context,
+          ref,
+          screen: 'trip_settings',
+          action: 'update_trip_dates',
+          error: e,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingDates = false);
+    }
+  }
+
   Future<void> _saveBudget(TripDetail detail) async {
     setState(() => _savingBudget = true);
     try {
@@ -354,5 +536,34 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
       default:
         return '$code ';
     }
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.onPick,
+  });
+
+  final String label;
+  final DateTime? value;
+  final bool enabled;
+  final VoidCallback? onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final formatted = value == null ? label : DateFormat.yMMMd().format(value!);
+    return OutlinedButton(
+      onPressed: enabled ? onPick : null,
+      style: OutlinedButton.styleFrom(
+        alignment: AlignmentDirectional.centerStart,
+        foregroundColor: colors.onSurface,
+        side: BorderSide(color: colors.border),
+      ),
+      child: Text(value == null ? label : '$label: $formatted'),
+    );
   }
 }

@@ -1,4 +1,5 @@
-typedef BudgetBurnDownLabel = String Function(int remainingCents, String currency);
+typedef BudgetBurnDownLabel = String Function(
+    int remainingCents, String currency);
 typedef BudgetOverLabel = String Function(String currency);
 typedef BudgetFormalConfirmHint = String Function(String phrase);
 
@@ -26,6 +27,15 @@ class TripBudgetLabels {
     required this.confirm,
     required this.cancel,
     required this.currencyMissingAdmin,
+    required this.datesSectionTitle,
+    required this.startDateLabel,
+    required this.endDateLabel,
+    required this.saveDates,
+    required this.startDateLockedHint,
+    required this.endBeforeStart,
+    required this.datePickerCancel,
+    required this.datePickerSkip,
+    required this.datePickerSelect,
   });
 
   final String settingsTitle;
@@ -50,4 +60,13 @@ class TripBudgetLabels {
   final String confirm;
   final String cancel;
   final String currencyMissingAdmin;
+  final String datesSectionTitle;
+  final String startDateLabel;
+  final String endDateLabel;
+  final String saveDates;
+  final String startDateLockedHint;
+  final String endBeforeStart;
+  final String datePickerCancel;
+  final String datePickerSkip;
+  final String datePickerSelect;
 }

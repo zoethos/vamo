@@ -232,6 +232,15 @@ const _budgetLabels = TripBudgetLabels(
   confirm: 'Confirm',
   cancel: 'Cancel',
   currencyMissingAdmin: 'Ask admin',
+  datesSectionTitle: 'Dates',
+  startDateLabel: 'Start date',
+  endDateLabel: 'End date',
+  saveDates: 'Save dates',
+  startDateLockedHint: 'Start date is locked',
+  endBeforeStart: 'End date must be on or after start date.',
+  datePickerCancel: 'Cancel',
+  datePickerSkip: 'Skip',
+  datePickerSelect: 'Select',
 );
 
 String _mockRemaining(int cents, String currency) => '$cents $currency left';
@@ -316,9 +325,8 @@ List<Override> _tripHomeOverrides({
     if (tripsRepo != null)
       tripsRepositoryProvider.overrideWith((ref) => tripsRepo)
     else
-      tripsRepositoryProvider.overrideWith(
-        (ref) => buildTestTripsRepository(db),
-      ),
+      tripsRepositoryProvider
+          .overrideWith((ref) => buildTestTripsRepository(db)),
   ];
 }
 
