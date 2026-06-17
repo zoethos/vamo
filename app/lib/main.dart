@@ -5,6 +5,7 @@ import 'package:feature_split/feature_split.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,9 @@ import 'push/firebase_push_registrar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
 
   await Env.load();
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
