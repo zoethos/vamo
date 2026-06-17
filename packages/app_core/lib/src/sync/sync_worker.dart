@@ -20,12 +20,12 @@ class SyncWorker {
     Analytics? analytics,
     @visibleForTesting Future<void> Function(LocalSyncOutboxData)? testExecute,
     @visibleForTesting bool flushWithoutSession = false,
-  })  : _queue = queue,
-        _client = client,
-        _db = db,
-        _analytics = analytics,
-        _testExecute = testExecute,
-        _flushWithoutSession = flushWithoutSession;
+  }) : _queue = queue,
+       _client = client,
+       _db = db,
+       _analytics = analytics,
+       _testExecute = testExecute,
+       _flushWithoutSession = flushWithoutSession;
 
   final SyncQueue _queue;
   final SupabaseClient _client;
@@ -76,8 +76,10 @@ class SyncWorker {
               action: op.kind,
               severity: ActionFailureSeverity.degraded,
             );
-            final attempts =
-                await _queue.recordFailure(op.id, error.toString());
+            final attempts = await _queue.recordFailure(
+              op.id,
+              error.toString(),
+            );
             if (attempts != null && attempts >= SyncQueue.maxAttempts) {
               await _deadLetter(op);
               madeProgress = true;
@@ -101,12 +103,19 @@ class SyncWorker {
   Future<void> _deadLetter(LocalSyncOutboxData op) async {
     final kind = SyncKind.parse(op.kind);
     final analytics = _analytics;
-    if (kind == SyncKind.receiptUpload && analytics != null) {
+    final action = switch (kind) {
+      SyncKind.receiptUpload => 'attach_receipt',
+      SyncKind.tripPhotoUpload => 'upload_photo_remote',
+      SyncKind.tripVideoUpload => 'upload_video_remote',
+      SyncKind.tripBackgroundUpload => 'set_trip_background_remote',
+      _ => null,
+    };
+    if (action != null && analytics != null) {
       reportAndLog(
-        Exception(op.lastError ?? 'receipt_upload_dead_letter'),
+        Exception(op.lastError ?? '${op.kind}_dead_letter'),
         StackTrace.current,
         screen: 'sync',
-        action: 'attach_receipt',
+        action: action,
         severity: ActionFailureSeverity.degraded,
         analytics: analytics,
       );
@@ -129,9 +138,7 @@ class SyncWorker {
 
     switch (kind) {
       case SyncKind.expenseInsert:
-        final expense = Map<String, dynamic>.from(
-          payload['expense'] as Map,
-        );
+        final expense = Map<String, dynamic>.from(payload['expense'] as Map);
         await _client.from('expenses').upsert(expense, onConflict: 'id');
         final shares = (payload['shares'] as List)
             .cast<Map<String, dynamic>>()
@@ -149,28 +156,23 @@ class SyncWorker {
         }
         break;
       case SyncKind.placeInsert:
-        await _client.from('places').upsert(
-              Map<String, dynamic>.from(payload),
-              onConflict: 'id',
-            );
+        await _client
+            .from('places')
+            .upsert(Map<String, dynamic>.from(payload), onConflict: 'id');
         break;
       case SyncKind.receiptUpload:
         final expenseId = payload['expense_id'] as String;
         final localPath = payload['local_path'] as String;
         final storagePath = payload['storage_path'] as String;
-        final bytes = await File(localPath).readAsBytes();
-        await _client.storage.from(StoragePaths.capturesBucket).uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: FileOptions(
-                contentType: _contentTypeForPath(localPath),
-                upsert: true,
-              ),
-            );
-        await _client.from('expenses').upsert(
-          {'id': expenseId, 'receipt_path': storagePath},
-          onConflict: 'id',
+        await _uploadBinary(
+          bucket: StoragePaths.capturesBucket,
+          storagePath: storagePath,
+          localPath: localPath,
         );
+        await _client.from('expenses').upsert({
+          'id': expenseId,
+          'receipt_path': storagePath,
+        }, onConflict: 'id');
         final db = _db;
         if (db != null) {
           await db.upsertExpense(
@@ -181,27 +183,113 @@ class SyncWorker {
           );
         }
         break;
-      case SyncKind.settlementInsert:
-        await _client.from('settlements').upsert(
-              Map<String, dynamic>.from(payload),
-              onConflict: 'id',
+      case SyncKind.tripPhotoUpload:
+        final photoId = payload['photo_id'] as String;
+        final tripId = payload['trip_id'] as String;
+        final localPath = payload['local_path'] as String;
+        final storagePath = payload['storage_path'] as String;
+        await _uploadBinary(
+          bucket: StoragePaths.capturesBucket,
+          storagePath: storagePath,
+          localPath: localPath,
+        );
+        await _client.from('trip_photos').upsert({
+          'id': photoId,
+          'trip_id': tripId,
+          'storage_path': storagePath,
+          'caption': payload['caption'] as String?,
+          'captured_at': payload['captured_at'] as String,
+          'created_by': payload['created_by'] as String,
+        }, onConflict: 'id');
+        final db = _db;
+        if (db != null) {
+          await db.upsertTripPhoto(
+            LocalTripPhotosCompanion(
+              id: Value(photoId),
+              storagePath: Value(storagePath),
+            ),
+          );
+        }
+        break;
+      case SyncKind.tripVideoUpload:
+        final videoId = payload['video_id'] as String;
+        final tripId = payload['trip_id'] as String;
+        final localPath = payload['local_path'] as String;
+        final storagePath = payload['storage_path'] as String;
+        await _client.storage
+            .from(StoragePaths.capturesBucket)
+            .upload(
+              storagePath,
+              File(localPath),
+              fileOptions: FileOptions(
+                contentType: _contentTypeForPath(localPath),
+                upsert: true,
+              ),
             );
+        await _client.from('trip_videos').upsert({
+          'id': videoId,
+          'trip_id': tripId,
+          'storage_path': storagePath,
+          'caption': payload['caption'] as String?,
+          'captured_at': payload['captured_at'] as String,
+          'captured_lat': _nullableDouble(payload['captured_lat']),
+          'captured_lng': _nullableDouble(payload['captured_lng']),
+          'created_by': payload['created_by'] as String,
+        }, onConflict: 'id');
+        final db = _db;
+        if (db != null) {
+          await db.upsertTripVideo(
+            LocalTripVideosCompanion(
+              id: Value(videoId),
+              storagePath: Value(storagePath),
+            ),
+          );
+        }
+        break;
+      case SyncKind.tripBackgroundUpload:
+        final tripId = payload['trip_id'] as String;
+        final localPath = payload['local_path'] as String;
+        final storagePath = payload['storage_path'] as String;
+        await _uploadBinary(
+          bucket: StoragePaths.tripBackgroundsBucket,
+          storagePath: storagePath,
+          localPath: localPath,
+        );
+        await _client.rpc(
+          'set_trip_background',
+          params: {'p_trip_id': tripId, 'p_background_path': storagePath},
+        );
+        final db = _db;
+        if (db != null) {
+          await db.updateTripFields(
+            tripId,
+            LocalTripsCompanion(
+              backgroundPath: Value(storagePath),
+              updatedAt: Value(DateTime.now().toUtc()),
+            ),
+          );
+        }
+        break;
+      case SyncKind.settlementInsert:
+        await _client
+            .from('settlements')
+            .upsert(Map<String, dynamic>.from(payload), onConflict: 'id');
         break;
       case SyncKind.settlementUpdate:
-        await _client.from('settlements').update(
-            {'status': payload['status']}).eq('id', payload['id'] as String);
+        await _client
+            .from('settlements')
+            .update({'status': payload['status']})
+            .eq('id', payload['id'] as String);
         break;
       case SyncKind.tripNoteInsert:
-        await _client.from('trip_notes').upsert(
-              Map<String, dynamic>.from(payload),
-              onConflict: 'id',
-            );
+        await _client
+            .from('trip_notes')
+            .upsert(Map<String, dynamic>.from(payload), onConflict: 'id');
         break;
       case SyncKind.planItemUpsert:
-        await _client.from('trip_plan_items').upsert(
-              Map<String, dynamic>.from(payload),
-              onConflict: 'id',
-            );
+        await _client
+            .from('trip_plan_items')
+            .upsert(Map<String, dynamic>.from(payload), onConflict: 'id');
         break;
       case SyncKind.planItemDelete:
         await _client
@@ -210,10 +298,9 @@ class SyncWorker {
             .eq('id', payload['id'] as String);
         break;
       case SyncKind.listItemUpsert:
-        await _client.from('trip_list_items').upsert(
-              Map<String, dynamic>.from(payload),
-              onConflict: 'id',
-            );
+        await _client
+            .from('trip_list_items')
+            .upsert(Map<String, dynamic>.from(payload), onConflict: 'id');
         break;
       case SyncKind.listItemDelete:
         await _client
@@ -224,9 +311,33 @@ class SyncWorker {
     }
   }
 
+  Future<void> _uploadBinary({
+    required String bucket,
+    required String storagePath,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    await _client.storage
+        .from(bucket)
+        .uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: _contentTypeForPath(localPath),
+            upsert: true,
+          ),
+        );
+  }
+
+  double? _nullableDouble(Object? value) {
+    if (value == null) return null;
+    return (value as num).toDouble();
+  }
+
   static String _contentTypeForPath(String path) {
-    final ext =
-        path.contains('.') ? '.${path.split('.').last.toLowerCase()}' : '.jpg';
+    final ext = path.contains('.')
+        ? '.${path.split('.').last.toLowerCase()}'
+        : '.jpg';
     switch (ext) {
       case '.png':
         return 'image/png';
@@ -235,6 +346,13 @@ class SyncWorker {
       case '.heic':
       case '.heif':
         return 'image/heic';
+      case '.mp4':
+      case '.m4v':
+        return 'video/mp4';
+      case '.mov':
+        return 'video/quicktime';
+      case '.webm':
+        return 'video/webm';
       default:
         return 'image/jpeg';
     }

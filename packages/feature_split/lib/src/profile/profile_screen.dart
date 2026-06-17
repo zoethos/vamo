@@ -46,6 +46,10 @@ class ProfileScreenLabels {
     required this.signOut,
     required this.saveChanges,
     required this.profileSaved,
+    required this.pendingMediaTitle,
+    required this.pendingMediaBody,
+    required this.pendingMediaStay,
+    required this.pendingMediaDiscard,
   });
 
   final String title;
@@ -84,6 +88,10 @@ class ProfileScreenLabels {
   final String signOut;
   final String saveChanges;
   final String profileSaved;
+  final String pendingMediaTitle;
+  final String Function(int count) pendingMediaBody;
+  final String pendingMediaStay;
+  final String pendingMediaDiscard;
 }
 
 /// Profile tab — settings + About (version, brand, licenses, privacy).
@@ -106,6 +114,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String? _baseCurrency;
   bool _dirty = false;
   bool _saving = false;
+  bool _signingOut = false;
   bool _hydrated = false;
   String? _version;
   String? _nameError;
@@ -172,9 +181,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Text(
                 widget.labels.profileSection,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppColors.ink,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -245,9 +254,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Text(
                   widget.labels.billingSection,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Card(
@@ -358,7 +367,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: _signOut,
+                onPressed: _saving || _signingOut ? null : _signOut,
                 icon: const Icon(Icons.logout),
                 label: Text(widget.labels.signOut),
               ),
@@ -407,8 +416,48 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
-    await ref.read(tripsRepositoryProvider).clearLocal();
-    await ref.read(authRepositoryProvider).signOut();
+    if (_signingOut) return;
+    setState(() => _signingOut = true);
+    try {
+      await ref.read(syncWorkerProvider).flush();
+      final pendingMedia = await ref
+          .read(syncQueueProvider)
+          .countPendingMediaUploads();
+      if (pendingMedia > 0) {
+        if (!mounted) return;
+        final discard = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(widget.labels.pendingMediaTitle),
+            content: Text(widget.labels.pendingMediaBody(pendingMedia)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(widget.labels.pendingMediaStay),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(widget.labels.pendingMediaDiscard),
+              ),
+            ],
+          ),
+        );
+        if (discard != true) return;
+      }
+      await ref.read(tripsRepositoryProvider).clearLocal();
+      await ref.read(authRepositoryProvider).signOut();
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'sign_out',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
   }
 
   String? _validateDisplayName() {
@@ -478,9 +527,9 @@ class _AboutBlock extends StatelessWidget {
             Text(
               tagline,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             if (version != null) ...[
               const SizedBox(height: 8),

@@ -20,6 +20,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _baseCurrency;
   bool _dirty = false;
   bool _saving = false;
+  bool _signingOut = false;
   bool _hydrated = false;
 
   @override
@@ -99,15 +100,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 8),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.workspace_premium_outlined,
-                      color: AppColors.jadeTeal),
+                  leading: const Icon(
+                    Icons.workspace_premium_outlined,
+                    color: AppColors.jadeTeal,
+                  ),
                   title: const Text('Vamo Plus'),
                   subtitle: Text(
                     'Coming soon. Tap to register interest.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.graphite),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
                   ),
                   trailing: Icon(
                     Directionality.of(context) == TextDirection.rtl
@@ -129,8 +131,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 16),
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.lightbulb_outline,
-                      color: AppColors.jadeTeal),
+                  leading: const Icon(
+                    Icons.lightbulb_outline,
+                    color: AppColors.jadeTeal,
+                  ),
                   title: const Text('Suggest a feature'),
                   subtitle: const Text('We read every submission'),
                   trailing: Icon(
@@ -177,10 +181,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   child: Text(
                     '${DevLocaleLabels.system} · ${DevLocaleLabels.rtl} · '
                     '${DevLocaleLabels.pseudo}',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.graphite),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -198,10 +201,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ? 'PostHog key not set — events log to the debug console.'
                     : 'PostHog is active. Verify all ${VamoEvent.northStar.length} '
                         'North-Star events in Live events after each flow.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.graphite),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
               ),
               const SizedBox(height: 8),
               ...VamoEvent.northStar.map(
@@ -226,7 +228,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 24),
               OutlinedButton.icon(
-                onPressed: _signOut,
+                onPressed: _saving || _signingOut ? null : _signOut,
                 icon: const Icon(Icons.logout),
                 label: const Text('Sign out'),
               ),
@@ -250,9 +252,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _dirty = false;
         _saving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile saved.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile saved.')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -267,7 +269,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _signOut() async {
-    await ref.read(tripsRepositoryProvider).clearLocal();
-    await ref.read(authRepositoryProvider).signOut();
+    if (_signingOut) return;
+    setState(() => _signingOut = true);
+    try {
+      await ref.read(syncWorkerProvider).flush();
+      final pendingMedia =
+          await ref.read(syncQueueProvider).countPendingMediaUploads();
+      if (pendingMedia > 0) {
+        if (!mounted) return;
+        final discard = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Media still uploading'),
+            content: Text(
+              '$pendingMedia media '
+              '${pendingMedia == 1 ? 'upload is' : 'uploads are'} '
+              'still waiting. '
+              'Signing out now will remove the local '
+              '${pendingMedia == 1 ? 'copy' : 'copies'} from this device.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Stay signed in'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Discard and sign out'),
+              ),
+            ],
+          ),
+        );
+        if (discard != true) return;
+      }
+      await ref.read(tripsRepositoryProvider).clearLocal();
+      await ref.read(authRepositoryProvider).signOut();
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'settings',
+        action: 'sign_out',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
   }
 }
