@@ -199,7 +199,9 @@ void main() {
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
       expect(
-        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.actionFailed)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'add_capture_photo',
@@ -220,7 +222,7 @@ void main() {
           navigationContext: context,
           providerContainer: ProviderScope.containerOf(context, listen: false),
           onDismiss: onDismiss,
-          pickVideo: ({required source}) async {
+          pickVideo: ({required source, maxDuration}) async {
             throw pickerError;
           },
         ),
@@ -230,7 +232,9 @@ void main() {
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
       expect(
-        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.actionFailed)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'add_capture_video',
@@ -266,7 +270,9 @@ void main() {
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
       expect(
-        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.actionFailed)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'set_trip_background',
@@ -334,7 +340,9 @@ void main() {
 
       expect(find.byType(CaptureChoiceSheet), findsNothing);
       expect(
-        events.where((e) => e['event'] == VamoEvent.actionFailed).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.actionFailed)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'add_capture_note',
@@ -344,7 +352,9 @@ void main() {
         },
       );
       expect(
-        events.where((e) => e['event'] == VamoEvent.captureActionStarted).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.captureActionStarted)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'add_capture_note',

@@ -25,4 +25,16 @@ void main() {
       'u1/t1/receipts/e1.png',
     );
   });
+
+  test('captureVideo keeps owner and trip as first two segments', () {
+    expect(
+      StoragePaths.captureVideo(
+        userId: 'u1',
+        tripId: 't1',
+        videoId: 'v1',
+        ext: 'mp4',
+      ),
+      'u1/t1/videos/v1.mp4',
+    );
+  });
 }

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:app_core/app_core.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Local files under app documents — copied picks and cached remote photos.
 abstract final class CaptureStorage {
   static const capturesRoot = 'captures';
+  static const maxVideoBytes = 100 * 1024 * 1024;
 
   static Future<String> persistPhoto({
     required String tripId,
@@ -17,6 +19,19 @@ abstract final class CaptureStorage {
     final folder = await _tripFolder(tripId);
     final ext = normalizeExt(p.extension(sourcePath));
     final dest = p.join(folder.path, '$photoId$ext');
+    await File(sourcePath).copy(dest);
+    return dest;
+  }
+
+  static Future<String> persistVideo({
+    required String tripId,
+    required String videoId,
+    required String sourcePath,
+  }) async {
+    await ensureVideoSizeAllowed(sourcePath);
+    final folder = await _videosFolder(tripId);
+    final ext = normalizeVideoExt(p.extension(sourcePath));
+    final dest = p.join(folder.path, '$videoId$ext');
     await File(sourcePath).copy(dest);
     return dest;
   }
@@ -51,6 +66,70 @@ abstract final class CaptureStorage {
         return dest;
       },
     );
+  }
+
+  static Future<StorageAttachmentLoadResult> cacheVideoFromStorage({
+    required SupabaseClient client,
+    required String tripId,
+    required String videoId,
+    required String storagePath,
+  }) async {
+    String? partialCachePath;
+    try {
+      final signed = await client.storage
+          .from(StoragePaths.capturesBucket)
+          .createSignedUrl(storagePath, 3600);
+      final httpClient = http.Client();
+      try {
+        final response =
+            await httpClient.send(http.Request('GET', Uri.parse(signed)));
+        if (response.statusCode != 200) {
+          return StorageAttachmentLoadResult.failure(
+            StorageException(
+              'Storage download failed',
+              statusCode: response.statusCode.toString(),
+            ),
+            hadRemoteAttachment: true,
+          );
+        }
+        final contentLength = response.contentLength;
+        if (contentLength != null && contentLength > maxVideoBytes) {
+          return StorageAttachmentLoadResult.failure(
+            FileSystemException(
+              'Video exceeds the 100 MB cache limit',
+              storagePath,
+            ),
+            hadRemoteAttachment: true,
+          );
+        }
+
+        final folder = await _videosFolder(tripId);
+        final ext = normalizeVideoExt(p.extension(storagePath));
+        final dest = p.join(folder.path, '$videoId$ext');
+        partialCachePath = dest;
+        await response.stream.pipe(File(dest).openWrite());
+        try {
+          await ensureVideoSizeAllowed(dest);
+        } on FileSystemException {
+          await deleteLocalFileBestEffort(dest);
+          rethrow;
+        }
+        return StorageAttachmentLoadResult.local(dest);
+      } finally {
+        httpClient.close();
+      }
+    } on StorageException catch (e) {
+      return StorageAttachmentLoadResult.failure(
+        e,
+        hadRemoteAttachment: true,
+      );
+    } catch (e) {
+      await deleteLocalFileBestEffort(partialCachePath);
+      return StorageAttachmentLoadResult.failure(
+        e,
+        hadRemoteAttachment: true,
+      );
+    }
   }
 
   static Future<StorageAttachmentLoadResult> cacheReceiptFromStorage({
@@ -118,10 +197,51 @@ abstract final class CaptureStorage {
     return folder;
   }
 
+  static Future<Directory> _videosFolder(String tripId) async {
+    final trip = await _tripFolder(tripId);
+    final folder = Directory(p.join(trip.path, 'videos'));
+    if (!await folder.exists()) {
+      await folder.create(recursive: true);
+    }
+    return folder;
+  }
+
   static String normalizeExt(String ext) {
     final lower = ext.toLowerCase();
     if (lower.isEmpty || lower == '.') return '.jpg';
     return lower;
+  }
+
+  static String normalizeVideoExt(String ext) {
+    final lower = ext.toLowerCase();
+    if (lower.isEmpty || lower == '.') return '.mp4';
+    return lower;
+  }
+
+  static Future<void> ensureVideoSizeAllowed(String path) async {
+    final file = File(path);
+    final length = await file.length();
+    if (length > maxVideoBytes) {
+      throw FileSystemException(
+        'Video exceeds the 100 MB upload limit',
+        path,
+      );
+    }
+  }
+
+  static String videoContentTypeForPath(String path) {
+    final ext = p.extension(path).toLowerCase();
+    switch (ext) {
+      case '.mp4':
+      case '.m4v':
+        return 'video/mp4';
+      case '.mov':
+        return 'video/quicktime';
+      case '.webm':
+        return 'video/webm';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   static String contentTypeForPath(String path) {
@@ -134,6 +254,13 @@ abstract final class CaptureStorage {
       case '.heic':
       case '.heif':
         return 'image/heic';
+      case '.mp4':
+      case '.m4v':
+        return 'video/mp4';
+      case '.mov':
+        return 'video/quicktime';
+      case '.webm':
+        return 'video/webm';
       default:
         return 'image/jpeg';
     }

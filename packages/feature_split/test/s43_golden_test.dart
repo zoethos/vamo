@@ -220,11 +220,13 @@ Widget _memoriesPreview({
   required ThemeData theme,
   List<TripNoteView> notes = const [],
   List<TripPhotoView> photos = const [],
+  List<TripVideoView> videos = const [],
 }) {
   return ProviderScope(
     overrides: [
       tripNotesProvider.overrideWith((ref, tripId) => Stream.value(notes)),
       tripPhotosProvider.overrideWith((ref, tripId) => Stream.value(photos)),
+      tripVideosProvider.overrideWith((ref, tripId) => Stream.value(videos)),
     ],
     child: MaterialApp(
       theme: theme,

@@ -5,7 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 Future<void> _stripV11ExpenseGovernanceColumns(AppDatabase db) async {
   await db.customStatement('ALTER TABLE local_expenses DROP COLUMN status');
-  await db.customStatement('ALTER TABLE local_expense_shares DROP COLUMN response');
+  await db
+      .customStatement('ALTER TABLE local_expense_shares DROP COLUMN response');
   await db.customStatement(
     'ALTER TABLE local_expense_shares DROP COLUMN response_reason',
   );
@@ -19,7 +20,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 15);
+    expect(db.schemaVersion, 17);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertExpense(

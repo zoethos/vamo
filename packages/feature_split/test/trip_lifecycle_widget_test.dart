@@ -61,6 +61,7 @@ class _SpyTripsRepository extends TripsRepository {
     required super.places,
     required super.plan,
     required super.syncQueue,
+    required super.notifications,
   });
 
   int requestCloseCalls = 0;
@@ -131,6 +132,7 @@ _SpyTripsRepository _buildSpyTripsRepository(AppDatabase db) {
     places: places,
     plan: plan,
     syncQueue: queue,
+    notifications: buildTestNotificationsRepository(db, client: client),
   );
 }
 

@@ -918,6 +918,84 @@ Future<void> main() async {
       'p_status': 'maybe',
     });
 
+    // --- S46 notifications ---
+    if (serviceClient != null) {
+      final noticeId = await serviceClient.rpc('record_notification', params: {
+        'p_user_id': userB,
+        'p_trip_id': tripId,
+        'p_type': 'close_notice',
+        'p_title': 'Trip is closing',
+        'p_body': 'Smoke notice for member B',
+        'p_route': '/trips/$tripId/close-report',
+      }) as String;
+
+      final aNotices =
+          await clientA.from('notifications').select('id').eq('id', noticeId);
+      results.add(_Check(
+        'A cannot read B notifications',
+        (aNotices as List).isEmpty,
+      ));
+
+      final bNotices = await clientB
+          .from('notifications')
+          .select('id, read_at')
+          .eq('id', noticeId);
+      results.add(_Check(
+        'B sees own notification',
+        (bNotices as List).length == 1 && bNotices.first['read_at'] == null,
+      ));
+
+      var insertBlocked = false;
+      try {
+        await clientA.from('notifications').insert({
+          'user_id': userA,
+          'type': 'close_notice',
+          'title': 'blocked',
+          'body': 'blocked',
+        });
+      } catch (_) {
+        insertBlocked = true;
+      }
+      results.add(
+          _Check('client INSERT into notifications blocked', insertBlocked));
+
+      await clientB.rpc('mark_notification_read', params: {'p_id': noticeId});
+      final readRow = await clientB
+          .from('notifications')
+          .select('read_at')
+          .eq('id', noticeId)
+          .single();
+      results.add(_Check(
+        'mark_notification_read sets read_at for caller',
+        readRow['read_at'] != null,
+      ));
+
+      await serviceClient.rpc('record_notification', params: {
+        'p_user_id': userA,
+        'p_trip_id': tripId,
+        'p_type': 'close_notice',
+        'p_title': 'For A',
+        'p_body': 'Unread for mark-all test',
+        'p_route': '/trips/$tripId/close-report',
+      });
+      await clientA.rpc('mark_all_notifications_read');
+      final aUnread = await clientA
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userA)
+          .isFilter('read_at', null);
+      results.add(_Check(
+        'mark_all_notifications_read clears caller unread',
+        (aUnread as List).isEmpty,
+      ));
+    } else {
+      results.add(_Check(
+        'S46 notifications (service role)',
+        false,
+        detail: 'set RLS_SERVICE_ROLE_KEY for notification smoke',
+      ));
+    }
+
     // --- S17 lifecycle (R3) — before B is removed ---
     await clientA.rpc('request_trip_close', params: {'p_trip_id': tripId});
     final closingRow = await clientA
@@ -1150,9 +1228,13 @@ Future<void> main() async {
     if (serviceClient != null) {
       var forgedNoticeBlocked = false;
       try {
-        await clientA.from('trip_members').update({
-          'close_notified_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('trip_id', tripId).eq('user_id', userA);
+        await clientA
+            .from('trip_members')
+            .update({
+              'close_notified_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .eq('trip_id', tripId)
+            .eq('user_id', userA);
       } catch (_) {
         forgedNoticeBlocked = true;
       }

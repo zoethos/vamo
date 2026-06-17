@@ -11,6 +11,7 @@ import '../capture/capture_storage.dart';
 import '../expenses/expenses_repository.dart';
 import '../plan/plan_repository.dart';
 import '../places/places_repository.dart';
+import '../notifications/notifications_repository.dart';
 import '../settle/settlements_repository.dart';
 import 'trip_background_storage.dart';
 import 'trip_fx_models.dart';
@@ -27,6 +28,7 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
     places: ref.watch(placesRepositoryProvider),
     plan: ref.watch(planRepositoryProvider),
     syncQueue: ref.watch(syncQueueProvider),
+    notifications: ref.watch(notificationsRepositoryProvider),
   );
 });
 
@@ -43,6 +45,7 @@ class TripsRepository {
     required PlacesRepository places,
     required PlanRepository plan,
     required SyncQueue syncQueue,
+    required NotificationsRepository notifications,
   })  : _db = db,
         _client = client,
         _analytics = analytics,
@@ -51,7 +54,8 @@ class TripsRepository {
         _capture = capture,
         _places = places,
         _plan = plan,
-        _syncQueue = syncQueue;
+        _syncQueue = syncQueue,
+        _notifications = notifications;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -62,6 +66,7 @@ class TripsRepository {
   final PlacesRepository _places;
   final PlanRepository _plan;
   final SyncQueue _syncQueue;
+  final NotificationsRepository _notifications;
   final _uuid = const Uuid();
 
   Stream<List<TripSummary>> watchTripSummaries() {
@@ -145,6 +150,7 @@ class TripsRepository {
   Future<void> clearLocal() async {
     await CaptureStorage.clearAll();
     await _db.delete(_db.localSyncOutbox).go();
+    await _db.delete(_db.localTripVideos).go();
     await _db.delete(_db.localTripPhotos).go();
     await _db.delete(_db.localTripNotes).go();
     await _db.delete(_db.localSettlements).go();
@@ -155,6 +161,7 @@ class TripsRepository {
     await _db.delete(_db.localPlanItems).go();
     await _db.delete(_db.localTripListItems).go();
     await _db.delete(_db.localTripFxRates).go();
+    await _db.delete(_db.localNotifications).go();
     await _db.delete(_db.localTrips).go();
   }
 
@@ -162,23 +169,27 @@ class TripsRepository {
   Future<void> syncTripFromRemote(String tripId) async {
     if (_client.auth.currentUser?.id == null) return;
     final pending = await _syncQueue.collectPendingEntityIds();
-    await _pullTripsAndMembers(remoteTripIds: {tripId}, onlyTripId: tripId);
-    await _places.syncPlacesForTrips([tripId]);
-    await _expenses.syncExpensesForTrips(
-      [tripId],
-      excludeExpenseIds: pending.expenseIds,
-    );
-    await _settlements.syncSettlementsForTrips(
-      [tripId],
-      excludeSettlementIds: pending.settlementIds,
-    );
-    await _capture.syncCaptureForTrips([tripId]);
-    await _plan.syncPlanForTrips(
-      [tripId],
-      excludePlanIds: pending.planItemIds,
-      excludeListIds: pending.listItemIds,
-    );
-    await _syncTripFxRatesForTrips([tripId]);
+    try {
+      await _pullTripsAndMembers(remoteTripIds: {tripId}, onlyTripId: tripId);
+      await _places.syncPlacesForTrips([tripId]);
+      await _expenses.syncExpensesForTrips(
+        [tripId],
+        excludeExpenseIds: pending.expenseIds,
+      );
+      await _settlements.syncSettlementsForTrips(
+        [tripId],
+        excludeSettlementIds: pending.settlementIds,
+      );
+      await _capture.syncCaptureForTrips([tripId]);
+      await _plan.syncPlanForTrips(
+        [tripId],
+        excludePlanIds: pending.planItemIds,
+        excludeListIds: pending.listItemIds,
+      );
+      await _syncTripFxRatesForTrips([tripId]);
+    } finally {
+      await _notifications.syncFromRemote();
+    }
   }
 
   Future<void> syncFromRemote() async {
@@ -215,6 +226,7 @@ class TripsRepository {
       excludeListIds: pending.listItemIds,
     );
     await _syncTripFxRatesForTrips(remoteIds);
+    await _notifications.syncFromRemote();
   }
 
   Future<void> _pullTripsAndMembers({

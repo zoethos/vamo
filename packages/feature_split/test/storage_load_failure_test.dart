@@ -119,6 +119,49 @@ void main() {
         },
       ]);
     });
+
+    testWidgets('video 403 shows placeholder and reports auth failure',
+        (tester) async {
+      final events = <Map<String, Object?>>[];
+      final video = TripVideoView(
+        id: 'v1',
+        tripId: 't1',
+        displayPath: null,
+        capturedAt: DateTime(2026, 6, 2),
+        loadError: const StorageException('Forbidden', statusCode: '403'),
+        hasRemoteStoragePath: true,
+        storagePath: 'u1/t1/videos/v1.mp4',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            analyticsProvider.overrideWithValue(_RecordingAnalytics(events)),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: CaptureVideoCell(tripId: 't1', video: video),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StorageUnavailablePlaceholder), findsOneWidget);
+      expect(events, [
+        {
+          'event': VamoEvent.actionFailed,
+          'properties': {
+            'screen': 'trip_home',
+            'action': 'load_video',
+            'severity': 'failure',
+            'error_kind': 'auth',
+            'error_code': 'storage_403',
+          },
+        },
+      ]);
+    });
   });
 }
 

@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 15);
+    expect(db.schemaVersion, 17);
 
     final now = DateTime.utc(2026, 6, 5);
     await db.upsertTrip(
@@ -34,7 +34,8 @@ void main() {
     final db = AppDatabase.forTesting(executor);
     addTearDown(db.close);
 
-    await db.customStatement('ALTER TABLE local_trips DROP COLUMN background_path');
+    await db
+        .customStatement('ALTER TABLE local_trips DROP COLUMN background_path');
     await db.customStatement(
       'ALTER TABLE local_trips DROP COLUMN background_local_path',
     );

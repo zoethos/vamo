@@ -38,11 +38,25 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
       return;
     }
 
-    _authSub = ref.read(authRepositoryProvider).authStateChanges.listen((state) {
-      if (state.event == AuthChangeEvent.signedIn && mounted) {
-        unawaited(_continueSignedIn());
-      }
-    });
+    _authSub = ref.read(authRepositoryProvider).authStateChanges.listen(
+      (state) {
+        if (state.event == AuthChangeEvent.signedIn && mounted) {
+          unawaited(_continueSignedIn());
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!mounted) return;
+        reportAndLog(
+          error,
+          stackTrace,
+          screen: 'auth_callback',
+          action: 'auth_callback_exchange',
+          severity: ActionFailureSeverity.degraded,
+          analytics: ref.read(analyticsProvider),
+        );
+        unawaited(_failWithoutSession());
+      },
+    );
 
     _timeout = Timer(const Duration(seconds: 10), () {
       if (!mounted) return;

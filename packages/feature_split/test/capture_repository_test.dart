@@ -4,6 +4,7 @@ import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:feature_split/src/capture/capture_repository.dart';
+import 'package:feature_split/src/capture/capture_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -65,5 +66,149 @@ void main() {
     expect(photos.first.id, 'photo-1');
     expect(photos.first.tripId, tripId);
     expect(photos.first.displayPath, photoFile.path);
+  });
+
+  test('watchTripVideos emits videos persisted in Drift', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    const tripId = 'trip-1';
+    final capturedAt = DateTime.utc(2026, 6, 5, 12);
+    final tempDir = await Directory.systemTemp.createTemp('vamo-capture-test');
+    addTearDown(() => tempDir.delete(recursive: true));
+    final videoFile = File('${tempDir.path}/video-1.mp4');
+    await videoFile.writeAsBytes(const [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]);
+
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value(tripId),
+        name: const Value('Amalfi'),
+        baseCurrency: const Value('EUR'),
+        ownerId: const Value('user-1'),
+        createdAt: Value(capturedAt),
+        updatedAt: Value(capturedAt),
+      ),
+    );
+
+    await db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: const Value('video-1'),
+        tripId: const Value(tripId),
+        localPath: Value(videoFile.path),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final repo = CaptureRepository(
+      db: db,
+      client: client,
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+    );
+
+    final videos = await repo.watchTripVideos(tripId).first;
+    expect(videos, hasLength(1));
+    expect(videos.first.id, 'video-1');
+    expect(videos.first.tripId, tripId);
+    expect(videos.first.displayPath, videoFile.path);
+  });
+
+  test('watchTripVideos defers remote video download until playback', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    const tripId = 'trip-1';
+    final capturedAt = DateTime.utc(2026, 6, 5, 12);
+
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value(tripId),
+        name: const Value('Amalfi'),
+        baseCurrency: const Value('EUR'),
+        ownerId: const Value('user-1'),
+        createdAt: Value(capturedAt),
+        updatedAt: Value(capturedAt),
+      ),
+    );
+
+    await db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: const Value('video-remote'),
+        tripId: const Value(tripId),
+        storagePath: const Value('user-1/trip-1/videos/video-remote.mp4'),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final repo = CaptureRepository(
+      db: db,
+      client: client,
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+    );
+
+    final videos = await repo.watchTripVideos(tripId).first;
+    expect(videos, hasLength(1));
+    expect(videos.first.id, 'video-remote');
+    expect(videos.first.displayPath, null);
+    expect(videos.first.loadError, null);
+    expect(videos.first.hasRemoteStoragePath, isTrue);
+    expect(videos.first.storagePath, 'user-1/trip-1/videos/video-remote.mp4');
+  });
+
+  test('video storage helpers guard upload size and content type', () async {
+    expect(CaptureStorage.videoContentTypeForPath('clip.mp4'), 'video/mp4');
+    expect(
+        CaptureStorage.videoContentTypeForPath('clip.mov'), 'video/quicktime');
+    expect(CaptureStorage.videoContentTypeForPath('clip.unknown'),
+        'application/octet-stream');
+
+    final tempDir = await Directory.systemTemp.createTemp('vamo-video-size');
+    addTearDown(() => tempDir.delete(recursive: true));
+    final tooLarge = File('${tempDir.path}/large.mp4');
+    final raf = await tooLarge.open(mode: FileMode.write);
+    addTearDown(() async {
+      try {
+        await raf.close();
+      } catch (_) {
+        // The file may already be closed by the test body.
+      }
+    });
+    await raf.setPosition(CaptureStorage.maxVideoBytes);
+    await raf.writeByte(0);
+    await raf.close();
+
+    expect(
+      CaptureStorage.ensureVideoSizeAllowed(tooLarge.path),
+      throwsA(isA<FileSystemException>()),
+    );
   });
 }
