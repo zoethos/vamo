@@ -107,5 +107,46 @@ void main() {
         AuthUrls.inAppLoginCallbackLocation(uri),
       );
     });
+
+    test('routes signed-in users with incomplete profiles to completion', () {
+      expect(
+        resolveRouterRedirect(
+          uri: Uri.parse('https://vamo.world/trips'),
+          matchedLocation: AppRoutes.trips,
+          queryParameters: const {},
+          isSignedIn: true,
+          profileRequiresCompletion: true,
+        ),
+        AppRoutes.profileCompletion,
+      );
+    });
+
+    test('allows completion and join routes while profile is incomplete', () {
+      for (final location in [AppRoutes.profileCompletion, AppRoutes.join]) {
+        expect(
+          resolveRouterRedirect(
+            uri: Uri.parse('https://vamo.world$location'),
+            matchedLocation: location,
+            queryParameters: const {},
+            isSignedIn: true,
+            profileRequiresCompletion: true,
+          ),
+          isNull,
+          reason: location,
+        );
+      }
+    });
+
+    test('moves completed users away from completion route', () {
+      expect(
+        resolveRouterRedirect(
+          uri: Uri.parse('https://vamo.world/profile/complete'),
+          matchedLocation: AppRoutes.profileCompletion,
+          queryParameters: const {},
+          isSignedIn: true,
+        ),
+        AppRoutes.trips,
+      );
+    });
   });
 }

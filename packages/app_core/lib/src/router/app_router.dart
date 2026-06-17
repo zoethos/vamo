@@ -11,6 +11,7 @@ abstract final class AppRoutes {
   static const expenses = '/expenses';
   static const profile = '/profile';
   static const settings = '/profile';
+  static const profileCompletion = '/profile/complete';
   static const suggestFeature = '/profile/suggest';
   static const tripCreate = '/trips/create';
 

@@ -48,11 +48,11 @@ class BalancesTab extends ConsumerWidget {
         final nameById = members.valueOrNull == null
             ? <String, String>{}
             : {for (final m in members.requireValue) m.userId: m.displayName};
-        final someone = labels.someoneFallback;
         final consentLabels = consentFlags
             .map(
               (f) => governanceLabels.consentDisplayLabel(
-                memberName: nameById[f.userId] ?? someone,
+                memberName: nameById[f.userId] ??
+                    fallbackMemberDisplayName(userId: f.userId),
                 response: f.response,
               ),
             )
@@ -181,7 +181,10 @@ class BalancesTab extends ConsumerWidget {
                         children: [
                           Text(
                             labels.confirmPaymentFrom(
-                              nameById[s.fromUserId] ?? someone,
+                              nameById[s.fromUserId] ??
+                                  fallbackMemberDisplayName(
+                                    userId: s.fromUserId,
+                                  ),
                             ),
                             style: Theme.of(context).textTheme.titleSmall,
                           ),
@@ -238,7 +241,8 @@ class BalancesTab extends ConsumerWidget {
                     child: ListTile(
                       title: Text(
                         labels.youToRecipient(
-                          nameById[s.toUserId] ?? someone,
+                          nameById[s.toUserId] ??
+                              fallbackMemberDisplayName(userId: s.toUserId),
                         ),
                       ),
                       subtitle: Text(
@@ -376,7 +380,7 @@ class _FinalBalancesSection extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Text(
               labels.netBalanceLine(
-                nameById[e.key] ?? labels.someoneFallback,
+                nameById[e.key] ?? fallbackMemberDisplayName(userId: e.key),
                 e.value > 0,
                 formatMoneyFromCents(e.value.abs(), currency),
               ),
