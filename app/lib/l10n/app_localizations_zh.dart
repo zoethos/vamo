@@ -915,6 +915,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tripSettingsTitle => 'Trip settings';
 
   @override
+  String get tripDatesSectionTitle => 'Dates';
+
+  @override
+  String get tripDatesSave => 'Save dates';
+
+  @override
+  String get tripDatesStartLocked =>
+      'The trip has started, so the start date is locked. You can still change the end date.';
+
+  @override
   String get tripBudgetSectionTitle => 'Budget';
 
   @override

@@ -1749,6 +1749,24 @@ abstract class AppLocalizations {
   /// **'Trip settings'**
   String get tripSettingsTitle;
 
+  /// No description provided for @tripDatesSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dates'**
+  String get tripDatesSectionTitle;
+
+  /// No description provided for @tripDatesSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save dates'**
+  String get tripDatesSave;
+
+  /// No description provided for @tripDatesStartLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'The trip has started, so the start date is locked. You can still change the end date.'**
+  String get tripDatesStartLocked;
+
   /// No description provided for @tripBudgetSectionTitle.
   ///
   /// In en, this message translates to:

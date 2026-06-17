@@ -35,6 +35,15 @@ const _testBudgetLabels = TripBudgetLabels(
   confirm: 'Confirm',
   cancel: 'Cancel',
   currencyMissingAdmin: 'Ask admin',
+  datesSectionTitle: 'Dates',
+  startDateLabel: 'Start date',
+  endDateLabel: 'End date',
+  saveDates: 'Save dates',
+  startDateLockedHint: 'Start date is locked',
+  endBeforeStart: 'End date must be on or after start date.',
+  datePickerCancel: 'Cancel',
+  datePickerSkip: 'Skip',
+  datePickerSelect: 'Select',
 );
 
 String _mockRemaining(int cents, String currency) => '$cents $currency left';
@@ -182,5 +191,98 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.text('0.9300'), findsOneWidget);
     expect(find.text(_testBudgetLabels.fxRateReadOnly), findsOneWidget);
+
+    // Member is not the owner → no editable Dates section.
+    expect(find.text(_testBudgetLabels.datesSectionTitle), findsNothing);
   });
+
+  testWidgets('owner not-started trip shows editable start and end dates', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      const TripDetail(
+        id: 'trip-dates-future',
+        name: 'Future trip',
+        baseCurrency: 'EUR',
+        ownerId: 'owner-1',
+        lifecycle: 'active',
+        startDate: '2099-12-01',
+        endDate: '2099-12-10',
+      ),
+    );
+
+    expect(find.text(_testBudgetLabels.datesSectionTitle), findsOneWidget);
+    expect(find.text(_testBudgetLabels.saveDates), findsOneWidget);
+    expect(find.text(_testBudgetLabels.startDateLockedHint), findsNothing);
+  });
+
+  testWidgets('owner started trip locks start date, keeps end editable', (
+    tester,
+  ) async {
+    await _pumpSettings(
+      tester,
+      const TripDetail(
+        id: 'trip-dates-past',
+        name: 'Ongoing trip',
+        baseCurrency: 'EUR',
+        ownerId: 'owner-1',
+        lifecycle: 'active',
+        startDate: '2000-01-01',
+        endDate: '2000-01-10',
+      ),
+    );
+
+    expect(find.text(_testBudgetLabels.datesSectionTitle), findsOneWidget);
+    expect(find.text(_testBudgetLabels.saveDates), findsOneWidget);
+    expect(find.text(_testBudgetLabels.startDateLockedHint), findsOneWidget);
+  });
+
+  testWidgets('closing trip hides the editable Dates section', (tester) async {
+    await _pumpSettings(
+      tester,
+      const TripDetail(
+        id: 'trip-dates-closing',
+        name: 'Closing trip',
+        baseCurrency: 'EUR',
+        ownerId: 'owner-1',
+        lifecycle: 'closing',
+        startDate: '2099-12-01',
+      ),
+    );
+
+    expect(find.text(_testBudgetLabels.datesSectionTitle), findsNothing);
+  });
+}
+
+Future<void> _pumpSettings(WidgetTester tester, TripDetail detail) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        currentUserProvider.overrideWith(
+          (ref) => User(
+            id: 'owner-1',
+            appMetadata: const {},
+            userMetadata: const {},
+            aud: 'authenticated',
+            createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
+          ),
+        ),
+        currentMemberRoleProvider.overrideWith((ref, args) => 'owner'),
+        tripDetailProvider(detail.id).overrideWith(
+          (ref) => Stream.value(detail),
+        ),
+        tripFxRatesProvider(detail.id).overrideWith((ref) => Stream.value([])),
+        tripBudgetBurnDownProvider(detail.id).overrideWith((ref) => null),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: TripSettingsScreen(
+          tripId: detail.id,
+          labels: _testBudgetLabels,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }

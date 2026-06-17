@@ -184,6 +184,15 @@ class SplitLabels {
         confirm: l10n.tripBudgetConfirm,
         cancel: l10n.tripBudgetCancel,
         currencyMissingAdmin: l10n.tripCurrencyMissingAdmin,
+        datesSectionTitle: l10n.tripDatesSectionTitle,
+        startDateLabel: l10n.createTripStartDate,
+        endDateLabel: l10n.createTripEndDate,
+        saveDates: l10n.tripDatesSave,
+        startDateLockedHint: l10n.tripDatesStartLocked,
+        endBeforeStart: l10n.createTripEndBeforeStart,
+        datePickerCancel: l10n.datePickerCancel,
+        datePickerSkip: l10n.datePickerSkip,
+        datePickerSelect: l10n.datePickerSelect,
       );
 
   static TripLifecycleLabels lifecycle(AppLocalizations l10n) =>

@@ -5,7 +5,6 @@ import 'package:feature_split/src/expenses/expense_governance_labels.dart';
 import 'package:feature_split/src/expenses/expenses_providers.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 
-
 import 'trip_home_labels_test_support.dart';
 import 'trips_repository_test_support.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
@@ -230,6 +229,15 @@ const _budgetLabels = TripBudgetLabels(
   confirm: 'Confirm',
   cancel: 'Cancel',
   currencyMissingAdmin: 'Ask admin',
+  datesSectionTitle: 'Dates',
+  startDateLabel: 'Start date',
+  endDateLabel: 'End date',
+  saveDates: 'Save dates',
+  startDateLockedHint: 'Start date is locked',
+  endBeforeStart: 'End date must be on or after start date.',
+  datePickerCancel: 'Cancel',
+  datePickerSkip: 'Skip',
+  datePickerSelect: 'Select',
 );
 
 String _mockRemaining(int cents, String currency) => '$cents $currency left';
@@ -315,7 +323,8 @@ List<Override> _tripHomeOverrides({
     if (tripsRepo != null)
       tripsRepositoryProvider.overrideWith((ref) => tripsRepo)
     else
-      tripsRepositoryProvider.overrideWith((ref) => buildTestTripsRepository(db)),
+      tripsRepositoryProvider
+          .overrideWith((ref) => buildTestTripsRepository(db)),
   ];
 }
 

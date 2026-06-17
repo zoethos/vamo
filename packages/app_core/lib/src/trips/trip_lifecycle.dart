@@ -54,6 +54,43 @@ enum TripPhase {
   readOnly,
 }
 
+/// Which trip dates the owner may edit.
+class TripDatesEditability {
+  const TripDatesEditability({
+    required this.canEditStart,
+    required this.canEditEnd,
+  });
+
+  final bool canEditStart;
+  final bool canEditEnd;
+
+  bool get any => canEditStart || canEditEnd;
+}
+
+/// Date-edit rules — deliberately distinct from [resolveTripPhase].
+///
+/// Editing is owner-only (enforced server-side by `update_trip_dates`) and:
+/// - blocked entirely once the trip leaves `active` (closing/closed/etc.);
+/// - **not started** (start unset or in the future) → both dates editable,
+///   so an undated trip can still have a start date added;
+/// - **started** (start today or past) → start is locked, end stays editable.
+///
+/// Note a null start counts as "not started" here, unlike [resolveTripPhase],
+/// which treats an undated active trip as [TripPhase.ongoing].
+TripDatesEditability tripDatesEditability({
+  required TripLifecycle lifecycle,
+  required String? startDateIso,
+  required DateTime now,
+}) {
+  if (lifecycle != TripLifecycle.active) {
+    return const TripDatesEditability(canEditStart: false, canEditEnd: false);
+  }
+  final start = _parseDateOnly(startDateIso);
+  final today = DateTime(now.year, now.month, now.day);
+  final notStarted = start == null || start.isAfter(today);
+  return TripDatesEditability(canEditStart: notStarted, canEditEnd: true);
+}
+
 DateTime? _parseDateOnly(String? iso) {
   if (iso == null || iso.isEmpty) return null;
   final parsed = DateTime.tryParse(iso);
