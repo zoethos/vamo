@@ -62,6 +62,7 @@ TripsRepository _buildTripsRepository(AppDatabase db) {
       client: client,
       syncQueue: queue,
       syncWorker: syncWorker,
+      tagCaptureLocation: false,
     ),
     places: PlacesRepository(
       db: db,
@@ -77,6 +78,7 @@ TripsRepository _buildTripsRepository(AppDatabase db) {
       syncWorker: syncWorker,
     ),
     syncQueue: queue,
+    syncWorker: syncWorker,
     notifications: NotificationsRepository(db: db, client: client),
   );
 }
@@ -108,41 +110,44 @@ void main() {
     expect(summaries.single.backgroundLocalPath, '/tmp/card-hero.jpg');
   });
 
-  test('watchTripSummaries re-emits when background_local_path updates', () async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-    final now = DateTime.utc(2026, 3, 1);
+  test(
+    'watchTripSummaries re-emits when background_local_path updates',
+    () async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final now = DateTime.utc(2026, 3, 1);
 
-    await db.upsertTrip(
-      LocalTripsCompanion(
-        id: const Value('trip-bg'),
-        name: const Value('Amalfi'),
-        ownerId: const Value('owner'),
-        baseCurrency: const Value('EUR'),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-      ),
-    );
+      await db.upsertTrip(
+        LocalTripsCompanion(
+          id: const Value('trip-bg'),
+          name: const Value('Amalfi'),
+          ownerId: const Value('owner'),
+          baseCurrency: const Value('EUR'),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
 
-    final repo = _buildTripsRepository(db);
-    final emissions = <List<TripSummary>>[];
-    final sub = repo.watchTripSummaries().listen(emissions.add);
-    addTearDown(sub.cancel);
-    await Future<void>.delayed(Duration.zero);
+      final repo = _buildTripsRepository(db);
+      final emissions = <List<TripSummary>>[];
+      final sub = repo.watchTripSummaries().listen(emissions.add);
+      addTearDown(sub.cancel);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(emissions.last.single.backgroundLocalPath, isNull);
+      expect(emissions.last.single.backgroundLocalPath, isNull);
 
-    await db.updateTripFields(
-      'trip-bg',
-      LocalTripsCompanion(
-        backgroundLocalPath: const Value('/tmp/updated.jpg'),
-        updatedAt: Value(now.add(const Duration(seconds: 1))),
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
+      await db.updateTripFields(
+        'trip-bg',
+        LocalTripsCompanion(
+          backgroundLocalPath: const Value('/tmp/updated.jpg'),
+          updatedAt: Value(now.add(const Duration(seconds: 1))),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    expect(emissions.last.single.backgroundLocalPath, '/tmp/updated.jpg');
-  });
+      expect(emissions.last.single.backgroundLocalPath, '/tmp/updated.jpg');
+    },
+  );
 
   testWidgets('featured card passes local background into TripVisualBackdrop', (
     tester,
@@ -163,8 +168,9 @@ void main() {
               backgroundLocalPath: fixturePath,
             ),
           ]),
-          tripCardBackgroundImageProvider('trip-bg')
-              .overrideWith((ref) => fixturePath),
+          tripCardBackgroundImageProvider(
+            'trip-bg',
+          ).overrideWith((ref) => fixturePath),
         ],
         child: MaterialApp(
           theme: AppTheme.light,

@@ -10,6 +10,7 @@ String? resolveRouterRedirect({
   required String matchedLocation,
   required Map<String, String> queryParameters,
   required bool isSignedIn,
+  bool profileRequiresCompletion = false,
   void Function(String token, InviteChannel channel)? onPendingInvite,
 }) {
   if (uri.scheme == AuthUrls.appScheme) {
@@ -51,5 +52,20 @@ String? resolveRouterRedirect({
     return AppRoutes.auth;
   }
 
-  return authRedirect(isSignedIn: isSignedIn, location: matchedLocation);
+  final authTarget = authRedirect(
+    isSignedIn: isSignedIn,
+    location: matchedLocation,
+  );
+  if (authTarget != null) return authTarget;
+  if (!isSignedIn || matchedLocation.startsWith(AppRoutes.loginCallback)) {
+    return null;
+  }
+
+  final onCompletionRoute = matchedLocation == AppRoutes.profileCompletion;
+  if (profileRequiresCompletion) {
+    if (onCompletionRoute || matchedLocation == AppRoutes.join) return null;
+    return AppRoutes.profileCompletion;
+  }
+  if (onCompletionRoute) return AppRoutes.trips;
+  return null;
 }

@@ -37,6 +37,9 @@ void main() {
         tripId: const Value(tripId),
         localPath: Value(photoFile.path),
         capturedAt: Value(capturedAt),
+        capturedLat: const Value(40.7128),
+        capturedLng: const Value(-74.0060),
+        mediaCapturedAt: Value(DateTime.utc(2026, 5, 1, 9, 30)),
         createdBy: const Value('user-1'),
         createdAt: Value(capturedAt),
       ),
@@ -59,6 +62,7 @@ void main() {
         flushWithoutSession: true,
         testExecute: (_) async {},
       ),
+      tagCaptureLocation: false,
     );
 
     final photos = await repo.watchTripPhotos(tripId).first;
@@ -66,6 +70,12 @@ void main() {
     expect(photos.first.id, 'photo-1');
     expect(photos.first.tripId, tripId);
     expect(photos.first.displayPath, photoFile.path);
+    expect(photos.first.capturedLat, 40.7128);
+    expect(photos.first.capturedLng, -74.0060);
+    expect(
+      photos.first.mediaCapturedAt,
+      DateTime.utc(2026, 5, 1, 9, 30).toLocal(),
+    );
   });
 
   test('watchTripVideos emits videos persisted in Drift', () async {
@@ -118,6 +128,7 @@ void main() {
         flushWithoutSession: true,
         testExecute: (_) async {},
       ),
+      tagCaptureLocation: false,
     );
 
     final videos = await repo.watchTripVideos(tripId).first;
@@ -173,6 +184,7 @@ void main() {
         flushWithoutSession: true,
         testExecute: (_) async {},
       ),
+      tagCaptureLocation: false,
     );
 
     final videos = await repo.watchTripVideos(tripId).first;
@@ -187,9 +199,13 @@ void main() {
   test('video storage helpers guard upload size and content type', () async {
     expect(CaptureStorage.videoContentTypeForPath('clip.mp4'), 'video/mp4');
     expect(
-        CaptureStorage.videoContentTypeForPath('clip.mov'), 'video/quicktime');
-    expect(CaptureStorage.videoContentTypeForPath('clip.unknown'),
-        'application/octet-stream');
+      CaptureStorage.videoContentTypeForPath('clip.mov'),
+      'video/quicktime',
+    );
+    expect(
+      CaptureStorage.videoContentTypeForPath('clip.unknown'),
+      'application/octet-stream',
+    );
 
     final tempDir = await Directory.systemTemp.createTemp('vamo-video-size');
     addTearDown(() => tempDir.delete(recursive: true));

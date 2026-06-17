@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'capture_models.dart';
+import 'capture_photo_metadata.dart';
 import 'capture_storage.dart';
 
 final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
@@ -16,6 +17,7 @@ final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
     client: ref.watch(supabaseClientProvider),
     syncQueue: ref.watch(syncQueueProvider),
     syncWorker: ref.watch(syncWorkerProvider),
+    tagCaptureLocation: ref.watch(captureLocationTaggingProvider),
     analytics: ref.watch(analyticsProvider),
   );
 });
@@ -27,24 +29,29 @@ class CaptureRepository {
     required SupabaseClient client,
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
+    required bool tagCaptureLocation,
     Analytics? analytics,
   })  : _db = db,
         _client = client,
         _syncQueue = syncQueue,
         _syncWorker = syncWorker,
+        _tagCaptureLocation = tagCaptureLocation,
         _analytics = analytics;
 
   final AppDatabase _db;
   final SupabaseClient _client;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
+  final bool _tagCaptureLocation;
   final Analytics? _analytics;
   final _uuid = const Uuid();
 
   static const _capturesBucket = StoragePaths.capturesBucket;
 
   Stream<List<TripNoteView>> watchTripNotes(String tripId) {
-    return _db.watchTripNotes(tripId).map(
+    return _db
+        .watchTripNotes(tripId)
+        .map(
           (rows) => rows
               .map(
                 (r) => TripNoteView(
@@ -98,6 +105,9 @@ class CaptureRepository {
         displayPath: local,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
         storagePath: row.storagePath,
       );
     }
@@ -110,6 +120,9 @@ class CaptureRepository {
         displayPath: local,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
       );
     }
 
@@ -132,6 +145,9 @@ class CaptureRepository {
         displayPath: result.localPath,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
         storagePath: remote,
       );
     }
@@ -142,6 +158,9 @@ class CaptureRepository {
       displayPath: local,
       caption: row.caption,
       capturedAt: row.capturedAt,
+      capturedLat: row.capturedLat,
+      capturedLng: row.capturedLng,
+      mediaCapturedAt: row.mediaCapturedAt,
       loadError: result.error,
       hasRemoteStoragePath: true,
       storagePath: remote,
@@ -149,9 +168,9 @@ class CaptureRepository {
   }
 
   Future<TripPhotoView> retryPhotoLoad(String photoId) async {
-    final row = await (_db.select(_db.localTripPhotos)
-          ..where((p) => p.id.equals(photoId)))
-        .getSingle();
+    final row = await (_db.select(
+      _db.localTripPhotos,
+    )..where((p) => p.id.equals(photoId))).getSingle();
     return loadPhotoAttachment(row);
   }
 
@@ -234,9 +253,9 @@ class CaptureRepository {
   }
 
   Future<TripVideoView> retryVideoLoad(String videoId) async {
-    final row = await (_db.select(_db.localTripVideos)
-          ..where((v) => v.id.equals(videoId)))
-        .getSingle();
+    final row = await (_db.select(
+      _db.localTripVideos,
+    )..where((v) => v.id.equals(videoId))).getSingle();
     return _cacheVideoAttachment(row);
   }
 
@@ -316,6 +335,10 @@ class CaptureRepository {
       photoId: id,
       sourcePath: sourcePath,
     );
+    final mediaMetadata = await resolveCapturePhotoMetadata(
+      tagCaptureLocation: _tagCaptureLocation,
+      localPath: localPath,
+    );
     final capturedAt = DateTime.now().toUtc();
     final now = capturedAt;
 
@@ -327,25 +350,33 @@ class CaptureRepository {
         storagePath: const Value.absent(),
         caption: Value(caption?.trim()),
         capturedAt: Value(capturedAt),
+        capturedLat: Value(mediaMetadata.lat),
+        capturedLng: Value(mediaMetadata.lng),
+        mediaCapturedAt: Value(mediaMetadata.capturedAt),
         createdBy: Value(userId),
         createdAt: Value(now),
       ),
     );
 
     String? storagePath;
+    final targetStoragePath = _photoStoragePath(
+      userId: userId,
+      tripId: tripId,
+      photoId: id,
+      localPath: localPath,
+    );
     try {
-      storagePath = await _uploadPhoto(
-        userId: userId,
-        tripId: tripId,
-        photoId: id,
-        localPath: localPath,
-      );
+      await _uploadPhoto(storagePath: targetStoragePath, localPath: localPath);
+      storagePath = targetStoragePath;
       await _client.from('trip_photos').insert({
         'id': id,
         'trip_id': tripId,
         'storage_path': storagePath,
         'caption': caption?.trim(),
         'captured_at': capturedAt.toIso8601String(),
+        'captured_lat': mediaMetadata.lat,
+        'captured_lng': mediaMetadata.lng,
+        'media_captured_at': mediaMetadata.capturedAt?.toIso8601String(),
         'created_by': userId,
       });
       await _db.upsertTripPhoto(
@@ -370,6 +401,19 @@ class CaptureRepository {
         severity: ActionFailureSeverity.degraded,
         analytics: _analytics,
       );
+      await _syncQueue.enqueue(
+        kind: SyncKind.tripPhotoUpload,
+        payload: {
+          'photo_id': id,
+          'trip_id': tripId,
+          'local_path': localPath,
+          'storage_path': targetStoragePath,
+          'caption': caption?.trim(),
+          'captured_at': capturedAt.toIso8601String(),
+          'created_by': userId,
+        },
+      );
+      unawaited(_syncWorker.flush());
     }
 
     return id;
@@ -418,13 +462,15 @@ class CaptureRepository {
     );
 
     String? storagePath;
+    final targetStoragePath = _videoStoragePath(
+      userId: userId,
+      tripId: tripId,
+      videoId: id,
+      localPath: localPath,
+    );
     try {
-      storagePath = await _uploadVideo(
-        userId: userId,
-        tripId: tripId,
-        videoId: id,
-        localPath: localPath,
-      );
+      await _uploadVideo(storagePath: targetStoragePath, localPath: localPath);
+      storagePath = targetStoragePath;
       await _client.from('trip_videos').insert({
         'id': id,
         'trip_id': tripId,
@@ -457,62 +503,91 @@ class CaptureRepository {
         severity: ActionFailureSeverity.degraded,
         analytics: _analytics,
       );
+      await _syncQueue.enqueue(
+        kind: SyncKind.tripVideoUpload,
+        payload: {
+          'video_id': id,
+          'trip_id': tripId,
+          'local_path': localPath,
+          'storage_path': targetStoragePath,
+          'caption': caption?.trim(),
+          'captured_at': capturedAt.toIso8601String(),
+          'captured_lat': capturedLat,
+          'captured_lng': capturedLng,
+          'created_by': userId,
+        },
+      );
+      unawaited(_syncWorker.flush());
     }
 
     return id;
   }
 
-  Future<String> _uploadPhoto({
+  String _photoStoragePath({
     required String userId,
     required String tripId,
     required String photoId,
     required String localPath,
-  }) async {
-    final bytes = await File(localPath).readAsBytes();
+  }) {
     final ext = CaptureStorage.normalizeExt(
       localPath.contains('.') ? '.${localPath.split('.').last}' : '.jpg',
     );
-    final path = StoragePaths.capturePhoto(
+    return StoragePaths.capturePhoto(
       userId: userId,
       tripId: tripId,
       photoId: photoId,
       ext: ext,
     );
-    await _client.storage.from(_capturesBucket).uploadBinary(
-          path,
+  }
+
+  Future<void> _uploadPhoto({
+    required String storagePath,
+    required String localPath,
+  }) async {
+    final bytes = await File(localPath).readAsBytes();
+    await _client.storage
+        .from(_capturesBucket)
+        .uploadBinary(
+          storagePath,
           bytes,
           fileOptions: FileOptions(
             contentType: CaptureStorage.contentTypeForPath(localPath),
             upsert: true,
           ),
         );
-    return path;
   }
 
-  Future<String> _uploadVideo({
+  String _videoStoragePath({
     required String userId,
     required String tripId,
     required String videoId,
     required String localPath,
-  }) async {
+  }) {
     final ext = CaptureStorage.normalizeVideoExt(
       localPath.contains('.') ? '.${localPath.split('.').last}' : '.mp4',
     );
-    final path = StoragePaths.captureVideo(
+    return StoragePaths.captureVideo(
       userId: userId,
       tripId: tripId,
       videoId: videoId,
       ext: ext,
     );
-    await _client.storage.from(_capturesBucket).upload(
-          path,
+  }
+
+  Future<void> _uploadVideo({
+    required String storagePath,
+    required String localPath,
+  }) async {
+    await _client.storage
+        .from(_capturesBucket)
+        .upload(
+          storagePath,
           File(localPath),
           fileOptions: FileOptions(
             contentType: CaptureStorage.videoContentTypeForPath(localPath),
             upsert: true,
           ),
         );
-    return path;
   }
 
   Future<void> syncCaptureForTrips(Iterable<String> tripIds) async {
@@ -521,9 +596,7 @@ class CaptureRepository {
 
     final noteRows = await _client
         .from('trip_notes')
-        .select(
-          'id, trip_id, title, body, captured_at, created_by, created_at',
-        )
+        .select('id, trip_id, title, body, captured_at, created_by, created_at')
         .inFilter('trip_id', ids)
         .order('captured_at', ascending: false);
 
@@ -544,16 +617,16 @@ class CaptureRepository {
     final photoRows = await _client
         .from('trip_photos')
         .select(
-          'id, trip_id, storage_path, caption, captured_at, created_by, created_at',
+          'id, trip_id, storage_path, caption, captured_at, captured_lat, captured_lng, media_captured_at, created_by, created_at',
         )
         .inFilter('trip_id', ids)
         .order('captured_at', ascending: false);
 
     for (final row in (photoRows as List).cast<Map<String, dynamic>>()) {
       final id = row['id'] as String;
-      final existing = await (_db.select(_db.localTripPhotos)
-            ..where((p) => p.id.equals(id)))
-          .getSingleOrNull();
+      final existing = await (_db.select(
+        _db.localTripPhotos,
+      )..where((p) => p.id.equals(id))).getSingleOrNull();
 
       final tripId = row['trip_id'] as String;
       final storagePath = row['storage_path'] as String;
@@ -576,6 +649,11 @@ class CaptureRepository {
           storagePath: Value(storagePath),
           caption: Value(row['caption'] as String?),
           capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          capturedLat: Value((row['captured_lat'] as num?)?.toDouble()),
+          capturedLng: Value((row['captured_lng'] as num?)?.toDouble()),
+          mediaCapturedAt: Value(
+            _parseNullableDateTime(row['media_captured_at'] as String?),
+          ),
           createdBy: Value(row['created_by'] as String),
           createdAt: Value(DateTime.parse(row['created_at'] as String)),
         ),
@@ -592,9 +670,9 @@ class CaptureRepository {
 
     for (final row in (videoRows as List).cast<Map<String, dynamic>>()) {
       final id = row['id'] as String;
-      final existing = await (_db.select(_db.localTripVideos)
-            ..where((v) => v.id.equals(id)))
-          .getSingleOrNull();
+      final existing = await (_db.select(
+        _db.localTripVideos,
+      )..where((v) => v.id.equals(id))).getSingleOrNull();
 
       final tripId = row['trip_id'] as String;
       final storagePath = row['storage_path'] as String;
@@ -618,5 +696,10 @@ class CaptureRepository {
         ),
       );
     }
+  }
+
+  DateTime? _parseNullableDateTime(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.parse(raw);
   }
 }

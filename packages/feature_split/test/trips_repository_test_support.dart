@@ -41,7 +41,8 @@ NotificationsRepository buildTestNotificationsRepository(
 }) {
   return NotificationsRepository(
     db: db,
-    client: client ??
+    client:
+        client ??
         SupabaseClient(
           'http://localhost',
           'anon-key',
@@ -56,7 +57,8 @@ TripsRepository buildTestTripsRepository(
   SupabaseClient? client,
   NotificationsRepository? notifications,
 }) {
-  final resolved = client ??
+  final resolved =
+      client ??
       SupabaseClient(
         'http://localhost',
         'anon-key',
@@ -96,6 +98,7 @@ TripsRepository buildTestTripsRepository(
       client: resolved,
       syncQueue: queue,
       syncWorker: syncWorker,
+      tagCaptureLocation: false,
     ),
     places: PlacesRepository(
       db: db,
@@ -111,6 +114,7 @@ TripsRepository buildTestTripsRepository(
       syncWorker: syncWorker,
     ),
     syncQueue: queue,
+    syncWorker: syncWorker,
     notifications:
         notifications ?? buildTestNotificationsRepository(db, client: resolved),
   );

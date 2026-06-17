@@ -29,13 +29,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _StubAuthRepository extends AuthRepository {
   _StubAuthRepository(this._user)
-      : super(
-          SupabaseClient(
-            'http://localhost',
-            'anon-key',
-            authOptions: const AuthClientOptions(autoRefreshToken: false),
-          ),
-        );
+    : super(
+        SupabaseClient(
+          'http://localhost',
+          'anon-key',
+          authOptions: const AuthClientOptions(autoRefreshToken: false),
+        ),
+      );
 
   final User? _user;
 
@@ -60,6 +60,7 @@ class _SpyTripsRepository extends TripsRepository {
     required super.places,
     required super.plan,
     required super.syncQueue,
+    required super.syncWorker,
     required super.notifications,
   });
 
@@ -107,6 +108,7 @@ _SpyTripsRepository _buildSpyTripsRepository(AppDatabase db) {
     client: client,
     syncQueue: queue,
     syncWorker: syncWorker,
+    tagCaptureLocation: false,
   );
   final places = PlacesRepository(
     db: db,
@@ -131,6 +133,7 @@ _SpyTripsRepository _buildSpyTripsRepository(AppDatabase db) {
     places: places,
     plan: plan,
     syncQueue: queue,
+    syncWorker: syncWorker,
     notifications: buildTestNotificationsRepository(db, client: client),
   );
 }
@@ -287,8 +290,9 @@ List<Override> _tripHomeOverrides({
     tripDetailProvider(tripId).overrideWith((ref) => Stream.value(detail)),
     tripMemberCountProvider(tripId).overrideWith((ref) => Stream.value(1)),
     tripMyMemberProvider(tripId).overrideWith((ref) => Stream.value(myMember)),
-    tripHasCloseObjectionProvider(tripId)
-        .overrideWith((ref) => Stream.value(hasCloseObjection)),
+    tripHasCloseObjectionProvider(
+      tripId,
+    ).overrideWith((ref) => Stream.value(hasCloseObjection)),
     tripExpensesProvider(tripId).overrideWith((ref) => Stream.value([])),
     tripExpenseSharesProvider(tripId).overrideWith((ref) => Stream.value([])),
     tripMembersForExpenseProvider(tripId).overrideWith(
@@ -317,9 +321,7 @@ List<Override> _tripHomeOverrides({
         createdAt: DateTime.utc(2026, 1, 1).toIso8601String(),
       ),
     ),
-    currentMemberRoleProvider.overrideWith(
-      (ref, args) => memberRole,
-    ),
+    currentMemberRoleProvider.overrideWith((ref, args) => memberRole),
     if (tripsRepo != null)
       tripsRepositoryProvider.overrideWith((ref) => tripsRepo)
     else
@@ -328,10 +330,7 @@ List<Override> _tripHomeOverrides({
   ];
 }
 
-Widget _tripHome({
-  required String tripId,
-  required List<Override> overrides,
-}) {
+Widget _tripHome({required String tripId, required List<Override> overrides}) {
   return ProviderScope(
     overrides: overrides,
     child: MaterialApp(
@@ -354,9 +353,8 @@ Widget _tripHomeRouter({
     routes: [
       GoRoute(
         path: AppRoutes.trips,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Trips list')),
-        ),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Trips list'))),
       ),
       GoRoute(
         path: '/trips/:tripId',
@@ -371,10 +369,7 @@ Widget _tripHomeRouter({
 
   return ProviderScope(
     overrides: overrides,
-    child: MaterialApp.router(
-      theme: AppTheme.light,
-      routerConfig: router,
-    ),
+    child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
   );
 }
 
@@ -385,8 +380,9 @@ Future<void> _flushPendingTimers(WidgetTester tester) async {
 void main() {
   const tripId = 'trip-lifecycle-ui';
 
-  testWidgets('trip header back falls back to trips list when no pop stack',
-      (tester) async {
+  testWidgets('trip header back falls back to trips list when no pop stack', (
+    tester,
+  ) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -420,86 +416,88 @@ void main() {
   });
 
   testWidgets(
-      'pre-start owner overflow has cancel only; no done or request close in body',
-      (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-    final futureStart = DateTime.now().add(const Duration(days: 14));
-    final startDate =
-        '${futureStart.year.toString().padLeft(4, '0')}-${futureStart.month.toString().padLeft(2, '0')}-${futureStart.day.toString().padLeft(2, '0')}';
+    'pre-start owner overflow has cancel only; no done or request close in body',
+    (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final futureStart = DateTime.now().add(const Duration(days: 14));
+      final startDate =
+          '${futureStart.year.toString().padLeft(4, '0')}-${futureStart.month.toString().padLeft(2, '0')}-${futureStart.day.toString().padLeft(2, '0')}';
 
-    await tester.pumpWidget(
-      _tripHome(
-        tripId: tripId,
-        overrides: _tripHomeOverrides(
+      await tester.pumpWidget(
+        _tripHome(
           tripId: tripId,
-          db: db,
-          currentUserId: 'owner',
-          memberRole: 'owner',
-          detail: TripDetail(
-            id: tripId,
-            name: 'Future trip',
-            baseCurrency: 'EUR',
-            ownerId: 'owner',
-            startDate: startDate,
-            lifecycle: 'active',
+          overrides: _tripHomeOverrides(
+            tripId: tripId,
+            db: db,
+            currentUserId: 'owner',
+            memberRole: 'owner',
+            detail: TripDetail(
+              id: tripId,
+              name: 'Future trip',
+              baseCurrency: 'EUR',
+              ownerId: 'owner',
+              startDate: startDate,
+              lifecycle: 'active',
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text("I'm done"), findsNothing);
-    expect(find.text('Request close'), findsNothing);
-    expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.text("I'm done"), findsNothing);
+      expect(find.text('Request close'), findsNothing);
+      expect(find.byType(OutlinedButton), findsNothing);
 
-    await _openOverflowMenu(tester);
-    expect(find.text('Cancel trip'), findsOneWidget);
-    expect(find.text('Request close'), findsNothing);
-    expect(find.text("I'm done"), findsNothing);
-    await _flushPendingTimers(tester);
-  });
+      await _openOverflowMenu(tester);
+      expect(find.text('Cancel trip'), findsOneWidget);
+      expect(find.text('Request close'), findsNothing);
+      expect(find.text("I'm done"), findsNothing);
+      await _flushPendingTimers(tester);
+    },
+  );
 
   testWidgets(
-      'ongoing owner overflow has request close and done; cancel absent',
-      (tester) async {
-    final db = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(db.close);
-    final pastStart = DateTime.now().subtract(const Duration(days: 3));
-    final startDate =
-        '${pastStart.year.toString().padLeft(4, '0')}-${pastStart.month.toString().padLeft(2, '0')}-${pastStart.day.toString().padLeft(2, '0')}';
+    'ongoing owner overflow has request close and done; cancel absent',
+    (tester) async {
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      final pastStart = DateTime.now().subtract(const Duration(days: 3));
+      final startDate =
+          '${pastStart.year.toString().padLeft(4, '0')}-${pastStart.month.toString().padLeft(2, '0')}-${pastStart.day.toString().padLeft(2, '0')}';
 
-    await tester.pumpWidget(
-      _tripHome(
-        tripId: tripId,
-        overrides: _tripHomeOverrides(
+      await tester.pumpWidget(
+        _tripHome(
           tripId: tripId,
-          db: db,
-          currentUserId: 'owner',
-          memberRole: 'owner',
-          detail: TripDetail(
-            id: tripId,
-            name: 'Active trip',
-            baseCurrency: 'EUR',
-            ownerId: 'owner',
-            startDate: startDate,
-            lifecycle: 'active',
+          overrides: _tripHomeOverrides(
+            tripId: tripId,
+            db: db,
+            currentUserId: 'owner',
+            memberRole: 'owner',
+            detail: TripDetail(
+              id: tripId,
+              name: 'Active trip',
+              baseCurrency: 'EUR',
+              ownerId: 'owner',
+              startDate: startDate,
+              lifecycle: 'active',
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text("I'm done"), findsNothing);
-    expect(find.text('Request close'), findsNothing);
-    expect(find.byType(OutlinedButton), findsNothing);
+      expect(find.text("I'm done"), findsNothing);
+      expect(find.text('Request close'), findsNothing);
+      expect(find.byType(OutlinedButton), findsNothing);
 
-    await _openOverflowMenu(tester);
-    expect(find.text('Request close'), findsOneWidget);
-    expect(find.text("I'm done"), findsOneWidget);
-    expect(find.text('Cancel trip'), findsNothing);
-    await _flushPendingTimers(tester);
-  });
+      await _openOverflowMenu(tester);
+      expect(find.text('Request close'), findsOneWidget);
+      expect(find.text("I'm done"), findsOneWidget);
+      expect(find.text('Cancel trip'), findsNothing);
+      await _flushPendingTimers(tester);
+    },
+  );
 
   testWidgets('request close shows confirm dialog before RPC', (tester) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -688,10 +686,7 @@ void main() {
             lifecycle: 'active',
           ),
         ),
-        child: MaterialApp.router(
-          theme: AppTheme.light,
-          routerConfig: router,
-        ),
+        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
       ),
     );
     await tester.pumpAndSettle();

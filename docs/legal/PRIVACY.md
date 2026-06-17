@@ -18,6 +18,12 @@ trip** — enforced at the database layer, not just in the interface. Nothing
 is public unless you explicitly share it (e.g. posting a snapshot card to
 social media yourself).
 
+**Capture photo metadata**: if you turn on "Tag captures with location" in
+Profile, new trip photos may store location coordinates and original photo
+time from the image file. This is off by default; when it is off, Vamo does
+not read that metadata for capture photos. Stored capture metadata is visible
+only to members of the same trip.
+
 **Receipt details**: when you scan a receipt, text recognition runs **on
 your device** — the receipt image is stored privately for your trip; what
 the OCR reads (amount, merchant, place) becomes part of the expense. If a
