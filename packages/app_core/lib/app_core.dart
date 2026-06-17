@@ -25,6 +25,7 @@ export 'src/design/theme_mode_provider.dart';
 export 'src/format/relative_time.dart';
 export 'src/visual/gradient_scrim.dart';
 export 'src/profile/profile_models.dart';
+export 'src/profile/profile_identity.dart';
 export 'src/profile/profile_providers.dart';
 export 'src/profile/profile_repository.dart';
 export 'src/push/push_notification_route.dart';

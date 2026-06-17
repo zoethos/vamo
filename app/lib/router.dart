@@ -15,6 +15,10 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final routerProvider = Provider<GoRouter>((ref) {
   final authRepo = ref.watch(authRepositoryProvider);
   final analytics = ref.watch(analyticsProvider);
+  final isSignedIn = ref.watch(isSignedInProvider);
+  final profile = isSignedIn ? ref.watch(userProfileProvider) : null;
+  final profileRequiresCompletion =
+      profile?.valueOrNull?.needsIdentityCompletion ?? false;
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -26,7 +30,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         uri: state.uri,
         matchedLocation: state.matchedLocation,
         queryParameters: state.uri.queryParameters,
-        isSignedIn: authRepo.isSignedIn,
+        isSignedIn: isSignedIn,
+        profileRequiresCompletion: profileRequiresCompletion,
         onPendingInvite: (token, channel) {
           ref.read(pendingInviteTokenProvider.notifier).state = token;
           ref.read(pendingInviteChannelProvider.notifier).state = channel;
@@ -80,6 +85,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'login_callback',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const AuthCallbackScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileCompletion,
+        name: 'profile_completion',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final l10n = AppLocalizations.of(context);
+          return ProfileScreen(
+            labels: SplitLabels.profile(l10n),
+            completionRequired: true,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.notifications,

@@ -69,7 +69,7 @@ import 'app_localizations_zh.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -92,11 +92,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
@@ -108,7 +108,7 @@ abstract class AppLocalizations {
     Locale('it'),
     Locale('ja'),
     Locale('ru'),
-    Locale('zh')
+    Locale('zh'),
   ];
 
   /// Application title
@@ -1347,6 +1347,18 @@ abstract class AppLocalizations {
   /// **'How Vamigos see you'**
   String get profileDisplayNameHint;
 
+  /// No description provided for @profileDisplayNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your display name.'**
+  String get profileDisplayNameRequired;
+
+  /// No description provided for @profileDisplayNameReserved.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a display name other than Vamigo.'**
+  String get profileDisplayNameReserved;
+
   /// No description provided for @profileDefaultCurrency.
   ///
   /// In en, this message translates to:
@@ -1358,6 +1370,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Used when you create a new trip'**
   String get profileDefaultCurrencyHelper;
+
+  /// No description provided for @profileCompletionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish your profile'**
+  String get profileCompletionTitle;
+
+  /// No description provided for @profileCompletionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the name other trip members will see on expenses, balances, and notifications.'**
+  String get profileCompletionSubtitle;
 
   /// No description provided for @profileBilling.
   ///
@@ -2085,15 +2109,15 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) => <String>[
-        'ar',
-        'en',
-        'he',
-        'hi',
-        'it',
-        'ja',
-        'ru',
-        'zh'
-      ].contains(locale.languageCode);
+    'ar',
+    'en',
+    'he',
+    'hi',
+    'it',
+    'ja',
+    'ru',
+    'zh',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -2133,8 +2157,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

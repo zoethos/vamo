@@ -1,3 +1,4 @@
+import 'package:app_core/app_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../expenses/expenses_providers.dart';
@@ -30,8 +31,10 @@ final tripSettleUpProvider =
               .map(
                 (line) => SettlementDisplay(
                   line: line,
-                  fromName: nameById[line.fromUserId] ?? 'Someone',
-                  toName: nameById[line.toUserId] ?? 'Someone',
+                  fromName: nameById[line.fromUserId] ??
+                      fallbackMemberDisplayName(userId: line.fromUserId),
+                  toName: nameById[line.toUserId] ??
+                      fallbackMemberDisplayName(userId: line.toUserId),
                   currency: data.currency,
                 ),
               )

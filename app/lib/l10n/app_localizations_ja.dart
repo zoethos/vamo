@@ -698,10 +698,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get profileDisplayNameHint => 'How Vamigos see you';
 
   @override
+  String get profileDisplayNameRequired => 'Add your display name.';
+
+  @override
+  String get profileDisplayNameReserved =>
+      'Choose a display name other than Vamigo.';
+
+  @override
   String get profileDefaultCurrency => 'Default trip currency';
 
   @override
   String get profileDefaultCurrencyHelper => 'Used when you create a new trip';
+
+  @override
+  String get profileCompletionTitle => 'Finish your profile';
+
+  @override
+  String get profileCompletionSubtitle =>
+      'Add the name other trip members will see on expenses, balances, and notifications.';
 
   @override
   String get profileBilling => 'Billing';
