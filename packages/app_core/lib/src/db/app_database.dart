@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -139,6 +139,14 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 17 && to >= 17) {
             await m.createTable(localTripVideos);
+          }
+          if (from < 18 && to >= 18) {
+            await m.addColumn(localTripPhotos, localTripPhotos.capturedLat);
+            await m.addColumn(localTripPhotos, localTripPhotos.capturedLng);
+            await m.addColumn(
+              localTripPhotos,
+              localTripPhotos.mediaCapturedAt,
+            );
           }
         },
       );

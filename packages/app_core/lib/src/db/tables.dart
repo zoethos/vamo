@@ -137,6 +137,9 @@ class LocalTripPhotos extends Table {
   TextColumn get storagePath => text().nullable()();
   TextColumn get caption => text().nullable()();
   DateTimeColumn get capturedAt => dateTime()();
+  RealColumn get capturedLat => real().nullable()();
+  RealColumn get capturedLng => real().nullable()();
+  DateTimeColumn get mediaCapturedAt => dateTime().nullable()();
   TextColumn get createdBy => text()();
   DateTimeColumn get createdAt => dateTime()();
 

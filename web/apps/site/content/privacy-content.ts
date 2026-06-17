@@ -6,6 +6,7 @@ export const privacySections = [
     paragraphs: [
       "**Account**: your email address and a display name — to sign you in and show your name to your trip companions.",
       "**Trip data you create**: trips, expenses, splits, settlements, notes, photos, receipt scans, plan items. Visible **only to the members of that trip** — enforced at the database layer, not just in the interface. Nothing is public unless you explicitly share it (e.g. posting a snapshot card to social media yourself).",
+      "**Capture photo metadata**: if you turn on \"Tag captures with location\" in Profile, new trip photos may store location coordinates and original photo time from the image file. This is off by default; when it is off, Vamo does not read that metadata for capture photos. Stored capture metadata is visible only to members of the same trip.",
       "**Receipt details**: when you scan a receipt, text recognition runs **on your device** — the receipt image is stored privately for your trip; what the OCR reads (amount, merchant, place) becomes part of the expense. If a photo contains location metadata (EXIF), we may use it to attach a place to the expense, visible to your trip members like the expense itself.",
       "**Usage analytics**: anonymous-style product events (e.g. \"a trip was created\", \"an error was shown\") to understand what works and what breaks. Analytics events **never contain** your trip contents: no amounts, no receipt text, no addresses or coordinates, no message text, no invite tokens. Analytics are processed in the EU.",
     ],

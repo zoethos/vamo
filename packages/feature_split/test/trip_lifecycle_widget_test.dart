@@ -108,6 +108,7 @@ _SpyTripsRepository _buildSpyTripsRepository(AppDatabase db) {
     client: client,
     syncQueue: queue,
     syncWorker: syncWorker,
+    tagCaptureLocation: false,
   );
   final places = PlacesRepository(
     db: db,

@@ -123,6 +123,13 @@ Future<void> main() async {
         'S25 preview no member roster',
         !map.containsKey('members') && !map.containsKey('member_names'),
       ));
+      results.add(_Check(
+        'S25 preview no capture metadata',
+        !map.containsKey('captured_lat') &&
+            !map.containsKey('captured_lng') &&
+            !map.containsKey('media_captured_at') &&
+            !map.containsKey('photos'),
+      ));
     }
     final badPreview = await anonPreviewClient
         .rpc('get_trip_preview', params: {'p_token': 'invalid-token-xyz'});
@@ -557,6 +564,37 @@ Future<void> main() async {
       'B member signed URL + fetch',
       bFetch.statusCode == 200,
     ));
+
+    final photoId = _uuid();
+    await clientA.from('trip_photos').insert({
+      'id': photoId,
+      'trip_id': tripId,
+      'storage_path': storagePath,
+      'caption': 'metadata smoke',
+      'captured_at': DateTime.now().toUtc().toIso8601String(),
+      'captured_lat': 40.7128,
+      'captured_lng': -74.0060,
+      'media_captured_at': DateTime.utc(2026, 6, 1, 12).toIso8601String(),
+      'created_by': userA,
+    });
+    final bPhotos = await clientB
+        .from('trip_photos')
+        .select('id, captured_lat, captured_lng, media_captured_at')
+        .eq('id', photoId);
+    final bPhoto = (bPhotos as List).isEmpty
+        ? null
+        : Map<String, dynamic>.from(bPhotos.first as Map);
+    results.add(_Check(
+      'B reads trip photo metadata',
+      bPhoto?['captured_lat'] == 40.7128 &&
+          bPhoto?['captured_lng'] == -74.0060 &&
+          bPhoto?['media_captured_at'] != null,
+    ));
+    final cPhotos =
+        await clientC.from('trip_photos').select('id').eq('id', photoId);
+    results.add(
+      _Check('C zero trip photo rows', (cPhotos as List).isEmpty),
+    );
 
     final bExpenseId = _uuid();
     bStoragePath = expenseReceiptPath(

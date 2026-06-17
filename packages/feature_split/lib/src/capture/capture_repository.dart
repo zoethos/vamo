@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'capture_models.dart';
+import 'capture_photo_metadata.dart';
 import 'capture_storage.dart';
 
 final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
@@ -16,6 +17,7 @@ final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
     client: ref.watch(supabaseClientProvider),
     syncQueue: ref.watch(syncQueueProvider),
     syncWorker: ref.watch(syncWorkerProvider),
+    tagCaptureLocation: ref.watch(captureLocationTaggingProvider),
     analytics: ref.watch(analyticsProvider),
   );
 });
@@ -27,17 +29,20 @@ class CaptureRepository {
     required SupabaseClient client,
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
+    required bool tagCaptureLocation,
     Analytics? analytics,
-  }) : _db = db,
-       _client = client,
-       _syncQueue = syncQueue,
-       _syncWorker = syncWorker,
-       _analytics = analytics;
+  })  : _db = db,
+        _client = client,
+        _syncQueue = syncQueue,
+        _syncWorker = syncWorker,
+        _tagCaptureLocation = tagCaptureLocation,
+        _analytics = analytics;
 
   final AppDatabase _db;
   final SupabaseClient _client;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
+  final bool _tagCaptureLocation;
   final Analytics? _analytics;
   final _uuid = const Uuid();
 
@@ -100,6 +105,9 @@ class CaptureRepository {
         displayPath: local,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
         storagePath: row.storagePath,
       );
     }
@@ -112,6 +120,9 @@ class CaptureRepository {
         displayPath: local,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
       );
     }
 
@@ -134,6 +145,9 @@ class CaptureRepository {
         displayPath: result.localPath,
         caption: row.caption,
         capturedAt: row.capturedAt,
+        capturedLat: row.capturedLat,
+        capturedLng: row.capturedLng,
+        mediaCapturedAt: row.mediaCapturedAt,
         storagePath: remote,
       );
     }
@@ -144,6 +158,9 @@ class CaptureRepository {
       displayPath: local,
       caption: row.caption,
       capturedAt: row.capturedAt,
+      capturedLat: row.capturedLat,
+      capturedLng: row.capturedLng,
+      mediaCapturedAt: row.mediaCapturedAt,
       loadError: result.error,
       hasRemoteStoragePath: true,
       storagePath: remote,
@@ -318,6 +335,10 @@ class CaptureRepository {
       photoId: id,
       sourcePath: sourcePath,
     );
+    final mediaMetadata = await resolveCapturePhotoMetadata(
+      tagCaptureLocation: _tagCaptureLocation,
+      localPath: localPath,
+    );
     final capturedAt = DateTime.now().toUtc();
     final now = capturedAt;
 
@@ -329,6 +350,9 @@ class CaptureRepository {
         storagePath: const Value.absent(),
         caption: Value(caption?.trim()),
         capturedAt: Value(capturedAt),
+        capturedLat: Value(mediaMetadata.lat),
+        capturedLng: Value(mediaMetadata.lng),
+        mediaCapturedAt: Value(mediaMetadata.capturedAt),
         createdBy: Value(userId),
         createdAt: Value(now),
       ),
@@ -350,6 +374,9 @@ class CaptureRepository {
         'storage_path': storagePath,
         'caption': caption?.trim(),
         'captured_at': capturedAt.toIso8601String(),
+        'captured_lat': mediaMetadata.lat,
+        'captured_lng': mediaMetadata.lng,
+        'media_captured_at': mediaMetadata.capturedAt?.toIso8601String(),
         'created_by': userId,
       });
       await _db.upsertTripPhoto(
@@ -590,7 +617,7 @@ class CaptureRepository {
     final photoRows = await _client
         .from('trip_photos')
         .select(
-          'id, trip_id, storage_path, caption, captured_at, created_by, created_at',
+          'id, trip_id, storage_path, caption, captured_at, captured_lat, captured_lng, media_captured_at, created_by, created_at',
         )
         .inFilter('trip_id', ids)
         .order('captured_at', ascending: false);
@@ -622,6 +649,11 @@ class CaptureRepository {
           storagePath: Value(storagePath),
           caption: Value(row['caption'] as String?),
           capturedAt: Value(DateTime.parse(row['captured_at'] as String)),
+          capturedLat: Value((row['captured_lat'] as num?)?.toDouble()),
+          capturedLng: Value((row['captured_lng'] as num?)?.toDouble()),
+          mediaCapturedAt: Value(
+            _parseNullableDateTime(row['media_captured_at'] as String?),
+          ),
           createdBy: Value(row['created_by'] as String),
           createdAt: Value(DateTime.parse(row['created_at'] as String)),
         ),
@@ -664,5 +696,10 @@ class CaptureRepository {
         ),
       );
     }
+  }
+
+  DateTime? _parseNullableDateTime(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    return DateTime.parse(raw);
   }
 }

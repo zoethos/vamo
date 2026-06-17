@@ -23,6 +23,7 @@ export 'src/design/app_theme_context.dart';
 export 'src/design/app_type_scale.dart';
 export 'src/design/theme_mode_provider.dart';
 export 'src/format/relative_time.dart';
+export 'src/privacy/capture_location_tagging_provider.dart';
 export 'src/visual/gradient_scrim.dart';
 export 'src/profile/profile_models.dart';
 export 'src/profile/profile_identity.dart';

@@ -98,6 +98,7 @@ TripsRepository buildTestTripsRepository(
       client: resolved,
       syncQueue: queue,
       syncWorker: syncWorker,
+      tagCaptureLocation: false,
     ),
     places: PlacesRepository(
       db: db,
