@@ -6,6 +6,9 @@ enum SyncKind {
   expenseUpdate('expense_update'),
   placeInsert('place_insert'),
   receiptUpload('receipt_upload'),
+  tripPhotoUpload('trip_photo_upload'),
+  tripVideoUpload('trip_video_upload'),
+  tripBackgroundUpload('trip_background_upload'),
   settlementInsert('settlement_insert'),
   settlementUpdate('settlement_update'),
   tripNoteInsert('trip_note_insert'),
@@ -23,6 +26,12 @@ enum SyncKind {
     }
     return null;
   }
+
+  bool get isMediaUpload =>
+      this == receiptUpload ||
+      this == tripPhotoUpload ||
+      this == tripVideoUpload ||
+      this == tripBackgroundUpload;
 }
 
 Map<String, dynamic> decodePayload(String json) =>

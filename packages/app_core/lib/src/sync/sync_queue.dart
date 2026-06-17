@@ -36,7 +36,9 @@ class SyncQueue {
     required Map<String, dynamic> payload,
   }) async {
     final now = DateTime.now().toUtc();
-    await _db.into(_db.localSyncOutbox).insert(
+    await _db
+        .into(_db.localSyncOutbox)
+        .insert(
           LocalSyncOutboxCompanion(
             id: Value(_uuid.v4()),
             kind: Value(kind.value),
@@ -55,31 +57,38 @@ class SyncQueue {
   }
 
   Future<void> remove(String id) {
-    return (_db.delete(_db.localSyncOutbox)..where((o) => o.id.equals(id)))
-        .go();
+    return (_db.delete(
+      _db.localSyncOutbox,
+    )..where((o) => o.id.equals(id))).go();
   }
 
   /// Returns new attempt count, or null if the row was removed.
   Future<int?> recordFailure(String id, String error) async {
-    final row = await (_db.select(_db.localSyncOutbox)
-          ..where((o) => o.id.equals(id)))
-        .getSingleOrNull();
+    final row = await (_db.select(
+      _db.localSyncOutbox,
+    )..where((o) => o.id.equals(id))).getSingleOrNull();
     if (row == null) return null;
     final next = row.attempts + 1;
-    await (_db.update(_db.localSyncOutbox)..where((o) => o.id.equals(id))).write(
-          LocalSyncOutboxCompanion(
-            attempts: Value(next),
-            lastError: Value(error),
-          ),
-        );
+    await (_db.update(
+      _db.localSyncOutbox,
+    )..where((o) => o.id.equals(id))).write(
+      LocalSyncOutboxCompanion(attempts: Value(next), lastError: Value(error)),
+    );
     return next;
   }
 
   Future<int> countPending() async {
-    final rows = await (_db.select(_db.localSyncOutbox)
-          ..where((o) => o.attempts.isSmallerThanValue(maxAttempts)))
-        .get();
+    final rows = await (_db.select(
+      _db.localSyncOutbox,
+    )..where((o) => o.attempts.isSmallerThanValue(maxAttempts))).get();
     return rows.length;
+  }
+
+  Future<int> countPendingMediaUploads() async {
+    final rows = await pending(limit: 500);
+    return rows
+        .where((row) => SyncKind.parse(row.kind)?.isMediaUpload ?? false)
+        .length;
   }
 
   Future<void> clear() {
@@ -103,7 +112,8 @@ class SyncQueue {
       switch (kind) {
         case SyncKind.expenseInsert:
           final expense = payload['expense'] as Map<String, dynamic>?;
-          if (expense?['id'] is String) expenseIds.add(expense!['id'] as String);
+          if (expense?['id'] is String)
+            expenseIds.add(expense!['id'] as String);
         case SyncKind.expenseUpdate:
           if (payload['id'] is String) expenseIds.add(payload['id'] as String);
         case SyncKind.placeInsert:
@@ -112,6 +122,10 @@ class SyncQueue {
           if (payload['expense_id'] is String) {
             expenseIds.add(payload['expense_id'] as String);
           }
+        case SyncKind.tripPhotoUpload:
+        case SyncKind.tripVideoUpload:
+        case SyncKind.tripBackgroundUpload:
+          break;
         case SyncKind.settlementInsert:
           if (payload['id'] is String) {
             settlementIds.add(payload['id'] as String);
