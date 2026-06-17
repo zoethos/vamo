@@ -674,6 +674,28 @@ class AppLocalizationsHi extends AppLocalizations {
   String get profileSaved => 'Profile saved.';
 
   @override
+  String get profilePendingMediaTitle => 'Media still uploading';
+
+  @override
+  String profilePendingMediaBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count media uploads are still waiting. Signing out now will remove the local copies from this device.',
+      one:
+          '1 media upload is still waiting. Signing out now will remove the local copy from this device.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get profilePendingMediaStay => 'Stay signed in';
+
+  @override
+  String get profilePendingMediaDiscard => 'Discard and sign out';
+
+  @override
   String get profileLoadError => 'Could not load your profile.';
 
   @override

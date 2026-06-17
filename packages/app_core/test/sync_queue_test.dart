@@ -48,4 +48,33 @@ void main() {
     final ids = await queue.collectPendingEntityIds();
     expect(ids.expenseIds, contains('e-offline'));
   });
+
+  test('countPendingMediaUploads includes storage-backed media ops', () async {
+    await queue.enqueue(
+      kind: SyncKind.tripNoteInsert,
+      payload: {'id': 'n1', 'trip_id': 't1'},
+    );
+    await queue.enqueue(
+      kind: SyncKind.tripPhotoUpload,
+      payload: {
+        'photo_id': 'p1',
+        'trip_id': 't1',
+        'local_path': '/tmp/p1.jpg',
+        'storage_path': 'u1/t1/p1.jpg',
+        'captured_at': DateTime.utc(2026, 6, 18).toIso8601String(),
+        'created_by': 'u1',
+      },
+    );
+    await queue.enqueue(
+      kind: SyncKind.tripBackgroundUpload,
+      payload: {
+        'trip_id': 't1',
+        'local_path': '/tmp/bg.jpg',
+        'storage_path': 'u1/t1/background.jpg',
+      },
+    );
+
+    expect(await queue.countPending(), 3);
+    expect(await queue.countPendingMediaUploads(), 2);
+  });
 }

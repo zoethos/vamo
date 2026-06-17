@@ -1299,6 +1299,30 @@ abstract class AppLocalizations {
   /// **'Profile saved.'**
   String get profileSaved;
 
+  /// No description provided for @profilePendingMediaTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Media still uploading'**
+  String get profilePendingMediaTitle;
+
+  /// No description provided for @profilePendingMediaBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 media upload is still waiting. Signing out now will remove the local copy from this device.} other{{count} media uploads are still waiting. Signing out now will remove the local copies from this device.}}'**
+  String profilePendingMediaBody(int count);
+
+  /// No description provided for @profilePendingMediaStay.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay signed in'**
+  String get profilePendingMediaStay;
+
+  /// No description provided for @profilePendingMediaDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard and sign out'**
+  String get profilePendingMediaDiscard;
+
   /// No description provided for @profileLoadError.
   ///
   /// In en, this message translates to:

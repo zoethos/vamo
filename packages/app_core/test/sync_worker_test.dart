@@ -8,7 +8,10 @@ void main() {
     test('detects postgres 23505', () {
       expect(
         SyncWorker.isDuplicateKeyError(
-          const PostgrestException(message: '23505 duplicate key', code: '23505'),
+          const PostgrestException(
+            message: '23505 duplicate key',
+            code: '23505',
+          ),
         ),
         isTrue,
       );
@@ -140,6 +143,92 @@ void main() {
     expect(await queue.pending(), isEmpty);
   });
 
+  test('trip_photo_upload succeeds after retry', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final queue = SyncQueue(db);
+
+    await queue.enqueue(
+      kind: SyncKind.tripPhotoUpload,
+      payload: {
+        'photo_id': 'p1',
+        'trip_id': 't1',
+        'local_path': '/tmp/photo.jpg',
+        'storage_path': 'u1/t1/p1.jpg',
+        'caption': 'Lunch',
+        'captured_at': DateTime.utc(2026, 6, 18, 12).toIso8601String(),
+        'created_by': 'u1',
+      },
+    );
+
+    final client = SupabaseClient('http://localhost', 'anon-key');
+    var attempts = 0;
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        if (op.kind == SyncKind.tripPhotoUpload.value) {
+          attempts++;
+          if (attempts == 1) throw Exception('network blip');
+        }
+      },
+    );
+
+    await worker.flush();
+    expect(attempts, 1);
+    expect(await queue.countPendingMediaUploads(), 1);
+
+    final processed = await worker.flush();
+    expect(processed, 1);
+    expect(attempts, 2);
+    expect(await queue.pending(), isEmpty);
+  });
+
+  test('trip_video_upload dead-letter fires action_failed', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final queue = SyncQueue(db);
+    final analytics = _RecordingAnalytics();
+
+    await queue.enqueue(
+      kind: SyncKind.tripVideoUpload,
+      payload: {
+        'video_id': 'v1',
+        'trip_id': 't1',
+        'local_path': '/tmp/video.mp4',
+        'storage_path': 'u1/t1/videos/v1.mp4',
+        'captured_at': DateTime.utc(2026, 6, 18, 12).toIso8601String(),
+        'created_by': 'u1',
+      },
+    );
+
+    final client = SupabaseClient('http://localhost', 'anon-key');
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: analytics,
+      flushWithoutSession: true,
+      testExecute: (op) async {
+        if (op.kind == SyncKind.tripVideoUpload.value) {
+          throw Exception('permanent storage error');
+        }
+      },
+    );
+
+    for (var i = 0; i < SyncQueue.maxAttempts; i++) {
+      await worker.flush();
+    }
+
+    expect(await queue.pending(), isEmpty);
+    expect(
+      analytics.events.where((e) => e['event'] == VamoEvent.actionFailed),
+      hasLength(1),
+    );
+    final props = analytics.events.first['properties']! as Map<String, Object?>;
+    expect(props['action'], 'upload_video_remote');
+  });
+
   test('receipt_upload dead-letter fires action_failed', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -177,8 +266,7 @@ void main() {
       analytics.events.where((e) => e['event'] == VamoEvent.actionFailed),
       hasLength(1),
     );
-    final props =
-        analytics.events.first['properties']! as Map<String, Object?>;
+    final props = analytics.events.first['properties']! as Map<String, Object?>;
     expect(props['action'], 'attach_receipt');
   });
 }

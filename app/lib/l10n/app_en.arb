@@ -295,6 +295,15 @@
   "profileSignOut": "Sign out",
   "profileSave": "Save changes",
   "profileSaved": "Profile saved.",
+  "profilePendingMediaTitle": "Media still uploading",
+  "profilePendingMediaBody": "{count, plural, =1{1 media upload is still waiting. Signing out now will remove the local copy from this device.} other{{count} media uploads are still waiting. Signing out now will remove the local copies from this device.}}",
+  "@profilePendingMediaBody": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "profilePendingMediaStay": "Stay signed in",
+  "profilePendingMediaDiscard": "Discard and sign out",
   "profileLoadError": "Could not load your profile.",
   "profileSection": "Profile",
   "profileAppearanceSection": "Appearance",
