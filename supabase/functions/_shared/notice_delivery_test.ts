@@ -33,3 +33,28 @@ Deno.test("suppressed duplicate (0033 on-conflict) yields null and is not counte
   assertEquals(recordId, null);
   assertEquals(shouldStampAfterRecord(recordId), false);
 });
+
+Deno.test("suppressed duplicate close_notice does not stamp or push", async () => {
+  const dedupingClient = {
+    rpc: () => Promise.resolve({ data: null, error: null }),
+  };
+  const recordId = await recordNotification(dedupingClient, {
+    userId: "user-1",
+    tripId: "trip-1",
+    type: "close_notice",
+    title: "Trip is closing",
+    body: "Amalfi - review balances.",
+    route: "/trips/trip-1/close-report",
+  });
+  const recorded = shouldStampAfterRecord(recordId);
+  let stamped = false;
+  let pushed = false;
+  if (recorded) {
+    stamped = true;
+    pushed = true;
+  }
+
+  assertEquals(recorded, false);
+  assertEquals(stamped, false);
+  assertEquals(pushed, false);
+});

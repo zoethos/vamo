@@ -3,10 +3,7 @@
 // Schedule: daily cron AFTER device-verified nudges (see docs/SCHEDULED_JOBS.md).
 
 import { createClient } from "@supabase/supabase-js";
-import {
-  loadServiceAccount,
-  sendPushToUserDevices,
-} from "../_shared/fcm.ts";
+import { loadServiceAccount, sendPushToUserDevices } from "../_shared/fcm.ts";
 import {
   recordNotification,
   shouldStampAfterRecord,
@@ -83,7 +80,6 @@ Deno.serve(async (req) => {
       "trip_id, user_id, close_notified_at, trips!inner(name, lifecycle)",
     )
     .eq("status", "active")
-    .is("close_notified_at", null)
     .eq("trips.lifecycle", "closing");
 
   if (noticeErr) {
@@ -104,15 +100,33 @@ Deno.serve(async (req) => {
         body,
         route,
       });
-      if (shouldStampAfterRecord(recordId)) {
+      const recorded = shouldStampAfterRecord(recordId);
+      if (recorded) {
         recordStats.close_notices_recorded++;
         await supabase.rpc("_stamp_member_close_notified", {
           p_trip_id: row.trip_id,
           p_user_id: row.user_id,
         });
+      } else if (row.close_notified_at == null) {
+        const { data: existingNotice, error: existingNoticeErr } =
+          await supabase
+            .from("notifications")
+            .select("id")
+            .eq("user_id", row.user_id)
+            .eq("trip_id", row.trip_id)
+            .eq("type", "close_notice")
+            .maybeSingle();
+        if (existingNoticeErr) {
+          console.error("close notice lookup failed", existingNoticeErr);
+        } else if (existingNotice?.id) {
+          await supabase.rpc("_stamp_member_close_notified", {
+            p_trip_id: row.trip_id,
+            p_user_id: row.user_id,
+          });
+        }
       }
 
-      if (pushEnabled) {
+      if (recorded && pushEnabled) {
         const result = await sendPushToUserDevices(
           supabase,
           serviceAccount!,
@@ -193,10 +207,13 @@ Deno.serve(async (req) => {
   );
   if (jobError) {
     console.error("run_trip_lifecycle_jobs failed", jobError);
-    return new Response(JSON.stringify({ ok: false, error: jobError.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: false, error: jobError.message }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
 
   const deemedCount = (jobResult as Record<string, number>)?.deemed_closed ?? 0;
