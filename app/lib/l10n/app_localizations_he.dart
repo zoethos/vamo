@@ -692,6 +692,16 @@ class AppLocalizationsHe extends AppLocalizations {
   String get profileAppearanceSystem => 'System';
 
   @override
+  String get profilePrivacySection => 'Privacy';
+
+  @override
+  String get profileTagCaptureLocation => 'Tag captures with location';
+
+  @override
+  String get profileTagCaptureLocationHelper =>
+      'When on, new trip photos can save location and original photo time from the image file. Existing photos are not scanned.';
+
+  @override
   String get profileDisplayName => 'Display name';
 
   @override

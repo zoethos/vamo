@@ -22,6 +22,9 @@ class ProfileScreenLabels {
     required this.appearanceLight,
     required this.appearanceDark,
     required this.appearanceSystem,
+    required this.privacySection,
+    required this.tagCaptureLocation,
+    required this.tagCaptureLocationHelper,
     required this.displayName,
     required this.displayNameHint,
     required this.defaultCurrency,
@@ -56,6 +59,9 @@ class ProfileScreenLabels {
   final String appearanceLight;
   final String appearanceDark;
   final String appearanceSystem;
+  final String privacySection;
+  final String tagCaptureLocation;
+  final String tagCaptureLocationHelper;
   final String displayName;
   final String displayNameHint;
   final String defaultCurrency;
@@ -130,6 +136,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _baseCurrency = p.baseCurrency;
           }
           final currency = _baseCurrency ?? p.baseCurrency;
+          final tagCaptureLocation =
+              ref.watch(captureLocationTaggingProvider);
 
           return ListView(
             padding: const EdgeInsetsDirectional.all(20),
@@ -207,6 +215,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ref
                       .read(themePreferenceProvider.notifier)
                       .setPreference(selection.first);
+                },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                widget.labels.privacySection,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: context.vamoColors.onSurface,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(widget.labels.tagCaptureLocation),
+                subtitle: Text(
+                  widget.labels.tagCaptureLocationHelper,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.graphite),
+                ),
+                value: tagCaptureLocation,
+                onChanged: (enabled) {
+                  ref
+                      .read(captureLocationTaggingProvider.notifier)
+                      .setEnabled(enabled);
                 },
               ),
               const SizedBox(height: 24),

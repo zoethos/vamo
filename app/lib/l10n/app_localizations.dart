@@ -1335,6 +1335,24 @@ abstract class AppLocalizations {
   /// **'System'**
   String get profileAppearanceSystem;
 
+  /// No description provided for @profilePrivacySection.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get profilePrivacySection;
+
+  /// No description provided for @profileTagCaptureLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag captures with location'**
+  String get profileTagCaptureLocation;
+
+  /// No description provided for @profileTagCaptureLocationHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'When on, new trip photos can save location and original photo time from the image file. Existing photos are not scanned.'**
+  String get profileTagCaptureLocationHelper;
+
   /// No description provided for @profileDisplayName.
   ///
   /// In en, this message translates to:

@@ -62,6 +62,7 @@ TripsRepository _buildTripsRepository(AppDatabase db) {
       client: client,
       syncQueue: queue,
       syncWorker: syncWorker,
+      tagCaptureLocation: false,
     ),
     places: PlacesRepository(
       db: db,

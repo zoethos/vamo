@@ -23,6 +23,9 @@ class TripPhotoView {
     this.displayPath,
     this.caption,
     required this.capturedAt,
+    this.capturedLat,
+    this.capturedLng,
+    this.mediaCapturedAt,
     this.loadError,
     this.hasRemoteStoragePath = false,
     this.storagePath,
@@ -33,6 +36,9 @@ class TripPhotoView {
   final String? displayPath;
   final String? caption;
   final DateTime capturedAt;
+  final double? capturedLat;
+  final double? capturedLng;
+  final DateTime? mediaCapturedAt;
   final Object? loadError;
   final bool hasRemoteStoragePath;
   final String? storagePath;
