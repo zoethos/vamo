@@ -21,13 +21,17 @@ scripts:
     description: Run codegen across packages that need it
     run: melos exec --depends-on="build_runner" -- "dart run build_runner build --delete-conflicting-outputs"
 
+  gen-l10n:
+    description: Generate localizations (gitignored; regenerated from ARB so CI is self-contained)
+    run: melos exec --scope="vamo" -- "flutter gen-l10n"
+
   arch-guard:
     description: Enforce architecture import boundaries and token ratchets
     run: dart run tool/arch_guard_test.dart && dart run tool/arch_guard.dart
 
   ci:
     description: Codegen, architecture guard, analyze, and test
-    run: melos run build_runner && melos run arch-guard && melos run analyze && melos run test
+    run: melos run build_runner && melos run gen-l10n && melos run arch-guard && melos run analyze && melos run test
 
   android:
     description: Run the app on the first connected Android device
