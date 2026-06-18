@@ -21,9 +21,13 @@ scripts:
     description: Run codegen across packages that need it
     run: melos exec --depends-on="build_runner" -- "dart run build_runner build --delete-conflicting-outputs"
 
+  arch-guard:
+    description: Enforce architecture import boundaries and token ratchets
+    run: dart run tool/arch_guard_test.dart && dart run tool/arch_guard.dart
+
   ci:
-    description: Codegen then analyze and test (required ordering for Drift)
-    run: melos run build_runner && melos run analyze && melos run test
+    description: Codegen, architecture guard, analyze, and test
+    run: melos run build_runner && melos run arch-guard && melos run analyze && melos run test
 
   android:
     description: Run the app on the first connected Android device
