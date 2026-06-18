@@ -22,6 +22,20 @@ final captureRepositoryProvider = Provider<CaptureRepository>((ref) {
   );
 });
 
+typedef PhotoCacheLoader = Future<StorageAttachmentLoadResult> Function({
+  required SupabaseClient client,
+  required String tripId,
+  required String photoId,
+  required String storagePath,
+});
+
+typedef VideoCacheLoader = Future<StorageAttachmentLoadResult> Function({
+  required SupabaseClient client,
+  required String tripId,
+  required String videoId,
+  required String storagePath,
+});
+
 /// Slice 8 — notes + photos, Drift-first with Supabase on write.
 class CaptureRepository {
   CaptureRepository({
@@ -31,12 +45,18 @@ class CaptureRepository {
     required SyncWorker syncWorker,
     required bool tagCaptureLocation,
     Analytics? analytics,
+    PhotoCacheLoader? cachePhotoFromStorage,
+    VideoCacheLoader? cacheVideoFromStorage,
   })  : _db = db,
         _client = client,
         _syncQueue = syncQueue,
         _syncWorker = syncWorker,
         _tagCaptureLocation = tagCaptureLocation,
-        _analytics = analytics;
+        _analytics = analytics,
+        _cachePhotoFromStorage =
+            cachePhotoFromStorage ?? CaptureStorage.cachePhotoFromStorage,
+        _cacheVideoFromStorage =
+            cacheVideoFromStorage ?? CaptureStorage.cacheVideoFromStorage;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -44,6 +64,8 @@ class CaptureRepository {
   final SyncWorker _syncWorker;
   final bool _tagCaptureLocation;
   final Analytics? _analytics;
+  final PhotoCacheLoader _cachePhotoFromStorage;
+  final VideoCacheLoader _cacheVideoFromStorage;
   final _uuid = const Uuid();
 
   static const _capturesBucket = StoragePaths.capturesBucket;
@@ -126,7 +148,7 @@ class CaptureRepository {
       );
     }
 
-    final result = await CaptureStorage.cachePhotoFromStorage(
+    final result = await _cachePhotoFromStorage(
       client: _client,
       tripId: row.tripId,
       photoId: row.id,
@@ -211,7 +233,7 @@ class CaptureRepository {
       return loadVideoAttachment(row);
     }
 
-    final result = await CaptureStorage.cacheVideoFromStorage(
+    final result = await _cacheVideoFromStorage(
       client: _client,
       tripId: row.tripId,
       videoId: row.id,
@@ -624,7 +646,7 @@ class CaptureRepository {
       final storagePath = row['storage_path'] as String;
       var localPath = existing?.localPath;
       if (localPath == null || !await File(localPath).exists()) {
-        final cached = await CaptureStorage.cachePhotoFromStorage(
+        final cached = await _cachePhotoFromStorage(
           client: _client,
           tripId: tripId,
           photoId: id,

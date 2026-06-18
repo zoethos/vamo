@@ -22,7 +22,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'trips_list_test_support.dart';
 
-TripsRepository _buildTripsRepository(AppDatabase db) {
+TripsRepository _buildTripsRepository(
+  AppDatabase db, {
+  TripBackgroundCacheLoader? cacheBackgroundFromStorage,
+}) {
   final client = SupabaseClient(
     'http://localhost',
     'anon-key',
@@ -80,6 +83,7 @@ TripsRepository _buildTripsRepository(AppDatabase db) {
     syncQueue: queue,
     syncWorker: syncWorker,
     notifications: NotificationsRepository(db: db, client: client),
+    cacheBackgroundFromStorage: cacheBackgroundFromStorage,
   );
 }
 
@@ -108,6 +112,53 @@ void main() {
     expect(summaries, hasLength(1));
     expect(summaries.single.backgroundStoragePath, 'user/trip-bg/hero.jpg');
     expect(summaries.single.backgroundLocalPath, '/tmp/card-hero.jpg');
+  });
+
+  test('offloaded trip background rehydrates from storagePath', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final now = DateTime.utc(2026, 3, 1);
+    final tempDir = await Directory.systemTemp.createTemp('vamo-bg-cache');
+    addTearDown(() => tempDir.delete(recursive: true));
+    final cachedBackground = File('${tempDir.path}/background-cache.jpg');
+    await cachedBackground.writeAsBytes(const [0xFF, 0xD8, 0xFF, 0xE0]);
+
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value('trip-bg'),
+        name: const Value('Amalfi'),
+        ownerId: const Value('owner'),
+        baseCurrency: const Value('EUR'),
+        backgroundPath: const Value('user/trip-bg/hero.jpg'),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+
+    final requestedPaths = <String>[];
+    final repo = _buildTripsRepository(
+      db,
+      cacheBackgroundFromStorage: ({
+        required client,
+        required tripId,
+        required storagePath,
+      }) async {
+        requestedPaths.add(storagePath);
+        return StorageAttachmentLoadResult.local(cachedBackground.path);
+      },
+    );
+
+    final localPath = await repo.ensureTripBackgroundCached(
+      tripId: 'trip-bg',
+      storagePath: 'user/trip-bg/hero.jpg',
+    );
+
+    expect(localPath, cachedBackground.path);
+    expect(requestedPaths, ['user/trip-bg/hero.jpg']);
+    expect(
+      (await db.watchTrip('trip-bg').first)?.backgroundLocalPath,
+      cachedBackground.path,
+    );
   });
 
   test(

@@ -41,8 +41,7 @@ NotificationsRepository buildTestNotificationsRepository(
 }) {
   return NotificationsRepository(
     db: db,
-    client:
-        client ??
+    client: client ??
         SupabaseClient(
           'http://localhost',
           'anon-key',
@@ -56,9 +55,9 @@ TripsRepository buildTestTripsRepository(
   AppDatabase db, {
   SupabaseClient? client,
   NotificationsRepository? notifications,
+  TripBackgroundCacheLoader? cacheBackgroundFromStorage,
 }) {
-  final resolved =
-      client ??
+  final resolved = client ??
       SupabaseClient(
         'http://localhost',
         'anon-key',
@@ -117,5 +116,6 @@ TripsRepository buildTestTripsRepository(
     syncWorker: syncWorker,
     notifications:
         notifications ?? buildTestNotificationsRepository(db, client: resolved),
+    cacheBackgroundFromStorage: cacheBackgroundFromStorage,
   );
 }
