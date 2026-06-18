@@ -50,6 +50,13 @@ class _StubNotificationsRepository extends NotificationsRepository {
           ),
         );
 
+  int syncFromRemoteCalls = 0;
+
+  @override
+  Future<void> syncFromRemote() async {
+    syncFromRemoteCalls++;
+  }
+
   @override
   Future<void> markRead(String id) async {}
 }
@@ -107,15 +114,18 @@ GoRouter _shellRouter(GlobalKey<NavigatorState> rootNavigatorKey) {
 Future<GoRouter> _pumpInbox(
   WidgetTester tester, {
   required List<NotificationItem> notifications,
+  _StubNotificationsRepository? notificationsRepository,
 }) async {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
   final router = _shellRouter(rootNavigatorKey);
+  final repository = notificationsRepository ?? _StubNotificationsRepository();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        notificationsProvider.overrideWith((ref) => Stream.value(notifications)),
+        notificationsProvider
+            .overrideWith((ref) => Stream.value(notifications)),
         notificationsRepositoryProvider.overrideWith(
-          (ref) => _StubNotificationsRepository(),
+          (ref) => repository,
         ),
       ],
       child: MaterialApp.router(
@@ -130,7 +140,20 @@ Future<GoRouter> _pumpInbox(
 }
 
 void main() {
-  testWidgets('tapping notification to trips shell root uses go', (tester) async {
+  testWidgets('opening notifications inbox syncs remote cache', (tester) async {
+    final repository = _StubNotificationsRepository();
+
+    await _pumpInbox(
+      tester,
+      notifications: [_notification(route: AppRoutes.trips)],
+      notificationsRepository: repository,
+    );
+
+    expect(repository.syncFromRemoteCalls, 1);
+  });
+
+  testWidgets('tapping notification to trips shell root uses go',
+      (tester) async {
     final router = await _pumpInbox(
       tester,
       notifications: [_notification(route: AppRoutes.trips)],
@@ -144,7 +167,8 @@ void main() {
     expect(router.state.matchedLocation, AppRoutes.trips);
   });
 
-  testWidgets('tapping notification tile navigates via go, not push', (tester) async {
+  testWidgets('tapping notification tile navigates via go, not push',
+      (tester) async {
     const tripId = 'trip-1';
     final router = await _pumpInbox(
       tester,

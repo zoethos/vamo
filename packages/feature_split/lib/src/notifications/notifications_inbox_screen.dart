@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,14 +10,42 @@ import 'notification_models.dart';
 import 'notifications_providers.dart';
 import 'notifications_repository.dart';
 
-class NotificationsInboxScreen extends ConsumerWidget {
+class NotificationsInboxScreen extends ConsumerStatefulWidget {
   const NotificationsInboxScreen({super.key, required this.labels});
 
   final NotificationLabels labels;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NotificationsInboxScreen> createState() =>
+      _NotificationsInboxScreenState();
+}
+
+class _NotificationsInboxScreenState
+    extends ConsumerState<NotificationsInboxScreen> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_syncFromRemote());
+  }
+
+  Future<void> _syncFromRemote() async {
+    try {
+      await ref.read(notificationsRepositoryProvider).syncFromRemote();
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'notifications',
+        action: 'sync_from_remote',
+        severity: ActionFailureSeverity.degraded,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final notifications = ref.watch(notificationsProvider);
+    final labels = widget.labels;
     final colors = context.vamoColors;
     final type = context.vamoType;
 
@@ -29,9 +59,7 @@ class NotificationsInboxScreen extends ConsumerWidget {
               if (!hasUnread) return const SizedBox.shrink();
               return TextButton(
                 onPressed: () async {
-                  await ref
-                      .read(notificationsRepositoryProvider)
-                      .markAllRead();
+                  await ref.read(notificationsRepositoryProvider).markAllRead();
                 },
                 child: Text(labels.markAllRead),
               );
@@ -45,7 +73,10 @@ class NotificationsInboxScreen extends ConsumerWidget {
         error: (_, __) => AppErrorState(
           screen: 'notifications',
           message: labels.emptySubtitle,
-          onRetry: () => ref.invalidate(notificationsProvider),
+          onRetry: () {
+            unawaited(_syncFromRemote());
+            ref.invalidate(notificationsProvider);
+          },
         ),
         data: (items) {
           if (items.isEmpty) {
@@ -59,8 +90,7 @@ class NotificationsInboxScreen extends ConsumerWidget {
           return ListView.separated(
             padding: EdgeInsetsDirectional.all(context.vamoSpace.x4),
             itemCount: items.length,
-            separatorBuilder: (_, __) =>
-                SizedBox(height: context.vamoSpace.x2),
+            separatorBuilder: (_, __) => SizedBox(height: context.vamoSpace.x2),
             itemBuilder: (context, index) {
               final item = items[index];
               return _NotificationRow(
