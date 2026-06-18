@@ -133,11 +133,9 @@ class CaptureRepository {
       storagePath: remote,
     );
     if (result.isSuccess) {
-      await _db.upsertTripPhoto(
-        LocalTripPhotosCompanion(
-          id: Value(row.id),
-          localPath: Value(result.localPath),
-        ),
+      await _db.updateTripPhotoFields(
+        row.id,
+        LocalTripPhotosCompanion(localPath: Value(result.localPath)),
       );
       return TripPhotoView(
         id: row.id,
@@ -220,11 +218,9 @@ class CaptureRepository {
       storagePath: remote,
     );
     if (result.isSuccess) {
-      await _db.upsertTripVideo(
-        LocalTripVideosCompanion(
-          id: Value(row.id),
-          localPath: Value(result.localPath),
-        ),
+      await _db.updateTripVideoFields(
+        row.id,
+        LocalTripVideosCompanion(localPath: Value(result.localPath)),
       );
       return TripVideoView(
         id: row.id,
