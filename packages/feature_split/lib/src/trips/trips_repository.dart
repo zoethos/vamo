@@ -34,6 +34,13 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
   );
 });
 
+typedef TripBackgroundCacheLoader = Future<StorageAttachmentLoadResult>
+    Function({
+  required SupabaseClient client,
+  required String tripId,
+  required String storagePath,
+});
+
 /// Slice 1: Drift is the UI source of truth; Supabase is written on create and
 /// pulled on sync; outbox push via Slice 9 [SyncWorker].
 class TripsRepository {
@@ -49,6 +56,7 @@ class TripsRepository {
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
     required NotificationsRepository notifications,
+    TripBackgroundCacheLoader? cacheBackgroundFromStorage,
   }) : _db = db,
        _client = client,
        _analytics = analytics,
@@ -59,7 +67,9 @@ class TripsRepository {
        _plan = plan,
        _syncQueue = syncQueue,
        _syncWorker = syncWorker,
-       _notifications = notifications;
+       _notifications = notifications,
+       _cacheBackgroundFromStorage =
+           cacheBackgroundFromStorage ?? TripBackgroundStorage.cacheFromStorage;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -72,6 +82,7 @@ class TripsRepository {
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
   final NotificationsRepository _notifications;
+  final TripBackgroundCacheLoader _cacheBackgroundFromStorage;
   final _uuid = const Uuid();
 
   Stream<List<TripSummary>> watchTripSummaries() {
@@ -569,7 +580,7 @@ class TripsRepository {
       return local;
     }
 
-    final result = await TripBackgroundStorage.cacheFromStorage(
+    final result = await _cacheBackgroundFromStorage(
       client: _client,
       tripId: tripId,
       storagePath: storagePath,

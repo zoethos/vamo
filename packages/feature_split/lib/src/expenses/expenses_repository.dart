@@ -23,6 +23,13 @@ final expensesRepositoryProvider = Provider<ExpensesRepository>((ref) {
   );
 });
 
+typedef ReceiptCacheLoader = Future<StorageAttachmentLoadResult> Function({
+  required SupabaseClient client,
+  required String tripId,
+  required String expenseId,
+  required String storagePath,
+});
+
 /// Slice 2 + 9 + 14: Drift-first; remote via sync outbox when offline.
 class ExpensesRepository {
   ExpensesRepository({
@@ -32,12 +39,15 @@ class ExpensesRepository {
     required FxRatesClient fxRates,
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
+    ReceiptCacheLoader? cacheReceiptFromStorage,
   })  : _db = db,
         _client = client,
         _analytics = analytics,
         _fxRates = fxRates,
         _syncQueue = syncQueue,
-        _syncWorker = syncWorker;
+        _syncWorker = syncWorker,
+        _cacheReceiptFromStorage =
+            cacheReceiptFromStorage ?? CaptureStorage.cacheReceiptFromStorage;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -47,6 +57,7 @@ class ExpensesRepository {
   final FxRatesClient _fxRates;
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
+  final ReceiptCacheLoader _cacheReceiptFromStorage;
   final _uuid = const Uuid();
 
   static const _capturesBucket = StoragePaths.capturesBucket;
@@ -172,18 +183,16 @@ class ExpensesRepository {
       return const StorageAttachmentLoadResult.none();
     }
 
-    final result = await CaptureStorage.cacheReceiptFromStorage(
+    final result = await _cacheReceiptFromStorage(
       client: _client,
       tripId: expense.tripId,
       expenseId: expense.id,
       storagePath: remote,
     );
     if (result.isSuccess) {
-      await _db.upsertExpense(
-        LocalExpensesCompanion(
-          id: Value(expense.id),
-          localReceiptPath: Value(result.localPath),
-        ),
+      await _db.updateExpenseFields(
+        expense.id,
+        LocalExpensesCompanion(localReceiptPath: Value(result.localPath)),
       );
     }
     return result;
@@ -444,7 +453,7 @@ class ExpensesRepository {
           remoteReceiptPath.isNotEmpty &&
           (localReceiptPath == null ||
               !await File(localReceiptPath).exists())) {
-        final cached = await CaptureStorage.cacheReceiptFromStorage(
+        final cached = await _cacheReceiptFromStorage(
           client: _client,
           tripId: tripId,
           expenseId: expenseId,

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:app_core/app_core.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:feature_split/src/capture/capture_repository.dart';
 import 'package:feature_split/src/capture/capture_storage.dart';
@@ -353,6 +353,121 @@ void main() {
     expect(videos.first.loadError, null);
     expect(videos.first.hasRemoteStoragePath, isTrue);
     expect(videos.first.storagePath, 'user-1/trip-1/videos/video-remote.mp4');
+  });
+
+  test('offloaded capture media rehydrates from storagePath', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    const tripId = 'trip-1';
+    const photoStoragePath = 'user-1/trip-1/photos/photo-remote.jpg';
+    const videoStoragePath = 'user-1/trip-1/videos/video-remote.mp4';
+    final capturedAt = DateTime.utc(2026, 6, 5, 12);
+    final tempDir = await Directory.systemTemp.createTemp('vamo-capture-cache');
+    addTearDown(() => tempDir.delete(recursive: true));
+    final cachedPhoto = File('${tempDir.path}/photo-cache.jpg');
+    final cachedVideo = File('${tempDir.path}/video-cache.mp4');
+    await cachedPhoto.writeAsBytes(const [0xFF, 0xD8, 0xFF, 0xE0]);
+    await cachedVideo.writeAsBytes(const [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]);
+
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value(tripId),
+        name: const Value('Amalfi'),
+        baseCurrency: const Value('EUR'),
+        ownerId: const Value('user-1'),
+        createdAt: Value(capturedAt),
+        updatedAt: Value(capturedAt),
+      ),
+    );
+    await db.upsertTripPhoto(
+      LocalTripPhotosCompanion(
+        id: const Value('photo-remote'),
+        tripId: const Value(tripId),
+        storagePath: const Value(photoStoragePath),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+    await db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: const Value('video-remote'),
+        tripId: const Value(tripId),
+        storagePath: const Value(videoStoragePath),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+
+    final requestedPaths = <String>[];
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final repo = CaptureRepository(
+      db: db,
+      client: client,
+      syncQueue: queue,
+      syncWorker: SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (_) async {},
+      ),
+      tagCaptureLocation: false,
+      cachePhotoFromStorage: ({
+        required client,
+        required tripId,
+        required photoId,
+        required storagePath,
+      }) async {
+        requestedPaths.add(storagePath);
+        return StorageAttachmentLoadResult.local(cachedPhoto.path);
+      },
+      cacheVideoFromStorage: ({
+        required client,
+        required tripId,
+        required videoId,
+        required storagePath,
+      }) async {
+        requestedPaths.add(storagePath);
+        return StorageAttachmentLoadResult.local(cachedVideo.path);
+      },
+    );
+
+    final photoRow = await (db.select(db.localTripPhotos)
+          ..where((p) => p.id.equals('photo-remote')))
+        .getSingle();
+    final photo = await repo.loadPhotoAttachment(photoRow);
+    expect(photo.displayPath, cachedPhoto.path);
+
+    final videoBeforeRetry = await repo.watchTripVideos(tripId).first;
+    expect(videoBeforeRetry.single.displayPath, isNull);
+    expect(videoBeforeRetry.single.hasRemoteStoragePath, isTrue);
+
+    final video = await repo.retryVideoLoad('video-remote');
+    expect(video.displayPath, cachedVideo.path);
+
+    expect(requestedPaths, [photoStoragePath, videoStoragePath]);
+    expect(
+      (await (db.select(db.localTripPhotos)
+                ..where((p) => p.id.equals('photo-remote')))
+              .getSingle())
+          .localPath,
+      cachedPhoto.path,
+    );
+    expect(
+      (await (db.select(db.localTripVideos)
+                ..where((v) => v.id.equals('video-remote')))
+              .getSingle())
+          .localPath,
+      cachedVideo.path,
+    );
   });
 
   test('video storage helpers guard upload size and content type', () async {
