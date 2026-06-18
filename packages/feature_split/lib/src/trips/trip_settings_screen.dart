@@ -42,6 +42,7 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
   bool _datesFormSynced = false;
   bool _savingDates = false;
   String? _dateRangeError;
+  bool _offloadingMedia = false;
 
   @override
   void dispose() {
@@ -235,6 +236,8 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 28),
+              ..._buildRetentionSection(),
             ],
           ),
         );
@@ -357,6 +360,38 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
     ];
   }
 
+  List<Widget> _buildRetentionSection() {
+    final labels = widget.labels;
+    return [
+      Text(
+        labels.retentionSectionTitle,
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      const SizedBox(height: 8),
+      Text(
+        labels.offloadMediaBody,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: context.vamoColors.onSurfaceMuted,
+            ),
+      ),
+      const SizedBox(height: 12),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: OutlinedButton.icon(
+          onPressed: _offloadingMedia ? null : _confirmOffloadMedia,
+          icon: _offloadingMedia
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.cloud_off_outlined),
+          label: Text(labels.offloadMedia),
+        ),
+      ),
+    ];
+  }
+
   VamoDatePickerLabels get _datePickerLabels => VamoDatePickerLabels(
         cancel: widget.labels.datePickerCancel,
         skip: widget.labels.datePickerSkip,
@@ -473,6 +508,61 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _savingBudget = false);
+    }
+  }
+
+  Future<void> _confirmOffloadMedia() async {
+    final labels = widget.labels;
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(labels.offloadMediaConfirmTitle),
+            content: Text(labels.offloadMediaConfirmBody),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(labels.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(labels.offloadMedia),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    setState(() => _offloadingMedia = true);
+    try {
+      final result = await ref
+          .read(tripsRepositoryProvider)
+          .offloadTripMediaCache(widget.tripId);
+      final count =
+          result.backgrounds + result.photos + result.videos + result.receipts;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              count == 0
+                  ? labels.offloadMediaNothing
+                  : labels.offloadMediaSuccess(count),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showActionError(
+          context,
+          ref,
+          screen: 'trip_settings',
+          action: 'offload_media',
+          error: e,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _offloadingMedia = false);
     }
   }
 

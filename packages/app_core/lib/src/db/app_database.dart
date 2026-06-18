@@ -316,6 +316,14 @@ class AppDatabase extends _$AppDatabase {
     return into(localExpenses).insertOnConflictUpdate(expense);
   }
 
+  Future<int> updateExpenseFields(
+    String expenseId,
+    LocalExpensesCompanion fields,
+  ) {
+    return (update(localExpenses)..where((e) => e.id.equals(expenseId)))
+        .write(fields);
+  }
+
   Stream<List<LocalExpenseShare>> watchTripExpenseShares(String tripId) {
     return (select(localExpenseShares)
           ..where(
@@ -632,6 +640,81 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTrips)..where((t) => t.id.equals(tripId))).go();
   }
 
+  /// Drops local media cache for rows that are already backed by remote storage.
+  /// Local-only/offline media is intentionally left untouched.
+  Future<({int backgrounds, int photos, int videos, int receipts})>
+      offloadTripMediaCache(String tripId) async {
+    var backgrounds = 0;
+    var photos = 0;
+    var videos = 0;
+    var receipts = 0;
+
+    final trip = await (select(localTrips)..where((t) => t.id.equals(tripId)))
+        .getSingleOrNull();
+    if (_hasValue(trip?.backgroundPath) &&
+        _hasValue(trip?.backgroundLocalPath)) {
+      await _deleteLocalFileBestEffort(trip!.backgroundLocalPath);
+      await updateTripFields(
+        tripId,
+        const LocalTripsCompanion(backgroundLocalPath: Value(null)),
+      );
+      backgrounds++;
+    }
+
+    final photoRows = await (select(localTripPhotos)
+          ..where((p) => p.tripId.equals(tripId)))
+        .get();
+    for (final photo in photoRows) {
+      if (!_hasValue(photo.storagePath) || !_hasValue(photo.localPath)) {
+        continue;
+      }
+      await _deleteLocalFileBestEffort(photo.localPath);
+      await updateTripPhotoFields(
+        photo.id,
+        const LocalTripPhotosCompanion(localPath: Value(null)),
+      );
+      photos++;
+    }
+
+    final videoRows = await (select(localTripVideos)
+          ..where((v) => v.tripId.equals(tripId)))
+        .get();
+    for (final video in videoRows) {
+      if (!_hasValue(video.storagePath) || !_hasValue(video.localPath)) {
+        continue;
+      }
+      await _deleteLocalFileBestEffort(video.localPath);
+      await updateTripVideoFields(
+        video.id,
+        const LocalTripVideosCompanion(localPath: Value(null)),
+      );
+      videos++;
+    }
+
+    final expenseRows = await (select(localExpenses)
+          ..where((e) => e.tripId.equals(tripId)))
+        .get();
+    for (final expense in expenseRows) {
+      if (!_hasValue(expense.receiptPath) ||
+          !_hasValue(expense.localReceiptPath)) {
+        continue;
+      }
+      await _deleteLocalFileBestEffort(expense.localReceiptPath);
+      await updateExpenseFields(
+        expense.id,
+        const LocalExpensesCompanion(localReceiptPath: Value(null)),
+      );
+      receipts++;
+    }
+
+    return (
+      backgrounds: backgrounds,
+      photos: photos,
+      videos: videos,
+      receipts: receipts,
+    );
+  }
+
   Future<void> pruneExpensesForTrip(
     String tripId,
     Set<String> remoteExpenseIds, {
@@ -681,6 +764,8 @@ class AppDatabase extends _$AppDatabase {
       );
     }
   }
+
+  bool _hasValue(String? value) => value != null && value.isNotEmpty;
 }
 
 QueryExecutor _openConnection() => driftDatabase(

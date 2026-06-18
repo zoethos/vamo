@@ -44,12 +44,20 @@ const _testBudgetLabels = TripBudgetLabels(
   datePickerCancel: 'Cancel',
   datePickerSkip: 'Skip',
   datePickerSelect: 'Select',
+  retentionSectionTitle: 'Storage & retention',
+  offloadMedia: 'Offload media',
+  offloadMediaBody: 'Remove local copies.',
+  offloadMediaConfirmTitle: 'Offload local media?',
+  offloadMediaConfirmBody: 'Only backed-up media will be removed.',
+  offloadMediaSuccess: _mockOffloadSuccess,
+  offloadMediaNothing: 'No backed-up local media to offload.',
 );
 
 String _mockRemaining(int cents, String currency) => '$cents $currency left';
 String _mockOver(String currency) => 'Over $currency';
 String _mockCapturedAt(String iso) => 'Captured $iso';
 String _mockHint(String phrase) => 'Type $phrase';
+String _mockOffloadSuccess(int count) => '$count cached items offloaded.';
 
 void main() {
   testWidgets('formal over-budget confirm requires exact phrase',
@@ -194,6 +202,8 @@ void main() {
 
     // Member is not the owner → no editable Dates section.
     expect(find.text(_testBudgetLabels.datesSectionTitle), findsNothing);
+    expect(find.text(_testBudgetLabels.retentionSectionTitle), findsOneWidget);
+    expect(find.text(_testBudgetLabels.offloadMedia), findsOneWidget);
   });
 
   testWidgets('owner not-started trip shows editable start and end dates', (
