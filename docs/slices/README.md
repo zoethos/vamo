@@ -1,7 +1,7 @@
 # Slice tracker — Wave 2 (the real stage)
 
 Living status; specs stay sealed. Conventions: `docs/CONVENTIONS.md`.
-Updated: 2026-06-11.
+Updated: 2026-06-18.
 
 ## Recommended sequencing (founder-approved)
 
@@ -23,7 +23,7 @@ Updated: 2026-06-11.
 |---|---|---|---|
 | S15 | W2·R9 (QR invite) | ✅ done | join deep-link hardening landed separately (fix branch) |
 | S16 | W2·R1 (roles), W2·R2 (push) | ✅ done | heartbeat cron firing; device push verified on S25 (lands + routes to /trips). send-push fixed (djwt→jose, npm: imports) + key rotated. Follow-up: FCM UNREGISTERED pruning (S22) |
-| S17 | W2·R3 (lifecycle) | ✅ merged | review P1s fixed; smoke 34/34 on cloud; `trip-lifecycle-jobs` deployed with CRON_SECRET but **unscheduled** — activates with S22 push ("no notice, no deemed consent") |
+| S17 | W2·R3 (lifecycle) | ✅ merged | review P1s fixed; smoke 34/34 on cloud; `trip-lifecycle-jobs` deployed with CRON_SECRET; daily cron now live after S46 record-first + 2-device FCM gate |
 | S18 | W2·R4 (TripBoard) | ✅ merged | smoke green incl. closed-trip + ex-member plan cases; schema S21-ready (events = kind:activity) |
 | S19 | W2·R5 (money governance I) | ✅ merged | smoke 51/51; forged-dispute guard (0018) + realtime parent-touch; 2 invariants verified |
 | S19.1 | W2·R5 finish | ✅ merged | propose UI + governance ARB; 5 second-review fixes in; CI 189 tests |
@@ -32,7 +32,7 @@ Updated: 2026-06-11.
 | S21 | W2·R8 (EventList) | ✅ merged (`1ba8a9e`) | EventList + RSVP + realtime (0022–0024: parent-touch, clear RPC, cascade guard); plan-propagation hardening incl. autoDispose binding + flush-before-RSVP (`84b3620`); UI fixes (back-nav fallback, tab-aware FAB, no dup Plan CTA). smoke 76/76 |
 | — | **Wave 2 internal build (S15–S20)** | 🔶 in progress | S16 verified; **release-signed `.aab` built** (upload key CN=Tiziano Rocca/Vamo, R8 proguard fix for ML Kit Latin-only). Next: Play internal upload → app-signing-key SHA-256 → assetlinks → testers (`SHIP_INTERNAL.md` 5–8) |
 | — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
-| S22 | W2·R7 (close report) + P1 nudge | ✅ code merged / 🔶 activation gate | code landed on `main` with `0029_s22_close_notice.sql`; cron remains unscheduled. Remaining: cloud frontier confirmation, cron dry-run, and device notice/nudge/close-report verification |
+| S22 | W2·R7 (close report) + P1 nudge | ✅ code merged / ✅ cron enabled | code landed on `main` with `0029_s22_close_notice.sql`; daily `trip-lifecycle-jobs-daily` cron enabled at `0 6 * * *` after cloud + 2-device FCM verification |
 | S23 | W2·R10 (AI theme resolver) | ✅ merged (`47d0c9b2`) | provider-neutral adapter, default OpenAI; `destination_themes` per `AI_THEMING_SPEC.md` |
 | S24 | P1 retention basics | ⬜ | |
 | S25 | P1 share pages | ✅ live | PR #23; preview-first `/j/[token]`; member count only; production smoke verified after Vercel publishable key fix |
@@ -40,6 +40,6 @@ Updated: 2026-06-11.
 | S27 | Mobile UI polish I | ✅ merged (`bd20a0ab`) | tester-readiness polish + Linux golden stabilization; `s27_polish_golden_test.dart` present |
 | S29 | Design system foundation | 📋 backlog (`S29_DESIGN_SYSTEM_FOUNDATION_PROMPT.md`) | token/component substrate for deeper polish; parked until founder/design direction |
 | S30 | Capture video | 🔶 branch in progress (`feature/capture-video`) | `0032_trip_videos`, Drift v17, `CaptureChoiceSheet` Video action, Memories video grid, in-app `video_player` playback; device picker/playback gate pending |
-| S46 | Notifications primitive + inbox | 🔶 branch ready (`feature/notification-center`) | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. CI + cloud RLS smoke green; `trip-lifecycle-jobs` and `send-push` deployed. Remaining gates: guarded manual lifecycle invoke and 2-device no-push/push verification before enabling cron. |
+| S46 | Notifications primitive + inbox | ✅ merged / ✅ activation gate passed | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. Guarded manual invoke and 2-device FCM verification passed; daily lifecycle cron enabled. |
 
 Wave-1 slices S1–S14: shipped and verified (v0.1.0). Gate check after S22.
