@@ -34,6 +34,7 @@ String expenseReceiptPath({
     '$userId/$tripId/receipts/$expenseId$ext';
 
 const _capturesBucket = 'captures';
+const _avatarsBucket = 'avatars';
 
 final _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -75,6 +76,8 @@ Future<void> main() async {
   String? tripId;
   String? storagePath;
   String? bStoragePath;
+  String? aAvatarPath;
+  String? bAvatarPath;
   SupabaseClient? clientA;
 
   try {
@@ -206,6 +209,122 @@ Future<void> main() async {
     results.add(_Check('B join_trip', joinedTrip == tripId));
 
     final userB = clientB.auth.currentUser!.id;
+
+    // --- S47 profile avatars (display_name privacy tier) ---
+    aAvatarPath = '$userA/profile.jpg';
+    bAvatarPath = '$userB/profile.jpg';
+    const avatarUploadOptions = FileOptions(
+      contentType: 'image/jpeg',
+      upsert: true,
+    );
+    await clientA.storage.from(_avatarsBucket).uploadBinary(
+          aAvatarPath!,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    results.add(_Check('S47 A avatar insert own path', true));
+    await clientA.storage.from(_avatarsBucket).uploadBinary(
+          aAvatarPath!,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    results.add(_Check('S47 A avatar upsert own path', true));
+    final aAvatarSigned = await clientA.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(aAvatarPath!, 60);
+    results.add(_Check(
+      'S47 A avatar select own path',
+      aAvatarSigned.isNotEmpty,
+    ));
+    final bReadAvatar = await clientB.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(aAvatarPath!, 60);
+    results.add(_Check(
+      'S47 B can select A avatar (display_name tier)',
+      bReadAvatar.isNotEmpty,
+    ));
+    var bWriteAvatarBlocked = false;
+    try {
+      await clientB.storage.from(_avatarsBucket).uploadBinary(
+            aAvatarPath!,
+            _pngBytes,
+            fileOptions: avatarUploadOptions,
+          );
+    } catch (_) {
+      bWriteAvatarBlocked = true;
+    }
+    results.add(_Check('S47 B blocked writing A avatar path', bWriteAvatarBlocked));
+    var aWriteBAvatarBlocked = false;
+    try {
+      await clientA.storage.from(_avatarsBucket).uploadBinary(
+            bAvatarPath!,
+            _pngBytes,
+            fileOptions: avatarUploadOptions,
+          );
+    } catch (_) {
+      aWriteBAvatarBlocked = true;
+    }
+    results.add(_Check('S47 A blocked writing B avatar path', aWriteBAvatarBlocked));
+
+    var aSetBAvatarUrlBlocked = false;
+    try {
+      await clientA
+          .from('profiles')
+          .update({'avatar_url': bAvatarPath}).eq('id', userA);
+    } catch (_) {
+      aSetBAvatarUrlBlocked = true;
+    }
+    results.add(_Check(
+      'S47 A blocked setting avatar_url to B path',
+      aSetBAvatarUrlBlocked,
+    ));
+
+    var aSetOwnAvatarUrlOk = false;
+    try {
+      await clientA
+          .from('profiles')
+          .update({'avatar_url': aAvatarPath}).eq('id', userA);
+      aSetOwnAvatarUrlOk = true;
+    } catch (_) {}
+    results.add(_Check('S47 A can set own avatar_url path', aSetOwnAvatarUrlOk));
+
+    var aSetNullAvatarUrlOk = false;
+    try {
+      await clientA.from('profiles').update({'avatar_url': null}).eq('id', userA);
+      aSetNullAvatarUrlOk = true;
+    } catch (_) {}
+    results.add(_Check('S47 A can clear avatar_url to null', aSetNullAvatarUrlOk));
+
+    var aDeleteOwnAvatarOk = false;
+    try {
+      await clientA.storage.from(_avatarsBucket).remove([aAvatarPath!]);
+      aDeleteOwnAvatarOk = true;
+    } catch (_) {}
+    results.add(_Check('S47 A can delete own avatar object', aDeleteOwnAvatarOk));
+
+    await clientB.storage.from(_avatarsBucket).uploadBinary(
+          bAvatarPath!,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    // Storage remove() is silent on RLS deny — verify object survival, not throws.
+    List<FileObject> aRemoveBResult = [];
+    try {
+      aRemoveBResult =
+          await clientA.storage.from(_avatarsBucket).remove([bAvatarPath!]);
+    } catch (_) {}
+    final bAvatarActuallyRemoved =
+        aRemoveBResult.any((f) => f.name == bAvatarPath);
+    final bAvatarSignedAfterCrossDelete = await clientB.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(bAvatarPath!, 60);
+    final bAvatarFetchAfterCrossDelete =
+        await http.get(Uri.parse(bAvatarSignedAfterCrossDelete));
+    results.add(_Check(
+      'S47 A blocked deleting B avatar object',
+      !bAvatarActuallyRemoved &&
+          bAvatarFetchAfterCrossDelete.statusCode == 200,
+    ));
 
     // --- S19 money governance (R5) — two members, before role promotion ---
     final netBaseline = await _netCents(clientB, tripId, userB);
@@ -1687,10 +1806,12 @@ Future<void> main() async {
     results.add(_Check('unexpected error', false, detail: '$e'));
   } finally {
     if (clientA != null) {
-      for (final path in [storagePath, bStoragePath]) {
+      for (final path in [storagePath, bStoragePath, aAvatarPath, bAvatarPath]) {
         if (path == null) continue;
         try {
-          await clientA.storage.from(_capturesBucket).remove([path]);
+          final bucket =
+              path == aAvatarPath ? _avatarsBucket : _capturesBucket;
+          await clientA.storage.from(bucket).remove([path]);
           results.add(_Check('cleanup storage $path', true));
         } catch (e) {
           results.add(_Check('cleanup storage $path', false, detail: '$e'));

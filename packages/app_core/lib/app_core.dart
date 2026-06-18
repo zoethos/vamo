@@ -25,6 +25,8 @@ export 'src/design/theme_mode_provider.dart';
 export 'src/format/relative_time.dart';
 export 'src/privacy/capture_location_tagging_provider.dart';
 export 'src/visual/gradient_scrim.dart';
+export 'src/profile/avatar_signed_url_providers.dart';
+export 'src/profile/avatar_storage.dart';
 export 'src/profile/profile_models.dart';
 export 'src/profile/profile_identity.dart';
 export 'src/profile/profile_providers.dart';

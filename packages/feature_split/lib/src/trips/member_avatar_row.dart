@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 
 import '../expenses/expense_models.dart';
+import 'cached_member_avatar.dart';
 
 /// Circular member avatars with trailing add tile (S35 dashboard).
 class MemberAvatarRow extends StatelessWidget {
@@ -33,8 +34,9 @@ class MemberAvatarRow extends StatelessWidget {
           for (final member in visible) ...[
             VamoCircleIcon(
               diameter: _tileDiameter,
-              child: VamoAvatar(
+              child: CachedMemberAvatar(
                 displayName: member.displayName,
+                avatarStoragePath: member.avatarUrl,
                 radius: _avatarRadius,
               ),
             ),

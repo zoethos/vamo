@@ -7,12 +7,16 @@ class UserProfile {
     required this.displayName,
     required this.baseCurrency,
     this.displayNameSetAt,
+    this.avatarUrl,
   });
 
   final String id;
   final String displayName;
   final String baseCurrency;
   final DateTime? displayNameSetAt;
+
+  /// Storage path in the private `avatars` bucket — never a provider hot-link.
+  final String? avatarUrl;
 
   bool get needsIdentityCompletion => profileNeedsIdentityCompletion(
     displayName: displayName,
@@ -25,6 +29,7 @@ class UserProfile {
       displayName: row['display_name'] as String,
       baseCurrency: row['base_currency'] as String,
       displayNameSetAt: _nullableDate(row['display_name_set_at']),
+      avatarUrl: row['avatar_url'] as String?,
     );
   }
 }

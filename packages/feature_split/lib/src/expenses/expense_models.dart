@@ -59,11 +59,15 @@ class TripMemberView {
     required this.userId,
     required this.displayName,
     required this.role,
+    this.avatarUrl,
   });
 
   final String userId;
   final String displayName;
   final String role;
+
+  /// Storage path in the private `avatars` bucket — never a signed URL.
+  final String? avatarUrl;
 }
 
 class AddExpenseInput {

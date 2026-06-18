@@ -269,7 +269,7 @@ class TripsRepository {
         .select(
           'trip_id, user_id, role, status, completed_at, close_accepted_at, '
           'close_objected_at, close_objection_reason, close_notified_at, '
-          'close_reminded_at, settle_nudged_at, profiles(display_name)',
+          'close_reminded_at, settle_nudged_at, profiles(display_name, avatar_url)',
         );
     final memberRows = onlyTripId == null
         ? await memberQuery
@@ -311,6 +311,7 @@ class TripsRepository {
           role: Value(row['role'] as String),
           status: Value(row['status'] as String),
           displayName: Value(profile?['display_name'] as String?),
+          avatarUrl: Value(profile?['avatar_url'] as String?),
           completedAt: Value(_timestamp(row['completed_at'])),
           closeAcceptedAt: Value(_timestamp(row['close_accepted_at'])),
           closeObjectedAt: Value(_timestamp(row['close_objected_at'])),
