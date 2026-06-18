@@ -172,6 +172,11 @@ class TripsRepository {
     await _db.delete(_db.localTrips).go();
   }
 
+  Future<({int backgrounds, int photos, int videos, int receipts})>
+      offloadTripMediaCache(String tripId) {
+    return _db.offloadTripMediaCache(tripId);
+  }
+
   /// Pulls one trip's remote data into Drift (realtime refresh).
   Future<void> syncTripFromRemote(String tripId) async {
     if (_client.auth.currentUser?.id == null) return;

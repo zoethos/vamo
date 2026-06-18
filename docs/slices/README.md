@@ -1,23 +1,19 @@
 # Slice tracker — Wave 2 (the real stage)
 
 Living status; specs stay sealed. Conventions: `docs/CONVENTIONS.md`.
-Updated: 2026-06-18.
+Updated: 2026-06-19.
 
 ## Recommended sequencing (founder-approved)
 
 1. **S25 is live** — PR #23 merged, Supabase `0026_s25_get_trip_preview` applied,
    Vercel `NEXT_PUBLIC_SUPABASE_URL` + publishable key set, and `/j/<token>`
    smoke verified on production.
-2. **S30 active** — video capture is being implemented on
-   `feature/capture-video` on top of the S46 notification branch. The current app
-   already uses the S44/S45 carousel add surface, so S30 wires video into that
-   surface rather than resurrecting the older Capture-FAB sheet.
-3. **S22 activation held** — code is already on `main` and its migration is
-   `0029_s22_close_notice.sql`. Remaining work is operational: confirm the cloud
-   migration frontier, schedule `trip-lifecycle-jobs`, run the cron dry-run, and
-   device-verify the notice/nudge/close-report flow.
-4. **Internal build** — resume Play/internal tester work around whichever slice
-   is actively being shipped.
+2. **Internal tester build is live** — Firebase App Distribution build
+   `0.2.0.2 (2)` is available to the `vamo-internal` tester group.
+3. **S24 active** — retention basics starts with the safe per-device
+   "Offload media" slice, then graduates to leave/purge and owner delete.
+4. **S30 complete on main** — video capture/playback and Memories rehydration
+   fixes are landed; no active `feature/capture-video` branch remains.
 
 | Slice | Implements | Status | Notes |
 |---|---|---|---|
@@ -30,16 +26,16 @@ Updated: 2026-06-18.
 | S20 | W2·R6 (money governance II) | ✅ merged | budget + FX constant-rate; smoke 62/62; FX endpoint `/live` (0020) + service-writer smoke (0021); provider-resilience standard. Follow-ups: expense conversion→constant table (D4 OCR clause); FX fetch→Edge Function + throttle handling |
 | S17.1 | lifecycle UX fix | ✅ merged (`5fb7721`) | phase-aware gating + quiet overflow; closing banner kept; P1 UTC fix; request-close confirm dialog; tooltip→ARB. CI 121 tests |
 | S21 | W2·R8 (EventList) | ✅ merged (`1ba8a9e`) | EventList + RSVP + realtime (0022–0024: parent-touch, clear RPC, cascade guard); plan-propagation hardening incl. autoDispose binding + flush-before-RSVP (`84b3620`); UI fixes (back-nav fallback, tab-aware FAB, no dup Plan CTA). smoke 76/76 |
-| — | **Wave 2 internal build (S15–S20)** | 🔶 in progress | S16 verified; **release-signed `.aab` built** (upload key CN=Tiziano Rocca/Vamo, R8 proguard fix for ML Kit Latin-only). Next: Play internal upload → app-signing-key SHA-256 → assetlinks → testers (`SHIP_INTERNAL.md` 5–8) |
+| — | **Wave 2 internal build (S15–S20)** | ✅ tester build live | Firebase App Distribution `0.2.0.2 (2)` uploaded and shared with `vamo-internal`; Play internal track remains a later distribution step |
 | — | **Notifications subsystem** | 🔭 W3 pillar (`design/NOTIFICATIONS.md`) | adopted as destination; lifecycle/nudge/RSVP/dispute become producers; ops alerts separate |
 | S22 | W2·R7 (close report) + P1 nudge | ✅ code merged / ✅ cron enabled | code landed on `main` with `0029_s22_close_notice.sql`; daily `trip-lifecycle-jobs-daily` cron enabled at `0 6 * * *` after cloud + 2-device FCM verification |
 | S23 | W2·R10 (AI theme resolver) | ✅ merged (`47d0c9b2`) | provider-neutral adapter, default OpenAI; `destination_themes` per `AI_THEMING_SPEC.md` |
-| S24 | P1 retention basics | ⬜ | |
+| S24 | P1 retention basics | 🔶 active | first slice: per-device Offload media for remote-backed caches; later: Leave & purge and owner Delete for everyone |
 | S25 | P1 share pages | ✅ live | PR #23; preview-first `/j/[token]`; member count only; production smoke verified after Vercel publishable key fix |
 | S26 | Contact invite (growth) | ✅ merged (`1c6ed4b`) | permissionless selected contact invite; no `READ_CONTACTS`; uses S25 `/j/<token>` + `ch=contact`; device-pass debt remains before tester confidence |
 | S27 | Mobile UI polish I | ✅ merged (`bd20a0ab`) | tester-readiness polish + Linux golden stabilization; `s27_polish_golden_test.dart` present |
 | S29 | Design system foundation | 📋 backlog (`S29_DESIGN_SYSTEM_FOUNDATION_PROMPT.md`) | token/component substrate for deeper polish; parked until founder/design direction |
-| S30 | Capture video | 🔶 branch in progress (`feature/capture-video`) | `0032_trip_videos`, Drift v17, `CaptureChoiceSheet` Video action, Memories video grid, in-app `video_player` playback; device picker/playback gate pending |
+| S30 | Capture video | ✅ merged | `0032_trip_videos`, Drift v17, `CaptureChoiceSheet` Video action, Memories video grid, in-app `video_player` playback, and rehydration fixes landed on `main` |
 | S46 | Notifications primitive + inbox | ✅ merged / ✅ activation gate passed | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. Guarded manual invoke and 2-device FCM verification passed; daily lifecycle cron enabled. |
 
 Wave-1 slices S1–S14: shipped and verified (v0.1.0). Gate check after S22.

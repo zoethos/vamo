@@ -193,6 +193,13 @@ class SplitLabels {
         datePickerCancel: l10n.datePickerCancel,
         datePickerSkip: l10n.datePickerSkip,
         datePickerSelect: l10n.datePickerSelect,
+        retentionSectionTitle: l10n.tripRetentionSectionTitle,
+        offloadMedia: l10n.tripOffloadMedia,
+        offloadMediaBody: l10n.tripOffloadMediaBody,
+        offloadMediaConfirmTitle: l10n.tripOffloadMediaConfirmTitle,
+        offloadMediaConfirmBody: l10n.tripOffloadMediaConfirmBody,
+        offloadMediaSuccess: l10n.tripOffloadMediaSuccess,
+        offloadMediaNothing: l10n.tripOffloadMediaNothing,
       );
 
   static TripLifecycleLabels lifecycle(AppLocalizations l10n) =>

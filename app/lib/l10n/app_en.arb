@@ -479,6 +479,18 @@
   "tripBudgetConfirm": "Confirm",
   "tripBudgetCancel": "Cancel",
   "tripCurrencyMissingAdmin": "Ask an admin to add this currency in trip settings",
+  "tripRetentionSectionTitle": "Storage & retention",
+  "tripOffloadMedia": "Offload media",
+  "tripOffloadMediaBody": "Remove local copies of backed-up photos, videos, receipts, and the trip background from this device. The trip stays here and media reloads when opened.",
+  "tripOffloadMediaConfirmTitle": "Offload local media?",
+  "tripOffloadMediaConfirmBody": "Only media already backed up to Vamo storage will be removed from this device. Local-only items waiting to upload are kept.",
+  "tripOffloadMediaSuccess": "{count, plural, =1{1 cached item offloaded.} other{{count} cached items offloaded.}}",
+  "@tripOffloadMediaSuccess": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "tripOffloadMediaNothing": "No backed-up local media to offload.",
   "tripLifecycleMarkDone": "I'm done",
   "tripLifecycleRequestClose": "Request close",
   "tripLifecycleCancelTrip": "Cancel trip",

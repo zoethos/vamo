@@ -2,6 +2,7 @@ typedef BudgetBurnDownLabel = String Function(
     int remainingCents, String currency);
 typedef BudgetOverLabel = String Function(String currency);
 typedef BudgetFormalConfirmHint = String Function(String phrase);
+typedef RetentionOffloadResultLabel = String Function(int count);
 
 class TripBudgetLabels {
   const TripBudgetLabels({
@@ -36,6 +37,13 @@ class TripBudgetLabels {
     required this.datePickerCancel,
     required this.datePickerSkip,
     required this.datePickerSelect,
+    required this.retentionSectionTitle,
+    required this.offloadMedia,
+    required this.offloadMediaBody,
+    required this.offloadMediaConfirmTitle,
+    required this.offloadMediaConfirmBody,
+    required this.offloadMediaSuccess,
+    required this.offloadMediaNothing,
   });
 
   final String settingsTitle;
@@ -69,4 +77,11 @@ class TripBudgetLabels {
   final String datePickerCancel;
   final String datePickerSkip;
   final String datePickerSelect;
+  final String retentionSectionTitle;
+  final String offloadMedia;
+  final String offloadMediaBody;
+  final String offloadMediaConfirmTitle;
+  final String offloadMediaConfirmBody;
+  final RetentionOffloadResultLabel offloadMediaSuccess;
+  final String offloadMediaNothing;
 }

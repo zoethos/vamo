@@ -241,12 +241,20 @@ const _budgetLabels = TripBudgetLabels(
   datePickerCancel: 'Cancel',
   datePickerSkip: 'Skip',
   datePickerSelect: 'Select',
+  retentionSectionTitle: 'Storage & retention',
+  offloadMedia: 'Offload media',
+  offloadMediaBody: 'Remove local copies.',
+  offloadMediaConfirmTitle: 'Offload local media?',
+  offloadMediaConfirmBody: 'Only backed-up media will be removed.',
+  offloadMediaSuccess: _mockOffloadSuccess,
+  offloadMediaNothing: 'No backed-up local media to offload.',
 );
 
 String _mockRemaining(int cents, String currency) => '$cents $currency left';
 String _mockOver(String currency) => 'Over $currency';
 String _mockCapturedAt(String iso) => 'Captured $iso';
 String _mockHint(String phrase) => 'Type $phrase';
+String _mockOffloadSuccess(int count) => '$count cached items offloaded.';
 
 Future<void> _openOverflowMenu(WidgetTester tester) async {
   await tester.tap(find.byIcon(Icons.more_horiz));
