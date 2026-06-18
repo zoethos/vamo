@@ -203,11 +203,9 @@ class SyncWorker {
         }, onConflict: 'id');
         final db = _db;
         if (db != null) {
-          await db.upsertTripPhoto(
-            LocalTripPhotosCompanion(
-              id: Value(photoId),
-              storagePath: Value(storagePath),
-            ),
+          await db.updateTripPhotoFields(
+            photoId,
+            LocalTripPhotosCompanion(storagePath: Value(storagePath)),
           );
         }
         break;
@@ -238,11 +236,9 @@ class SyncWorker {
         }, onConflict: 'id');
         final db = _db;
         if (db != null) {
-          await db.upsertTripVideo(
-            LocalTripVideosCompanion(
-              id: Value(videoId),
-              storagePath: Value(storagePath),
-            ),
+          await db.updateTripVideoFields(
+            videoId,
+            LocalTripVideosCompanion(storagePath: Value(storagePath)),
           );
         }
         break;
