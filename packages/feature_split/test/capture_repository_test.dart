@@ -138,7 +138,7 @@ void main() {
     expect(videos.first.displayPath, videoFile.path);
   });
 
-  test('media cache local path updates are partial-safe', () async {
+  test('media cache and upload path updates are partial-safe', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -165,11 +165,29 @@ void main() {
         createdAt: Value(capturedAt),
       ),
     );
+    await db.upsertTripPhoto(
+      LocalTripPhotosCompanion(
+        id: const Value('photo-local'),
+        tripId: const Value(tripId),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
     await db.upsertTripVideo(
       LocalTripVideosCompanion(
         id: const Value('video-remote'),
         tripId: const Value(tripId),
         storagePath: const Value('user-1/trip-1/videos/video-remote.mp4'),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+    await db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: const Value('video-local'),
+        tripId: const Value(tripId),
         capturedAt: Value(capturedAt),
         createdBy: const Value('user-1'),
         createdAt: Value(capturedAt),
@@ -190,6 +208,24 @@ void main() {
         const LocalTripVideosCompanion(
           id: Value('video-remote'),
           localPath: Value('/tmp/video-remote.mp4'),
+        ),
+      ),
+      throwsA(isA<InvalidDataException>()),
+    );
+    await expectLater(
+      db.upsertTripPhoto(
+        const LocalTripPhotosCompanion(
+          id: Value('photo-local'),
+          storagePath: Value('user-1/trip-1/photos/photo-local.jpg'),
+        ),
+      ),
+      throwsA(isA<InvalidDataException>()),
+    );
+    await expectLater(
+      db.upsertTripVideo(
+        const LocalTripVideosCompanion(
+          id: Value('video-local'),
+          storagePath: Value('user-1/trip-1/videos/video-local.mp4'),
         ),
       ),
       throwsA(isA<InvalidDataException>()),
@@ -218,6 +254,18 @@ void main() {
       'video-remote',
       const LocalTripVideosCompanion(localPath: Value('/tmp/video-remote.mp4')),
     );
+    await db.updateTripPhotoFields(
+      'photo-local',
+      const LocalTripPhotosCompanion(
+        storagePath: Value('user-1/trip-1/photos/photo-local.jpg'),
+      ),
+    );
+    await db.updateTripVideoFields(
+      'video-local',
+      const LocalTripVideosCompanion(
+        storagePath: Value('user-1/trip-1/videos/video-local.mp4'),
+      ),
+    );
 
     expect(
       (await (db.select(db.localTripPhotos)
@@ -232,6 +280,20 @@ void main() {
               .getSingle())
           .localPath,
       '/tmp/video-remote.mp4',
+    );
+    expect(
+      (await (db.select(db.localTripPhotos)
+                ..where((p) => p.id.equals('photo-local')))
+              .getSingle())
+          .storagePath,
+      'user-1/trip-1/photos/photo-local.jpg',
+    );
+    expect(
+      (await (db.select(db.localTripVideos)
+                ..where((v) => v.id.equals('video-local')))
+              .getSingle())
+          .storagePath,
+      'user-1/trip-1/videos/video-local.mp4',
     );
   });
 

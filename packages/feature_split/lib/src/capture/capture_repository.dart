@@ -375,11 +375,9 @@ class CaptureRepository {
         'media_captured_at': mediaMetadata.capturedAt?.toIso8601String(),
         'created_by': userId,
       });
-      await _db.upsertTripPhoto(
-        LocalTripPhotosCompanion(
-          id: Value(id),
-          storagePath: Value(storagePath),
-        ),
+      await _db.updateTripPhotoFields(
+        id,
+        LocalTripPhotosCompanion(storagePath: Value(storagePath)),
       );
       debugBreadcrumb(
         'remote photo synced',
@@ -477,11 +475,9 @@ class CaptureRepository {
         'captured_lng': capturedLng,
         'created_by': userId,
       });
-      await _db.upsertTripVideo(
-        LocalTripVideosCompanion(
-          id: Value(id),
-          storagePath: Value(storagePath),
-        ),
+      await _db.updateTripVideoFields(
+        id,
+        LocalTripVideosCompanion(storagePath: Value(storagePath)),
       );
       debugBreadcrumb(
         'remote video synced',
