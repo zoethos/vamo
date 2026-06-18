@@ -138,6 +138,103 @@ void main() {
     expect(videos.first.displayPath, videoFile.path);
   });
 
+  test('media cache local path updates are partial-safe', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    const tripId = 'trip-1';
+    final capturedAt = DateTime.utc(2026, 6, 5, 12);
+
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value(tripId),
+        name: const Value('Amalfi'),
+        baseCurrency: const Value('EUR'),
+        ownerId: const Value('user-1'),
+        createdAt: Value(capturedAt),
+        updatedAt: Value(capturedAt),
+      ),
+    );
+    await db.upsertTripPhoto(
+      LocalTripPhotosCompanion(
+        id: const Value('photo-remote'),
+        tripId: const Value(tripId),
+        storagePath: const Value('user-1/trip-1/photos/photo-remote.jpg'),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+    await db.upsertTripVideo(
+      LocalTripVideosCompanion(
+        id: const Value('video-remote'),
+        tripId: const Value(tripId),
+        storagePath: const Value('user-1/trip-1/videos/video-remote.mp4'),
+        capturedAt: Value(capturedAt),
+        createdBy: const Value('user-1'),
+        createdAt: Value(capturedAt),
+      ),
+    );
+
+    await expectLater(
+      db.upsertTripPhoto(
+        const LocalTripPhotosCompanion(
+          id: Value('photo-remote'),
+          localPath: Value('/tmp/photo-remote.jpg'),
+        ),
+      ),
+      throwsA(isA<InvalidDataException>()),
+    );
+    await expectLater(
+      db.upsertTripVideo(
+        const LocalTripVideosCompanion(
+          id: Value('video-remote'),
+          localPath: Value('/tmp/video-remote.mp4'),
+        ),
+      ),
+      throwsA(isA<InvalidDataException>()),
+    );
+
+    expect(
+      (await (db.select(db.localTripPhotos)
+                ..where((p) => p.id.equals('photo-remote')))
+              .getSingle())
+          .localPath,
+      equals(null),
+    );
+    expect(
+      (await (db.select(db.localTripVideos)
+                ..where((v) => v.id.equals('video-remote')))
+              .getSingle())
+          .localPath,
+      equals(null),
+    );
+
+    await db.updateTripPhotoFields(
+      'photo-remote',
+      const LocalTripPhotosCompanion(localPath: Value('/tmp/photo-remote.jpg')),
+    );
+    await db.updateTripVideoFields(
+      'video-remote',
+      const LocalTripVideosCompanion(localPath: Value('/tmp/video-remote.mp4')),
+    );
+
+    expect(
+      (await (db.select(db.localTripPhotos)
+                ..where((p) => p.id.equals('photo-remote')))
+              .getSingle())
+          .localPath,
+      '/tmp/photo-remote.jpg',
+    );
+    expect(
+      (await (db.select(db.localTripVideos)
+                ..where((v) => v.id.equals('video-remote')))
+              .getSingle())
+          .localPath,
+      '/tmp/video-remote.mp4',
+    );
+  });
+
   test('watchTripVideos defers remote video download until playback', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);

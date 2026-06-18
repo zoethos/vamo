@@ -391,8 +391,24 @@ class AppDatabase extends _$AppDatabase {
     return into(localTripPhotos).insertOnConflictUpdate(row);
   }
 
+  Future<int> updateTripPhotoFields(
+    String photoId,
+    LocalTripPhotosCompanion fields,
+  ) {
+    return (update(localTripPhotos)..where((p) => p.id.equals(photoId)))
+        .write(fields);
+  }
+
   Future<void> upsertTripVideo(LocalTripVideosCompanion row) {
     return into(localTripVideos).insertOnConflictUpdate(row);
+  }
+
+  Future<int> updateTripVideoFields(
+    String videoId,
+    LocalTripVideosCompanion fields,
+  ) {
+    return (update(localTripVideos)..where((v) => v.id.equals(videoId)))
+        .write(fields);
   }
 
   Future<void> deleteTripNote(String id) {
