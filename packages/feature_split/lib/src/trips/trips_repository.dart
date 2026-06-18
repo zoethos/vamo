@@ -571,11 +571,9 @@ class TripsRepository {
     );
     if (result.isSuccess && result.localPath != null) {
       await TripBackgroundStorage.evictHeroImageCache(result.localPath!);
-      await _db.upsertTrip(
-        LocalTripsCompanion(
-          id: Value(tripId),
-          backgroundLocalPath: Value(result.localPath),
-        ),
+      await _db.updateTripFields(
+        tripId,
+        LocalTripsCompanion(backgroundLocalPath: Value(result.localPath)),
       );
       return result.localPath;
     }

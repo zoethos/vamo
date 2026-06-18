@@ -289,6 +289,27 @@ void main() {
     expect(File(storedPath!).existsSync(), isTrue);
   });
 
+  test('remote background cache uses partial-safe trip update', () async {
+    final badPartialUpsert = db.upsertTrip(
+      const LocalTripsCompanion(
+        id: Value(tripId),
+        backgroundLocalPath: Value('/tmp/remote-hero.jpg'),
+      ),
+    );
+
+    await expectLater(badPartialUpsert, throwsA(isA<InvalidDataException>()));
+    expect(await _readBackgroundLocalPath(db, tripId), isNull);
+
+    await db.updateTripFields(
+      tripId,
+      const LocalTripsCompanion(
+        backgroundLocalPath: Value('/tmp/remote-hero.jpg'),
+      ),
+    );
+
+    expect(await _readBackgroundLocalPath(db, tripId), '/tmp/remote-hero.jpg');
+  });
+
   testWidgets('background carousel dismisses before repo write completes', (
     tester,
   ) async {
