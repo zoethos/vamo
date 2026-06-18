@@ -84,12 +84,12 @@ Each upload increments `+N` by exactly 1; Android/Profile show it as
       shows local == remote).
 
 ## Android identity / deep links (do for this build, not deferred)
-- [ ] Real `assetlinks.json` SHA-256: `cd app && ./gradlew signingReport`, take
-      the **upload key** SHA-256, replace `DEBUG_FINGERPRINT` in
-      `web/apps/site/public/.well-known/assetlinks.json`, redeploy site. Add the
-      Play App Signing cert SHA-256 too once the Play app exists (both may be
-      needed during transition). Verifies App Links so QR/invite opens the app
-      directly, not the browser.
+- [ ] Real `assetlinks.json` SHA-256: `cd app && ./gradlew signingReport`, verify
+      the **upload key** SHA-256 is present in
+      `web/apps/site/public/.well-known/assetlinks.json`, then redeploy site.
+      Add the Play App Signing cert SHA-256 too once the Play app exists (both
+      may be needed during transition). Verifies App Links so QR/invite opens
+      the app directly, not the browser.
 - [ ] `google-services.json` present at `app/android/app/` (package `app.vamo`) ✓ (S16).
 
 ## S16 manual tail (hardware-bound — only you)
@@ -108,10 +108,9 @@ flutter build appbundle --release
 Upload AAB to Play Console internal-testing track; add testers by email.
 
 ## Wave 2 known limits (document for testers)
-- **Trip auto-close does NOT fire yet** — `trip-lifecycle-jobs` is deployed
-  but unscheduled (gated on S22 push: "no notice, no deemed consent"). Owners
-  can still request/force close manually; the 14-day deemed-close and 6-month
-  unresolved jobs are dormant until S22.
+- **Trip auto-close is live** — `trip-lifecycle-jobs-daily` runs at `0 6 * * *`
+  UTC after the S46 record-first + 2-device FCM gate. The job is idempotent and
+  writes `job_heartbeats` with `job_name = 'trip-lifecycle-jobs'`.
 - **Governance actions are online-only** — propose / commit / void / dispute
   call RPCs directly (no offline outbox). Born-committed expense logging stays
   offline-first.

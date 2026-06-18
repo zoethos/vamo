@@ -57,12 +57,18 @@ npx supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
 npx supabase functions deploy send-push
 ```
 
-**Do not schedule until S22 device pass + manual cron dry-run are green**
-(see `docs/slices/S22_PROMPT.md` §5). When ready:
+**Enabled in production on 2026-06-18 after S46 record-first notices, manual
+guarded invoke, and the 2-device FCM pass were green.**
 
-Dashboard → Edge Functions → `trip-lifecycle-jobs` → **Schedules** → daily cron
-`0 6 * * *` (06:00 UTC daily). Every request must send header
-`x-cron-secret: <CRON_SECRET>`.
+Supabase Cron entry:
+
+- Job name: `trip-lifecycle-jobs-daily`
+- Schedule: `0 6 * * *` (06:00 UTC daily)
+- Invocation: `net.http_post` to `/functions/v1/trip-lifecycle-jobs`
+- Header: `x-cron-secret`, read from Supabase Vault secret
+  `trip_lifecycle_cron_secret`
+- Project URL: read from Supabase Vault secret `vamo_project_url`
+- Heartbeat: `job_name = 'trip-lifecycle-jobs'`
 
 Manual dry-run:
 

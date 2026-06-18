@@ -4,7 +4,9 @@
     "target": {
       "namespace": "android_app",
       "package_name": "app.vamo",
-      "sha256_cert_fingerprints": ["DEBUG_FINGERPRINT"]
+      "sha256_cert_fingerprints": [
+        "B6:18:BD:12:49:70:51:F5:18:37:9A:1E:2F:8E:88:E8:73:4C:1C:5E:48:E0:5E:68:BD:50:66:59:E0:9F:BB:89"
+      ]
     }
   }
 ]
