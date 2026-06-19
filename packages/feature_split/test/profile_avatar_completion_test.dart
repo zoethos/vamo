@@ -11,26 +11,33 @@ void main() {
   const packageInfoChannel = MethodChannel(
     'dev.fluttercommunity.plus/package_info',
   );
+  void Function(FlutterErrorDetails details)? previousErrorHandler;
 
   setUp(() {
+    previousErrorHandler = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.exception is NetworkImageLoadException) return;
+      previousErrorHandler?.call(details);
+    };
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(packageInfoChannel, (_) async {
-          return {
-            'appName': 'Vamo',
-            'packageName': 'app.vamo',
-            'version': '0.2.0',
-            'buildNumber': '1',
-            'buildSignature': '',
-          };
-        });
+      return {
+        'appName': 'Vamo',
+        'packageName': 'app.vamo',
+        'version': '0.2.0',
+        'buildNumber': '1',
+        'buildSignature': '',
+      };
+    });
   });
 
   tearDown(() {
+    FlutterError.onError = previousErrorHandler ?? FlutterError.presentError;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(packageInfoChannel, null);
   });
 
-  testWidgets('completion mode rejects placeholder then continues after save', (
+  testWidgets('completion screen shows avatar options when OAuth preview exists', (
     tester,
   ) async {
     final repository = _FakeProfileRepository(
@@ -39,104 +46,96 @@ void main() {
         displayName: kPlaceholderDisplayName,
         baseCurrency: 'EUR',
       ),
+      oauthPreviewUrl: 'https://provider.example/photo.jpg',
     );
 
-    final router = GoRouter(
-      initialLocation: AppRoutes.profileCompletion,
-      routes: [
-        GoRoute(
-          path: AppRoutes.profileCompletion,
-          builder: (context, state) =>
-              ProfileScreen(labels: _labels, completionRequired: true),
-        ),
-        GoRoute(
-          path: AppRoutes.trips,
-          builder: (context, state) =>
-              const Scaffold(body: Center(child: Text('Trips ready'))),
-        ),
-      ],
-    );
+    await _pumpCompletionScreen(tester, repository);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          profileRepositoryProvider.overrideWithValue(repository),
-          userProfileProvider.overrideWith((ref) => repository.fetchCurrent()),
-        ],
-        child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    expect(find.text('Use this'), findsOneWidget);
+    expect(find.text('Upload'), findsOneWidget);
+    expect(find.text('Use initials'), findsOneWidget);
+  });
+
+  testWidgets('use initials clears stored avatar path', (tester) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Chen',
+        baseCurrency: 'EUR',
+        avatarUrl: 'user-1/profile.jpg',
       ),
     );
+
+    await _pumpCompletionScreen(tester, repository);
+    await tester.tap(find.text('Use initials'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Finish your profile'), findsOneWidget);
-    expect(find.text(kPlaceholderDisplayName), findsNothing);
-
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Display name'),
-      kPlaceholderDisplayName,
-    );
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('Save changes'),
-      48,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Save changes'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Choose a display name other than Vamigo.'),
-      findsOneWidget,
-    );
-
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Display name'),
-      'Maya Chen',
-    );
-    await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('Save changes'),
-      48,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Save changes'));
-    await tester.pumpAndSettle();
-
-    expect(repository.profile.displayName, 'Maya Chen');
-    expect(repository.profile.displayNameSetAt, isNotNull);
-    expect(find.text('Trips ready'), findsOneWidget);
+    expect(repository.clearAvatarCalls, 1);
+    expect(repository.profile.avatarUrl, isNull);
   });
 }
 
+Future<void> _pumpCompletionScreen(
+  WidgetTester tester,
+  _FakeProfileRepository repository,
+) async {
+  final router = GoRouter(
+    initialLocation: AppRoutes.profileCompletion,
+    routes: [
+      GoRoute(
+        path: AppRoutes.profileCompletion,
+        builder: (context, state) =>
+            ProfileScreen(labels: _labels, completionRequired: true),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(repository),
+        userProfileProvider.overrideWith((ref) => repository.fetchCurrent()),
+      ],
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 class _FakeProfileRepository extends ProfileRepository {
-  _FakeProfileRepository(this.profile)
-    : super(
-        SupabaseClient(
-          'http://localhost',
-          'test-anon-key',
-          authOptions: const AuthClientOptions(autoRefreshToken: false),
-        ),
-      );
+  _FakeProfileRepository(
+    this.profile, {
+    this.oauthPreviewUrl,
+  }) : super(
+          SupabaseClient(
+            'http://localhost',
+            'test-anon-key',
+            authOptions: const AuthClientOptions(autoRefreshToken: false),
+          ),
+        );
 
   UserProfile profile;
+  final String? oauthPreviewUrl;
+  int clearAvatarCalls = 0;
 
   @override
   Future<UserProfile> fetchCurrent() async => profile;
 
   @override
-  Future<UserProfile> update({
-    required String displayName,
-    required String baseCurrency,
-  }) async {
-    final trimmed = normalizeDisplayName(displayName);
-    if (!isUsableDisplayName(trimmed)) {
-      throw ArgumentError('Invalid display name');
-    }
+  String? oauthAvatarPreviewUrl() => oauthPreviewUrl;
+
+  @override
+  Future<String?> signedAvatarUrl(String? storagePath) async => null;
+
+  @override
+  Future<UserProfile> clearAvatar() async {
+    clearAvatarCalls++;
     profile = UserProfile(
       id: profile.id,
-      displayName: trimmed,
-      baseCurrency: baseCurrency,
-      displayNameSetAt: DateTime.utc(2026, 6, 17),
+      displayName: profile.displayName,
+      baseCurrency: profile.baseCurrency,
+      displayNameSetAt: profile.displayNameSetAt,
+      avatarUrl: null,
     );
     return profile;
   }

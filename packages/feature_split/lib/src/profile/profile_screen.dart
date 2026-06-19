@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../signals/coming_soon_sheet.dart';
@@ -33,6 +34,10 @@ class ProfileScreenLabels {
     required this.defaultCurrencyHelper,
     required this.completionTitle,
     required this.completionSubtitle,
+    required this.avatarSection,
+    required this.avatarUseOAuth,
+    required this.avatarUpload,
+    required this.avatarUseInitials,
     required this.billingSection,
     required this.plusTitle,
     required this.plusSubtitle,
@@ -78,6 +83,10 @@ class ProfileScreenLabels {
   final String defaultCurrencyHelper;
   final String completionTitle;
   final String completionSubtitle;
+  final String avatarSection;
+  final String avatarUseOAuth;
+  final String avatarUpload;
+  final String avatarUseInitials;
   final String billingSection;
   final String plusTitle;
   final String plusSubtitle;
@@ -124,6 +133,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _hydrated = false;
   String? _version;
   String? _nameError;
+  String? _avatarPhotoUrl;
+  bool _avatarBusy = false;
+  bool _avatarPreviewLoaded = false;
 
   @override
   void initState() {
@@ -159,22 +171,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           onRetry: () => ref.invalidate(userProfileProvider),
         ),
         data: (p) {
+          final completionRequired = widget.completionRequired;
           if (!_hydrated) {
             _hydrated = true;
             _nameController.text =
                 isPlaceholderDisplayName(p.displayName) ? '' : p.displayName;
             _baseCurrency = p.baseCurrency;
           }
+          if (completionRequired && !_avatarPreviewLoaded) {
+            _avatarPreviewLoaded = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _refreshAvatarPreview(p);
+            });
+          }
           final currency = _baseCurrency ?? p.baseCurrency;
           final tagCaptureLocation =
               ref.watch(captureLocationTaggingProvider);
-          final completionRequired = widget.completionRequired;
 
           return ListView(
             padding: const EdgeInsetsDirectional.all(20),
             children: [
               if (completionRequired) ...[
                 _CompletionBlock(subtitle: widget.labels.completionSubtitle),
+                const SizedBox(height: 24),
+                _AvatarCompletionBlock(
+                  labels: widget.labels,
+                  displayName: _effectiveDisplayName(p),
+                  photoUrl: _avatarPhotoUrl,
+                  oauthPreviewUrl: p.avatarUrl == null
+                      ? ref
+                          .read(profileRepositoryProvider)
+                          .oauthAvatarPreviewUrl()
+                      : null,
+                  oauthPreviewAvailable: ref
+                          .read(profileRepositoryProvider)
+                          .oauthAvatarPreviewUrl() !=
+                      null,
+                  busy: _avatarBusy,
+                  onUseOAuth: () => _adoptOAuthAvatar(p),
+                  onUpload: () => _uploadAvatar(p),
+                  onUseInitials: () => _useInitialsAvatar(p),
+                ),
                 const SizedBox(height: 24),
               ] else ...[
                 _AboutBlock(
@@ -412,6 +449,94 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  String _effectiveDisplayName(UserProfile profile) {
+    final typed = normalizeDisplayName(_nameController.text);
+    if (typed.isNotEmpty && !isPlaceholderDisplayName(typed)) {
+      return typed;
+    }
+    return profile.displayName;
+  }
+
+  Future<void> _refreshAvatarPreview(UserProfile profile) async {
+    final repo = ref.read(profileRepositoryProvider);
+    if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+      final signed = await repo.signedAvatarUrl(profile.avatarUrl);
+      if (!mounted) return;
+      setState(() => _avatarPhotoUrl = signed);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _avatarPhotoUrl = null);
+  }
+
+  Future<void> _adoptOAuthAvatar(UserProfile profile) async {
+    setState(() => _avatarBusy = true);
+    try {
+      final updated =
+          await ref.read(profileRepositoryProvider).adoptOAuthAvatar();
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      await _refreshAvatarPreview(updated);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'adopt_oauth_avatar',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _uploadAvatar(UserProfile profile) async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    setState(() => _avatarBusy = true);
+    try {
+      final updated = await ref
+          .read(profileRepositoryProvider)
+          .uploadAvatarFromFile(picked.path);
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      await _refreshAvatarPreview(updated);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'upload_avatar',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _useInitialsAvatar(UserProfile profile) async {
+    setState(() => _avatarBusy = true);
+    try {
+      await ref.read(profileRepositoryProvider).clearAvatar();
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      setState(() => _avatarPhotoUrl = null);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'clear_avatar',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
   Future<void> _save(UserProfile previous) async {
     final validationError = _validateDisplayName();
     if (validationError != null) {
@@ -526,6 +651,80 @@ class _CompletionBlock extends StatelessWidget {
                   context,
                 ).textTheme.bodyMedium?.copyWith(color: AppColors.graphite),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AvatarCompletionBlock extends StatelessWidget {
+  const _AvatarCompletionBlock({
+    required this.labels,
+    required this.displayName,
+    required this.photoUrl,
+    required this.oauthPreviewUrl,
+    required this.oauthPreviewAvailable,
+    required this.busy,
+    required this.onUseOAuth,
+    required this.onUpload,
+    required this.onUseInitials,
+  });
+
+  final ProfileScreenLabels labels;
+  final String displayName;
+  final String? photoUrl;
+  final String? oauthPreviewUrl;
+  final bool oauthPreviewAvailable;
+  final bool busy;
+  final VoidCallback onUseOAuth;
+  final VoidCallback onUpload;
+  final VoidCallback onUseInitials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsetsDirectional.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              labels.avatarSection,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: VamoAvatar(
+                displayName: displayName,
+                photoUrl: photoUrl ?? oauthPreviewUrl,
+                radius: 36,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                if (oauthPreviewAvailable)
+                  OutlinedButton(
+                    onPressed: busy ? null : onUseOAuth,
+                    child: Text(labels.avatarUseOAuth),
+                  ),
+                OutlinedButton(
+                  onPressed: busy ? null : onUpload,
+                  child: Text(labels.avatarUpload),
+                ),
+                OutlinedButton(
+                  onPressed: busy ? null : onUseInitials,
+                  child: Text(labels.avatarUseInitials),
+                ),
+              ],
             ),
           ],
         ),

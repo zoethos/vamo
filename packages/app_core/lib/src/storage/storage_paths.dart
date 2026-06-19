@@ -47,6 +47,11 @@ abstract final class StoragePaths {
   }) =>
       '$userId/$tripId/background${_normalizeExt(ext)}';
 
+  static const avatarsBucket = 'avatars';
+
+  /// `{userId}/profile.jpg` — one canonical object per user; upsert on re-upload.
+  static String userAvatar({required String userId}) => '$userId/profile.jpg';
+
   static String _normalizeExt(String ext) {
     final lower = ext.toLowerCase();
     if (lower.isEmpty || lower == '.') return '.jpg';
