@@ -10,7 +10,7 @@
 //   SCENARIO_USER_B_EMAIL / SCENARIO_USER_B_PASSWORD
 //
 // Falls back to RLS_USER_A/B_* so the existing staging smoke users can run it.
-// Set SCENARIO_TARGET_LABEL=staging (default) or SCENARIO_ALLOW_NON_STAGING=true.
+// Set SCENARIO_TARGET_LABEL=staging or SCENARIO_ALLOW_NON_STAGING=true.
 
 import 'dart:convert';
 import 'dart:io';
@@ -36,6 +36,16 @@ Future<void> main(List<String> args) async {
   }
 
   final url = _required('SUPABASE_URL');
+  if (url.contains(_knownProdSupabaseRef) &&
+      _env('SCENARIO_ALLOW_PROD_REF') != 'true') {
+    stderr.writeln(
+      'Refusing to run: SUPABASE_URL contains the known production project '
+      'ref. Scenario runs write trips and expenses. Use a staging project, or '
+      'set SCENARIO_ALLOW_PROD_REF=true only during an explicit production '
+      'load window.',
+    );
+    exit(2);
+  }
   final anon = _required('SUPABASE_ANON_KEY');
   final aEmail =
       _required('SCENARIO_USER_A_EMAIL', fallback: 'RLS_USER_A_EMAIL');
@@ -327,3 +337,5 @@ Output:
   JSON summary with run_id and trip_id. The trip is intentionally left in
   staging for dashboard inspection and manual cleanup.
 ''';
+
+const _knownProdSupabaseRef = 'mjercplkmuoctdklosyy';

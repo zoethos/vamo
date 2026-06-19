@@ -3,6 +3,7 @@ import { check, fail, sleep } from 'k6';
 
 const targetLabel = __ENV.K6_TARGET_LABEL;
 const allowNonStaging = __ENV.K6_ALLOW_NON_STAGING === 'true';
+const knownProdSupabaseRef = 'mjercplkmuoctdklosyy';
 
 if (
   (!targetLabel || !targetLabel.toLowerCase().includes('staging')) &&
@@ -15,6 +16,16 @@ if (
 }
 
 const baseUrl = requireEnv('SUPABASE_URL').replace(/\/$/, '');
+if (
+  baseUrl.includes(knownProdSupabaseRef) &&
+  __ENV.K6_ALLOW_PROD_REF !== 'true'
+) {
+  throw new Error(
+    'Refusing to run: SUPABASE_URL contains the known production project ref. ' +
+      'The k6 script writes trips and expenses. Use staging, or set ' +
+      'K6_ALLOW_PROD_REF=true only during an explicit production load window.',
+  );
+}
 const anonKey = requireEnv('SUPABASE_ANON_KEY');
 const userAEmail = __ENV.K6_USER_A_EMAIL || __ENV.RLS_USER_A_EMAIL;
 const userAPassword = __ENV.K6_USER_A_PASSWORD || __ENV.RLS_USER_A_PASSWORD;
