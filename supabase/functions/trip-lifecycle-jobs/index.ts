@@ -1,4 +1,4 @@
-// Daily trip lifecycle jobs — S17/S22/S46 (record-first notices; push best-effort).
+// Daily trip lifecycle jobs — S17/S22/S46/S48 (record-first notices; push best-effort).
 // Deploy: supabase functions deploy trip-lifecycle-jobs --no-verify-jwt
 // Schedule: daily cron AFTER device-verified nudges (see docs/SCHEDULED_JOBS.md).
 
@@ -8,6 +8,12 @@ import {
   recordNotification,
   shouldStampAfterRecord,
 } from "../_shared/notifications.ts";
+import {
+  isSoftCloseEligible,
+  shouldNotifyWrappedTrip,
+  todayIsoUtc,
+  type SoftCloseTripRow,
+} from "../_shared/soft_close_sweep.ts";
 
 interface TripInfo {
   name: string;
@@ -59,6 +65,7 @@ Deno.serve(async (req) => {
     day7_reminders_recorded: 0,
     deemed_closed_notices_recorded: 0,
     settle_nudges_recorded: 0,
+    wrapped_trip_notices_recorded: 0,
   };
 
   const pushStats = {
@@ -202,6 +209,62 @@ Deno.serve(async (req) => {
     }
   }
 
+  const softCloseStats = {
+    soft_closed: 0,
+    wrapped_notices_recorded: 0,
+  };
+
+  const todayIso = todayIsoUtc(new Date(now));
+
+  const { data: softCloseRows, error: softCloseErr } = await supabase
+    .from("trips")
+    .select("id, name, owner_id, end_date, reopened_at, lifecycle")
+    .eq("lifecycle", "active")
+    .not("end_date", "is", null)
+    .lte("end_date", todayIso)
+    .is("reopened_at", null);
+
+  if (softCloseErr) {
+    console.error("soft close query failed", softCloseErr);
+  } else if (softCloseRows?.length) {
+    for (const raw of softCloseRows) {
+      const row = raw as SoftCloseTripRow & {
+        id: string;
+        name: string;
+        owner_id: string;
+        end_date: string;
+      };
+      if (!isSoftCloseEligible(row, todayIso)) continue;
+
+      if (shouldNotifyWrappedTrip(row.end_date, todayIso)) {
+        const route = tripRoute(row.id);
+        const title = "Your trip wrapped";
+        const body = `Your ${row.name} wrapped — relive it?`;
+        const recordId = await recordNotification(supabase, {
+          userId: row.owner_id,
+          tripId: row.id,
+          type: "wrapped_trip",
+          title,
+          body,
+          route,
+        });
+        if (shouldStampAfterRecord(recordId)) {
+          recordStats.wrapped_trip_notices_recorded++;
+          softCloseStats.wrapped_notices_recorded++;
+        }
+      }
+
+      const { error: enterErr } = await supabase.rpc("_enter_soft_close", {
+        p_trip_id: row.id,
+      });
+      if (enterErr) {
+        console.error("_enter_soft_close failed", row.id, enterErr);
+      } else {
+        softCloseStats.soft_closed++;
+      }
+    }
+  }
+
   const { data: jobResult, error: jobError } = await supabase.rpc(
     "run_trip_lifecycle_jobs",
   );
@@ -311,6 +374,7 @@ Deno.serve(async (req) => {
 
   const detail = {
     ...(jobResult as Record<string, unknown>),
+    soft_close: softCloseStats,
     recorded: recordStats,
     push: pushStats,
   };

@@ -73,6 +73,38 @@ class _TripLifecycleBannerState extends ConsumerState<TripLifecycleBanner> {
         ref.watch(tripHasCloseObjectionProvider(tripId)).valueOrNull ?? false;
     final repo = ref.read(tripsRepositoryProvider);
 
+    if (lifecycle == TripLifecycle.softClosed && isOwner) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Banner(
+            color: AppColors.jadeTeal.withValues(alpha: 0.25),
+            message: labels.softClosedBanner,
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                onPressed: () =>
+                    context.push(AppRoutes.tripMemories(tripId)),
+                child: Text(labels.reliveTrip),
+              ),
+              OutlinedButton(
+                onPressed: () => TripLifecycleActions.runLifecycleRpc(
+                  context: context,
+                  ref: ref,
+                  action: () => repo.reopenTripFromSoftClose(tripId),
+                ),
+                child: Text(labels.reopenTrip),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
     if (phase == TripPhase.readOnly) {
       final showCloseReport = lifecycle == TripLifecycle.closed ||
           lifecycle == TripLifecycle.unresolved;

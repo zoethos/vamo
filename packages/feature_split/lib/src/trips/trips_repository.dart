@@ -434,6 +434,14 @@ class TripsRepository {
     );
   }
 
+  Future<void> reopenTripFromSoftClose(String tripId) async {
+    await _client.rpc(
+      'reopen_from_soft_close',
+      params: {'p_trip_id': tripId},
+    );
+    await syncTripFromRemote(tripId);
+  }
+
   Future<void> markTripMemberComplete(String tripId) async {
     await _client.rpc(
       'mark_trip_member_complete',

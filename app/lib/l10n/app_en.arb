@@ -55,6 +55,7 @@
   "notificationTypeCloseReminder": "Close reminder",
   "notificationTypeDeemedClosed": "Trip closed",
   "notificationTypeSettleNudge": "Settle up",
+  "notificationTypeWrappedTrip": "Trip wrapped",
   "notificationTypeGeneric": "Notice",
   "tripsCreateTripTooltip": "Create trip",
   "activityTitle": "Activity",
@@ -532,5 +533,8 @@
   "tripLifecycleObjectTitle": "Object to closing",
   "tripLifecycleObjectReasonLabel": "Reason (required)",
   "tripLifecycleObjectReasonHint": "What still needs resolving?",
-  "tripLifecycleSubmitObjection": "Submit objection"
+  "tripLifecycleSubmitObjection": "Submit objection",
+  "tripLifecycleSoftClosedBanner": "This trip wrapped — relive memories or reopen to keep going.",
+  "tripLifecycleReliveTrip": "Relive",
+  "tripLifecycleReopenTrip": "Reopen"
 }

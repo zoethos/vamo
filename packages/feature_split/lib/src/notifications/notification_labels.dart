@@ -9,6 +9,7 @@ class NotificationLabels {
     required this.typeCloseReminder,
     required this.typeDeemedClosed,
     required this.typeSettleNudge,
+    required this.typeWrappedTrip,
     required this.typeGeneric,
   });
 
@@ -21,5 +22,6 @@ class NotificationLabels {
   final String typeCloseReminder;
   final String typeDeemedClosed;
   final String typeSettleNudge;
+  final String typeWrappedTrip;
   final String typeGeneric;
 }

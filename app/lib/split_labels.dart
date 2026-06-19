@@ -47,6 +47,7 @@ class SplitLabels {
         typeCloseReminder: l10n.notificationTypeCloseReminder,
         typeDeemedClosed: l10n.notificationTypeDeemedClosed,
         typeSettleNudge: l10n.notificationTypeSettleNudge,
+        typeWrappedTrip: l10n.notificationTypeWrappedTrip,
         typeGeneric: l10n.notificationTypeGeneric,
       );
 
@@ -237,6 +238,9 @@ class SplitLabels {
         objectReasonLabel: l10n.tripLifecycleObjectReasonLabel,
         objectReasonHint: l10n.tripLifecycleObjectReasonHint,
         submitObjection: l10n.tripLifecycleSubmitObjection,
+        softClosedBanner: l10n.tripLifecycleSoftClosedBanner,
+        reliveTrip: l10n.tripLifecycleReliveTrip,
+        reopenTrip: l10n.tripLifecycleReopenTrip,
       );
 
   static InviteLabels invite(AppLocalizations l10n) => InviteLabels(

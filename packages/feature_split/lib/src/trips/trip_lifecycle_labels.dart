@@ -34,6 +34,9 @@ class TripLifecycleLabels {
     required this.objectReasonLabel,
     required this.objectReasonHint,
     required this.submitObjection,
+    required this.softClosedBanner,
+    required this.reliveTrip,
+    required this.reopenTrip,
   });
 
   final String markDone;
@@ -69,4 +72,7 @@ class TripLifecycleLabels {
   final String objectReasonLabel;
   final String objectReasonHint;
   final String submitObjection;
+  final String softClosedBanner;
+  final String reliveTrip;
+  final String reopenTrip;
 }
