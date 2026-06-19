@@ -28,8 +28,9 @@ npx turbo run dev      # local dev (site on :3000)
 2. Set **Root Directory** to `web/apps/site` (or deploy via monorepo with that path).
 3. Framework preset: **Next.js** (`vercel.json` included).
 4. Domain: attach **vamo.world** (and `www` redirect if desired).
-5. Before Play release: update `public/.well-known/assetlinks.json` with real SHA-256
-   fingerprints (debug + Play App Signing — see `.well-known/README.md`).
+5. Before Play release: update `public/.well-known/assetlinks.json` with real
+   SHA-256 fingerprints (upload key + Play App Signing — see
+   `.well-known/README.md`).
 6. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (see
    `apps/site/.env.example`) so `/j/[token]` can call `get_trip_preview`.
 

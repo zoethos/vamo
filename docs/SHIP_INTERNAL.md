@@ -46,6 +46,18 @@ flutter build appbundle --release
 
 3. Add internal testers by email list.
 
+## Android — Firebase App Distribution
+
+Use this when shipping APK/AAB builds to the current internal tester group
+before or alongside a Play track:
+
+1. Firebase Console -> **Run** -> **App Distribution** -> **Releases**.
+2. Select the Android app (`app.vamo`) from the app drop-down.
+3. Upload the APK or AAB.
+4. Select tester groups and/or individual testers.
+5. Add release notes.
+6. Click **Distribute**.
+
 ## Post-upload QA (device)
 
 | Flow | Analytics event |
@@ -89,9 +101,11 @@ Each upload increments `+N` by exactly 1; Android/Profile show it as
 - [ ] Real `assetlinks.json` SHA-256: `cd app && ./gradlew signingReport`, verify
       the **upload key** SHA-256 is present in
       `web/apps/site/public/.well-known/assetlinks.json`, then redeploy site.
-      Add the Play App Signing cert SHA-256 too once the Play app exists (both
-      may be needed during transition). Verifies App Links so QR/invite opens
-      the app directly, not the browser.
+      Add the Play App Signing cert SHA-256 too once the Play app exists:
+      Play Console -> **Protected with Play** -> **Play Store distribution** ->
+      **Go to Play app signing** -> **App signing key** -> SHA-256. Both
+      fingerprints may be needed during transition. Verifies App Links so
+      QR/invite opens the app directly, not the browser.
 - [ ] `google-services.json` present at `app/android/app/` (package `app.vamo`) ✓ (S16).
 - [ ] Firebase Crashlytics receives one forced test crash from the uploaded
       internal build (same `versionName`/`versionCode` testers see).
