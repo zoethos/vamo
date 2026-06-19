@@ -36,6 +36,12 @@ Analytics events **never contain** your trip contents: no amounts, no
 receipt text, no addresses or coordinates, no message text, no invite
 tokens. Analytics are processed in the EU.
 
+**Crash diagnostics**: technical crash reports (for example app version,
+device model, OS version, stack traces, and crash timing) so we can fix
+beta and production crashes. Crash reports are for diagnostics only and do
+not intentionally include trip contents, receipt text, invite tokens, or
+message text.
+
 ## What we never do
 
 - We never sell or rent your data. To anyone.
@@ -47,7 +53,10 @@ tokens. Analytics are processed in the EU.
 
 - **Supabase** — database, authentication, file storage (your trip data).
 - **PostHog (EU)** — product analytics (sanitized events as described).
-- **Brevo** — transactional email (sign-in codes and notifications).
+- **Brevo** — primary transactional email (sign-in codes and notifications).
+- **Resend** — fallback transactional email for sign-in codes if the primary
+  provider is unavailable.
+- **Firebase Crashlytics** — crash diagnostics (technical crash reports).
 
 Each processes data solely to provide Vamo's functionality.
 

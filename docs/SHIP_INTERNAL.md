@@ -19,6 +19,8 @@ melos run analyze
 - [ ] RLS QA manual appendix complete if needed ([RLS_QA.md](RLS_QA.md)).
 - [ ] Deep links configured per `app/README_DEEP_LINKS.md` (optional for first internal).
 - [ ] iOS photo permission string in `app/README_PLATFORM.md`.
+- [ ] Android Crashlytics verification: forced test crash appears in Firebase
+      Crashlytics for the exact tester build version.
 
 ## iOS — TestFlight
 
@@ -91,6 +93,8 @@ Each upload increments `+N` by exactly 1; Android/Profile show it as
       may be needed during transition). Verifies App Links so QR/invite opens
       the app directly, not the browser.
 - [ ] `google-services.json` present at `app/android/app/` (package `app.vamo`) ✓ (S16).
+- [ ] Firebase Crashlytics receives one forced test crash from the uploaded
+      internal build (same `versionName`/`versionCode` testers see).
 
 ## S16 manual tail (hardware-bound — only you)
 - [ ] `melos run android` rebuild on the S25 — carries the whole stack
