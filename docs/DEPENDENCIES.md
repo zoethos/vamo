@@ -196,7 +196,7 @@ We juggle a few identities; write down which owns what so it's never a guess.
 | **Public developer contact** | `support@vamo.world` | Shown on the Play profile **only at production** (not during internal testing). Forwards via ImprovMX → `zoethos@outlook.com`. |
 | **Project comms / mail forward target** | `zoethos@outlook.com` | ImprovMX `*@vamo.world` catch-all delivers here. Not a Google account. |
 | **Domain registrar** | GoDaddy (`vamo.world`) | see External services table. |
-| **Android upload keystore** | `vamo-upload-keystore.jks` — **local only**, gitignored | `CN=Tiziano Rocca, O=Vamo, L=Tallinn, C=EE`; upload-key SHA256 `B6:18:BD:12:49:70:51:F5:18:37:9A:1E:2F:8E:88:E8:73:4C:1C:5E:48:E0:5E:68:BD:50:66:59:E0:9F:BB:89`. **Back up keystore + password separately.** Play App Signing holds the real app-signing key (its SHA-256 — needed for `assetlinks.json` — is available post-upload, TBD). |
+| **Android upload keystore** | `vamo-upload-keystore.jks` — **local only**, gitignored | `CN=Tiziano Rocca, O=Vamo, L=Tallinn, C=EE`; upload-key SHA256 `B6:18:BD:12:49:70:51:F5:18:37:9A:1E:2F:8E:88:E8:73:4C:1C:5E:48:E0:5E:68:BD:50:66:59:E0:9F:BB:89`. **Back up keystore + password separately.** Play App Signing SHA256: `8E:34:13:21:AE:58:82:EA:7E:83:ED:E1:9F:E0:5E:8A:A7:CE:A6:FA:4F:4B:75:4C:1F:0C:64:C0:3A:C1:01:A3` (also present in `assetlinks.json`). |
 
 **Account-critical mail** (Google security/policy) goes to the Play **login**
 (`troccadev@gmail.com`), not the public contact — keep that inbox monitored.
