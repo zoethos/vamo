@@ -32,7 +32,7 @@ impact).
 | Dep | Tier | If it's DOWN | Current cushion | Under-mitigated? |
 |---|---|---|---|---|
 | **Supabase** | **T0** | No sign-in, no sync, no cloud reads | **Offline-first Drift cache + sync outbox** absorbs *transient* outages — app keeps working locally, syncs on recovery | **Sustained** outage has no fallback (single-vendor concentration: DB+auth+storage+functions). Accepted risk; document the daily-backup + restore path. |
-| **Brevo** (OTP email) | **T0** | OTP codes don't arrive → **nobody new can sign in**; existing sessions survive | none | **Yes** — no secondary email path. Cheapest mitigation: a fallback SMTP provider wired to the same auth hook, OR raise OTP session length so existing users aren't affected. Flag for pre-launch. |
+| **Brevo** (OTP email) | **T0** | OTP codes don't arrive → **nobody new can sign in**; existing sessions survive | `send-auth-email` now falls back to **Resend** after Brevo failure | Only until `RESEND_API_KEY` is provisioned and the function is deployed — code path exists, ops secret activates it. |
 | **FCM** (push) | T1 | Notifications silently fail | app fully usable; lifecycle/nudges just don't ping | OK. Pruning UNREGISTERED tokens (S22) is the only hygiene gap. |
 | **exchangerate.host** (FX) | T1 | Can't add/refresh a currency rate | **Forward-only design**: existing trips keep stored rates; capture fails *loudly* (catalogued error), nothing corrupts | OK by design. The in-DB `http` blocking-RPC risk is the real concern, not data safety — tracked for Edge-Function refactor. |
 | **PostHog** | T1 | Analytics events lost | app fine; debug-console fallback exists; gate metrics blind for the gap | OK — but the Wave-2→3 gate *reads* PostHog, so a long outage delays the decision, not the app. |
@@ -68,7 +68,7 @@ those are the ones to watch as testers grow. The rest are flat or trivial.
 |---|---|---|---|---|
 | **Supabase** | Free project limits (DB size, egress, MAU, fn invocations) | Pro ~$25/mo (planned at launch) | MAU + storage (receipt images!) + function calls | receipt storage growth; MAU near free cap |
 | **PostHog** | ~1M events/mo (EU) | usage-based | event volume × users | monthly event count trend |
-| **Brevo** | ~300 emails/day | paid tier | sign-ins + notifications | daily OTP+notify volume near cap |
+| **Brevo / Resend** | Brevo ~300 emails/day; Resend tier TBD | paid tier | sign-ins + notifications | daily OTP+notify volume near cap; fallback usage > 0 |
 | **FCM** | effectively free | — | — | n/a |
 | **exchangerate.host** (FX) | free request cap; tight burst rate limit | paid | **negligible** (1 capture/currency/trip) | watch for 429s; smoke must not make repeated live calls |
 | **Vercel** | Hobby free | Pro ~$20/mo (planned) | bandwidth | launch traffic |
@@ -88,7 +88,8 @@ caps — which is the signal to budget the next tier, not a surprise.
 |---|---|---|---|---|---|
 | **Supabase** | Postgres + RLS, auth, storage, Edge Functions, Vault, realtime, pg_cron | project keys (anon/publishable + service/secret); never ship service key | Free now → Pro at launch | **High** — the backbone | scaling limits; Pro pricing at launch |
 | **PostHog (EU)** | Product analytics (funnel + signals) | `POSTHOG_API_KEY` (project 193638, EU host) | Free tier (event volume cap) | Med — event names are ours; SDK swappable | event volume nears free cap; pricing |
-| **Brevo** | Transactional email (OTP sign-in codes, notifications) | SMTP creds; sender `noreply@vamo.world` pending | Free tier (daily send cap) | Med — SMTP is portable; templates re-do | daily send cap; deliverability issues |
+| **Brevo** | Primary transactional email (OTP sign-in codes, notifications) | API key; sender `noreply@vamo.world` pending | Free tier (daily send cap) | Low-med — `send-auth-email` uses provider adapter | daily send cap; deliverability issues |
+| **Resend** | Fallback transactional email for OTP sign-in codes | `RESEND_API_KEY`; optional `RESEND_SENDER_EMAIL` | Free/paid tier TBD | Low — same provider adapter + HTML payload | any fallback usage; Brevo outage; quota/pricing |
 | **Firebase / FCM** | Push notifications (HTTP v1) | `FIREBASE_SERVICE_ACCOUNT` JSON (Supabase secret) | Free (FCM) | Med-high — token plumbing + client SDK | APNs/iOS work; SDK major bumps |
 | **exchangerate.host** (FX) | FX market rates → trip constant table (D4) | `exchangerate_access_key` (Supabase **Vault**) | Free tier (keyed) | **Low** — see FX card | endpoint corrected to `/live` 2026-06-05; key rotation; free-tier source-lock |
 | **Vercel** | Web tier hosting (`apps/site`: landing, privacy, `/j/` invite, assetlinks) + DNS panel | account (personal → Pro at launch) | Hobby now | Med — Next.js portable; DNS records re-point | Pro at launch; team transfer |
@@ -173,7 +174,10 @@ and treat Riverpod/go_router/Firebase majors as their own scoped chores.
 | `CRON_SECRET` | Supabase secret | `trip-lifecycle-jobs` |
 | `exchangerate_access_key` | Supabase **Vault** | `_fetch_market_fx_rate` |
 | `THEME_AI_API_KEY` | Supabase Edge Function secret | `resolve-theme` (S23); server-only theme AI provider key |
-| Brevo SMTP creds | Supabase Auth SMTP config | OTP/email |
+| `BREVO_API_KEY` | Supabase Edge Function secret | `send-auth-email` primary OTP/email provider |
+| `SENDER_EMAIL` | Supabase Edge Function secret | verified sender address for primary and fallback email |
+| `RESEND_API_KEY` | Supabase Edge Function secret | `send-auth-email` fallback OTP/email provider |
+| `RESEND_SENDER_EMAIL` | Supabase Edge Function secret (optional) | fallback sender override; defaults to `SENDER_EMAIL` |
 
 Rule (CONTRIBUTING): local-secret files are gitignored the moment they're
 created, not when they receive a value.
