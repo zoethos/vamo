@@ -803,15 +803,91 @@ Future<void> main() async {
         .update({'destination': 'RLS baseline'}).eq('id', tripId);
 
     // --- S18 TripBoard (R4) — before close ---
+    final capabilities = await clientA
+        .from('plan_item_capabilities')
+        .select('kind, supports_rsvp, suggests_pois, has_live_status');
+    final capabilityRows = (capabilities as List).cast<Map<String, dynamic>>();
+    final activityRows =
+        capabilityRows.where((row) => row['kind'] == 'activity').toList();
+    final activityCapability = activityRows.isEmpty ? null : activityRows.first;
+    results.add(_Check(
+      'S49 authenticated reads plan capabilities',
+      capabilityRows.length >= 5 &&
+          activityCapability?['supports_rsvp'] == true &&
+          activityCapability?['suggests_pois'] == true,
+    ));
+
+    var capabilityUpdateBlocked = false;
+    try {
+      await clientA
+          .from('plan_item_capabilities')
+          .update({'supports_rsvp': true}).eq('kind', 'other');
+    } catch (_) {
+      capabilityUpdateBlocked = true;
+    }
+    final otherCapability = await clientA
+        .from('plan_item_capabilities')
+        .select('supports_rsvp')
+        .eq('kind', 'other')
+        .single();
+    results.add(_Check(
+      'S49 client cannot update plan capabilities',
+      capabilityUpdateBlocked || otherCapability['supports_rsvp'] == false,
+    ));
+
+    var capabilityDeleteBlocked = false;
+    try {
+      await clientA.from('plan_item_capabilities').delete().eq('kind', 'other');
+    } catch (_) {
+      capabilityDeleteBlocked = true;
+    }
+    final otherCapabilityAfterDelete = await clientA
+        .from('plan_item_capabilities')
+        .select('kind')
+        .eq('kind', 'other')
+        .maybeSingle();
+    results.add(_Check(
+      'S49 client cannot delete plan capabilities',
+      capabilityDeleteBlocked || otherCapabilityAfterDelete?['kind'] == 'other',
+    ));
+
     final planItemId = _uuid();
     await clientB.from('trip_plan_items').insert({
       'id': planItemId,
       'trip_id': tripId,
       'kind': 'lodging',
       'title': 'RLS smoke hotel',
+      'metadata': {'confirmation': 'ABC123'},
       'created_by': userB,
     });
     results.add(_Check('B insert plan item', true));
+    final planItemWithMetadata = await clientA
+        .from('trip_plan_items')
+        .select('metadata')
+        .eq('id', planItemId)
+        .single();
+    results.add(_Check(
+      'S49 same-trip member reads plan metadata',
+      (planItemWithMetadata['metadata'] as Map)['confirmation'] == 'ABC123',
+    ));
+
+    var nonObjectMetadataBlocked = false;
+    try {
+      await clientB.from('trip_plan_items').insert({
+        'id': _uuid(),
+        'trip_id': tripId,
+        'kind': 'other',
+        'title': 'blocked metadata',
+        'metadata': ['not', 'object'],
+        'created_by': userB,
+      });
+    } catch (_) {
+      nonObjectMetadataBlocked = true;
+    }
+    results.add(_Check(
+      'S49 non-object plan metadata blocked',
+      nonObjectMetadataBlocked,
+    ));
 
     var outsiderPlanBlocked = false;
     try {
@@ -1808,8 +1884,7 @@ Future<void> main() async {
 
       await clientA.rpc('create_trip', params: {
         'p_id': softCloseTripId,
-        'p_name':
-            'RLS soft-close ${DateTime.now().toUtc().toIso8601String()}',
+        'p_name': 'RLS soft-close ${DateTime.now().toUtc().toIso8601String()}',
         'p_end_date': endDate,
       });
 
@@ -1854,8 +1929,7 @@ Future<void> main() async {
             'close_notified_at, close_accepted_at, close_objected_at',
           )
           .eq('trip_id', softCloseTripId);
-      final memberRows =
-          (memberCloseCols as List).cast<Map<String, dynamic>>();
+      final memberRows = (memberCloseCols as List).cast<Map<String, dynamic>>();
       final noMemberCloseStamped = memberRows.every(
         (m) =>
             m['close_notified_at'] == null &&
@@ -1951,10 +2025,10 @@ Future<void> main() async {
         'p_end_date': endDate,
       });
       final token2 = (await clientA
-              .from('invites')
-              .insert({'trip_id': softCloseTrip2, 'created_by': userA})
-              .select('token')
-              .single())['token'];
+          .from('invites')
+          .insert({'trip_id': softCloseTrip2, 'created_by': userA})
+          .select('token')
+          .single())['token'];
       await clientB.rpc('join_trip', params: {'p_token': token2});
       await serviceClient.rpc('_enter_soft_close', params: {
         'p_trip_id': softCloseTrip2,
@@ -2005,6 +2079,7 @@ Future<void> main() async {
       path: storagePath,
       removeClient: clientA,
       verifyClient: clientA,
+      fallbackRemoveClient: serviceClient,
     );
     await _cleanupStorageObject(
       results: results,

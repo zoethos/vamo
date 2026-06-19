@@ -20,15 +20,24 @@ final tripEventRsvpsProvider =
   return ref.watch(planRepositoryProvider).watchEventRsvps(tripId);
 });
 
+final planItemCapabilitiesProvider =
+    FutureProvider<Map<PlanItemKind, PlanItemCapabilities>>((ref) {
+  return ref.watch(planRepositoryProvider).fetchPlanItemCapabilities();
+});
+
 final tripPlanEventViewsProvider =
     Provider.family<Map<String, PlanItemEventView>, String>((ref, tripId) {
   final plans = ref.watch(tripPlanItemsProvider(tripId)).valueOrNull ?? [];
   final rsvps = ref.watch(tripEventRsvpsProvider(tripId)).valueOrNull ?? [];
+  final capabilities = ref.watch(planItemCapabilitiesProvider).valueOrNull ??
+      PlanItemCapabilities.fallbackByKind();
   final userId = ref.watch(authRepositoryProvider).currentUser?.id;
   final views = <String, PlanItemEventView>{};
 
   for (final item in plans) {
-    if (item.kind != PlanItemKind.activity) continue;
+    final itemCapabilities =
+        capabilities[item.kind] ?? PlanItemCapabilities.fallbackFor(item.kind);
+    if (!itemCapabilities.supportsRsvp) continue;
     final itemRows = rsvps.where((r) => r.planItemId == item.id);
     views[item.id] = PlanItemEventView(
       item: item,
