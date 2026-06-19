@@ -29,6 +29,10 @@ scripts:
     description: Enforce architecture import boundaries and token ratchets
     run: dart run tool/arch_guard_test.dart && dart run tool/arch_guard.dart
 
+  scenario-sim:
+    description: Run the Cycle 2 staging multi-user scenario simulator
+    run: dart run tool/scenario_sim.dart
+
   ci:
     description: Codegen, architecture guard, analyze, and test
     run: melos run build_runner && melos run gen-l10n && melos run arch-guard && melos run analyze && melos run test
