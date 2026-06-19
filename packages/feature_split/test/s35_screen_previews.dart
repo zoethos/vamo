@@ -199,6 +199,9 @@ const dashboardLifecycleLabels = TripLifecycleLabels(
   objectReasonLabel: 'Reason (required)',
   objectReasonHint: 'Hint',
   submitObjection: 'Submit objection',
+  softClosedBanner: 'This trip wrapped — relive memories or reopen to keep going.',
+  reliveTrip: 'Relive',
+  reopenTrip: 'Reopen',
 );
 
 String _dashboardClosingDays(int days) => 'Closing in $days days';

@@ -8,9 +8,14 @@ void main() {
       expect(TripLifecycle.parse('nope'), TripLifecycle.active);
     });
 
+    test('parse maps soft_closed from Postgres', () {
+      expect(TripLifecycle.parse('soft_closed'), TripLifecycle.softClosed);
+    });
+
     test('isTripReadOnly blocks closed states only', () {
       expect(isTripReadOnly(TripLifecycle.active), isFalse);
       expect(isTripReadOnly(TripLifecycle.closing), isFalse);
+      expect(isTripReadOnly(TripLifecycle.softClosed), isFalse);
       expect(isTripReadOnly(TripLifecycle.closed), isTrue);
       expect(isTripReadOnly(TripLifecycle.unresolved), isTrue);
       expect(isTripReadOnly(TripLifecycle.cancelled), isTrue);
@@ -76,6 +81,14 @@ void main() {
           now: DateTime.utc(2026, 6, 5),
         ),
         TripPhase.closing,
+      );
+      expect(
+        resolveTripPhase(
+          lifecycle: TripLifecycle.softClosed,
+          startDateIso: '2026-06-01',
+          now: DateTime.utc(2026, 6, 5),
+        ),
+        TripPhase.ongoing,
       );
       expect(
         resolveTripPhase(

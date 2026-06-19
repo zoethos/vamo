@@ -236,6 +236,7 @@ class _NotificationRow extends StatelessWidget {
       'close_reminder' => Icons.schedule_outlined,
       'deemed_closed' => Icons.lock_outline,
       'settle_nudge' => Icons.payments_outlined,
+      'wrapped_trip' => Icons.auto_awesome_outlined,
       _ => Icons.notifications_outlined,
     };
   }
@@ -246,6 +247,7 @@ class _NotificationRow extends StatelessWidget {
       'close_reminder' => labels.typeCloseReminder,
       'deemed_closed' => labels.typeDeemedClosed,
       'settle_nudge' => labels.typeSettleNudge,
+      'wrapped_trip' => labels.typeWrappedTrip,
       _ => labels.typeGeneric,
     };
   }

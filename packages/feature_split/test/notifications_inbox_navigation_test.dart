@@ -20,6 +20,7 @@ NotificationLabels _testNotificationLabels() => const NotificationLabels(
       typeCloseReminder: 'Close reminder',
       typeDeemedClosed: 'Trip closed',
       typeSettleNudge: 'Settle up',
+      typeWrappedTrip: 'Trip wrapped',
       typeGeneric: 'Notice',
     );
 

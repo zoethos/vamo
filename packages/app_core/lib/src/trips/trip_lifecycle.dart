@@ -4,14 +4,19 @@ enum TripLifecycle {
   cancelled,
   closing,
   closed,
-  unresolved;
+  unresolved,
+  softClosed;
 
   static TripLifecycle parse(String? raw) {
+    if (raw == 'soft_closed') return TripLifecycle.softClosed;
     return TripLifecycle.values.firstWhere(
       (v) => v.name == raw,
       orElse: () => TripLifecycle.active,
     );
   }
+
+  /// Postgres enum literal (snake_case where needed).
+  String get dbValue => this == TripLifecycle.softClosed ? 'soft_closed' : name;
 
   /// No new expenses, captures, or trip content edits.
   bool get isReadOnly =>
@@ -108,6 +113,7 @@ TripPhase resolveTripPhase({
 }) {
   if (lifecycle.isReadOnly) return TripPhase.readOnly;
   if (lifecycle == TripLifecycle.closing) return TripPhase.closing;
+  // soft_closed: same chrome as active for all members; owner banner is separate.
   final start = _parseDateOnly(startDateIso);
   if (start != null) {
     final today = DateTime(now.year, now.month, now.day);

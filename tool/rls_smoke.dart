@@ -1671,6 +1671,192 @@ Future<void> main() async {
     results
         .add(_Check('C cannot self-insert trip_members', memberInsertBlocked));
 
+    // --- S48 soft-close on end date (isolated from deemed-close) ---
+    if (serviceClient != null) {
+      final softCloseTripId = _uuid();
+      final yesterday =
+          DateTime.now().toUtc().subtract(const Duration(days: 1));
+      final endDate =
+          '${yesterday.year}-${yesterday.month.toString().padLeft(2, '0')}-${yesterday.day.toString().padLeft(2, '0')}';
+
+      await clientA.rpc('create_trip', params: {
+        'p_id': softCloseTripId,
+        'p_name':
+            'RLS soft-close ${DateTime.now().toUtc().toIso8601String()}',
+        'p_end_date': endDate,
+      });
+
+      var clientSoftCloseBlocked = false;
+      try {
+        await clientA.rpc('_enter_soft_close', params: {
+          'p_trip_id': softCloseTripId,
+        });
+      } catch (_) {
+        clientSoftCloseBlocked = true;
+      }
+      results.add(_Check(
+        'S48 client cannot call _enter_soft_close',
+        clientSoftCloseBlocked,
+      ));
+
+      await serviceClient.rpc('_enter_soft_close', params: {
+        'p_trip_id': softCloseTripId,
+      });
+
+      final softRow = await clientA
+          .from('trips')
+          .select(
+            'lifecycle, close_requested_at, soft_closed_at, soft_closed_by',
+          )
+          .eq('id', softCloseTripId)
+          .single();
+      results.add(_Check(
+        'S48 soft_closed sets lifecycle only',
+        softRow['lifecycle'] == 'soft_closed' &&
+            softRow['close_requested_at'] == null &&
+            softRow['soft_closed_at'] != null,
+      ));
+      results.add(_Check(
+        'S48 soft_closed_by is owner',
+        softRow['soft_closed_by'] == userA,
+      ));
+
+      final memberCloseCols = await clientA
+          .from('trip_members')
+          .select(
+            'close_notified_at, close_accepted_at, close_objected_at',
+          )
+          .eq('trip_id', softCloseTripId);
+      final memberRows =
+          (memberCloseCols as List).cast<Map<String, dynamic>>();
+      final noMemberCloseStamped = memberRows.every(
+        (m) =>
+            m['close_notified_at'] == null &&
+            m['close_accepted_at'] == null &&
+            m['close_objected_at'] == null,
+      );
+      results.add(_Check(
+        'S48 soft_close leaves member close_* null',
+        noMemberCloseStamped,
+      ));
+
+      var softClosedExpenseOk = false;
+      try {
+        final softInvite = await clientA
+            .from('invites')
+            .insert({'trip_id': softCloseTripId, 'created_by': userA})
+            .select('token')
+            .single();
+        await clientB.rpc('join_trip', params: {
+          'p_token': softInvite['token'],
+        });
+        await clientB.from('expenses').insert({
+          'id': _uuid(),
+          'trip_id': softCloseTripId,
+          'payer_id': userB,
+          'amount_cents': 500,
+          'currency': 'EUR',
+          'base_cents': 500,
+          'fx_rate': 1,
+          'description': 'S48 soft_closed writable',
+          'created_by': userB,
+        });
+        softClosedExpenseOk = true;
+      } catch (_) {}
+      results.add(_Check(
+        'S48 soft_closed trip remains writable',
+        softClosedExpenseOk,
+      ));
+
+      var forgeSoftClosedBlocked = false;
+      try {
+        await clientA.from('trips').update({
+          'soft_closed_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', softCloseTripId);
+      } catch (_) {
+        forgeSoftClosedBlocked = true;
+      }
+      results.add(_Check(
+        'S48 client cannot forge soft_closed_at',
+        forgeSoftClosedBlocked,
+      ));
+
+      final wrapId1 = await serviceClient.rpc('record_notification', params: {
+        'p_user_id': userA,
+        'p_trip_id': softCloseTripId,
+        'p_type': 'wrapped_trip',
+        'p_title': 'Your trip wrapped',
+        'p_body': 'Your trip wrapped — relive it?',
+        'p_route': '/trips/$softCloseTripId',
+      });
+      final wrapId2 = await serviceClient.rpc('record_notification', params: {
+        'p_user_id': userA,
+        'p_trip_id': softCloseTripId,
+        'p_type': 'wrapped_trip',
+        'p_title': 'Your trip wrapped',
+        'p_body': 'Your trip wrapped — relive it?',
+        'p_route': '/trips/$softCloseTripId',
+      });
+      results.add(_Check(
+        'S48 wrapped_trip unique index blocks duplicate',
+        wrapId1 != null && wrapId2 == null,
+      ));
+
+      await clientA.rpc('reopen_from_soft_close', params: {
+        'p_trip_id': softCloseTripId,
+      });
+      final reopenedRow = await clientA
+          .from('trips')
+          .select('lifecycle, soft_closed_at, reopened_at')
+          .eq('id', softCloseTripId)
+          .single();
+      results.add(_Check(
+        'S48 owner reopen clears soft_close and sets reopened_at',
+        reopenedRow['lifecycle'] == 'active' &&
+            reopenedRow['soft_closed_at'] == null &&
+            reopenedRow['reopened_at'] != null,
+      ));
+
+      final softCloseTrip2 = _uuid();
+      await clientA.rpc('create_trip', params: {
+        'p_id': softCloseTrip2,
+        'p_name': 'RLS soft-close member ${DateTime.now().toUtc()}',
+        'p_end_date': endDate,
+      });
+      final token2 = (await clientA
+              .from('invites')
+              .insert({'trip_id': softCloseTrip2, 'created_by': userA})
+              .select('token')
+              .single())['token'];
+      await clientB.rpc('join_trip', params: {'p_token': token2});
+      await serviceClient.rpc('_enter_soft_close', params: {
+        'p_trip_id': softCloseTrip2,
+      });
+      var memberReopenBlocked = false;
+      try {
+        await clientB.rpc('reopen_from_soft_close', params: {
+          'p_trip_id': softCloseTrip2,
+        });
+      } catch (_) {
+        memberReopenBlocked = true;
+      }
+      results.add(_Check(
+        'S48 non-owner cannot reopen from soft_close',
+        memberReopenBlocked,
+      ));
+
+      try {
+        await clientA.from('trips').delete().eq('id', softCloseTripId);
+        await clientA.from('trips').delete().eq('id', softCloseTrip2);
+      } catch (_) {}
+    } else {
+      results.add(_Check(
+        'S48 soft-close smoke skipped',
+        false,
+        detail: 'set RLS_SERVICE_ROLE_KEY for S48 soft-close smoke',
+      ));
+    }
+
     await clientA.from('suggestions').insert({
       'user_id': userA,
       'body': 'rls_smoke_${tripId}_suggestion',
