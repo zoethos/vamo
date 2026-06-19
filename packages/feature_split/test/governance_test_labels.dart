@@ -24,6 +24,10 @@ const governanceTestLabels = ExpenseGovernanceLabels(
   tripBalancesIn: _mockTripBalancesIn,
   splitEqual: _mockSplitEqual,
   splitSolo: 'All on you (solo)',
+  convertedAmountLabel: _mockConvertedAmount,
+  fxConversionLocked: 'Conversion locked',
+  saveConversion: 'Save conversion',
+  fxSourceReceipt: 'Receipt total',
 );
 
 const governanceTestLabelsAr = ExpenseGovernanceLabels(
@@ -50,14 +54,20 @@ const governanceTestLabelsAr = ExpenseGovernanceLabels(
   tripBalancesIn: _mockTripBalancesInAr,
   splitEqual: _mockSplitEqualAr,
   splitSolo: 'عليك وحدك',
+  convertedAmountLabel: _mockConvertedAmountAr,
+  fxConversionLocked: 'محول مقفل',
+  saveConversion: 'حفظ التحويل',
+  fxSourceReceipt: 'إجمالي الإيصال',
 );
 
 String _mockDisputedBy(String name) => 'included — disputed by $name';
 String _mockPendingFrom(String name) => 'included — pending from $name';
 String _mockTripBalancesIn(String currency) => 'Trip balances in $currency';
 String _mockSplitEqual(int count) => 'Split equally · $count Vamigos';
+String _mockConvertedAmount(String currency) => 'Converted amount ($currency)';
 
 String _mockDisputedByAr(String name) => 'مُدرَج — اعتراض من $name';
 String _mockPendingFromAr(String name) => 'مُدرَج — قيد الانتظار من $name';
 String _mockTripBalancesInAr(String currency) => 'أرصدة الرحلة بـ $currency';
 String _mockSplitEqualAr(int count) => 'تقسيم متساوٍ · $count';
+String _mockConvertedAmountAr(String currency) => 'المبلغ المحول ($currency)';

@@ -53,6 +53,52 @@ const _s23SmokeTheme = {
   'tagline': 'Si va?',
 };
 
+Future<void> insertCommittedExpense(
+  SupabaseClient client, {
+  required String id,
+  required String tripId,
+  required String payerId,
+  required int amountCents,
+  required int baseCents,
+  required String description,
+  required List<Map<String, dynamic>> shares,
+  String currency = 'EUR',
+  double fxRate = 1,
+}) {
+  return client.rpc('insert_committed_expense', params: {
+    'p_id': id,
+    'p_trip_id': tripId,
+    'p_payer_id': payerId,
+    'p_amount_cents': amountCents,
+    'p_currency': currency,
+    'p_base_cents': baseCents,
+    'p_fx_rate': fxRate,
+    'p_description': description,
+    'p_shares': shares,
+  });
+}
+
+List<Map<String, dynamic>> twoMemberShares({
+  required String userA,
+  required String userB,
+  required int baseCents,
+}) {
+  final half = baseCents ~/ 2;
+  final remainder = baseCents % 2;
+  return [
+    {
+      'id': _uuid(),
+      'user_id': userA,
+      'share_cents': half + remainder,
+    },
+    {
+      'id': _uuid(),
+      'user_id': userB,
+      'share_cents': half,
+    },
+  ];
+}
+
 Future<void> main() async {
   final url = Platform.environment['SUPABASE_URL'];
   final anon = Platform.environment['SUPABASE_ANON_KEY'];
@@ -370,31 +416,16 @@ Future<void> main() async {
     ));
 
     final bornCommittedId = _uuid();
-    await clientB.from('expenses').insert({
-      'id': bornCommittedId,
-      'trip_id': tripId,
-      'payer_id': userB,
-      'amount_cents': 1000,
-      'currency': 'EUR',
-      'base_cents': 1000,
-      'fx_rate': 1,
-      'description': 'born committed',
-      'created_by': userB,
-    });
-    await clientB.from('expense_shares').insert([
-      {
-        'id': _uuid(),
-        'expense_id': bornCommittedId,
-        'user_id': userA,
-        'share_cents': 500,
-      },
-      {
-        'id': _uuid(),
-        'expense_id': bornCommittedId,
-        'user_id': userB,
-        'share_cents': 500,
-      },
-    ]);
+    await insertCommittedExpense(
+      clientB,
+      id: bornCommittedId,
+      tripId: tripId,
+      payerId: userB,
+      amountCents: 1000,
+      baseCents: 1000,
+      description: 'born committed',
+      shares: twoMemberShares(userA: userA, userB: userB, baseCents: 1000),
+    );
     final bornShares = await clientA
         .from('expense_shares')
         .select('response')
@@ -405,28 +436,10 @@ Future<void> main() async {
     ));
 
     var forgedRejectedInsertBlocked = false;
-    final forgedExpenseId = _uuid();
-    await clientA.from('expenses').insert({
-      'id': forgedExpenseId,
-      'trip_id': tripId,
-      'payer_id': userA,
-      'amount_cents': 1000,
-      'currency': 'EUR',
-      'base_cents': 1000,
-      'fx_rate': 1,
-      'description': 'forged guard smoke',
-      'created_by': userA,
-    });
-    await clientA.from('expense_shares').insert({
-      'id': _uuid(),
-      'expense_id': forgedExpenseId,
-      'user_id': userA,
-      'share_cents': 500,
-    });
     try {
       await clientB.from('expense_shares').insert({
         'id': _uuid(),
-        'expense_id': forgedExpenseId,
+        'expense_id': bornCommittedId,
         'user_id': userB,
         'share_cents': 500,
         'response': 'rejected',
@@ -551,17 +564,16 @@ Future<void> main() async {
     ));
 
     final fxExpenseId = _uuid();
-    await clientA.from('expenses').insert({
-      'id': fxExpenseId,
-      'trip_id': tripId,
-      'payer_id': userA,
-      'amount_cents': 1000,
-      'currency': 'EUR',
-      'base_cents': 1000,
-      'fx_rate': 1,
-      'description': 'fx forward-only anchor',
-      'created_by': userA,
-    });
+    await insertCommittedExpense(
+      clientA,
+      id: fxExpenseId,
+      tripId: tripId,
+      payerId: userA,
+      amountCents: 1000,
+      baseCents: 1000,
+      description: 'fx forward-only anchor',
+      shares: twoMemberShares(userA: userA, userB: userB, baseCents: 1000),
+    );
     final fxBefore = await clientA
         .from('expenses')
         .select('fx_rate')
@@ -625,6 +637,239 @@ Future<void> main() async {
     results.add(_Check(
       'FX refresh returns a rate row',
       firstRate > 0,
+    ));
+
+    // --- S50 FX harmonization ---
+    final s50AutoUsdId = _uuid();
+    await clientA.rpc('propose_expense', params: {
+      'p_id': s50AutoUsdId,
+      'p_trip_id': tripId,
+      'p_payer_id': userA,
+      'p_amount_cents': 10000,
+      'p_currency': 'USD',
+      'p_base_cents': 9000,
+      'p_fx_rate': 0.9,
+      'p_description': 'S50 auto USD harmonize',
+    });
+    final s50LockedUsdId = _uuid();
+    await clientA.rpc('propose_expense', params: {
+      'p_id': s50LockedUsdId,
+      'p_trip_id': tripId,
+      'p_payer_id': userA,
+      'p_amount_cents': 10000,
+      'p_currency': 'USD',
+      'p_base_cents': 9000,
+      'p_fx_rate': 0.9,
+      'p_description': 'S50 locked manual USD',
+    });
+    await clientA.rpc('amend_expense_conversion', params: {
+      'p_expense_id': s50LockedUsdId,
+      'p_base_cents': 9100,
+      'p_fx_rate_source': 'manual',
+      'p_lock': true,
+    });
+
+    var memberAmendBlocked = false;
+    try {
+      await clientB.rpc('amend_expense_conversion', params: {
+        'p_expense_id': s50AutoUsdId,
+        'p_base_cents': 8000,
+        'p_fx_rate_source': 'manual',
+        'p_lock': true,
+      });
+    } catch (_) {
+      memberAmendBlocked = true;
+    }
+    results.add(_Check(
+      'S50 member cannot amend expense conversion',
+      memberAmendBlocked,
+    ));
+
+    var forgeBaseCentsBlocked = false;
+    try {
+      await clientB
+          .from('expenses')
+          .update({'base_cents': 1}).eq('id', s50AutoUsdId);
+    } catch (_) {
+      forgeBaseCentsBlocked = true;
+    }
+    results.add(_Check(
+      'S50 client cannot forge base_cents',
+      forgeBaseCentsBlocked,
+    ));
+
+    var forgeExpenseInsertBlocked = false;
+    try {
+      await clientB.from('expenses').insert({
+        'id': _uuid(),
+        'trip_id': tripId,
+        'payer_id': userB,
+        'amount_cents': 10000,
+        'currency': 'USD',
+        'base_cents': 1,
+        'fx_rate': 0.0001,
+        'description': 'S50 forged insert',
+        'created_by': userB,
+        'status': 'committed',
+      });
+    } catch (_) {
+      forgeExpenseInsertBlocked = true;
+    }
+    results.add(_Check(
+      'S50 direct expense INSERT blocked',
+      forgeExpenseInsertBlocked,
+    ));
+
+    var forgeAcceptedShareInsertBlocked = false;
+    try {
+      await clientB.from('expense_shares').insert({
+        'id': _uuid(),
+        'expense_id': s50AutoUsdId,
+        'user_id': userB,
+        'share_cents': 1,
+        'response': 'accepted',
+      });
+    } catch (_) {
+      forgeAcceptedShareInsertBlocked = true;
+    }
+    results.add(_Check(
+      'S50 direct accepted expense_shares INSERT blocked',
+      forgeAcceptedShareInsertBlocked,
+    ));
+
+    var autoCommittedInflationBlocked = false;
+    try {
+      await insertCommittedExpense(
+        clientB,
+        id: _uuid(),
+        tripId: tripId,
+        payerId: userB,
+        amountCents: 1000,
+        baseCents: 9000,
+        description: 'S50 inflated auto committed',
+        shares: twoMemberShares(
+          userA: userA,
+          userB: userB,
+          baseCents: 9000,
+        ),
+      );
+    } catch (_) {
+      autoCommittedInflationBlocked = true;
+    }
+    results.add(_Check(
+      'S50 auto committed base_cents inflation blocked',
+      autoCommittedInflationBlocked,
+    ));
+
+    var autoProposedInflationBlocked = false;
+    try {
+      await clientA.rpc('propose_expense', params: {
+        'p_id': _uuid(),
+        'p_trip_id': tripId,
+        'p_payer_id': userA,
+        'p_amount_cents': 1000,
+        'p_currency': 'EUR',
+        'p_base_cents': 9000,
+        'p_fx_rate': 1,
+        'p_description': 'S50 inflated auto proposed',
+      });
+    } catch (_) {
+      autoProposedInflationBlocked = true;
+    }
+    results.add(_Check(
+      'S50 auto proposed base_cents inflation blocked',
+      autoProposedInflationBlocked,
+    ));
+
+    const s50ForgedBase = 1001;
+    final s50ForgedSplitId = _uuid();
+    await insertCommittedExpense(
+      clientB,
+      id: s50ForgedSplitId,
+      tripId: tripId,
+      payerId: userB,
+      amountCents: s50ForgedBase,
+      baseCents: s50ForgedBase,
+      description: 'S50 forged equal-sum split',
+      shares: [
+        {
+          'id': _uuid(),
+          'user_id': userA,
+          'share_cents': 0,
+        },
+        {
+          'id': _uuid(),
+          'user_id': userB,
+          'share_cents': s50ForgedBase,
+        },
+      ],
+    );
+    final s50ForgedShares = await clientA
+        .from('expense_shares')
+        .select('user_id, share_cents')
+        .eq('expense_id', s50ForgedSplitId)
+        .order('user_id');
+    final s50ForgedRows =
+        (s50ForgedShares as List).cast<Map<String, dynamic>>().toList();
+    final s50ForgedUsers =
+        s50ForgedRows.map((row) => row['user_id'] as String).toSet();
+    final s50ForgedCents = s50ForgedRows
+        .map((row) => (row['share_cents'] as num).toInt())
+        .toList()
+      ..sort();
+    final s50ExpectedCents = [s50ForgedBase ~/ 2, s50ForgedBase ~/ 2 + 1]
+      ..sort();
+    var s50Normalized = s50ForgedRows.length == 2 &&
+        s50ForgedUsers.length == 2 &&
+        s50ForgedUsers.contains(userA) &&
+        s50ForgedUsers.contains(userB);
+    for (var i = 0; i < s50ForgedCents.length && s50Normalized; i++) {
+      s50Normalized = s50ForgedCents[i] == s50ExpectedCents[i];
+    }
+    results.add(_Check(
+      'S50 insert_committed_expense normalizes forged split',
+      s50Normalized,
+      detail: s50Normalized
+          ? null
+          : 'expected two shares ${s50ExpectedCents.join('/')} for A+B',
+    ));
+
+    final s50RefreshRate = refreshedRate + 0.05;
+    if (serviceClient != null) {
+      await serviceClient.rpc('_apply_trip_fx_rate', params: {
+        'p_trip_id': tripId,
+        'p_currency': 'USD',
+        'p_rate': s50RefreshRate,
+        'p_source': 'test-s50',
+        'p_captured_by': userA,
+      });
+    }
+    final s50AutoAfter = await clientA
+        .from('expenses')
+        .select('base_cents, fx_rate, fx_rate_source, fx_conversion_locked')
+        .eq('id', s50AutoUsdId)
+        .single();
+    final s50LockedAfter = await clientA
+        .from('expenses')
+        .select('base_cents, fx_conversion_locked, fx_rate_source')
+        .eq('id', s50LockedUsdId)
+        .single();
+    final expectedAutoBase = (10000 * s50RefreshRate).round();
+    results.add(_Check(
+      'S50 refresh harmonizes auto unlocked USD expense',
+      serviceClient != null &&
+          s50AutoAfter['fx_rate_source'] == 'auto' &&
+          s50AutoAfter['fx_conversion_locked'] == false &&
+          s50AutoAfter['base_cents'] == expectedAutoBase,
+      detail: serviceClient == null
+          ? 'set RLS_SERVICE_ROLE_KEY for S50 refresh harmonize'
+          : 'expected $expectedAutoBase got ${s50AutoAfter['base_cents']}',
+    ));
+    results.add(_Check(
+      'S50 refresh skips locked manual expense',
+      s50LockedAfter['base_cents'] == 9100 &&
+          s50LockedAfter['fx_conversion_locked'] == true &&
+          s50LockedAfter['fx_rate_source'] == 'manual',
     ));
 
     final overBudgetId = _uuid();
@@ -1359,17 +1604,16 @@ Future<void> main() async {
 
     var expenseOnClosedBlocked = false;
     try {
-      await clientB.from('expenses').insert({
-        'id': _uuid(),
-        'trip_id': tripId,
-        'payer_id': userB,
-        'amount_cents': 100,
-        'currency': 'EUR',
-        'base_cents': 100,
-        'fx_rate': 1,
-        'description': 'blocked',
-        'created_by': userB,
-      });
+      await insertCommittedExpense(
+        clientB,
+        id: _uuid(),
+        tripId: tripId,
+        payerId: userB,
+        amountCents: 100,
+        baseCents: 100,
+        description: 'blocked',
+        shares: twoMemberShares(userA: userA, userB: userB, baseCents: 100),
+      );
     } catch (_) {
       expenseOnClosedBlocked = true;
     }
@@ -1619,17 +1863,22 @@ Future<void> main() async {
 
     var writeOnCancelledBlocked = false;
     try {
-      await clientA.from('expenses').insert({
-        'id': _uuid(),
-        'trip_id': cancelTripId,
-        'payer_id': userA,
-        'amount_cents': 100,
-        'currency': 'EUR',
-        'base_cents': 100,
-        'fx_rate': 1,
-        'description': 'blocked',
-        'created_by': userA,
-      });
+      await insertCommittedExpense(
+        clientA,
+        id: _uuid(),
+        tripId: cancelTripId,
+        payerId: userA,
+        amountCents: 100,
+        baseCents: 100,
+        description: 'blocked',
+        shares: [
+          {
+            'id': _uuid(),
+            'user_id': userA,
+            'share_cents': 100,
+          },
+        ],
+      );
     } catch (_) {
       writeOnCancelledBlocked = true;
     }
@@ -1697,31 +1946,16 @@ Future<void> main() async {
     await clientB.rpc('join_trip',
         params: {'p_token': cancelDisputeInvite['token'] as String});
     final cancelDisputeExpenseId = _uuid();
-    await clientA.from('expenses').insert({
-      'id': cancelDisputeExpenseId,
-      'trip_id': cancelDisputeTripId,
-      'payer_id': userA,
-      'amount_cents': 1000,
-      'currency': 'EUR',
-      'base_cents': 1000,
-      'fx_rate': 1,
-      'description': 'cancel dispute smoke',
-      'created_by': userA,
-    });
-    await clientA.from('expense_shares').insert([
-      {
-        'id': _uuid(),
-        'expense_id': cancelDisputeExpenseId,
-        'user_id': userA,
-        'share_cents': 500,
-      },
-      {
-        'id': _uuid(),
-        'expense_id': cancelDisputeExpenseId,
-        'user_id': userB,
-        'share_cents': 500,
-      },
-    ]);
+    await insertCommittedExpense(
+      clientA,
+      id: cancelDisputeExpenseId,
+      tripId: cancelDisputeTripId,
+      payerId: userA,
+      amountCents: 1000,
+      baseCents: 1000,
+      description: 'cancel dispute smoke',
+      shares: twoMemberShares(userA: userA, userB: userB, baseCents: 1000),
+    );
     await clientA
         .rpc('cancel_trip', params: {'p_trip_id': cancelDisputeTripId});
     final cancelDisputeRow = await clientA
@@ -1757,24 +1991,69 @@ Future<void> main() async {
     }
     results.add(_Check('co-admin cannot cancel trip', coAdminCancelBlocked));
 
-    await clientA
-        .from('trips')
-        .update({'destination': 'RLS baseline'}).eq('id', tripId);
+    final pruneTripId = _uuid();
+    await clientA.rpc('create_trip', params: {
+      'p_id': pruneTripId,
+      'p_name': 'RLS S50 prune ${DateTime.now().toUtc().toIso8601String()}',
+    });
+    final pruneInvite = await clientA
+        .from('invites')
+        .insert({'trip_id': pruneTripId, 'created_by': userA})
+        .select('token')
+        .single();
+    await clientB
+        .rpc('join_trip', params: {'p_token': pruneInvite['token'] as String});
+    final pruneExpenseId = _uuid();
+    await insertCommittedExpense(
+      clientA,
+      id: pruneExpenseId,
+      tripId: pruneTripId,
+      payerId: userA,
+      amountCents: 1000,
+      baseCents: 1000,
+      description: 'S50 departed-member prune',
+      shares: twoMemberShares(userA: userA, userB: userB, baseCents: 1000),
+    );
+    final bShareBeforeDeparture = await clientA
+        .from('expense_shares')
+        .select('id')
+        .eq('expense_id', pruneExpenseId)
+        .eq('user_id', userB);
+    results.add(_Check(
+      'S50 prune precondition: departed member has share',
+      (bShareBeforeDeparture as List).isNotEmpty,
+    ));
 
     await clientA
         .from('trip_members')
         .update({'status': 'left'})
-        .eq('trip_id', tripId)
+        .eq('trip_id', pruneTripId)
         .eq('user_id', userB);
     final bMemberAfterRemoval = await clientA
         .from('trip_members')
         .select('status')
-        .eq('trip_id', tripId)
+        .eq('trip_id', pruneTripId)
         .eq('user_id', userB)
         .single();
     results.add(_Check(
       'A removes B from trip (status left)',
       bMemberAfterRemoval['status'] == 'left',
+    ));
+
+    await clientA.rpc('amend_expense_conversion', params: {
+      'p_expense_id': pruneExpenseId,
+      'p_base_cents': 1000,
+      'p_fx_rate_source': 'manual',
+      'p_lock': false,
+    });
+    final bShareAfterDeparturePrune = await clientA
+        .from('expense_shares')
+        .select('id')
+        .eq('expense_id', pruneExpenseId)
+        .eq('user_id', userB);
+    results.add(_Check(
+      'S50 departed-member share pruned after amend',
+      (bShareAfterDeparturePrune as List).isEmpty,
     ));
 
     var bUpsertBlocked = false;
@@ -1951,17 +2230,20 @@ Future<void> main() async {
         await clientB.rpc('join_trip', params: {
           'p_token': softInvite['token'],
         });
-        await clientB.from('expenses').insert({
-          'id': _uuid(),
-          'trip_id': softCloseTripId,
-          'payer_id': userB,
-          'amount_cents': 500,
-          'currency': 'EUR',
-          'base_cents': 500,
-          'fx_rate': 1,
-          'description': 'S48 soft_closed writable',
-          'created_by': userB,
-        });
+        await insertCommittedExpense(
+          clientB,
+          id: _uuid(),
+          tripId: softCloseTripId,
+          payerId: userB,
+          amountCents: 500,
+          baseCents: 500,
+          description: 'S48 soft_closed writable',
+          shares: twoMemberShares(
+            userA: userA,
+            userB: userB,
+            baseCents: 500,
+          ),
+        );
         softClosedExpenseOk = true;
       } catch (_) {}
       results.add(_Check(

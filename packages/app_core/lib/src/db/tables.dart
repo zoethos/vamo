@@ -64,6 +64,11 @@ class LocalExpenses extends Table {
   TextColumn get placeLabel => text().nullable()();
   TextColumn get placeId => text().nullable()();
   TextColumn get status => text().withDefault(const Constant('committed'))();
+  TextColumn get fxRateSource =>
+      text().withDefault(const Constant('auto'))();
+  RealColumn get fxRateManual => real().nullable()();
+  BoolColumn get fxConversionLocked =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

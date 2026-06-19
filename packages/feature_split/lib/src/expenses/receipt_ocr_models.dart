@@ -6,6 +6,8 @@ class ReceiptParseResult {
     this.merchant,
     this.address,
     this.date,
+    this.printedBaseCents,
+    this.printedBaseCurrency,
   });
 
   /// Total in minor units (e.g. cents).
@@ -22,11 +24,26 @@ class ReceiptParseResult {
 
   final DateTime? date;
 
+  /// Optional trip-base total printed on the receipt (S50 receipt-rate path).
+  final int? printedBaseCents;
+
+  /// ISO code for [printedBaseCents] when detected.
+  final String? printedBaseCurrency;
+
   bool get hasAnySuggestion =>
       amountCents != null ||
       (currency != null && currency!.isNotEmpty) ||
       (merchant != null && merchant!.isNotEmpty) ||
       date != null;
+
+  bool get hasReceiptFxHint =>
+      amountCents != null &&
+      amountCents! > 0 &&
+      printedBaseCents != null &&
+      printedBaseCents! > 0 &&
+      printedBaseCurrency != null &&
+      currency != null &&
+      currency!.toUpperCase() != printedBaseCurrency!.toUpperCase();
 }
 
 /// Which add-expense fields were pre-filled from OCR (for analytics).

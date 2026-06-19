@@ -26,6 +26,10 @@ class ExpenseGovernanceLabels {
     required this.tripBalancesIn,
     required this.splitEqual,
     required this.splitSolo,
+    required this.convertedAmountLabel,
+    required this.fxConversionLocked,
+    required this.saveConversion,
+    required this.fxSourceReceipt,
   });
 
   final String Function(String memberName) includedDisputedBy;
@@ -51,6 +55,10 @@ class ExpenseGovernanceLabels {
   final String Function(String currency) tripBalancesIn;
   final String Function(int memberCount) splitEqual;
   final String splitSolo;
+  final String Function(String currency) convertedAmountLabel;
+  final String fxConversionLocked;
+  final String saveConversion;
+  final String fxSourceReceipt;
 
   String consentDisplayLabel({
     required String memberName,

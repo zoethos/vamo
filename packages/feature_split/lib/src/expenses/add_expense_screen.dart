@@ -49,6 +49,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  final _baseOverrideController = TextEditingController();
   final _descriptionController = TextEditingController();
 
   String? _payerId;
@@ -56,6 +57,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   String _expenseCurrency = 'EUR';
   bool _currencySyncedToTrip = false;
   String? _fxPreview;
+  int? _autoBaseCents;
+  String? _fxRateSource;
+  bool _baseOverrideUserTouched = false;
   bool _previewLoading = false;
   bool _saving = false;
   final _picker = ImagePicker();
@@ -83,6 +87,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   void dispose() {
     _flowTracker.abandonIfIncomplete();
     _amountController.dispose();
+    _baseOverrideController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -90,12 +95,23 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   Future<void> _refreshFxPreview(String tripBase) async {
     final expense = _expenseCurrency;
     if (expense == tripBase) {
-      if (mounted) setState(() => _fxPreview = null);
+      if (mounted) {
+        setState(() {
+          _fxPreview = null;
+          _autoBaseCents = null;
+          _baseOverrideController.clear();
+        });
+      }
       return;
     }
     final cents = parseAmountToCents(_amountController.text);
     if (cents == null || cents <= 0) {
-      if (mounted) setState(() => _fxPreview = null);
+      if (mounted) {
+        setState(() {
+          _fxPreview = null;
+          _autoBaseCents = null;
+        });
+      }
       return;
     }
     setState(() => _previewLoading = true);
@@ -110,8 +126,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           );
       if (!mounted) return;
       setState(() {
+        _autoBaseCents = resolved.baseCents;
         final amount = formatMoneyFromCents(resolved.baseCents, tripBase);
         _fxPreview = '≈ $amount in trip currency';
+        if (!_baseOverrideUserTouched) {
+          _baseOverrideController.text =
+              (resolved.baseCents / 100).toStringAsFixed(2);
+        }
         _previewLoading = false;
       });
     } catch (e) {
@@ -308,6 +329,42 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               .textTheme
                               .bodySmall
                               ?.copyWith(color: AppColors.jadeTeal),
+                        ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _baseOverrideController,
+                        decoration: InputDecoration(
+                          labelText: widget.labels
+                              .convertedAmountLabel(tripBase),
+                          prefixText: _currencySymbol(tripBase),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[\d.,]'),
+                          ),
+                        ],
+                        onChanged: (_) {
+                          _baseOverrideUserTouched = true;
+                          _fxRateSource = 'manual';
+                        },
+                        validator: (v) {
+                          if (!inForeignCurrency) return null;
+                          if (parseAmountToCents(v ?? '') == null) {
+                            return 'Enter a valid converted amount';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_fxRateSource == 'receipt')
+                        Text(
+                          widget.labels.fxSourceReceipt,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: AppColors.graphite),
                         ),
                     ],
                     if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
@@ -546,7 +603,14 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       if (!mounted || suggestion == null || !suggestion.hasAnySuggestion) {
         return;
       }
-      _applyOcrSuggestion(suggestion);
+      _applyOcrSuggestion(
+        suggestion,
+        tripBase: ref
+                .read(tripDetailProvider(widget.tripId))
+                .valueOrNull
+                ?.baseCurrency ??
+            'EUR',
+      );
       await _resolvePlaceFromReceipt(suggestion);
     } catch (e, stackTrace) {
       if (!mounted) return;
@@ -580,7 +644,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
   }
 
-  void _applyOcrSuggestion(ReceiptParseResult suggestion) {
+  void _applyOcrSuggestion(
+    ReceiptParseResult suggestion, {
+    required String tripBase,
+  }) {
     final prefill = applyReceiptOcrPrefill(
       suggestion: suggestion,
       supportedCurrencies: _currencies,
@@ -610,6 +677,15 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         _placeLabel = prefill.placeLabel;
         _ocrSuggested.add(OcrSuggestionField.placeLabel);
         _ocrOriginal[OcrSuggestionField.placeLabel] = prefill.placeLabel!;
+      }
+      if (suggestion.hasReceiptFxHint &&
+          suggestion.printedBaseCurrency!.toUpperCase() ==
+              tripBase.toUpperCase() &&
+          suggestion.printedBaseCents != null) {
+        _baseOverrideController.text =
+            (suggestion.printedBaseCents! / 100).toStringAsFixed(2);
+        _baseOverrideUserTouched = false;
+        _fxRateSource = 'receipt';
       }
     });
   }
@@ -650,11 +726,21 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     final cents = parseAmountToCents(_amountController.text);
     if (cents == null) return;
 
+    final inForeignCurrency =
+        _expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase();
+    final manualBaseCents = inForeignCurrency
+        ? parseAmountToCents(_baseOverrideController.text)
+        : null;
+    final useManualBase = manualBaseCents != null &&
+        (_baseOverrideUserTouched ||
+            _fxRateSource == 'receipt' ||
+            (_autoBaseCents != null && manualBaseCents != _autoBaseCents));
+
     setState(() => _saving = true);
     try {
       double fxRate = 1.0;
       var baseCents = cents;
-      if (_expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase()) {
+      if (inForeignCurrency) {
         final resolved = await ref
             .read(expensesRepositoryProvider)
             .resolveTripFxRateForExpense(
@@ -664,7 +750,15 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               amountCents: cents,
             );
         fxRate = resolved.fxRate;
-        baseCents = resolved.baseCents;
+        if (useManualBase) {
+          baseCents = manualBaseCents;
+          fxRate = fxRateFromReceiptTotals(
+            amountCents: cents,
+            receiptBaseCents: baseCents,
+          );
+        } else {
+          baseCents = resolved.baseCents;
+        }
       }
 
       if (widget.mode == AddExpenseMode.proposed) {
@@ -677,6 +771,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               baseCents: baseCents,
               fxRate: fxRate,
               category: _selectedCategoryKey,
+              manualBaseCents: useManualBase ? baseCents : null,
+              fxRateSource: useManualBase ? (_fxRateSource ?? 'manual') : null,
+              lockConversion: useManualBase,
             );
       } else {
         await ref.read(expensesRepositoryProvider).addExpense(
@@ -694,6 +791,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 placeLabel: _placeLabel,
                 placeId: _resolvedPlaceId,
                 ocrUsed: _ocrUsed,
+                manualBaseCents: useManualBase ? baseCents : null,
+                fxRateSource: useManualBase ? (_fxRateSource ?? 'manual') : null,
+                lockConversion: useManualBase,
               ),
               baseCurrency: tripBaseCurrency,
             );

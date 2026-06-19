@@ -22,3 +22,21 @@ int convertExpenseCentsToBase({
 }) {
   return (amountCents * fxRate).round();
 }
+
+/// Receipt-printed trip-base total ÷ expense amount (additive S50 path).
+double fxRateFromReceiptTotals({
+  required int amountCents,
+  required int receiptBaseCents,
+}) {
+  if (amountCents <= 0) {
+    throw ArgumentError.value(amountCents, 'amountCents', 'must be positive');
+  }
+  if (receiptBaseCents <= 0) {
+    throw ArgumentError.value(
+      receiptBaseCents,
+      'receiptBaseCents',
+      'must be positive',
+    );
+  }
+  return receiptBaseCents / amountCents;
+}

@@ -92,6 +92,9 @@ class ExpensesOverviewRepository {
             placeLabel: r.placeLabel,
             placeId: r.placeId,
             status: ExpenseStatus.parse(r.status),
+            fxRateSource: r.fxRateSource,
+            fxRateManual: r.fxRateManual,
+            fxConversionLocked: r.fxConversionLocked,
           ),
         )
         .toList();
