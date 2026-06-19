@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "app.vamo",
       "sha256_cert_fingerprints": [
-        "B6:18:BD:12:49:70:51:F5:18:37:9A:1E:2F:8E:88:E8:73:4C:1C:5E:48:E0:5E:68:BD:50:66:59:E0:9F:BB:89"
+        "B6:18:BD:12:49:70:51:F5:18:37:9A:1E:2F:8E:88:E8:73:4C:1C:5E:48:E0:5E:68:BD:50:66:59:E0:9F:BB:89",
+        "8E:34:13:21:AE:58:82:EA:7E:83:ED:E1:9F:E0:5E:8A:A7:CE:A6:FA:4F:4B:75:4C:1F:0C:64:C0:3A:C1:01:A3"
       ]
     }
   }
