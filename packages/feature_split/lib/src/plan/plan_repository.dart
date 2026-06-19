@@ -505,7 +505,15 @@ class PlanRepository {
         );
       }
       return result;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'plan',
+        action: 'fetch_item_capabilities',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
       return fallback;
     }
   }

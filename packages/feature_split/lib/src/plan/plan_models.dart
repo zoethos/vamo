@@ -134,7 +134,7 @@ Map<String, Object?> parsePlanMetadata(Object? raw) {
     if (raw.trim().isEmpty) return const <String, Object?>{};
     try {
       return parsePlanMetadata(jsonDecode(raw));
-    } catch (_) {
+    } on FormatException {
       return const <String, Object?>{};
     }
   }
