@@ -309,6 +309,13 @@ class ExpensesRepository {
       }
     }
 
+    final fxMetadata = _fxMetadataForWrite(
+      fxRate: fxRate,
+      manualBaseCents: input.manualBaseCents,
+      fxRateSource: input.fxRateSource,
+      lockConversion: input.lockConversion,
+    );
+
     await _db.upsertExpense(
       LocalExpensesCompanion(
         id: Value(expenseId),
@@ -331,8 +338,9 @@ class ExpensesRepository {
         placeLabel: Value(input.placeLabel?.trim()),
         placeId: Value(input.placeId),
         status: const Value('committed'),
-        fxRateSource: const Value('auto'),
-        fxConversionLocked: const Value(false),
+        fxRateSource: Value(fxMetadata.source),
+        fxRateManual: Value(fxMetadata.manual),
+        fxConversionLocked: Value(fxMetadata.locked),
       ),
     );
 
@@ -379,6 +387,9 @@ class ExpensesRepository {
         'place_label': input.placeLabel!.trim(),
       if (input.placeId != null && input.placeId!.isNotEmpty)
         'place_id': input.placeId,
+      'fx_rate_source': fxMetadata.source,
+      if (fxMetadata.manual != null) 'fx_rate_manual': fxMetadata.manual,
+      'fx_conversion_locked': fxMetadata.locked,
     };
 
     await _syncQueue.enqueue(
@@ -388,20 +399,7 @@ class ExpensesRepository {
         'shares': sharePayloads,
       },
     );
-    await _syncWorker.flush();
-
-    await _applyFxAmendIfNeeded(
-      expenseId: expenseId,
-      tripId: input.tripId,
-      amountCents: input.amountCents,
-      baseCents: baseCents,
-      fxRate: fxRate,
-      fxRateSource: input.fxRateSource,
-      fxRateManual: input.fxRateSource == 'receipt' ? fxRate : null,
-      lockConversion: input.lockConversion ||
-          input.manualBaseCents != null ||
-          input.fxRateSource == 'receipt',
-    );
+    unawaited(_syncWorker.flush());
 
     _analytics.capture(
       VamoEvent.expenseAdded,
@@ -640,29 +638,6 @@ class ExpensesRepository {
     }
   }
 
-  Future<void> _applyFxAmendIfNeeded({
-    required String expenseId,
-    required String tripId,
-    required int amountCents,
-    required int baseCents,
-    required double fxRate,
-    String? fxRateSource,
-    double? fxRateManual,
-    required bool lockConversion,
-  }) async {
-    final source = fxRateSource;
-    if (!lockConversion && (source == null || source == 'auto')) return;
-
-    await amendExpenseConversion(
-      expenseId: expenseId,
-      baseCents: baseCents,
-      fxRate: fxRate,
-      fxRateSource: source ?? 'manual',
-      fxRateManual: fxRateManual,
-      lock: lockConversion,
-    );
-  }
-
   Future<String> proposeExpense({
     required String tripId,
     required String payerId,
@@ -685,12 +660,26 @@ class ExpensesRepository {
         .get();
     if (members.isEmpty) throw StateError('Trip has no active members');
 
+    final effectiveBase = manualBaseCents ?? baseCents;
+    final effectiveFx = manualBaseCents == null
+        ? fxRate
+        : fxRateFromReceiptTotals(
+            amountCents: amountCents,
+            receiptBaseCents: effectiveBase,
+          );
+    final fxMetadata = _fxMetadataForWrite(
+      fxRate: effectiveFx,
+      manualBaseCents: manualBaseCents,
+      fxRateSource: fxRateSource,
+      lockConversion: lockConversion,
+    );
+
     final shareLines = equalSplit(
-      baseCents: baseCents,
+      baseCents: effectiveBase,
       memberIds: members.map((m) => m.userId).toList(),
     );
     assertSharesSumToBase(
-      baseCents: baseCents,
+      baseCents: effectiveBase,
       shareCents: shareLines.map((s) => s.shareCents),
     );
 
@@ -702,33 +691,14 @@ class ExpensesRepository {
       'p_payer_id': payerId,
       'p_amount_cents': amountCents,
       'p_currency': currency,
-      'p_base_cents': baseCents,
-      'p_fx_rate': fxRate,
+      'p_base_cents': effectiveBase,
+      'p_fx_rate': effectiveFx,
       'p_description': description.trim(),
       'p_category': category,
+      'p_fx_rate_source': fxMetadata.source,
+      if (fxMetadata.manual != null) 'p_fx_rate_manual': fxMetadata.manual,
+      'p_fx_conversion_locked': fxMetadata.locked,
     });
-
-    await _applyFxAmendIfNeeded(
-      expenseId: expenseId,
-      tripId: tripId,
-      amountCents: amountCents,
-      baseCents: manualBaseCents ?? baseCents,
-      fxRate: manualBaseCents == null
-          ? fxRate
-          : fxRateFromReceiptTotals(
-              amountCents: amountCents,
-              receiptBaseCents: manualBaseCents,
-            ),
-      fxRateSource: fxRateSource,
-      fxRateManual: fxRateSource == 'receipt' && manualBaseCents != null
-          ? fxRateFromReceiptTotals(
-              amountCents: amountCents,
-              receiptBaseCents: manualBaseCents,
-            )
-          : null,
-      lockConversion:
-          lockConversion || manualBaseCents != null || fxRateSource == 'receipt',
-    );
 
     await syncExpensesForTrips([tripId]);
 
@@ -847,5 +817,19 @@ class ExpensesRepository {
         'has_reason': !accept && (reason?.trim().isNotEmpty ?? false),
       },
     );
+  }
+
+  ({String source, double? manual, bool locked}) _fxMetadataForWrite({
+    required double fxRate,
+    int? manualBaseCents,
+    String? fxRateSource,
+    required bool lockConversion,
+  }) {
+    final hasManualBase = manualBaseCents != null;
+    final source = fxRateSource ?? (hasManualBase ? 'manual' : 'auto');
+    final locked =
+        lockConversion || hasManualBase || source == 'receipt';
+    final manual = source == 'receipt' ? fxRate : null;
+    return (source: source, manual: manual, locked: locked);
   }
 }

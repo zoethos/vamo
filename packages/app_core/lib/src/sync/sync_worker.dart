@@ -139,14 +139,39 @@ class SyncWorker {
     switch (kind) {
       case SyncKind.expenseInsert:
         final expense = Map<String, dynamic>.from(payload['expense'] as Map);
-        await _client.from('expenses').upsert(expense, onConflict: 'id');
         final shares = (payload['shares'] as List)
             .cast<Map<String, dynamic>>()
             .map(Map<String, dynamic>.from)
             .toList();
-        if (shares.isNotEmpty) {
-          await _client.from('expense_shares').upsert(shares, onConflict: 'id');
-        }
+        await _client.rpc('insert_committed_expense', params: {
+          'p_id': expense['id'],
+          'p_trip_id': expense['trip_id'],
+          'p_payer_id': expense['payer_id'],
+          'p_amount_cents': expense['amount_cents'],
+          'p_currency': expense['currency'],
+          'p_base_cents': expense['base_cents'],
+          'p_fx_rate': expense['fx_rate'],
+          'p_description': expense['description'],
+          'p_category': expense['category'],
+          'p_spent_at': expense['spent_at'],
+          if (expense['receipt_path'] != null)
+            'p_receipt_path': expense['receipt_path'],
+          if (expense['captured_lat'] != null)
+            'p_captured_lat': expense['captured_lat'],
+          if (expense['captured_lng'] != null)
+            'p_captured_lng': expense['captured_lng'],
+          if (expense['captured_at'] != null)
+            'p_captured_at': expense['captured_at'],
+          if (expense['place_label'] != null)
+            'p_place_label': expense['place_label'],
+          if (expense['place_id'] != null) 'p_place_id': expense['place_id'],
+          'p_fx_rate_source': expense['fx_rate_source'] ?? 'auto',
+          if (expense['fx_rate_manual'] != null)
+            'p_fx_rate_manual': expense['fx_rate_manual'],
+          'p_fx_conversion_locked':
+              expense['fx_conversion_locked'] as bool? ?? false,
+          'p_shares': shares,
+        });
         break;
       case SyncKind.expenseUpdate:
         final patch = Map<String, dynamic>.from(payload);
