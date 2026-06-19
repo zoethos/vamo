@@ -1,22 +1,28 @@
 // Send Email Auth Hook — replaces Supabase's built-in auth emails.
-// Receives the signed hook payload, sends the email via Brevo's HTTP API
-// with our own template (6-digit code prominent, link as fallback).
+// Receives the signed hook payload, sends the email via Brevo's HTTP API,
+// then falls back to Resend if Brevo fails.
 //
 // Required secrets (supabase secrets set KEY=value):
 //   SEND_EMAIL_HOOK_SECRET  - from the dashboard when registering the hook (v1,whsec_...)
 //   BREVO_API_KEY           - Brevo > SMTP & API > API keys
 //   SENDER_EMAIL            - your Brevo-verified sender address
+//   RESEND_API_KEY          - fallback provider key
+// Optional:
+//   RESEND_SENDER_EMAIL     - fallback sender, defaults to SENDER_EMAIL
+//   SENDER_NAME             - friendly sender name, defaults to Vamo
 //
 // Deploy: supabase functions deploy send-auth-email --no-verify-jwt
 
 import { Webhook } from "standardwebhooks";
+import {
+  buildEmailProviderConfig,
+  sendAuthEmailWithFallback,
+} from "./email_providers.ts";
 
 const HOOK_SECRET = (Deno.env.get("SEND_EMAIL_HOOK_SECRET") ?? "").replace(
   "v1,whsec_",
   "",
 );
-const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY") ?? "";
-const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL") ?? "";
 
 interface EmailData {
   token: string;
@@ -76,35 +82,34 @@ Deno.serve(async (req) => {
       `&type=${email_data.email_action_type}` +
       `&redirect_to=${encodeURIComponent(email_data.redirect_to)}`;
 
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": BREVO_API_KEY,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        sender: { name: "Vamo", email: SENDER_EMAIL },
-        to: [{ email: user.email }],
-        subject: `Your Vamo code: ${email_data.token}`,
-        htmlContent: buildHtml(email_data, verifyUrl),
-      }),
-    });
+    const sendResult = await sendAuthEmailWithFallback({
+      to: user.email,
+      subject: `Your Vamo code: ${email_data.token}`,
+      html: buildHtml(email_data, verifyUrl),
+    }, buildEmailProviderConfig());
 
-    if (!res.ok) {
-      const detail = await res.text();
-      console.error("Brevo send failed:", res.status, detail);
-      return new Response(
-        JSON.stringify({
-          error: { http_code: res.status, message: "Email send failed" },
-        }),
-        { status: 500, headers: { "content-type": "application/json" } },
-      );
+    if (sendResult.ok) {
+      if (sendResult.provider !== "brevo") {
+        console.warn("Auth email sent via fallback provider:", {
+          provider: sendResult.provider,
+          attempts: summarizeAttempts(sendResult.attempts),
+        });
+      }
+      return new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
 
-    return new Response("{}", {
-      status: 200,
-      headers: { "content-type": "application/json" },
+    console.error("Auth email send failed:", {
+      attempts: summarizeAttempts(sendResult.attempts),
     });
+    return new Response(
+      JSON.stringify({
+        error: { http_code: 500, message: "Email send failed" },
+      }),
+      { status: 500, headers: { "content-type": "application/json" } },
+    );
   } catch (err) {
     console.error("Hook error:", err);
     return new Response(
@@ -115,3 +120,21 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+function summarizeAttempts(
+  attempts: Array<{
+    provider: string;
+    configured: boolean;
+    ok: boolean;
+    status?: number;
+    detail?: string;
+  }>,
+) {
+  return attempts.map((attempt) => ({
+    provider: attempt.provider,
+    configured: attempt.configured,
+    ok: attempt.ok,
+    status: attempt.status,
+    detail: attempt.detail,
+  }));
+}
