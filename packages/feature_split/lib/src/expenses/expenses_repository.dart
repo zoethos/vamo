@@ -161,6 +161,7 @@ class ExpensesRepository {
                   userId: m.userId,
                   displayName: m.displayName ?? 'Vamigo',
                   role: m.role,
+                  avatarUrl: m.avatarUrl,
                 ),
               )
               .toList(),

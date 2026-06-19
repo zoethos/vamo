@@ -34,6 +34,7 @@ String expenseReceiptPath({
     '$userId/$tripId/receipts/$expenseId$ext';
 
 const _capturesBucket = 'captures';
+const _avatarsBucket = 'avatars';
 
 final _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -75,15 +76,19 @@ Future<void> main() async {
   String? tripId;
   String? storagePath;
   String? bStoragePath;
+  String? aAvatarPath;
+  String? bAvatarPath;
   SupabaseClient? clientA;
+  SupabaseClient? clientB;
+  SupabaseClient? serviceClient;
 
   try {
     clientA = await _signIn(url!, anon!, aEmail!, aPass!);
     final userA = clientA.auth.currentUser!.id;
-    final clientB = await _signIn(url, anon, bEmail!, bPass!);
+    clientB = await _signIn(url, anon, bEmail!, bPass!);
     final clientC = await _signIn(url, anon, cEmail!, cPass!);
     final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
-    final serviceClient = serviceKey != null && serviceKey.isNotEmpty
+    serviceClient = serviceKey != null && serviceKey.isNotEmpty
         ? SupabaseClient(url, serviceKey)
         : null;
 
@@ -206,6 +211,128 @@ Future<void> main() async {
     results.add(_Check('B join_trip', joinedTrip == tripId));
 
     final userB = clientB.auth.currentUser!.id;
+
+    // --- S47 profile avatars (display_name privacy tier) ---
+    aAvatarPath = '$userA/profile.jpg';
+    bAvatarPath = '$userB/profile.jpg';
+    const avatarUploadOptions = FileOptions(
+      contentType: 'image/jpeg',
+      upsert: true,
+    );
+    await clientA.storage.from(_avatarsBucket).uploadBinary(
+          aAvatarPath,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    results.add(_Check('S47 A avatar insert own path', true));
+    await clientA.storage.from(_avatarsBucket).uploadBinary(
+          aAvatarPath,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    results.add(_Check('S47 A avatar upsert own path', true));
+    final aAvatarSigned = await clientA.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(aAvatarPath, 60);
+    results.add(_Check(
+      'S47 A avatar select own path',
+      aAvatarSigned.isNotEmpty,
+    ));
+    final bReadAvatar = await clientB.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(aAvatarPath, 60);
+    results.add(_Check(
+      'S47 B can select A avatar (display_name tier)',
+      bReadAvatar.isNotEmpty,
+    ));
+    var bWriteAvatarBlocked = false;
+    try {
+      await clientB.storage.from(_avatarsBucket).uploadBinary(
+            aAvatarPath,
+            _pngBytes,
+            fileOptions: avatarUploadOptions,
+          );
+    } catch (_) {
+      bWriteAvatarBlocked = true;
+    }
+    results.add(
+        _Check('S47 B blocked writing A avatar path', bWriteAvatarBlocked));
+    var aWriteBAvatarBlocked = false;
+    try {
+      await clientA.storage.from(_avatarsBucket).uploadBinary(
+            bAvatarPath,
+            _pngBytes,
+            fileOptions: avatarUploadOptions,
+          );
+    } catch (_) {
+      aWriteBAvatarBlocked = true;
+    }
+    results.add(
+        _Check('S47 A blocked writing B avatar path', aWriteBAvatarBlocked));
+
+    var aSetBAvatarUrlBlocked = false;
+    try {
+      await clientA
+          .from('profiles')
+          .update({'avatar_url': bAvatarPath}).eq('id', userA);
+    } catch (_) {
+      aSetBAvatarUrlBlocked = true;
+    }
+    results.add(_Check(
+      'S47 A blocked setting avatar_url to B path',
+      aSetBAvatarUrlBlocked,
+    ));
+
+    var aSetOwnAvatarUrlOk = false;
+    try {
+      await clientA
+          .from('profiles')
+          .update({'avatar_url': aAvatarPath}).eq('id', userA);
+      aSetOwnAvatarUrlOk = true;
+    } catch (_) {}
+    results
+        .add(_Check('S47 A can set own avatar_url path', aSetOwnAvatarUrlOk));
+
+    var aSetNullAvatarUrlOk = false;
+    try {
+      await clientA
+          .from('profiles')
+          .update({'avatar_url': null}).eq('id', userA);
+      aSetNullAvatarUrlOk = true;
+    } catch (_) {}
+    results
+        .add(_Check('S47 A can clear avatar_url to null', aSetNullAvatarUrlOk));
+
+    var aDeleteOwnAvatarOk = false;
+    try {
+      await clientA.storage.from(_avatarsBucket).remove([aAvatarPath]);
+      aDeleteOwnAvatarOk = true;
+    } catch (_) {}
+    results
+        .add(_Check('S47 A can delete own avatar object', aDeleteOwnAvatarOk));
+
+    await clientB.storage.from(_avatarsBucket).uploadBinary(
+          bAvatarPath,
+          _pngBytes,
+          fileOptions: avatarUploadOptions,
+        );
+    // Storage remove() is silent on RLS deny — verify object survival, not throws.
+    List<FileObject> aRemoveBResult = [];
+    try {
+      aRemoveBResult =
+          await clientA.storage.from(_avatarsBucket).remove([bAvatarPath]);
+    } catch (_) {}
+    final bAvatarActuallyRemoved =
+        aRemoveBResult.any((f) => f.name == bAvatarPath);
+    final bAvatarSignedAfterCrossDelete = await clientB.storage
+        .from(_avatarsBucket)
+        .createSignedUrl(bAvatarPath, 60);
+    final bAvatarFetchAfterCrossDelete =
+        await http.get(Uri.parse(bAvatarSignedAfterCrossDelete));
+    results.add(_Check(
+      'S47 A blocked deleting B avatar object',
+      !bAvatarActuallyRemoved && bAvatarFetchAfterCrossDelete.statusCode == 200,
+    ));
 
     // --- S19 money governance (R5) — two members, before role promotion ---
     final netBaseline = await _netCents(clientB, tripId, userB);
@@ -1872,17 +1999,35 @@ Future<void> main() async {
     stderr.writeln('Unexpected error: $e\n$st');
     results.add(_Check('unexpected error', false, detail: '$e'));
   } finally {
-    if (clientA != null) {
-      for (final path in [storagePath, bStoragePath]) {
-        if (path == null) continue;
-        try {
-          await clientA.storage.from(_capturesBucket).remove([path]);
-          results.add(_Check('cleanup storage $path', true));
-        } catch (e) {
-          results.add(_Check('cleanup storage $path', false, detail: '$e'));
-        }
-      }
-    }
+    await _cleanupStorageObject(
+      results: results,
+      bucket: _capturesBucket,
+      path: storagePath,
+      removeClient: clientA,
+      verifyClient: clientA,
+    );
+    await _cleanupStorageObject(
+      results: results,
+      bucket: _capturesBucket,
+      path: bStoragePath,
+      removeClient: clientB,
+      verifyClient: clientA,
+      fallbackRemoveClient: serviceClient,
+    );
+    await _cleanupStorageObject(
+      results: results,
+      bucket: _avatarsBucket,
+      path: aAvatarPath,
+      removeClient: clientA,
+      verifyClient: clientA,
+    );
+    await _cleanupStorageObject(
+      results: results,
+      bucket: _avatarsBucket,
+      path: bAvatarPath,
+      removeClient: clientB,
+      verifyClient: clientB ?? clientA,
+    );
     if (clientA != null && tripId != null) {
       try {
         await clientA.from('trips').delete().eq('id', tripId);
@@ -1924,6 +2069,76 @@ Future<SupabaseClient> _signIn(
     throw StateError('Sign-in failed for $email');
   }
   return client;
+}
+
+Future<void> _cleanupStorageObject({
+  required List<_Check> results,
+  required String bucket,
+  required String? path,
+  required SupabaseClient? removeClient,
+  required SupabaseClient? verifyClient,
+  SupabaseClient? fallbackRemoveClient,
+}) async {
+  if (path == null) return;
+  final label = 'cleanup storage $bucket/$path';
+  if (removeClient == null || verifyClient == null) {
+    results.add(_Check(label, false, detail: 'missing cleanup client'));
+    return;
+  }
+
+  Object? removeError;
+  try {
+    await removeClient.storage.from(bucket).remove([path]);
+  } catch (e) {
+    removeError = e;
+  }
+
+  var stillExists = await _storageObjectExists(
+    client: verifyClient,
+    bucket: bucket,
+    path: path,
+  );
+  var usedFallback = false;
+  Object? fallbackError;
+  if (stillExists && fallbackRemoveClient != null) {
+    usedFallback = true;
+    try {
+      await fallbackRemoveClient.storage.from(bucket).remove([path]);
+    } catch (e) {
+      fallbackError = e;
+    }
+    stillExists = await _storageObjectExists(
+      client: fallbackRemoveClient,
+      bucket: bucket,
+      path: path,
+    );
+  }
+
+  results.add(_Check(
+    label,
+    !stillExists,
+    detail: stillExists
+        ? 'object still fetchable'
+            '${removeError == null ? '' : '; remove: $removeError'}'
+            '${fallbackError == null ? '' : '; fallback: $fallbackError'}'
+        : usedFallback
+            ? 'removed with service fallback'
+            : null,
+  ));
+}
+
+Future<bool> _storageObjectExists({
+  required SupabaseClient client,
+  required String bucket,
+  required String path,
+}) async {
+  try {
+    final signed = await client.storage.from(bucket).createSignedUrl(path, 60);
+    final response = await http.get(Uri.parse(signed));
+    return response.statusCode == 200;
+  } catch (_) {
+    return false;
+  }
 }
 
 String _uuid() {

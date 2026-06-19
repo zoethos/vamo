@@ -8,6 +8,7 @@ import '../expenses/expense_consent_providers.dart';
 import '../expenses/expense_governance_labels.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
+import 'cached_member_avatar.dart';
 import 'close_report_labels.dart';
 import 'close_report_models.dart';
 import 'trips_providers.dart';
@@ -197,6 +198,11 @@ class CloseReportScreen extends ConsumerWidget {
                     };
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
+                      leading: CachedMemberAvatar(
+                        displayName: displayName,
+                        avatarStoragePath: member.avatarUrl,
+                        radius: 20,
+                      ),
                       title: Text(displayName),
                       subtitle: Text(
                         consentLabel,

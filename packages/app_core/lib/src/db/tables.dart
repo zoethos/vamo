@@ -29,6 +29,7 @@ class LocalTripMembers extends Table {
   TextColumn get role => text()();
   TextColumn get status => text()();
   TextColumn get displayName => text().nullable()();
+  TextColumn get avatarUrl => text().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get closeAcceptedAt => dateTime().nullable()();
   DateTimeColumn get closeObjectedAt => dateTime().nullable()();

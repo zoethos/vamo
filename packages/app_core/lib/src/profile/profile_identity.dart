@@ -34,3 +34,24 @@ String fallbackMemberDisplayName({
   final suffix = shortUserId(userId);
   return suffix.isEmpty ? prefix : '$prefix $suffix';
 }
+
+/// Up to two initials for avatar fallback — null when no usable display name.
+String? avatarInitialsFromDisplayName(String? displayName) {
+  final trimmed = displayName?.trim();
+  if (trimmed == null || trimmed.isEmpty || isPlaceholderDisplayName(trimmed)) {
+    return null;
+  }
+  final parts = trimmed
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) return null;
+  if (parts.length == 1) {
+    final word = parts.first;
+    if (word.length >= 2) {
+      return word.substring(0, 2).toUpperCase();
+    }
+    return word[0].toUpperCase();
+  }
+  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+}

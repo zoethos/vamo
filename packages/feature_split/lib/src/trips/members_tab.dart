@@ -24,6 +24,7 @@ import '../invites/invite_qr_show_sheet.dart';
 
 import '../invites/invites_repository.dart';
 
+import 'cached_member_avatar.dart';
 import 'trips_providers.dart';
 
 import 'trips_repository.dart';
@@ -205,6 +206,8 @@ class MembersTabState extends ConsumerState<MembersTab> {
               (m) => _MemberRow(
 
                 displayName: m.displayName,
+
+                avatarUrl: m.avatarUrl,
 
                 subtitle: m.userId == currentUserId
 
@@ -626,6 +629,8 @@ class _MemberRow extends StatelessWidget {
 
     required this.displayName,
 
+    this.avatarUrl,
+
     required this.subtitle,
 
     required this.roleActions,
@@ -637,6 +642,8 @@ class _MemberRow extends StatelessWidget {
 
 
   final String displayName;
+
+  final String? avatarUrl;
 
   final String subtitle;
 
@@ -654,7 +661,11 @@ class _MemberRow extends StatelessWidget {
 
       child: ListTile(
 
-        leading: VamoAvatar(displayName: displayName, radius: 20),
+        leading: CachedMemberAvatar(
+          displayName: displayName,
+          avatarStoragePath: avatarUrl,
+          radius: 20,
+        ),
 
         title: Text(displayName),
 

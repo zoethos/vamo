@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../profile/profile_identity.dart';
+import 'app_colors.dart';
+import 'app_semantic_colors.dart';
 import 'app_theme_context.dart';
+import 'app_type_scale.dart';
 import 'brand_assets.dart';
 
-/// Shared avatar — person silhouette when no photo; brand mark for placeholders.
+/// Shared avatar — stored photo, initials, brand mark, or person silhouette.
 class VamoAvatar extends StatelessWidget {
   const VamoAvatar({
     super.key,
@@ -46,32 +50,24 @@ class VamoAvatar extends StatelessWidget {
         ),
       );
     } else if (photoUrl != null && photoUrl!.isNotEmpty) {
-      avatar = CircleAvatar(
+      avatar = _PhotoAvatar(
+        photoUrl: photoUrl!,
         radius: radius,
-        backgroundColor: colors.surfaceMuted,
-        backgroundImage: NetworkImage(photoUrl!),
-      );
-    } else if (useBrandMark) {
-      avatar = CircleAvatar(
-        radius: radius,
-        backgroundColor: colors.surfaceMuted,
-        child: Padding(
-          padding: EdgeInsets.all(radius * 0.35),
-          child: Image.asset(
-            BrandAssets.primaryMark,
-            fit: BoxFit.contain,
-          ),
+        fallback: _buildInitialsOrSilhouette(
+          displayName: displayName,
+          radius: radius,
+          colors: colors,
+          type: type,
+          useBrandMark: useBrandMark,
         ),
       );
     } else {
-      avatar = CircleAvatar(
+      avatar = _buildInitialsOrSilhouette(
+        displayName: displayName,
         radius: radius,
-        backgroundColor: colors.surfaceMuted,
-        child: Icon(
-          Icons.person_outline,
-          color: colors.onSurfaceMuted,
-          size: radius * 0.95,
-        ),
+        colors: colors,
+        type: type,
+        useBrandMark: useBrandMark,
       );
     }
 
@@ -97,6 +93,77 @@ class VamoAvatar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static Widget _buildInitialsOrSilhouette({
+    required String? displayName,
+    required double radius,
+    required VamoSemanticColors colors,
+    required VamoTypeScale type,
+    required bool useBrandMark,
+  }) {
+    final initials = avatarInitialsFromDisplayName(displayName);
+    if (initials != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: AppColors.jadeTeal,
+        child: Text(
+          initials,
+          style: type.labelMedium.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+    if (useBrandMark) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: colors.surfaceMuted,
+        child: Padding(
+          padding: EdgeInsets.all(radius * 0.35),
+          child: Image.asset(
+            BrandAssets.primaryMark,
+            fit: BoxFit.contain,
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: colors.surfaceMuted,
+      child: Icon(
+        Icons.person_outline,
+        color: colors.onSurfaceMuted,
+        size: radius * 0.95,
+      ),
+    );
+  }
+}
+
+class _PhotoAvatar extends StatelessWidget {
+  const _PhotoAvatar({
+    required this.photoUrl,
+    required this.radius,
+    required this.fallback,
+  });
+
+  final String photoUrl;
+  final double radius;
+  final Widget fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final diameter = radius * 2;
+    return ClipOval(
+      child: Image.network(
+        photoUrl,
+        width: diameter,
+        height: diameter,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback,
       ),
     );
   }

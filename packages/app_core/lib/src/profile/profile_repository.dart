@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../supabase/supabase_providers.dart';
+import 'avatar_storage.dart';
 import 'profile_identity.dart';
 import 'profile_models.dart';
 
@@ -22,10 +25,57 @@ class ProfileRepository {
     }
     final row = await _client
         .from('profiles')
-        .select('id, display_name, display_name_set_at, base_currency')
+        .select(
+          'id, display_name, display_name_set_at, base_currency, avatar_url',
+        )
         .eq('id', uid)
         .single();
     return UserProfile.fromRow(row);
+  }
+
+  String? oauthAvatarPreviewUrl() =>
+      AvatarStorage.oauthPreviewUrl(_client.auth.currentUser);
+
+  Future<String?> signedAvatarUrl(String? storagePath) {
+    return AvatarStorage.signedUrl(client: _client, storagePath: storagePath);
+  }
+
+  Future<UserProfile> updateAvatar(String? storagePath) async {
+    final uid = _client.auth.currentUser!.id;
+    await _client
+        .from('profiles')
+        .update({'avatar_url': storagePath})
+        .eq('id', uid);
+    return fetchCurrent();
+  }
+
+  Future<UserProfile> clearAvatar() async {
+    final uid = _client.auth.currentUser!.id;
+    await AvatarStorage.deleteCanonicalAvatar(client: _client, userId: uid);
+    return updateAvatar(null);
+  }
+
+  Future<UserProfile> uploadAvatarFromFile(String localPath) async {
+    final uid = _client.auth.currentUser!.id;
+    final bytes = await File(localPath).readAsBytes();
+    final path = await AvatarStorage.uploadCanonicalAvatar(
+      client: _client,
+      userId: uid,
+      bytes: bytes,
+    );
+    return updateAvatar(path);
+  }
+
+  Future<UserProfile> adoptOAuthAvatar() async {
+    final uid = _client.auth.currentUser!.id;
+    final path = await AvatarStorage.copyOAuthAvatarToStorage(
+      client: _client,
+      userId: uid,
+    );
+    if (path == null) {
+      throw StateError('No OAuth avatar available');
+    }
+    return updateAvatar(path);
   }
 
   Future<UserProfile> update({
