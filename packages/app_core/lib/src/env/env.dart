@@ -11,25 +11,33 @@ class Env {
   static String get supabaseUrl => _require('SUPABASE_URL');
   static String get supabaseAnonKey => _require('SUPABASE_ANON_KEY');
 
-  static String get posthogApiKey => dotenv.maybeGet('POSTHOG_API_KEY') ?? '';
+  static String get posthogApiKey => _optional('POSTHOG_API_KEY') ?? '';
 
   /// PostHog ingest host (default US cloud).
   static String get posthogHost =>
-      dotenv.maybeGet('POSTHOG_HOST') ?? 'https://us.i.posthog.com';
+      _optional('POSTHOG_HOST') ?? 'https://us.i.posthog.com';
   static String get fxRatesFunctionUrl =>
-      dotenv.maybeGet('FX_RATES_FUNCTION_URL') ?? '';
+      _optional('FX_RATES_FUNCTION_URL') ?? '';
 
   /// Free key from https://exchangerate.host — required for direct client FX fallback.
   static String get exchangerateAccessKey =>
-      dotenv.maybeGet('EXCHANGERATE_ACCESS_KEY') ?? '';
+      _optional('EXCHANGERATE_ACCESS_KEY') ?? '';
 
   static String _require(String key) {
-    final value = dotenv.maybeGet(key);
+    final value = _optional(key);
     if (value == null || value.isEmpty) {
       throw StateError(
         'Missing required env var "$key". Copy .env.example to .env and fill it in.',
       );
     }
     return value;
+  }
+
+  static String? _optional(String key) {
+    try {
+      return dotenv.maybeGet(key);
+    } on NotInitializedError {
+      return null;
+    }
   }
 }
