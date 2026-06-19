@@ -14,8 +14,11 @@ class CrashReporting {
   static Future<void> initialize() async {
     if (!isSupported) return;
 
-    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-    _enabled = true;
+    const collectionEnabled = !kDebugMode;
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+      collectionEnabled,
+    );
+    _enabled = collectionEnabled;
 
     final previousFlutterError = FlutterError.onError;
     FlutterError.onError = (details) {
@@ -24,9 +27,11 @@ class CrashReporting {
       } else {
         FlutterError.presentError(details);
       }
-      unawaited(
-        FirebaseCrashlytics.instance.recordFlutterFatalError(details),
-      );
+      if (_enabled) {
+        unawaited(
+          FirebaseCrashlytics.instance.recordFlutterError(details),
+        );
+      }
     };
 
     PlatformDispatcher.instance.onError = (error, stackTrace) {
