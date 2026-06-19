@@ -156,6 +156,10 @@ class SplitLabels {
         tripBalancesIn: l10n.expenseTripBalancesIn,
         splitEqual: l10n.expenseSplitEqual,
         splitSolo: l10n.expenseSplitSolo,
+        convertedAmountLabel: l10n.expenseConvertedAmountLabel,
+        fxConversionLocked: l10n.expenseFxConversionLocked,
+        saveConversion: l10n.expenseSaveConversion,
+        fxSourceReceipt: l10n.expenseFxSourceReceipt,
       );
 
   static TripBudgetLabels budget(AppLocalizations l10n) => TripBudgetLabels(

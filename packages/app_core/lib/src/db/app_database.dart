@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +156,11 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 20 && to >= 20) {
             await m.addColumn(localPlanItems, localPlanItems.metadata);
+          }
+          if (from < 21 && to >= 21) {
+            await m.addColumn(localExpenses, localExpenses.fxRateSource);
+            await m.addColumn(localExpenses, localExpenses.fxRateManual);
+            await m.addColumn(localExpenses, localExpenses.fxConversionLocked);
           }
         },
       );

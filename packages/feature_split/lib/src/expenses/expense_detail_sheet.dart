@@ -19,6 +19,7 @@ Future<void> showExpenseDetailSheet({
   required BuildContext context,
   required WidgetRef ref,
   required ExpenseSummary expense,
+  required String tripBaseCurrency,
   required ExpenseGovernanceLabels labels,
   required TripBudgetLabels budgetLabels,
   required bool readOnly,
@@ -30,6 +31,7 @@ Future<void> showExpenseDetailSheet({
     showDragHandle: true,
     builder: (ctx) => _ExpenseDetailSheet(
       expense: expense,
+      tripBaseCurrency: tripBaseCurrency,
       labels: labels,
       budgetLabels: budgetLabels,
       readOnly: readOnly,
@@ -41,6 +43,7 @@ Future<void> showExpenseDetailSheet({
 class _ExpenseDetailSheet extends ConsumerStatefulWidget {
   const _ExpenseDetailSheet({
     required this.expense,
+    required this.tripBaseCurrency,
     required this.labels,
     required this.budgetLabels,
     required this.readOnly,
@@ -48,6 +51,7 @@ class _ExpenseDetailSheet extends ConsumerStatefulWidget {
   });
 
   final ExpenseSummary expense;
+  final String tripBaseCurrency;
   final ExpenseGovernanceLabels labels;
   final TripBudgetLabels budgetLabels;
   final bool readOnly;
@@ -60,11 +64,22 @@ class _ExpenseDetailSheet extends ConsumerStatefulWidget {
 class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
   late String _selectedCategoryKey;
   bool _categorySaving = false;
+  late final TextEditingController _baseController;
+  bool _conversionSaving = false;
 
   @override
   void initState() {
     super.initState();
     _selectedCategoryKey = _canonicalKeyFor(widget.expense.category);
+    _baseController = TextEditingController(
+      text: (widget.expense.baseCents / 100).toStringAsFixed(2),
+    );
+  }
+
+  @override
+  void dispose() {
+    _baseController.dispose();
+    super.dispose();
   }
 
   String _canonicalKeyFor(String? raw) {
@@ -73,6 +88,41 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
             .any((entry) => entry.key == resolved.key)
         ? resolved.key
         : CategoryCatalog.other.key;
+  }
+
+  Future<void> _saveConversion() async {
+    final expense = widget.expense;
+    final baseCents = parseAmountToCents(_baseController.text);
+    if (baseCents == null) return;
+
+    setState(() => _conversionSaving = true);
+    try {
+      final fxRate = fxRateFromReceiptTotals(
+        amountCents: expense.amountCents,
+        receiptBaseCents: baseCents,
+      );
+      await ref.read(expensesRepositoryProvider).amendExpenseConversion(
+            expenseId: expense.id,
+            baseCents: baseCents,
+            fxRate: fxRate,
+            fxRateSource: 'manual',
+            lock: true,
+          );
+      ref.invalidate(tripExpensesProvider(expense.tripId));
+      ref.invalidate(tripExpenseSharesProvider(expense.tripId));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'expense_detail',
+        action: 'amend_conversion',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _conversionSaving = false);
+    }
   }
 
   Future<void> _onCategoryChanged(String key) async {
@@ -121,6 +171,12 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
     final repo = ref.read(expensesRepositoryProvider);
     final canEditCategory =
         !widget.readOnly && expense.status != ExpenseStatus.cancelled;
+    final inForeignCurrency = expense.currency.toUpperCase() !=
+        widget.tripBaseCurrency.toUpperCase();
+    final canAmendFx = widget.canManageProposals &&
+        !widget.readOnly &&
+        inForeignCurrency &&
+        expense.status != ExpenseStatus.cancelled;
 
     return SafeArea(
       child: Padding(
@@ -150,6 +206,41 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
                 onChanged: _onCategoryChanged,
               ),
             ],
+            if (canAmendFx) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _baseController,
+                decoration: InputDecoration(
+                  labelText:
+                      labels.convertedAmountLabel(widget.tripBaseCurrency),
+                  prefixText: '${widget.tripBaseCurrency} ',
+                ),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                enabled: !_conversionSaving,
+              ),
+              if (expense.fxConversionLocked)
+                Text(
+                  labels.fxConversionLocked,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.graphite,
+                        fontStyle: FontStyle.italic,
+                      ),
+                ),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: _conversionSaving ? null : () => _saveConversion(),
+                  child: _conversionSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(labels.saveConversion),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             for (final share in shares.where((s) => s.expenseId == expense.id))
               ListTile(
@@ -168,7 +259,10 @@ class _ExpenseDetailSheetState extends ConsumerState<_ExpenseDetailSheet> {
                   ),
                 ),
                 trailing: Text(
-                  formatMoneyFromCents(share.shareCents, expense.currency),
+                  formatMoneyFromCents(
+                    share.shareCents,
+                    widget.tripBaseCurrency,
+                  ),
                 ),
               ),
             if (myShare != null &&

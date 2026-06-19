@@ -20,6 +20,9 @@ class ExpenseSummary {
     this.placeLabel,
     this.placeId,
     this.category,
+    this.fxRateSource = 'auto',
+    this.fxRateManual,
+    this.fxConversionLocked = false,
   });
 
   final String id;
@@ -45,6 +48,11 @@ class ExpenseSummary {
   final String? placeLabel;
   final String? placeId;
   final String? category;
+
+  /// `auto` | `receipt` | `manual` — how [baseCents] was chosen (S50).
+  final String fxRateSource;
+  final double? fxRateManual;
+  final bool fxConversionLocked;
 
   String? get displayPlaceLabel => placeLabel;
 
@@ -86,6 +94,9 @@ class AddExpenseInput {
     this.placeLabel,
     this.placeId,
     this.ocrUsed = false,
+    this.manualBaseCents,
+    this.fxRateSource,
+    this.lockConversion = false,
   });
 
   final String tripId;
@@ -102,6 +113,11 @@ class AddExpenseInput {
   final String? placeLabel;
   final String? placeId;
   final bool ocrUsed;
+
+  /// Editor override for trip-base cents (S50 manual/receipt path).
+  final int? manualBaseCents;
+  final String? fxRateSource;
+  final bool lockConversion;
 }
 
 /// Result of [ExpensesRepository.addExpense].

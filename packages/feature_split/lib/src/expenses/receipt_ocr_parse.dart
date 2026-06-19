@@ -17,6 +17,7 @@ ReceiptParseResult receiptParse(String rawText) {
   final merchant = _detectMerchant(lines);
   final address = _detectAddress(lines);
   final date = _detectDate(rawText);
+  final printedBase = _detectPrintedBaseTotal(lines, currency);
 
   return ReceiptParseResult(
     amountCents: amountCents,
@@ -24,6 +25,8 @@ ReceiptParseResult receiptParse(String rawText) {
     merchant: merchant,
     address: address,
     date: date,
+    printedBaseCents: printedBase?.$1,
+    printedBaseCurrency: printedBase?.$2,
   );
 }
 
@@ -98,6 +101,41 @@ int? _detectAmountCents(List<String> lines, String? currencyHint) {
     if (large.isNotEmpty) return large.last;
   }
   return max;
+}
+
+/// When a receipt prints totals in two currencies, capture the non-primary line.
+(int?, String?)? _detectPrintedBaseTotal(
+  List<String> lines,
+  String? primaryCurrency,
+) {
+  if (primaryCurrency == null) return null;
+  final primary = primaryCurrency.toUpperCase();
+  final pattern = RegExp(
+    r'(?:€|EUR|\$|USD|£|GBP|CHF)\s*([\d][\d.,\s]*)|'
+    r'([\d][\d.,\s]*)\s*(?:€|EUR|\$|USD|£|GBP|CHF)',
+    caseSensitive: false,
+  );
+
+  for (final line in lines) {
+    if (!_totalKeywords.hasMatch(line)) continue;
+    for (final m in pattern.allMatches(line)) {
+      final symbol = m.group(0) ?? '';
+      final cur = symbol.contains('€') || symbol.toUpperCase().contains('EUR')
+          ? 'EUR'
+          : symbol.contains(r'$') || symbol.toUpperCase().contains('USD')
+              ? 'USD'
+              : symbol.contains('£') || symbol.toUpperCase().contains('GBP')
+                  ? 'GBP'
+                  : symbol.toUpperCase().contains('CHF')
+                      ? 'CHF'
+                      : null;
+      if (cur == null || cur == primary) continue;
+      final raw = (m.group(1) ?? m.group(2))?.replaceAll(' ', '');
+      final cents = raw == null ? null : _parseMoneyToCents(raw);
+      if (cents != null && cents > 0) return (cents, cur);
+    }
+  }
+  return null;
 }
 
 List<int> _moneyTokensInLine(String line) {

@@ -438,6 +438,17 @@
     }
   },
   "expenseSplitSolo": "All on you (solo)",
+  "expenseConvertedAmountLabel": "Converted amount ({currency})",
+  "@expenseConvertedAmountLabel": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "expenseFxConversionLocked": "Conversion locked — FX refresh will not change this line",
+  "expenseSaveConversion": "Save conversion",
+  "expenseFxSourceReceipt": "Using receipt-printed total",
   "tripSettingsTitle": "Trip settings",
   "tripDatesSectionTitle": "Dates",
   "tripDatesSave": "Save dates",

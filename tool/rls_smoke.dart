@@ -627,6 +627,103 @@ Future<void> main() async {
       firstRate > 0,
     ));
 
+    // --- S50 FX harmonization ---
+    final s50AutoUsdId = _uuid();
+    await clientA.rpc('propose_expense', params: {
+      'p_id': s50AutoUsdId,
+      'p_trip_id': tripId,
+      'p_payer_id': userA,
+      'p_amount_cents': 10000,
+      'p_currency': 'USD',
+      'p_base_cents': 9000,
+      'p_fx_rate': 0.9,
+      'p_description': 'S50 auto USD harmonize',
+    });
+    final s50LockedUsdId = _uuid();
+    await clientA.rpc('propose_expense', params: {
+      'p_id': s50LockedUsdId,
+      'p_trip_id': tripId,
+      'p_payer_id': userA,
+      'p_amount_cents': 10000,
+      'p_currency': 'USD',
+      'p_base_cents': 9000,
+      'p_fx_rate': 0.9,
+      'p_description': 'S50 locked manual USD',
+    });
+    await clientA.rpc('amend_expense_conversion', params: {
+      'p_expense_id': s50LockedUsdId,
+      'p_base_cents': 9100,
+      'p_fx_rate_source': 'manual',
+      'p_lock': true,
+    });
+
+    var memberAmendBlocked = false;
+    try {
+      await clientB.rpc('amend_expense_conversion', params: {
+        'p_expense_id': s50AutoUsdId,
+        'p_base_cents': 8000,
+        'p_fx_rate_source': 'manual',
+        'p_lock': true,
+      });
+    } catch (_) {
+      memberAmendBlocked = true;
+    }
+    results.add(_Check(
+      'S50 member cannot amend expense conversion',
+      memberAmendBlocked,
+    ));
+
+    var forgeBaseCentsBlocked = false;
+    try {
+      await clientB
+          .from('expenses')
+          .update({'base_cents': 1}).eq('id', s50AutoUsdId);
+    } catch (_) {
+      forgeBaseCentsBlocked = true;
+    }
+    results.add(_Check(
+      'S50 client cannot forge base_cents',
+      forgeBaseCentsBlocked,
+    ));
+
+    final s50RefreshRate = refreshedRate + 0.05;
+    if (serviceClient != null) {
+      await serviceClient.rpc('_apply_trip_fx_rate', params: {
+        'p_trip_id': tripId,
+        'p_currency': 'USD',
+        'p_rate': s50RefreshRate,
+        'p_source': 'test-s50',
+        'p_captured_by': userA,
+      });
+    }
+    final s50AutoAfter = await clientA
+        .from('expenses')
+        .select('base_cents, fx_rate, fx_rate_source, fx_conversion_locked')
+        .eq('id', s50AutoUsdId)
+        .single();
+    final s50LockedAfter = await clientA
+        .from('expenses')
+        .select('base_cents, fx_conversion_locked, fx_rate_source')
+        .eq('id', s50LockedUsdId)
+        .single();
+    final expectedAutoBase = (10000 * s50RefreshRate).round();
+    results.add(_Check(
+      'S50 refresh harmonizes auto unlocked USD expense',
+      serviceClient != null &&
+          s50AutoAfter['fx_rate_source'] == 'auto' &&
+          s50AutoAfter['fx_conversion_locked'] == false &&
+          s50AutoAfter['base_cents'] == expectedAutoBase,
+      detail: serviceClient == null
+          ? 'set RLS_SERVICE_ROLE_KEY for S50 refresh harmonize'
+          : 'expected $expectedAutoBase got ${s50AutoAfter['base_cents']}',
+    ));
+    results.add(_Check(
+      'S50 refresh skips locked manual expense',
+      s50LockedAfter['base_cents'] == 9100 &&
+          s50LockedAfter['fx_conversion_locked'] == true &&
+          s50LockedAfter['fx_rate_source'] == 'manual',
+    ));
+
     final overBudgetId = _uuid();
     await clientA.rpc('propose_expense', params: {
       'p_id': overBudgetId,

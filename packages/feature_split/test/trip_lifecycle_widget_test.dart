@@ -205,12 +205,17 @@ const _governanceLabels = ExpenseGovernanceLabels(
   tripBalancesIn: _mockBalancesIn,
   splitEqual: _mockSplitEqual,
   splitSolo: 'All on you (solo)',
+  convertedAmountLabel: _mockConvertedAmount,
+  fxConversionLocked: 'Conversion locked',
+  saveConversion: 'Save conversion',
+  fxSourceReceipt: 'Receipt total',
 );
 
 String _mockDisputedBy(String name) => 'Disputed by $name';
 String _mockPendingFrom(String name) => 'Pending from $name';
 String _mockBalancesIn(String currency) => 'Balances in $currency';
 String _mockSplitEqual(int count) => 'Split equally · $count Vamigos';
+String _mockConvertedAmount(String currency) => 'Converted ($currency)';
 
 const _budgetLabels = TripBudgetLabels(
   settingsTitle: 'Trip settings',

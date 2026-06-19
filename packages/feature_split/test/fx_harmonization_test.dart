@@ -157,4 +157,23 @@ void main() {
       );
     });
   });
+
+  group('receipt-rate helper (S50 additive)', () {
+    test('fxRateFromReceiptTotals divides printed base by expense amount', () {
+      expect(
+        fxRateFromReceiptTotals(amountCents: 10000, receiptBaseCents: 9259),
+        closeTo(0.9259, 1e-4),
+      );
+      expect(
+        convertExpenseCentsToBase(
+          amountCents: 10000,
+          fxRate: fxRateFromReceiptTotals(
+            amountCents: 10000,
+            receiptBaseCents: 9259,
+          ),
+        ),
+        9259,
+      );
+    });
+  });
 }

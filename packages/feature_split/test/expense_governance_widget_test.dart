@@ -56,6 +56,9 @@ class _SpyExpensesRepository extends ExpensesRepository {
     required int baseCents,
     required double fxRate,
     String? category,
+    int? manualBaseCents,
+    String? fxRateSource,
+    bool lockConversion = false,
   }) async {
     proposeCalls++;
     lastProposedCategory = category;

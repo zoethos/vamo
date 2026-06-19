@@ -133,6 +133,9 @@ class ExpensesRepository {
       placeId: r.placeId,
       category: r.category,
       status: ExpenseStatus.parse(r.status),
+      fxRateSource: r.fxRateSource,
+      fxRateManual: r.fxRateManual,
+      fxConversionLocked: r.fxConversionLocked,
     );
   }
 
@@ -228,14 +231,22 @@ class ExpensesRepository {
     double fxRate = 1.0;
     var baseCents = input.amountCents;
     if (expenseCurrency != tripBase) {
-      final resolved = await _resolveTripFxRate(
-        tripId: input.tripId,
-        expenseCurrency: expenseCurrency,
-        tripBase: tripBase,
-        amountCents: input.amountCents,
-      );
-      fxRate = resolved.fxRate;
-      baseCents = resolved.baseCents;
+      if (input.manualBaseCents != null && input.manualBaseCents! > 0) {
+        baseCents = input.manualBaseCents!;
+        fxRate = fxRateFromReceiptTotals(
+          amountCents: input.amountCents,
+          receiptBaseCents: baseCents,
+        );
+      } else {
+        final resolved = await _resolveTripFxRate(
+          tripId: input.tripId,
+          expenseCurrency: expenseCurrency,
+          tripBase: tripBase,
+          amountCents: input.amountCents,
+        );
+        fxRate = resolved.fxRate;
+        baseCents = resolved.baseCents;
+      }
     }
 
     final shareLines = equalSplit(
@@ -320,6 +331,8 @@ class ExpensesRepository {
         placeLabel: Value(input.placeLabel?.trim()),
         placeId: Value(input.placeId),
         status: const Value('committed'),
+        fxRateSource: const Value('auto'),
+        fxConversionLocked: const Value(false),
       ),
     );
 
@@ -375,7 +388,20 @@ class ExpensesRepository {
         'shares': sharePayloads,
       },
     );
-    unawaited(_syncWorker.flush());
+    await _syncWorker.flush();
+
+    await _applyFxAmendIfNeeded(
+      expenseId: expenseId,
+      tripId: input.tripId,
+      amountCents: input.amountCents,
+      baseCents: baseCents,
+      fxRate: fxRate,
+      fxRateSource: input.fxRateSource,
+      fxRateManual: input.fxRateSource == 'receipt' ? fxRate : null,
+      lockConversion: input.lockConversion ||
+          input.manualBaseCents != null ||
+          input.fxRateSource == 'receipt',
+    );
 
     _analytics.capture(
       VamoEvent.expenseAdded,
@@ -430,6 +456,7 @@ class ExpensesRepository {
 
     const selectCols =
         'id, trip_id, payer_id, amount_cents, currency, base_cents, fx_rate, '
+        'fx_rate_source, fx_rate_manual, fx_conversion_locked, '
         'description, category, spent_at, created_by, created_at, status, '
         'receipt_path, captured_lat, captured_lng, captured_at, place_label, '
         'place_id';
@@ -472,6 +499,11 @@ class ExpensesRepository {
           currency: Value(row['currency'] as String),
           baseCents: Value((row['base_cents'] as num).toInt()),
           fxRate: Value((row['fx_rate'] as num).toDouble()),
+          fxRateSource: Value(row['fx_rate_source'] as String? ?? 'auto'),
+          fxRateManual: Value(_nullableDouble(row['fx_rate_manual'])),
+          fxConversionLocked: Value(
+            row['fx_conversion_locked'] as bool? ?? false,
+          ),
           description: Value(row['description'] as String? ?? ''),
           category: Value(row['category'] as String?),
           spentAt: Value(DateTime.parse(row['spent_at'] as String)),
@@ -583,6 +615,54 @@ class ExpensesRepository {
         amountCents: amountCents,
       );
 
+  Future<void> amendExpenseConversion({
+    required String expenseId,
+    required int baseCents,
+    required String fxRateSource,
+    double? fxRate,
+    double? fxRateManual,
+    bool lock = true,
+  }) async {
+    await _client.rpc('amend_expense_conversion', params: {
+      'p_expense_id': expenseId,
+      'p_base_cents': baseCents,
+      if (fxRate != null) 'p_fx_rate': fxRate,
+      'p_fx_rate_source': fxRateSource,
+      if (fxRateManual != null) 'p_fx_rate_manual': fxRateManual,
+      'p_lock': lock,
+    });
+
+    final existing = await (_db.select(_db.localExpenses)
+          ..where((e) => e.id.equals(expenseId)))
+        .getSingleOrNull();
+    if (existing != null) {
+      await syncExpensesForTrips([existing.tripId]);
+    }
+  }
+
+  Future<void> _applyFxAmendIfNeeded({
+    required String expenseId,
+    required String tripId,
+    required int amountCents,
+    required int baseCents,
+    required double fxRate,
+    String? fxRateSource,
+    double? fxRateManual,
+    required bool lockConversion,
+  }) async {
+    final source = fxRateSource;
+    if (!lockConversion && (source == null || source == 'auto')) return;
+
+    await amendExpenseConversion(
+      expenseId: expenseId,
+      baseCents: baseCents,
+      fxRate: fxRate,
+      fxRateSource: source ?? 'manual',
+      fxRateManual: fxRateManual,
+      lock: lockConversion,
+    );
+  }
+
   Future<String> proposeExpense({
     required String tripId,
     required String payerId,
@@ -592,6 +672,9 @@ class ExpensesRepository {
     required int baseCents,
     required double fxRate,
     String? category,
+    int? manualBaseCents,
+    String? fxRateSource,
+    bool lockConversion = false,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in');
@@ -624,6 +707,28 @@ class ExpensesRepository {
       'p_description': description.trim(),
       'p_category': category,
     });
+
+    await _applyFxAmendIfNeeded(
+      expenseId: expenseId,
+      tripId: tripId,
+      amountCents: amountCents,
+      baseCents: manualBaseCents ?? baseCents,
+      fxRate: manualBaseCents == null
+          ? fxRate
+          : fxRateFromReceiptTotals(
+              amountCents: amountCents,
+              receiptBaseCents: manualBaseCents,
+            ),
+      fxRateSource: fxRateSource,
+      fxRateManual: fxRateSource == 'receipt' && manualBaseCents != null
+          ? fxRateFromReceiptTotals(
+              amountCents: amountCents,
+              receiptBaseCents: manualBaseCents,
+            )
+          : null,
+      lockConversion:
+          lockConversion || manualBaseCents != null || fxRateSource == 'receipt',
+    );
 
     await syncExpensesForTrips([tripId]);
 

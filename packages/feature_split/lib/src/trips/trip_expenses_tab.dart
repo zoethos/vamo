@@ -131,6 +131,7 @@ class TripExpensesTab extends ConsumerWidget {
                       context: context,
                       ref: ref,
                       expense: e,
+                      tripBaseCurrency: baseCurrency,
                       labels: governanceLabels,
                       budgetLabels: budgetLabels,
                       readOnly: readOnly,
