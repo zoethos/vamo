@@ -34,6 +34,7 @@ impact).
 | **Supabase** | **T0** | No sign-in, no sync, no cloud reads | **Offline-first Drift cache + sync outbox** absorbs *transient* outages — app keeps working locally, syncs on recovery | **Sustained** outage has no fallback (single-vendor concentration: DB+auth+storage+functions). Accepted risk; document the daily-backup + restore path. |
 | **Brevo** (OTP email) | **T0** | OTP codes don't arrive → **nobody new can sign in**; existing sessions survive | `send-auth-email` now falls back to **Resend** after Brevo failure | Only until `RESEND_API_KEY` is provisioned and the function is deployed — code path exists, ops secret activates it. |
 | **FCM** (push) | T1 | Notifications silently fail | app fully usable; lifecycle/nudges just don't ping | OK. Pruning UNREGISTERED tokens (S22) is the only hygiene gap. |
+| **Firebase Crashlytics** | T1 | Crash reports delayed/lost | app keeps running; testers can still report manually | OK. Firebase console is the crash source of truth; PostHog remains product telemetry. |
 | **exchangerate.host** (FX) | T1 | Can't add/refresh a currency rate | **Forward-only design**: existing trips keep stored rates; capture fails *loudly* (catalogued error), nothing corrupts | OK by design. The in-DB `http` blocking-RPC risk is the real concern, not data safety — tracked for Edge-Function refactor. |
 | **PostHog** | T1 | Analytics events lost | app fine; debug-console fallback exists; gate metrics blind for the gap | OK — but the Wave-2→3 gate *reads* PostHog, so a long outage delays the decision, not the app. |
 | **MLKit OCR** | T1 | — | **on-device, no network** — resilient by design; receipt scan works offline | None. Keep it on-device (also a privacy promise). |
@@ -90,7 +91,7 @@ caps — which is the signal to budget the next tier, not a surprise.
 | **PostHog (EU)** | Product analytics (funnel + signals) | `POSTHOG_API_KEY` (project 193638, EU host) | Free tier (event volume cap) | Med — event names are ours; SDK swappable | event volume nears free cap; pricing |
 | **Brevo** | Primary transactional email (OTP sign-in codes, notifications) | API key; sender `noreply@vamo.world` pending | Free tier (daily send cap) | Low-med — `send-auth-email` uses provider adapter | daily send cap; deliverability issues |
 | **Resend** | Fallback transactional email for OTP sign-in codes | `RESEND_API_KEY`; optional `RESEND_SENDER_EMAIL` | Free/paid tier TBD | Low — same provider adapter + HTML payload | any fallback usage; Brevo outage; quota/pricing |
-| **Firebase / FCM** | Push notifications (HTTP v1) | `FIREBASE_SERVICE_ACCOUNT` JSON (Supabase secret) | Free (FCM) | Med-high — token plumbing + client SDK | APNs/iOS work; SDK major bumps |
+| **Firebase / FCM / Crashlytics** | Push notifications (HTTP v1) + Android crash diagnostics | `FIREBASE_SERVICE_ACCOUNT` JSON (Supabase secret for FCM); Android app uses `google-services.json` | Free (FCM); Crashlytics free tier | Med-high — token plumbing + client SDK | APNs/iOS work; SDK major bumps; verify crash upload on tester builds |
 | **exchangerate.host** (FX) | FX market rates → trip constant table (D4) | `exchangerate_access_key` (Supabase **Vault**) | Free tier (keyed) | **Low** — see FX card | endpoint corrected to `/live` 2026-06-05; key rotation; free-tier source-lock |
 | **Vercel** | Web tier hosting (`apps/site`: landing, privacy, `/j/` invite, assetlinks) + DNS panel | account (personal → Pro at launch) | Hobby now | Med — Next.js portable; DNS records re-point | Pro at launch; team transfer |
 | **Theme AI provider** | S23 AI theme generation on cache miss; default direct OpenAI, Azure-compatible later | `THEME_AI_*` config/secrets as Supabase Edge Function secrets; never client-side | usage-based; expected negligible due global cache | Low-med — schema prompt, validation, and adapter are ours | model/pricing changes; sustained 429/5xx; output quality review; dashboard switch criteria |
@@ -148,7 +149,7 @@ Not every transitive dep — only the ones with real lock-in or risk.
 | `mobile_scanner` | QR invite scan (S15) | Low | swappable |
 | `google_mlkit_text_recognition` | **On-device** OCR (privacy claim) | Med | on-device is a privacy promise — keep it on-device |
 | `geocoding` | Place resolution | Low | |
-| `firebase_core` / `firebase_messaging` | Push | Med-high | tied to FCM |
+| `firebase_core` / `firebase_messaging` / `firebase_crashlytics` | Push + crash reports | Med-high | tied to Firebase; Android-only until iOS is provisioned |
 | `video_player` | In-app playback for captured trip videos (S30) | Low-med | avoids fragile external `file://` handoff for private app files; thumbnail generation remains deferred |
 | `posthog_flutter` | Analytics SDK | Low-med | event names are ours |
 | `app_links` | Deep-link channel (single handler) | Med | never re-add engine deep-linking alongside |

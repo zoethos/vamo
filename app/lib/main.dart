@@ -10,9 +10,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app.dart';
+import 'crash_reporting.dart';
 import 'push/firebase_push_registrar.dart';
 
-Future<void> main() async {
+void main() {
+  runZonedGuarded<Future<void>>(_runVamoApp, (error, stackTrace) {
+    CrashReporting.recordFatal(error, stackTrace);
+    reportAndLog(
+      error,
+      stackTrace,
+      screen: 'app_lifecycle',
+      action: 'uncaught_zone_error',
+      severity: ActionFailureSeverity.failure,
+    );
+  });
+}
+
+Future<void> _runVamoApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) {
     usePathUrlStrategy();
@@ -22,6 +36,7 @@ Future<void> main() async {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     try {
       await Firebase.initializeApp();
+      await CrashReporting.initialize();
     } catch (error, stackTrace) {
       // Replace app/android/app/google-services.json for real FCM (see RUN.md).
       reportAndLog(

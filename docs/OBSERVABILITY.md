@@ -52,6 +52,16 @@ reportAndLog(error, stackTrace, {required screen, required action})
 - Optional: a debug-only on-screen error surface (full message + "copy") so device
   testing doesn't require a console.
 
+## Crash diagnostics
+- **Firebase Crashlytics is the crash source of truth for Android tester builds.**
+  Flutter framework errors, platform-dispatcher errors, and uncaught zone errors
+  are routed through the app-level `CrashReporting` adapter.
+- Crash reports are technical diagnostics only. Do not attach trip contents,
+  receipt text, invite tokens, raw provider payloads, or message text as custom
+  keys/logs.
+- PostHog remains the source of truth for sanitized product telemetry and
+  catalogued `action_failed` events; Crashlytics answers "what crashed?"
+
 ## Enforcement
 - **Guard test / grep check** in `melos run ci`: fail if `lib/` contains a bare
   `catch (_)` or an empty catch body. (Pairs with the S31/S32 import-guard.)
