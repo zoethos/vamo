@@ -17,6 +17,7 @@ secrets/
 *.p8
 *.p12
 *.key
+backups/
 
 # Android release signing — keystore + passwords stay local, never in the repo
 key.properties

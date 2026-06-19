@@ -7,6 +7,9 @@ scenario with a light k6 load pass, then tells you what to watch.
 
 - Run against staging/non-prod only.
 - Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` for the target project.
+- The scripts refuse the known production Supabase ref unless the matching
+  `*_ALLOW_PROD_REF=true` override is set for an explicit production load
+  window.
 - Use dedicated scenario users when possible:
   - `SCENARIO_USER_A_EMAIL` / `SCENARIO_USER_A_PASSWORD`
   - `SCENARIO_USER_B_EMAIL` / `SCENARIO_USER_B_PASSWORD`
@@ -65,7 +68,8 @@ The k6 pass exercises:
 - expense and balance reads through RLS
 
 The script refuses to run unless `K6_TARGET_LABEL` includes `staging`, unless
-`K6_ALLOW_NON_STAGING=true` is explicitly set.
+`K6_ALLOW_NON_STAGING=true` is explicitly set. It also refuses the known
+production project ref unless `K6_ALLOW_PROD_REF=true` is set.
 
 ## Watch During The Run
 
@@ -110,6 +114,7 @@ Cycle 2 scenario/load is green when:
 - These tools intentionally create staging data. Prefer a staging project or
   dedicated test users, then clean up by trip name/run id from the dashboard.
 - Do not run the k6 script against production during closed beta without an
-  explicit load window and `K6_ALLOW_NON_STAGING=true`.
+  explicit load window plus both `K6_ALLOW_NON_STAGING=true` and
+  `K6_ALLOW_PROD_REF=true`.
 - If the target project is still on a free tier, keep the first pass tiny. The
   goal is early failure discovery, not maximum throughput.
