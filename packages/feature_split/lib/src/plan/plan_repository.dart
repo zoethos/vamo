@@ -99,6 +99,7 @@ class PlanRepository {
         notes: row.notes,
         startsAt: row.startsAt,
         endsAt: row.endsAt,
+        metadata: parsePlanMetadata(row.metadata),
         position: row.position,
       );
 
@@ -139,6 +140,7 @@ class PlanRepository {
     final id = _uuid.v4();
     final now = DateTime.now().toUtc();
     final position = await _nextPlanPosition(input.tripId);
+    final metadata = parsePlanMetadata(input.metadata);
     final payload = {
       'id': id,
       'trip_id': input.tripId,
@@ -147,6 +149,7 @@ class PlanRepository {
       'notes': input.notes?.trim(),
       'starts_at': input.startsAt?.toUtc().toIso8601String(),
       'ends_at': input.endsAt?.toUtc().toIso8601String(),
+      'metadata': metadata,
       'position': position,
       'created_by': userId,
       'created_at': now.toIso8601String(),
@@ -162,6 +165,7 @@ class PlanRepository {
         notes: Value(input.notes?.trim()),
         startsAt: Value(input.startsAt?.toUtc()),
         endsAt: Value(input.endsAt?.toUtc()),
+        metadata: Value(encodePlanMetadata(metadata)),
         position: Value(position),
         createdBy: Value(userId),
         createdAt: Value(now),
@@ -194,6 +198,7 @@ class PlanRepository {
     String? notes,
     DateTime? startsAt,
     DateTime? endsAt,
+    Map<String, Object?>? metadata,
   }) async {
     final existing = await (_db.select(_db.localPlanItems)
           ..where((p) => p.id.equals(id)))
@@ -201,6 +206,7 @@ class PlanRepository {
     if (existing == null) return;
 
     final now = DateTime.now().toUtc();
+    final nextMetadata = parsePlanMetadata(metadata ?? existing.metadata);
     await _db.upsertPlanItem(
       LocalPlanItemsCompanion(
         id: Value(id),
@@ -209,6 +215,7 @@ class PlanRepository {
         notes: Value(notes?.trim()),
         startsAt: Value(startsAt?.toUtc()),
         endsAt: Value(endsAt?.toUtc()),
+        metadata: Value(encodePlanMetadata(nextMetadata)),
         updatedAt: Value(now),
       ),
     );
@@ -221,6 +228,7 @@ class PlanRepository {
       'notes': notes?.trim(),
       'starts_at': startsAt?.toUtc().toIso8601String(),
       'ends_at': endsAt?.toUtc().toIso8601String(),
+      'metadata': nextMetadata,
       'position': existing.position,
       'created_by': existing.createdBy,
       'created_at': existing.createdAt.toIso8601String(),
@@ -300,6 +308,7 @@ class PlanRepository {
           'notes': row.notes,
           'starts_at': row.startsAt?.toUtc().toIso8601String(),
           'ends_at': row.endsAt?.toUtc().toIso8601String(),
+          'metadata': parsePlanMetadata(row.metadata),
           'position': position,
           'created_by': row.createdBy,
           'created_at': row.createdAt.toIso8601String(),
@@ -471,6 +480,44 @@ class PlanRepository {
     }
   }
 
+  Future<Map<PlanItemKind, PlanItemCapabilities>>
+      fetchPlanItemCapabilities() async {
+    final fallback = PlanItemCapabilities.fallbackByKind();
+    if (_currentUserId == null) return fallback;
+
+    try {
+      final rows = await _client.from('plan_item_capabilities').select(
+            'kind, wave_min, supports_rsvp, suggests_pois, has_live_status, '
+            'has_check_times, sells_tickets, has_details_form',
+          );
+      final result = Map<PlanItemKind, PlanItemCapabilities>.from(fallback);
+      for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+        final kind = PlanItemKind.parse(row['kind'] as String?);
+        result[kind] = PlanItemCapabilities(
+          kind: kind,
+          waveMin: (row['wave_min'] as num?)?.toInt() ?? 2,
+          supportsRsvp: row['supports_rsvp'] == true,
+          suggestsPois: row['suggests_pois'] == true,
+          hasLiveStatus: row['has_live_status'] == true,
+          hasCheckTimes: row['has_check_times'] == true,
+          sellsTickets: row['sells_tickets'] == true,
+          hasDetailsForm: row['has_details_form'] == true,
+        );
+      }
+      return result;
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'plan',
+        action: 'fetch_item_capabilities',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
+      return fallback;
+    }
+  }
+
   Future<void> syncPlanForTrips(
     Iterable<String> tripIds, {
     Set<String> excludePlanIds = const {},
@@ -484,7 +531,7 @@ class PlanRepository {
         .from('trip_plan_items')
         .select(
           'id, trip_id, kind, title, notes, starts_at, ends_at, external_ref, '
-          'attachment_path, position, created_by, updated_by, created_at, updated_at',
+          'attachment_path, metadata, position, created_by, updated_by, created_at, updated_at',
         )
         .inFilter('trip_id', ids);
 
@@ -500,6 +547,9 @@ class PlanRepository {
           endsAt: Value(_ts(row['ends_at'])),
           externalRef: Value(row['external_ref'] as String?),
           attachmentPath: Value(row['attachment_path'] as String?),
+          metadata: Value(encodePlanMetadata(parsePlanMetadata(
+            row['metadata'],
+          ))),
           position: Value((row['position'] as num).toInt()),
           createdBy: Value(row['created_by'] as String),
           updatedBy: Value(row['updated_by'] as String?),

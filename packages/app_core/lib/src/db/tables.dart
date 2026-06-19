@@ -176,6 +176,7 @@ class LocalPlanItems extends Table {
   DateTimeColumn get endsAt => dateTime().nullable()();
   TextColumn get externalRef => text().nullable()();
   TextColumn get attachmentPath => text().nullable()();
+  TextColumn get metadata => text().withDefault(const Constant('{}'))();
   IntColumn get position => integer().withDefault(const Constant(0))();
   TextColumn get createdBy => text()();
   TextColumn get updatedBy => text().nullable()();
