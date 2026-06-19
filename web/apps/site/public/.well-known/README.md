@@ -6,7 +6,9 @@ Served at `https://vamo.world/.well-known/assetlinks.json`.
   (currently `app.vamo`, must match `applicationId` in `app/android/app/build.gradle.kts`).
 - `sha256_cert_fingerprints`: replace `DEBUG_FINGERPRINT` with the **upload key**
   SHA-256 for local/debug builds, then **add** the Play App Signing certificate
-  fingerprint at store setup — Google Play rewrites release signatures; both
-  fingerprints may be required during transition.
+  fingerprint from Play Console -> **Protected with Play** -> **Play Store
+  distribution** -> **Go to Play app signing** -> **App signing key** -> SHA-256
+  at store setup. Google Play rewrites release signatures; both fingerprints
+  may be required during transition.
 - Optional env override for CI preview: set `ANDROID_ASSETLINKS_FINGERPRINT` in
   Vercel and generate the file at build time when we wire that up.

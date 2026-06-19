@@ -68,10 +68,13 @@ Owner: ops for Play SHA, agent for `assetlinks.json` patch, ops for redeploy.
 
 Steps:
 
-1. In Play Console, copy the Play App Signing certificate SHA-256.
+1. In Play Console, open **Protected with Play** -> **Play Store
+   distribution** -> **Go to Play app signing**, then scroll to **App signing
+   key** and copy the SHA-256 fingerprint.
 2. Patch `web/apps/site/public/.well-known/assetlinks.json`.
 3. Redeploy the site.
-4. Install the Firebase tester build and open an invite/QR link.
+4. Install the Firebase App Distribution tester build and open an invite/QR
+   link.
 
 Pass criteria:
 
