@@ -720,6 +720,120 @@ Future<void> main() async {
       forgeExpenseInsertBlocked,
     ));
 
+    var forgeAcceptedShareInsertBlocked = false;
+    try {
+      await clientB.from('expense_shares').insert({
+        'id': _uuid(),
+        'expense_id': s50AutoUsdId,
+        'user_id': userB,
+        'share_cents': 1,
+        'response': 'accepted',
+      });
+    } catch (_) {
+      forgeAcceptedShareInsertBlocked = true;
+    }
+    results.add(_Check(
+      'S50 direct accepted expense_shares INSERT blocked',
+      forgeAcceptedShareInsertBlocked,
+    ));
+
+    var autoCommittedInflationBlocked = false;
+    try {
+      await insertCommittedExpense(
+        clientB,
+        id: _uuid(),
+        tripId: tripId,
+        payerId: userB,
+        amountCents: 1000,
+        baseCents: 9000,
+        description: 'S50 inflated auto committed',
+        shares: twoMemberShares(
+          userA: userA,
+          userB: userB,
+          baseCents: 9000,
+        ),
+      );
+    } catch (_) {
+      autoCommittedInflationBlocked = true;
+    }
+    results.add(_Check(
+      'S50 auto committed base_cents inflation blocked',
+      autoCommittedInflationBlocked,
+    ));
+
+    var autoProposedInflationBlocked = false;
+    try {
+      await clientA.rpc('propose_expense', params: {
+        'p_id': _uuid(),
+        'p_trip_id': tripId,
+        'p_payer_id': userA,
+        'p_amount_cents': 1000,
+        'p_currency': 'EUR',
+        'p_base_cents': 9000,
+        'p_fx_rate': 1,
+        'p_description': 'S50 inflated auto proposed',
+      });
+    } catch (_) {
+      autoProposedInflationBlocked = true;
+    }
+    results.add(_Check(
+      'S50 auto proposed base_cents inflation blocked',
+      autoProposedInflationBlocked,
+    ));
+
+    const s50ForgedBase = 1001;
+    final s50ForgedSplitId = _uuid();
+    await insertCommittedExpense(
+      clientB,
+      id: s50ForgedSplitId,
+      tripId: tripId,
+      payerId: userB,
+      amountCents: s50ForgedBase,
+      baseCents: s50ForgedBase,
+      description: 'S50 forged equal-sum split',
+      shares: [
+        {
+          'id': _uuid(),
+          'user_id': userA,
+          'share_cents': 0,
+        },
+        {
+          'id': _uuid(),
+          'user_id': userB,
+          'share_cents': s50ForgedBase,
+        },
+      ],
+    );
+    final s50ForgedShares = await clientA
+        .from('expense_shares')
+        .select('user_id, share_cents')
+        .eq('expense_id', s50ForgedSplitId)
+        .order('user_id');
+    final s50ForgedRows =
+        (s50ForgedShares as List).cast<Map<String, dynamic>>().toList();
+    final s50ForgedUsers =
+        s50ForgedRows.map((row) => row['user_id'] as String).toSet();
+    final s50ForgedCents = s50ForgedRows
+        .map((row) => (row['share_cents'] as num).toInt())
+        .toList()
+      ..sort();
+    final s50ExpectedCents = [s50ForgedBase ~/ 2, s50ForgedBase ~/ 2 + 1]
+      ..sort();
+    var s50Normalized = s50ForgedRows.length == 2 &&
+        s50ForgedUsers.length == 2 &&
+        s50ForgedUsers.contains(userA) &&
+        s50ForgedUsers.contains(userB);
+    for (var i = 0; i < s50ForgedCents.length && s50Normalized; i++) {
+      s50Normalized = s50ForgedCents[i] == s50ExpectedCents[i];
+    }
+    results.add(_Check(
+      'S50 insert_committed_expense normalizes forged split',
+      s50Normalized,
+      detail: s50Normalized
+          ? null
+          : 'expected two shares ${s50ExpectedCents.join('/')} for A+B',
+    ));
+
     final s50RefreshRate = refreshedRate + 0.05;
     if (serviceClient != null) {
       await serviceClient.rpc('_apply_trip_fx_rate', params: {
@@ -1877,24 +1991,69 @@ Future<void> main() async {
     }
     results.add(_Check('co-admin cannot cancel trip', coAdminCancelBlocked));
 
-    await clientA
-        .from('trips')
-        .update({'destination': 'RLS baseline'}).eq('id', tripId);
+    final pruneTripId = _uuid();
+    await clientA.rpc('create_trip', params: {
+      'p_id': pruneTripId,
+      'p_name': 'RLS S50 prune ${DateTime.now().toUtc().toIso8601String()}',
+    });
+    final pruneInvite = await clientA
+        .from('invites')
+        .insert({'trip_id': pruneTripId, 'created_by': userA})
+        .select('token')
+        .single();
+    await clientB
+        .rpc('join_trip', params: {'p_token': pruneInvite['token'] as String});
+    final pruneExpenseId = _uuid();
+    await insertCommittedExpense(
+      clientA,
+      id: pruneExpenseId,
+      tripId: pruneTripId,
+      payerId: userA,
+      amountCents: 1000,
+      baseCents: 1000,
+      description: 'S50 departed-member prune',
+      shares: twoMemberShares(userA: userA, userB: userB, baseCents: 1000),
+    );
+    final bShareBeforeDeparture = await clientA
+        .from('expense_shares')
+        .select('id')
+        .eq('expense_id', pruneExpenseId)
+        .eq('user_id', userB);
+    results.add(_Check(
+      'S50 prune precondition: departed member has share',
+      (bShareBeforeDeparture as List).isNotEmpty,
+    ));
 
     await clientA
         .from('trip_members')
         .update({'status': 'left'})
-        .eq('trip_id', tripId)
+        .eq('trip_id', pruneTripId)
         .eq('user_id', userB);
     final bMemberAfterRemoval = await clientA
         .from('trip_members')
         .select('status')
-        .eq('trip_id', tripId)
+        .eq('trip_id', pruneTripId)
         .eq('user_id', userB)
         .single();
     results.add(_Check(
       'A removes B from trip (status left)',
       bMemberAfterRemoval['status'] == 'left',
+    ));
+
+    await clientA.rpc('amend_expense_conversion', params: {
+      'p_expense_id': pruneExpenseId,
+      'p_base_cents': 1000,
+      'p_fx_rate_source': 'manual',
+      'p_lock': false,
+    });
+    final bShareAfterDeparturePrune = await clientA
+        .from('expense_shares')
+        .select('id')
+        .eq('expense_id', pruneExpenseId)
+        .eq('user_id', userB);
+    results.add(_Check(
+      'S50 departed-member share pruned after amend',
+      (bShareAfterDeparturePrune as List).isEmpty,
     ));
 
     var bUpsertBlocked = false;
