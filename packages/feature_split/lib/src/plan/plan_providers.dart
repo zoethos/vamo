@@ -1,6 +1,8 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../places/place_models.dart';
+import '../places/places_repository.dart';
 import 'event_rsvp_models.dart';
 import 'plan_models.dart';
 import 'plan_repository.dart';
@@ -23,6 +25,11 @@ final tripEventRsvpsProvider =
 final planItemCapabilitiesProvider =
     FutureProvider<Map<PlanItemKind, PlanItemCapabilities>>((ref) {
   return ref.watch(planRepositoryProvider).fetchPlanItemCapabilities();
+});
+
+final tripResolvedPlacesProvider =
+    StreamProvider.family<List<PlaceSummary>, String>((ref, tripId) {
+  return ref.watch(placesRepositoryProvider).watchTripPlaces(tripId);
 });
 
 final tripPlanEventViewsProvider =

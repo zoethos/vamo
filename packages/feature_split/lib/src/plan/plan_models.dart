@@ -7,6 +7,7 @@ enum PlanItemKind {
   flight,
   train,
   activity,
+  visit,
   other;
 
   static PlanItemKind parse(String? raw) {
@@ -21,6 +22,7 @@ enum PlanItemKind {
         PlanItemKind.flight => Icons.flight_outlined,
         PlanItemKind.train => Icons.train_outlined,
         PlanItemKind.activity => Icons.local_activity_outlined,
+        PlanItemKind.visit => Icons.place_outlined,
         PlanItemKind.other => Icons.event_note_outlined,
       };
 }
@@ -74,8 +76,9 @@ class PlanItemCapabilities {
     return PlanItemCapabilities(
       kind: kind,
       supportsRsvp: kind == PlanItemKind.activity,
-      suggestsPois: kind == PlanItemKind.activity,
+      suggestsPois: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
       hasLiveStatus: kind == PlanItemKind.flight || kind == PlanItemKind.train,
+      hasDetailsForm: kind == PlanItemKind.visit,
     );
   }
 
@@ -128,6 +131,59 @@ class PlanItemInput {
   final Map<String, Object?> metadata;
 }
 
+class VisitPlaceMetadata {
+  const VisitPlaceMetadata({
+    required this.placeLabel,
+    this.address,
+    this.lat,
+    this.lng,
+    this.placeId,
+  });
+
+  final String placeLabel;
+  final String? address;
+  final double? lat;
+  final double? lng;
+  final String? placeId;
+
+  bool get hasCoords => lat != null && lng != null;
+}
+
+VisitPlaceMetadata? parseVisitPlaceMetadata(Object? raw) {
+  final metadata = parsePlanMetadata(raw);
+  final placeLabel = _stringValue(metadata['place_label']);
+  if (placeLabel == null) return null;
+
+  return VisitPlaceMetadata(
+    placeLabel: placeLabel,
+    address: _stringValue(metadata['address']),
+    lat: _doubleValue(metadata['lat']),
+    lng: _doubleValue(metadata['lng']),
+    placeId: _stringValue(metadata['place_id']),
+  );
+}
+
+Map<String, Object?> buildVisitPlaceMetadata({
+  required String placeLabel,
+  String? address,
+  double? lat,
+  double? lng,
+  String? placeId,
+}) {
+  final normalizedLabel = placeLabel.trim();
+  final normalizedAddress = address?.trim();
+  final normalizedPlaceId = placeId?.trim();
+  return <String, Object?>{
+    'place_label': normalizedLabel,
+    if (normalizedAddress != null && normalizedAddress.isNotEmpty)
+      'address': normalizedAddress,
+    if (lat != null) 'lat': lat,
+    if (lng != null) 'lng': lng,
+    if (normalizedPlaceId != null && normalizedPlaceId.isNotEmpty)
+      'place_id': normalizedPlaceId,
+  };
+}
+
 Map<String, Object?> parsePlanMetadata(Object? raw) {
   if (raw == null) return const <String, Object?>{};
   if (raw is String) {
@@ -145,6 +201,19 @@ Map<String, Object?> parsePlanMetadata(Object? raw) {
     };
   }
   return const <String, Object?>{};
+}
+
+String? _stringValue(Object? value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
+}
+
+double? _doubleValue(Object? value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
 }
 
 String encodePlanMetadata(Map<String, Object?> metadata) {

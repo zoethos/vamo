@@ -277,6 +277,7 @@ class PlanTabState extends ConsumerState<PlanTab> {
                   notes: input.notes,
                   startsAt: input.startsAt,
                   endsAt: input.endsAt,
+                  metadata: input.metadata,
                 );
           }
         },
@@ -376,14 +377,13 @@ class _PlanItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.vamoColors;
+    final subtitle = _subtitle;
     final tile = Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: Icon(item.kind.icon, color: colors.secondary),
         title: Text(item.title),
-        subtitle: item.notes == null || item.notes!.isEmpty
-            ? null
-            : Text(item.notes!),
+        subtitle: subtitle == null ? null : Text(subtitle),
         onTap: readOnly ? null : onEdit,
       ),
     );
@@ -400,5 +400,14 @@ class _PlanItemTile extends StatelessWidget {
       onDelete: onDelete,
       child: tile,
     );
+  }
+
+  String? get _subtitle {
+    if (item.kind == PlanItemKind.visit) {
+      final visit = parseVisitPlaceMetadata(item.metadata);
+      final notes = item.notes?.trim();
+      return visit?.address ?? (notes == null || notes.isEmpty ? null : notes);
+    }
+    return item.notes == null || item.notes!.isEmpty ? null : item.notes;
   }
 }

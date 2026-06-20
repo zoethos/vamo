@@ -15,6 +15,7 @@ class PlanTabLabels {
     required this.kindFlight,
     required this.kindTrain,
     required this.kindActivity,
+    required this.kindVisit,
     required this.kindOther,
     required this.sheetTitleAdd,
     required this.sheetTitleEdit,
@@ -23,6 +24,15 @@ class PlanTabLabels {
     required this.fieldNotes,
     required this.fieldStart,
     required this.fieldEnd,
+    required this.visitSectionTitle,
+    required this.visitFromTripPlaces,
+    required this.visitPlaceLabel,
+    required this.visitAddressLabel,
+    required this.visitFindCoordinates,
+    required this.visitPlaceRequired,
+    required this.visitAddressRequiredForGeocode,
+    required this.visitCoordinatesSaved,
+    required this.visitCoordinatesNotFound,
     required this.save,
     required this.tabTitle,
     required this.loadError,
@@ -56,6 +66,7 @@ class PlanTabLabels {
   final String kindFlight;
   final String kindTrain;
   final String kindActivity;
+  final String kindVisit;
   final String kindOther;
   final String sheetTitleAdd;
   final String sheetTitleEdit;
@@ -64,6 +75,15 @@ class PlanTabLabels {
   final String fieldNotes;
   final String fieldStart;
   final String fieldEnd;
+  final String visitSectionTitle;
+  final String visitFromTripPlaces;
+  final String visitPlaceLabel;
+  final String visitAddressLabel;
+  final String visitFindCoordinates;
+  final String visitPlaceRequired;
+  final String visitAddressRequiredForGeocode;
+  final String visitCoordinatesSaved;
+  final String visitCoordinatesNotFound;
   final String save;
   final String tabTitle;
   final String loadError;
@@ -88,6 +108,7 @@ class PlanTabLabels {
         PlanItemKind.flight => kindFlight,
         PlanItemKind.train => kindTrain,
         PlanItemKind.activity => kindActivity,
+        PlanItemKind.visit => kindVisit,
         PlanItemKind.other => kindOther,
       };
 }

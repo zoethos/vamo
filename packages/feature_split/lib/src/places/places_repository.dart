@@ -61,6 +61,12 @@ class PlacesRepository {
     return row == null ? null : _toSummary(row);
   }
 
+  Stream<List<PlaceSummary>> watchTripPlaces(String tripId) {
+    return _db.watchTripPlaces(tripId).map(
+          (rows) => rows.map(_toSummary).toList(),
+        );
+  }
+
   Future<ResolvedPlaceResult> resolveFromReceipt({
     required String tripId,
     required ReceiptParseResult parse,
@@ -93,9 +99,8 @@ class PlacesRepository {
       return const ResolvedPlaceResult();
     }
 
-    final existing = (await _db.listTripPlaces(tripId))
-        .map(_toSummary)
-        .toList();
+    final existing =
+        (await _db.listTripPlaces(tripId)).map(_toSummary).toList();
     final duplicateId = findDuplicatePlaceId(
       existing: existing,
       label: label,

@@ -1048,18 +1048,28 @@ Future<void> main() async {
         .update({'destination': 'RLS baseline'}).eq('id', tripId);
 
     // --- S18 TripBoard (R4) — before close ---
-    final capabilities = await clientA
-        .from('plan_item_capabilities')
-        .select('kind, supports_rsvp, suggests_pois, has_live_status');
+    final capabilities = await clientA.from('plan_item_capabilities').select(
+          'kind, supports_rsvp, suggests_pois, has_live_status, '
+          'has_details_form',
+        );
     final capabilityRows = (capabilities as List).cast<Map<String, dynamic>>();
     final activityRows =
         capabilityRows.where((row) => row['kind'] == 'activity').toList();
     final activityCapability = activityRows.isEmpty ? null : activityRows.first;
+    final visitRows =
+        capabilityRows.where((row) => row['kind'] == 'visit').toList();
+    final visitCapability = visitRows.isEmpty ? null : visitRows.first;
     results.add(_Check(
       'S49 authenticated reads plan capabilities',
-      capabilityRows.length >= 5 &&
+      capabilityRows.length >= 6 &&
           activityCapability?['supports_rsvp'] == true &&
           activityCapability?['suggests_pois'] == true,
+    ));
+    results.add(_Check(
+      'S51 visit capability exposed',
+      visitCapability?['supports_rsvp'] == false &&
+          visitCapability?['suggests_pois'] == true &&
+          visitCapability?['has_details_form'] == true,
     ));
 
     var capabilityUpdateBlocked = false;
@@ -1114,6 +1124,33 @@ Future<void> main() async {
     results.add(_Check(
       'S49 same-trip member reads plan metadata',
       (planItemWithMetadata['metadata'] as Map)['confirmation'] == 'ABC123',
+    ));
+
+    final visitPlanItemId = _uuid();
+    await clientB.from('trip_plan_items').insert({
+      'id': visitPlanItemId,
+      'trip_id': tripId,
+      'kind': 'visit',
+      'title': 'Visit Amalfi Cathedral',
+      'metadata': {
+        'place_label': 'Amalfi Cathedral',
+        'address': 'Piazza Duomo, Amalfi',
+        'lat': 40.634,
+        'lng': 14.602,
+      },
+      'created_by': userB,
+    });
+    final visitPlanItem = await clientA
+        .from('trip_plan_items')
+        .select('kind, metadata')
+        .eq('id', visitPlanItemId)
+        .single();
+    final visitMetadata = visitPlanItem['metadata'] as Map;
+    results.add(_Check(
+      'S51 same-trip member reads visit metadata',
+      visitPlanItem['kind'] == 'visit' &&
+          visitMetadata['place_label'] == 'Amalfi Cathedral' &&
+          visitMetadata['address'] == 'Piazza Duomo, Amalfi',
     ));
 
     var nonObjectMetadataBlocked = false;
