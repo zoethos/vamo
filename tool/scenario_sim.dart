@@ -117,6 +117,14 @@ Future<void> main(List<String> args) async {
     });
     checks.add(_Check('B joined expected trip', joined == tripId));
 
+    await _step('A promotes B to co-admin', checks, () {
+      return clientA.rpc('set_member_role', params: {
+        'p_trip_id': tripId,
+        'p_user_id': userB,
+        'p_role': 'co-admin',
+      });
+    });
+
     committedExpenseId = _uuid();
     await _step('A insert committed expense', checks, () {
       return clientA.rpc('insert_committed_expense', params: {
@@ -161,7 +169,7 @@ Future<void> main(List<String> args) async {
         'p_fx_rate': 1.25,
         'p_fx_rate_source': 'manual',
         'p_fx_rate_manual': 1.25,
-        'p_fx_conversion_locked': true,
+        'p_lock': true,
       });
     });
 

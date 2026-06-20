@@ -51,10 +51,16 @@ export const options = {
   },
 };
 
-export default function () {
+export function setup() {
+  return {
+    a: signIn(userAEmail, userAPassword),
+    b: signIn(userBEmail, userBPassword),
+  };
+}
+
+export default function (data) {
   const runId = `${Date.now()}-${__VU}-${__ITER}`;
-  const a = signIn(userAEmail, userAPassword);
-  const b = signIn(userBEmail, userBPassword);
+  const { a, b } = data;
   const tripId = uuid();
 
   rpc(a.token, 'create_trip', {
@@ -74,6 +80,12 @@ export default function () {
 
   const joinedTrip = rpc(b.token, 'join_trip', { p_token: token });
   check(joinedTrip, { 'join_trip returns trip id': (value) => value === tripId });
+
+  rpc(a.token, 'set_member_role', {
+    p_trip_id: tripId,
+    p_user_id: b.userId,
+    p_role: 'co-admin',
+  });
 
   const committedExpenseId = uuid();
   rpc(a.token, 'insert_committed_expense', {
