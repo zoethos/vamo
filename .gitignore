@@ -67,6 +67,7 @@ supabase/.temp/
 
 # Lock files left by office apps
 .~lock.*#
+~$*
 
 # Temporary: leftover locked by a tool session - delete folder, then remove this line
 /Vamo/
