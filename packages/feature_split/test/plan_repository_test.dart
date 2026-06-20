@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:feature_split/src/plan/event_rsvp_models.dart';
 import 'package:feature_split/src/plan/plan_models.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
+import 'package:feature_split/src/places/places_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -73,13 +74,87 @@ void main() {
     );
   });
 
+  test('visit metadata helpers normalize place fields', () {
+    final metadata = buildVisitPlaceMetadata(
+      placeLabel: '  Amalfi Cathedral  ',
+      address: '  Piazza Duomo, Amalfi  ',
+      lat: 40.634,
+      lng: 14.602,
+      placeId: '  place-1  ',
+    );
+
+    expect(metadata, {
+      'place_label': 'Amalfi Cathedral',
+      'address': 'Piazza Duomo, Amalfi',
+      'lat': 40.634,
+      'lng': 14.602,
+      'place_id': 'place-1',
+    });
+
+    final visit = parseVisitPlaceMetadata(metadata);
+    expect(visit?.placeLabel, 'Amalfi Cathedral');
+    expect(visit?.address, 'Piazza Duomo, Amalfi');
+    expect(visit?.lat, 40.634);
+    expect(visit?.lng, 14.602);
+    expect(visit?.placeId, 'place-1');
+    expect(visit?.hasCoords, isTrue);
+
+    final stringCoords = parseVisitPlaceMetadata({
+      'place_label': 'Pompei',
+      'lat': '40.748',
+      'lng': '14.485',
+    });
+    expect(stringCoords?.lat, 40.748);
+    expect(stringCoords?.lng, 14.485);
+    expect(parseVisitPlaceMetadata({'address': 'No label'}), isNull);
+  });
+
   test('capability fallback keeps activity RSVP behavior', () {
     final fallback = PlanItemCapabilities.fallbackByKind();
+    expect(PlanItemKind.parse('visit'), PlanItemKind.visit);
     expect(fallback[PlanItemKind.activity]?.supportsRsvp, isTrue);
     expect(fallback[PlanItemKind.activity]?.suggestsPois, isTrue);
+    expect(fallback[PlanItemKind.visit]?.supportsRsvp, isFalse);
+    expect(fallback[PlanItemKind.visit]?.suggestsPois, isTrue);
+    expect(fallback[PlanItemKind.visit]?.hasDetailsForm, isTrue);
     expect(fallback[PlanItemKind.flight]?.hasLiveStatus, isTrue);
     expect(fallback[PlanItemKind.train]?.hasLiveStatus, isTrue);
     expect(fallback[PlanItemKind.other]?.supportsRsvp, isFalse);
+  });
+
+  test('places repository streams trip-scoped place summaries', () async {
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final repo = PlacesRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: SyncQueue(db),
+    );
+    final now = DateTime.utc(2026, 6, 20);
+
+    await db.upsertPlace(
+      LocalPlacesCompanion(
+        id: const Value('place-1'),
+        tripId: const Value('trip-plan'),
+        label: const Value('Amalfi Cathedral'),
+        address: const Value('Piazza Duomo'),
+        lat: const Value(40.634),
+        lng: const Value(14.602),
+        source: const Value('receipt'),
+        confidence: const Value(0.8),
+        createdBy: const Value('user-1'),
+        createdAt: Value(now),
+      ),
+    );
+
+    final places = await repo.watchTripPlaces('trip-plan').first;
+    expect(places, hasLength(1));
+    expect(places.single.label, 'Amalfi Cathedral');
+    expect(places.single.address, 'Piazza Duomo');
   });
 
   test('addPlanItem preserves metadata locally and in outbox', () async {
