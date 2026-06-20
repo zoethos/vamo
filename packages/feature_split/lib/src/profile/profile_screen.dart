@@ -178,7 +178,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 isPlaceholderDisplayName(p.displayName) ? '' : p.displayName;
             _baseCurrency = p.baseCurrency;
           }
-          if (completionRequired && !_avatarPreviewLoaded) {
+          if (!_avatarPreviewLoaded) {
             _avatarPreviewLoaded = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _refreshAvatarPreview(p);
@@ -194,26 +194,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               if (completionRequired) ...[
                 _CompletionBlock(subtitle: widget.labels.completionSubtitle),
                 const SizedBox(height: 24),
-                _AvatarCompletionBlock(
-                  labels: widget.labels,
-                  displayName: _effectiveDisplayName(p),
-                  photoUrl: _avatarPhotoUrl,
-                  oauthPreviewUrl: p.avatarUrl == null
-                      ? ref
-                          .read(profileRepositoryProvider)
-                          .oauthAvatarPreviewUrl()
-                      : null,
-                  oauthPreviewAvailable: ref
-                          .read(profileRepositoryProvider)
-                          .oauthAvatarPreviewUrl() !=
-                      null,
-                  busy: _avatarBusy,
-                  onUseOAuth: () => _adoptOAuthAvatar(p),
-                  onUpload: () => _uploadAvatar(p),
-                  onUseInitials: () => _useInitialsAvatar(p),
-                ),
+                _avatarBlock(p),
                 const SizedBox(height: 24),
               ] else ...[
+                _avatarBlock(p),
+                const SizedBox(height: 24),
                 _AboutBlock(
                   version: _version,
                   versionLabel: widget.labels.versionLabel,
@@ -455,6 +440,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return typed;
     }
     return profile.displayName;
+  }
+
+  /// Avatar management card — shown both in the completion flow and the
+  /// steady-state profile so an existing user can change their picture.
+  Widget _avatarBlock(UserProfile p) {
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
+    return _AvatarCompletionBlock(
+      labels: widget.labels,
+      displayName: _effectiveDisplayName(p),
+      photoUrl: _avatarPhotoUrl,
+      oauthPreviewUrl: p.avatarUrl == null ? oauthPreview : null,
+      oauthPreviewAvailable: oauthPreview != null,
+      busy: _avatarBusy,
+      onUseOAuth: () => _adoptOAuthAvatar(p),
+      onUpload: () => _uploadAvatar(p),
+      onUseInitials: () => _useInitialsAvatar(p),
+    );
   }
 
   Future<void> _refreshAvatarPreview(UserProfile profile) async {
