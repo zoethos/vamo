@@ -40,6 +40,11 @@ class ProfileScreenLabels {
     required this.avatarUpload,
     required this.avatarUseInitials,
     required this.avatarUsePhoto,
+    required this.avatarRemovePhoto,
+    required this.avatarRemovePhotoTitle,
+    required this.avatarRemovePhotoBody,
+    required this.avatarRemovePhotoCancel,
+    required this.avatarRemovePhotoConfirm,
     required this.avatarInitialsLabel,
     required this.avatarInitialsHint,
     required this.billingSection,
@@ -92,6 +97,11 @@ class ProfileScreenLabels {
   final String avatarUpload;
   final String avatarUseInitials;
   final String avatarUsePhoto;
+  final String avatarRemovePhoto;
+  final String avatarRemovePhotoTitle;
+  final String avatarRemovePhotoBody;
+  final String avatarRemovePhotoCancel;
+  final String avatarRemovePhotoConfirm;
   final String avatarInitialsLabel;
   final String avatarInitialsHint;
   final String billingSection;
@@ -470,6 +480,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       onUpload: () => _uploadAvatar(p),
       onUseInitials: () => _useInitialsAvatar(p),
       onUsePhoto: () => _usePhotoAvatar(p),
+      onRemovePhoto: () => _removeAvatarPhoto(p),
       initialsController: _avatarInitialsController,
       onInitialsChanged: (_) => setState(() {}),
     );
@@ -575,6 +586,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref,
         screen: 'profile',
         action: 'use_photo_avatar',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _removeAvatarPhoto(UserProfile profile) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(widget.labels.avatarRemovePhotoTitle),
+        content: Text(widget.labels.avatarRemovePhotoBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(widget.labels.avatarRemovePhotoCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(widget.labels.avatarRemovePhotoConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _avatarBusy = true);
+    try {
+      final updated = await ref.read(profileRepositoryProvider).clearAvatar();
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      _avatarInitialsController.text = updated.avatarInitials ?? '';
+      setState(() => _avatarPhotoUrl = null);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'remove_avatar_photo',
         error: e,
       );
     } finally {
@@ -717,6 +769,7 @@ class _AvatarCompletionBlock extends StatelessWidget {
     required this.onUpload,
     required this.onUseInitials,
     required this.onUsePhoto,
+    required this.onRemovePhoto,
     required this.initialsController,
     required this.onInitialsChanged,
   });
@@ -733,6 +786,7 @@ class _AvatarCompletionBlock extends StatelessWidget {
   final VoidCallback onUpload;
   final VoidCallback onUseInitials;
   final VoidCallback onUsePhoto;
+  final VoidCallback onRemovePhoto;
   final TextEditingController initialsController;
   final ValueChanged<String> onInitialsChanged;
 
@@ -800,6 +854,11 @@ class _AvatarCompletionBlock extends StatelessWidget {
                   OutlinedButton(
                     onPressed: busy ? null : onUsePhoto,
                     child: Text(labels.avatarUsePhoto),
+                  ),
+                if (storedPhotoAvailable)
+                  OutlinedButton(
+                    onPressed: busy ? null : onRemovePhoto,
+                    child: Text(labels.avatarRemovePhoto),
                   ),
                 OutlinedButton(
                   onPressed: busy ? null : onUseInitials,
