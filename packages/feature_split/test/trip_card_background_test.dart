@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'weather_labels_test_support.dart';
 import 'trips_list_test_support.dart';
 
 TripsRepository _buildTripsRepository(
@@ -235,6 +236,7 @@ void main() {
                 backgroundLocalPath: fixturePath,
               ),
               participantsLabel: (count) => '$count travelers',
+              weatherLabels: testWeatherBadgeLabels,
             ),
           ),
         ),

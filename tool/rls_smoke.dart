@@ -289,6 +289,76 @@ Future<void> main() async {
 
     final userB = clientB.auth.currentUser!.id;
 
+    // --- H-P0 weather preview ---
+    final weatherStartIso = DateTime.now()
+        .toUtc()
+        .add(const Duration(days: 3))
+        .toIso8601String()
+        .substring(0, 10);
+    await clientA.from('trips').update({
+      'destination': 'Paris',
+      'start_date': weatherStartIso,
+    }).eq('id', tripId);
+
+    var memberWeatherAvailable = false;
+    Object? memberWeatherDetail;
+    try {
+      final response = await clientA.functions.invoke(
+        'weather-forecast',
+        body: {'trip_id': tripId},
+      );
+      if (response.status == 200 && response.data is Map) {
+        final map = Map<String, dynamic>.from(response.data as Map);
+        memberWeatherAvailable = map['available'] == true &&
+            map['bucket'] is String &&
+            map['temp_high'] != null;
+        if (!memberWeatherAvailable) {
+          memberWeatherDetail = map;
+        }
+      } else {
+        memberWeatherDetail = 'status=${response.status}';
+      }
+    } catch (error) {
+      memberWeatherDetail = error;
+    }
+    results.add(_Check(
+      'H-P0 member weather-forecast available',
+      memberWeatherAvailable,
+      detail: memberWeatherDetail?.toString(),
+    ));
+
+    var outsiderWeatherBlocked = false;
+    Object? outsiderWeatherDetail;
+    try {
+      final response = await clientC.functions.invoke(
+        'weather-forecast',
+        body: {'trip_id': tripId},
+      );
+      if (response.data is Map) {
+        final map = Map<String, dynamic>.from(response.data as Map);
+        outsiderWeatherBlocked = response.status == 404 &&
+            map['error'] == 'trip_not_found';
+        if (!outsiderWeatherBlocked) {
+          outsiderWeatherDetail = 'status=${response.status} body=$map';
+        }
+      } else {
+        outsiderWeatherDetail = 'status=${response.status}';
+      }
+    } catch (error) {
+      outsiderWeatherBlocked = true;
+      outsiderWeatherDetail = error;
+    }
+    results.add(_Check(
+      'H-P0 outsider weather-forecast trip_not_found',
+      outsiderWeatherBlocked,
+      detail: outsiderWeatherDetail?.toString(),
+    ));
+
+    results.add(_Check(
+      'H-P0 weather_forecast_cache not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'weather_forecast_cache'),
+    ));
+
     // --- S47 profile avatars (display_name privacy tier) ---
     aAvatarPath = '$userA/profile.jpg';
     bAvatarPath = '$userB/profile.jpg';

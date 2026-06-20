@@ -40,6 +40,19 @@
       "count": {"type": "int"}
     }
   },
+  "weatherPreviewTemp": "{celsius}°",
+  "@weatherPreviewTemp": {
+    "placeholders": {
+      "celsius": {"type": "int"}
+    }
+  },
+  "weatherPreviewSunny": "Sunny",
+  "weatherPreviewCloudy": "Cloudy",
+  "weatherPreviewRain": "Rain",
+  "weatherPreviewThunderstorm": "Thunderstorm",
+  "weatherPreviewSnow": "Snow",
+  "weatherPreviewFog": "Fog",
+  "weatherPreviewUnknown": "Weather",
   "tripsNotificationsTooltip": "Notifications",
   "notificationsInboxTitle": "Notifications",
   "notificationsEmptyTitle": "All caught up",

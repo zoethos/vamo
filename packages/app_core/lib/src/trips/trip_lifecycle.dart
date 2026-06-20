@@ -121,3 +121,23 @@ TripPhase resolveTripPhase({
   }
   return TripPhase.ongoing;
 }
+
+/// H-P0 weather badge gate: pre-start trips whose start date is within 7 days.
+bool shouldShowWeatherPreview({
+  required TripLifecycle lifecycle,
+  required String? startDateIso,
+  required DateTime now,
+}) {
+  if (resolveTripPhase(
+        lifecycle: lifecycle,
+        startDateIso: startDateIso,
+        now: now,
+      ) !=
+      TripPhase.preStart) {
+    return false;
+  }
+  final start = _parseDateOnly(startDateIso);
+  if (start == null) return false;
+  final today = DateTime(now.year, now.month, now.day);
+  return start.difference(today).inDays <= 7;
+}

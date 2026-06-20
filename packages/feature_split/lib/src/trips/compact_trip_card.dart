@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../weather/weather_badge.dart';
+import '../weather/weather_labels.dart';
 import '../expenses/expenses_providers.dart';
 import 'trip_format.dart';
 import 'trip_visual_backdrop.dart';
@@ -15,10 +17,12 @@ class CompactTripCard extends ConsumerWidget {
     super.key,
     required this.trip,
     required this.participantsLabel,
+    required this.weatherLabels,
   });
 
   final TripSummary trip;
   final String Function(int count) participantsLabel;
+  final WeatherBadgeLabels weatherLabels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -102,6 +106,10 @@ class CompactTripCard extends ConsumerWidget {
                       ],
                     ],
                   ),
+                ),
+                TripWeatherPreviewBadge(
+                  trip: trip,
+                  labels: weatherLabels,
                 ),
               ],
             ),

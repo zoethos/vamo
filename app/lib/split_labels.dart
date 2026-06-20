@@ -34,6 +34,18 @@ class SplitLabels {
         notificationsTooltip: l10n.tripsNotificationsTooltip,
         notificationsUnreadBadge: l10n.notificationsUnreadBadge,
         createTripTooltip: l10n.tripsCreateTripTooltip,
+        weather: weather(l10n),
+      );
+
+  static WeatherBadgeLabels weather(AppLocalizations l10n) => WeatherBadgeLabels(
+        temp: l10n.weatherPreviewTemp,
+        semanticSunny: l10n.weatherPreviewSunny,
+        semanticCloudy: l10n.weatherPreviewCloudy,
+        semanticRain: l10n.weatherPreviewRain,
+        semanticThunderstorm: l10n.weatherPreviewThunderstorm,
+        semanticSnow: l10n.weatherPreviewSnow,
+        semanticFog: l10n.weatherPreviewFog,
+        semanticUnknown: l10n.weatherPreviewUnknown,
       );
 
   static NotificationLabels notifications(AppLocalizations l10n) =>

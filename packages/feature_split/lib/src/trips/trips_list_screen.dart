@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../invites/invite_flow.dart';
 import '../notifications/notifications_providers.dart';
+import '../weather/weather_labels.dart';
 import 'compact_trip_card.dart';
 import 'featured_trip_card.dart';
 import 'trip_format.dart';
@@ -35,6 +36,7 @@ class TripsListScreenLabels {
     required this.notificationsTooltip,
     required this.notificationsUnreadBadge,
     required this.createTripTooltip,
+    required this.weather,
   });
 
   final String title;
@@ -56,6 +58,7 @@ class TripsListScreenLabels {
   final String notificationsTooltip;
   final String Function(int count) notificationsUnreadBadge;
   final String createTripTooltip;
+  final WeatherBadgeLabels weather;
 }
 
 class TripsListScreen extends ConsumerStatefulWidget {
@@ -140,6 +143,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
           FeaturedTripCard(
             trip: layout.featured!,
             participantsLabel: widget.labels.participants,
+            weatherLabels: widget.labels.weather,
           ),
           if (layout.upcoming.isNotEmpty) ...[
             SizedBox(height: space.x4),
@@ -158,6 +162,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
             CompactTripCard(
               trip: trip,
               participantsLabel: widget.labels.participants,
+              weatherLabels: widget.labels.weather,
             ),
             SizedBox(height: space.x2),
           ],
@@ -175,6 +180,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
               CompactTripCard(
                 trip: trip,
                 participantsLabel: widget.labels.participants,
+                weatherLabels: widget.labels.weather,
               ),
               SizedBox(height: space.x2),
             ],
@@ -184,6 +190,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
               CompactTripCard(
                 trip: trip,
                 participantsLabel: widget.labels.participants,
+                weatherLabels: widget.labels.weather,
               ),
               SizedBox(height: space.x2),
             ],
@@ -191,6 +198,7 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
           _FlatCompactList(
             trips: filtered,
             participantsLabel: widget.labels.participants,
+            weatherLabels: widget.labels.weather,
           ),
       ],
     );
@@ -359,10 +367,12 @@ class _FlatCompactList extends StatelessWidget {
   const _FlatCompactList({
     required this.trips,
     required this.participantsLabel,
+    required this.weatherLabels,
   });
 
   final List<TripSummary> trips;
   final String Function(int count) participantsLabel;
+  final WeatherBadgeLabels weatherLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +383,7 @@ class _FlatCompactList extends StatelessWidget {
           CompactTripCard(
             trip: trip,
             participantsLabel: participantsLabel,
+            weatherLabels: weatherLabels,
           ),
           SizedBox(height: space.x2),
         ],
