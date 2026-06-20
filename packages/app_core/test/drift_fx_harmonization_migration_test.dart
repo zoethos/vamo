@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 21);
+    expect(db.schemaVersion, 22);
 
     await db.upsertExpense(
       LocalExpensesCompanion(

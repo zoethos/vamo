@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,6 +39,9 @@ class ProfileScreenLabels {
     required this.avatarUseOAuth,
     required this.avatarUpload,
     required this.avatarUseInitials,
+    required this.avatarUsePhoto,
+    required this.avatarInitialsLabel,
+    required this.avatarInitialsHint,
     required this.billingSection,
     required this.plusTitle,
     required this.plusSubtitle,
@@ -87,6 +91,9 @@ class ProfileScreenLabels {
   final String avatarUseOAuth;
   final String avatarUpload;
   final String avatarUseInitials;
+  final String avatarUsePhoto;
+  final String avatarInitialsLabel;
+  final String avatarInitialsHint;
   final String billingSection;
   final String plusTitle;
   final String plusSubtitle;
@@ -126,6 +133,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameController = TextEditingController();
+  final _avatarInitialsController = TextEditingController();
   String? _baseCurrency;
   bool _dirty = false;
   bool _saving = false;
@@ -148,6 +156,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _avatarInitialsController.dispose();
     super.dispose();
   }
 
@@ -176,6 +185,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _hydrated = true;
             _nameController.text =
                 isPlaceholderDisplayName(p.displayName) ? '' : p.displayName;
+            _avatarInitialsController.text = p.avatarInitials ?? '';
             _baseCurrency = p.baseCurrency;
           }
           if (!_avatarPreviewLoaded) {
@@ -185,8 +195,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             });
           }
           final currency = _baseCurrency ?? p.baseCurrency;
-          final tagCaptureLocation =
-              ref.watch(captureLocationTaggingProvider);
+          final tagCaptureLocation = ref.watch(captureLocationTaggingProvider);
 
           return ListView(
             padding: const EdgeInsetsDirectional.all(20),
@@ -211,12 +220,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Text(
                 widget.labels.profileSection,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.ink,
-                  fontWeight: FontWeight.w700,
-                ),
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
               const SizedBox(height: 12),
               TextFormField(
+                key: const Key('profileDisplayNameField'),
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: widget.labels.displayName,
@@ -310,9 +320,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Text(
                   widget.labels.billingSection,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Card(
@@ -450,20 +460,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return _AvatarCompletionBlock(
       labels: widget.labels,
       displayName: _effectiveDisplayName(p),
+      initials: _avatarInitialsController.text,
       photoUrl: _avatarPhotoUrl,
       oauthPreviewUrl: p.avatarUrl == null ? oauthPreview : null,
       oauthPreviewAvailable: oauthPreview != null,
+      storedPhotoAvailable: p.avatarUrl != null && p.avatarUrl!.isNotEmpty,
       busy: _avatarBusy,
       onUseOAuth: () => _adoptOAuthAvatar(p),
       onUpload: () => _uploadAvatar(p),
       onUseInitials: () => _useInitialsAvatar(p),
+      onUsePhoto: () => _usePhotoAvatar(p),
+      initialsController: _avatarInitialsController,
+      onInitialsChanged: (_) => setState(() {}),
     );
   }
 
   Future<void> _refreshAvatarPreview(UserProfile profile) async {
     final repo = ref.read(profileRepositoryProvider);
-    if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-      final signed = await repo.signedAvatarUrl(profile.avatarUrl);
+    if (profile.activeAvatarStoragePath != null &&
+        profile.activeAvatarStoragePath!.isNotEmpty) {
+      final signed =
+          await repo.signedAvatarUrl(profile.activeAvatarStoragePath);
       if (!mounted) return;
       setState(() => _avatarPhotoUrl = signed);
       return;
@@ -522,9 +539,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _useInitialsAvatar(UserProfile profile) async {
     setState(() => _avatarBusy = true);
     try {
-      await ref.read(profileRepositoryProvider).clearAvatar();
+      final updated = await ref
+          .read(profileRepositoryProvider)
+          .useInitialsAvatar(_avatarInitialsController.text);
       ref.invalidate(userProfileProvider);
       if (!mounted) return;
+      _avatarInitialsController.text = updated.avatarInitials ?? '';
       setState(() => _avatarPhotoUrl = null);
     } catch (e) {
       if (!mounted) return;
@@ -532,7 +552,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         context,
         ref,
         screen: 'profile',
-        action: 'clear_avatar',
+        action: 'use_initials_avatar',
+        error: e,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _usePhotoAvatar(UserProfile profile) async {
+    setState(() => _avatarBusy = true);
+    try {
+      final updated =
+          await ref.read(profileRepositoryProvider).usePhotoAvatar();
+      ref.invalidate(userProfileProvider);
+      if (!mounted) return;
+      await _refreshAvatarPreview(updated);
+    } catch (e) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'use_photo_avatar',
         error: e,
       );
     } finally {
@@ -582,9 +624,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _signingOut = true);
     try {
       await ref.read(syncWorkerProvider).flush();
-      final pendingMedia = await ref
-          .read(syncQueueProvider)
-          .countPendingMediaUploads();
+      final pendingMedia =
+          await ref.read(syncQueueProvider).countPendingMediaUploads();
       if (pendingMedia > 0) {
         if (!mounted) return;
         final discard = await showDialog<bool>(
@@ -666,24 +707,34 @@ class _AvatarCompletionBlock extends StatelessWidget {
   const _AvatarCompletionBlock({
     required this.labels,
     required this.displayName,
+    required this.initials,
     required this.photoUrl,
     required this.oauthPreviewUrl,
     required this.oauthPreviewAvailable,
+    required this.storedPhotoAvailable,
     required this.busy,
     required this.onUseOAuth,
     required this.onUpload,
     required this.onUseInitials,
+    required this.onUsePhoto,
+    required this.initialsController,
+    required this.onInitialsChanged,
   });
 
   final ProfileScreenLabels labels;
   final String displayName;
+  final String initials;
   final String? photoUrl;
   final String? oauthPreviewUrl;
   final bool oauthPreviewAvailable;
+  final bool storedPhotoAvailable;
   final bool busy;
   final VoidCallback onUseOAuth;
   final VoidCallback onUpload;
   final VoidCallback onUseInitials;
+  final VoidCallback onUsePhoto;
+  final TextEditingController initialsController;
+  final ValueChanged<String> onInitialsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -704,9 +755,31 @@ class _AvatarCompletionBlock extends StatelessWidget {
             Center(
               child: VamoAvatar(
                 displayName: displayName,
+                initials: initials,
                 photoUrl: photoUrl ?? oauthPreviewUrl,
                 radius: 36,
               ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              key: const Key('profileAvatarInitialsField'),
+              controller: initialsController,
+              decoration: InputDecoration(
+                labelText: labels.avatarInitialsLabel,
+                hintText: preferredAvatarInitials(
+                      preferredInitials: null,
+                      displayName: displayName,
+                    ) ??
+                    labels.avatarInitialsHint,
+                helperText: labels.avatarInitialsHint,
+                counterText: '',
+              ),
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(4),
+                FilteringTextInputFormatter.deny(RegExp(r'\s')),
+              ],
+              onChanged: onInitialsChanged,
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -723,6 +796,11 @@ class _AvatarCompletionBlock extends StatelessWidget {
                   onPressed: busy ? null : onUpload,
                   child: Text(labels.avatarUpload),
                 ),
+                if (storedPhotoAvailable)
+                  OutlinedButton(
+                    onPressed: busy ? null : onUsePhoto,
+                    child: Text(labels.avatarUsePhoto),
+                  ),
                 OutlinedButton(
                   onPressed: busy ? null : onUseInitials,
                   child: Text(labels.avatarUseInitials),
@@ -763,9 +841,9 @@ class _AboutBlock extends StatelessWidget {
             Text(
               tagline,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             if (version != null) ...[
               const SizedBox(height: 8),
