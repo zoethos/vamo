@@ -140,6 +140,23 @@ $env:K6_DURATION = "1m"
 k6 run tool/k6/vamo_hot_paths.js
 ```
 
+If `k6` is not installed locally, run the same script through Docker:
+
+```powershell
+docker run --rm `
+  -e K6_TARGET_LABEL `
+  -e K6_VUS `
+  -e K6_DURATION `
+  -e SUPABASE_URL `
+  -e SUPABASE_ANON_KEY `
+  -e RLS_USER_A_EMAIL `
+  -e RLS_USER_A_PASSWORD `
+  -e RLS_USER_B_EMAIL `
+  -e RLS_USER_B_PASSWORD `
+  -v "${PWD}\tool\k6:/scripts" `
+  grafana/k6 run /scripts/vamo_hot_paths.js
+```
+
 Pass criteria:
 
 - scenario simulator returns `"ok": true`
