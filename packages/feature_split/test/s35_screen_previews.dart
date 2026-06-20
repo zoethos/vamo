@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'weather_labels_test_support.dart';
 import 'trip_home_labels_test_support.dart';
 import 'trips_repository_test_support.dart';
 
@@ -97,6 +98,7 @@ Widget pumpFeaturedTripCard({
           child: FeaturedTripCard(
             trip: s35SampleTrip,
             participantsLabel: (c) => '$c Vamigos',
+            weatherLabels: testWeatherBadgeLabels,
           ),
         ),
       ),
@@ -142,6 +144,7 @@ Widget pumpCompactTripCard({
           child: CompactTripCard(
             trip: resolved,
             participantsLabel: (c) => '$c Vamigos',
+            weatherLabels: testWeatherBadgeLabels,
           ),
         ),
       ),

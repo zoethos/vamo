@@ -101,6 +101,67 @@ void main() {
     });
   });
 
+  group('shouldShowWeatherPreview', () {
+    final now = DateTime.utc(2026, 6, 5, 12);
+
+    test('true when pre-start and start within 7 days', () {
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-06-06',
+          now: now,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-06-12',
+          now: now,
+        ),
+        isTrue,
+      );
+    });
+
+    test('false when pre-start but more than 7 days out', () {
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-06-13',
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('false when ongoing, undated, or read-only', () {
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.active,
+          startDateIso: '2026-06-05',
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.active,
+          startDateIso: null,
+          now: now,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowWeatherPreview(
+          lifecycle: TripLifecycle.closed,
+          startDateIso: '2026-06-06',
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('tripDatesEditability', () {
     final now = DateTime.utc(2026, 6, 5, 12);
 

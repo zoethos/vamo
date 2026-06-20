@@ -1,5 +1,7 @@
 import 'package:feature_split/src/trips/trips_list_screen.dart';
 
+import 'weather_labels_test_support.dart';
+
 final testTripsListLabels = TripsListScreenLabels(
   title: 'Your trips',
   emptyTitle: 'No trips yet',
@@ -20,4 +22,5 @@ final testTripsListLabels = TripsListScreenLabels(
   notificationsTooltip: 'Notifications',
   notificationsUnreadBadge: (count) => '$count unread',
   createTripTooltip: 'Create trip',
+  weather: testWeatherBadgeLabels,
 );
