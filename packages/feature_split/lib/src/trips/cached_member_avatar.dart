@@ -8,23 +8,34 @@ class CachedMemberAvatar extends ConsumerWidget {
     super.key,
     required this.displayName,
     this.avatarStoragePath,
+    this.avatarDisplayMode = AvatarDisplayMode.photo,
+    this.avatarInitials,
     this.radius = 22,
   });
 
   final String displayName;
   final String? avatarStoragePath;
+  final AvatarDisplayMode avatarDisplayMode;
+  final String? avatarInitials;
   final double radius;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (avatarStoragePath == null || avatarStoragePath!.isEmpty) {
-      return VamoAvatar(displayName: displayName, radius: radius);
+    final useInitials = avatarDisplayMode == AvatarDisplayMode.initials;
+    if (useInitials ||
+        avatarStoragePath == null ||
+        avatarStoragePath!.isEmpty) {
+      return VamoAvatar(
+        displayName: displayName,
+        initials: avatarInitials,
+        radius: radius,
+      );
     }
-    final photoUrl = ref
-        .watch(memberAvatarPhotoUrlProvider(avatarStoragePath))
-        .valueOrNull;
+    final photoUrl =
+        ref.watch(memberAvatarPhotoUrlProvider(avatarStoragePath)).valueOrNull;
     return VamoAvatar(
       displayName: displayName,
+      initials: avatarInitials,
       photoUrl: photoUrl,
       radius: radius,
     );

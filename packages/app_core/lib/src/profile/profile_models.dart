@@ -8,6 +8,8 @@ class UserProfile {
     required this.baseCurrency,
     this.displayNameSetAt,
     this.avatarUrl,
+    this.avatarDisplayMode = AvatarDisplayMode.photo,
+    this.avatarInitials,
   });
 
   final String id;
@@ -17,11 +19,23 @@ class UserProfile {
 
   /// Storage path in the private `avatars` bucket — never a provider hot-link.
   final String? avatarUrl;
+  final AvatarDisplayMode avatarDisplayMode;
+  final String? avatarInitials;
+
+  bool get usesInitialsAvatar =>
+      avatarDisplayMode == AvatarDisplayMode.initials;
+
+  String? get activeAvatarStoragePath => usesInitialsAvatar ? null : avatarUrl;
+
+  String? get effectiveAvatarInitials => preferredAvatarInitials(
+        preferredInitials: avatarInitials,
+        displayName: displayName,
+      );
 
   bool get needsIdentityCompletion => profileNeedsIdentityCompletion(
-    displayName: displayName,
-    displayNameSetAt: displayNameSetAt,
-  );
+        displayName: displayName,
+        displayNameSetAt: displayNameSetAt,
+      );
 
   factory UserProfile.fromRow(Map<String, dynamic> row) {
     return UserProfile(
@@ -30,6 +44,22 @@ class UserProfile {
       baseCurrency: row['base_currency'] as String,
       displayNameSetAt: _nullableDate(row['display_name_set_at']),
       avatarUrl: row['avatar_url'] as String?,
+      avatarDisplayMode: AvatarDisplayMode.parse(
+        row['avatar_display_mode'] as String?,
+      ),
+      avatarInitials: row['avatar_initials'] as String?,
+    );
+  }
+}
+
+enum AvatarDisplayMode {
+  photo,
+  initials;
+
+  static AvatarDisplayMode parse(String? raw) {
+    return AvatarDisplayMode.values.firstWhere(
+      (mode) => mode.name == raw,
+      orElse: () => AvatarDisplayMode.photo,
     );
   }
 }

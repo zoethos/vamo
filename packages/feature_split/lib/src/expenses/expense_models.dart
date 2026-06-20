@@ -1,3 +1,5 @@
+import 'package:app_core/app_core.dart';
+
 import 'expense_governance.dart';
 
 /// Expense row for the trip home list (from Drift).
@@ -68,6 +70,8 @@ class TripMemberView {
     required this.displayName,
     required this.role,
     this.avatarUrl,
+    this.avatarDisplayMode = AvatarDisplayMode.photo,
+    this.avatarInitials,
   });
 
   final String userId;
@@ -76,6 +80,8 @@ class TripMemberView {
 
   /// Storage path in the private `avatars` bucket — never a signed URL.
   final String? avatarUrl;
+  final AvatarDisplayMode avatarDisplayMode;
+  final String? avatarInitials;
 }
 
 class AddExpenseInput {

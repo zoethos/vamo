@@ -32,7 +32,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -161,6 +161,16 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(localExpenses, localExpenses.fxRateSource);
             await m.addColumn(localExpenses, localExpenses.fxRateManual);
             await m.addColumn(localExpenses, localExpenses.fxConversionLocked);
+          }
+          if (from < 22 && to >= 22) {
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.avatarDisplayMode,
+            );
+            await m.addColumn(
+              localTripMembers,
+              localTripMembers.avatarInitials,
+            );
           }
         },
       );

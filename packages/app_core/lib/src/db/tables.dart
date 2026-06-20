@@ -30,6 +30,9 @@ class LocalTripMembers extends Table {
   TextColumn get status => text()();
   TextColumn get displayName => text().nullable()();
   TextColumn get avatarUrl => text().nullable()();
+  TextColumn get avatarDisplayMode =>
+      text().withDefault(const Constant('photo'))();
+  TextColumn get avatarInitials => text().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get closeAcceptedAt => dateTime().nullable()();
   DateTimeColumn get closeObjectedAt => dateTime().nullable()();
@@ -64,8 +67,7 @@ class LocalExpenses extends Table {
   TextColumn get placeLabel => text().nullable()();
   TextColumn get placeId => text().nullable()();
   TextColumn get status => text().withDefault(const Constant('committed'))();
-  TextColumn get fxRateSource =>
-      text().withDefault(const Constant('auto'))();
+  TextColumn get fxRateSource => text().withDefault(const Constant('auto'))();
   RealColumn get fxRateManual => real().nullable()();
   BoolColumn get fxConversionLocked =>
       boolean().withDefault(const Constant(false))();

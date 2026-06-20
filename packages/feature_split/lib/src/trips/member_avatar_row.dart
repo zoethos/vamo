@@ -37,6 +37,8 @@ class MemberAvatarRow extends StatelessWidget {
               child: CachedMemberAvatar(
                 displayName: member.displayName,
                 avatarStoragePath: member.avatarUrl,
+                avatarDisplayMode: member.avatarDisplayMode,
+                avatarInitials: member.avatarInitials,
                 radius: _avatarRadius,
               ),
             ),

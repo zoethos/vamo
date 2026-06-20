@@ -209,6 +209,10 @@ class MembersTabState extends ConsumerState<MembersTab> {
 
                 avatarUrl: m.avatarUrl,
 
+                avatarDisplayMode: m.avatarDisplayMode,
+
+                avatarInitials: m.avatarInitials,
+
                 subtitle: m.userId == currentUserId
 
                     ? 'You · ${TripMemberRoles.label(m.role)}'
@@ -631,6 +635,10 @@ class _MemberRow extends StatelessWidget {
 
     this.avatarUrl,
 
+    required this.avatarDisplayMode,
+
+    this.avatarInitials,
+
     required this.subtitle,
 
     required this.roleActions,
@@ -644,6 +652,10 @@ class _MemberRow extends StatelessWidget {
   final String displayName;
 
   final String? avatarUrl;
+
+  final AvatarDisplayMode avatarDisplayMode;
+
+  final String? avatarInitials;
 
   final String subtitle;
 
@@ -664,6 +676,8 @@ class _MemberRow extends StatelessWidget {
         leading: CachedMemberAvatar(
           displayName: displayName,
           avatarStoragePath: avatarUrl,
+          avatarDisplayMode: avatarDisplayMode,
+          avatarInitials: avatarInitials,
           radius: 20,
         ),
 
