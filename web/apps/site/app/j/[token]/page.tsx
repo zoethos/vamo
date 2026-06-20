@@ -3,6 +3,7 @@ import { canonicalJoinLanding } from "../../../lib/invite-urls";
 import { fetchTripPreview } from "../../../lib/trip-preview";
 import { InviteUnavailable } from "./unavailable";
 import { TripPreviewCard } from "./preview-card";
+import { SharePageAnalytics } from "./share-analytics";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,8 +64,18 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const preview = await fetchTripPreview(token);
 
   if (!preview) {
-    return <InviteUnavailable />;
+    return (
+      <>
+        <SharePageAnalytics channel={ch ?? null} status="unavailable" />
+        <InviteUnavailable />
+      </>
+    );
   }
 
-  return <TripPreviewCard token={token} channel={ch ?? null} preview={preview} />;
+  return (
+    <>
+      <SharePageAnalytics channel={ch ?? null} status="available" />
+      <TripPreviewCard token={token} channel={ch ?? null} preview={preview} />
+    </>
+  );
 }

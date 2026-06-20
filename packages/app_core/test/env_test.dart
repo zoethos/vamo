@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('optional settings fall back when dotenv has not been loaded', () {
     expect(Env.posthogApiKey, '');
-    expect(Env.posthogHost, 'https://us.i.posthog.com');
+    expect(Env.posthogHost, 'https://eu.i.posthog.com');
     expect(Env.fxRatesFunctionUrl, '');
     expect(Env.exchangerateAccessKey, '');
   });
