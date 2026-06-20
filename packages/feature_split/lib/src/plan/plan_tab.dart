@@ -408,6 +408,22 @@ class _PlanItemTile extends StatelessWidget {
       final notes = item.notes?.trim();
       return visit?.address ?? (notes == null || notes.isEmpty ? null : notes);
     }
+    if (item.kind == PlanItemKind.transfer) {
+      final transfer = parseTransferMetadata(item.metadata);
+      final route = _transferRoute(transfer);
+      if (route != null) return route;
+      final provider = transfer?.provider;
+      if (provider != null) return provider;
+    }
     return item.notes == null || item.notes!.isEmpty ? null : item.notes;
+  }
+
+  String? _transferRoute(TransferMetadata? transfer) {
+    final origin = transfer?.origin;
+    final destination = transfer?.destination;
+    if (origin == null && destination == null) return null;
+    if (origin == null) return destination;
+    if (destination == null) return origin;
+    return '$origin -> $destination';
   }
 }

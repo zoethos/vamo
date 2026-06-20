@@ -16,6 +16,7 @@ class PlanTabLabels {
     required this.kindTrain,
     required this.kindActivity,
     required this.kindVisit,
+    required this.kindTransfer,
     required this.kindOther,
     required this.sheetTitleAdd,
     required this.sheetTitleEdit,
@@ -33,6 +34,17 @@ class PlanTabLabels {
     required this.visitAddressRequiredForGeocode,
     required this.visitCoordinatesSaved,
     required this.visitCoordinatesNotFound,
+    required this.transferSectionTitle,
+    required this.transferSubtypeLabel,
+    required this.transferOriginLabel,
+    required this.transferDestinationLabel,
+    required this.transferProviderLabel,
+    required this.transferReferenceLabel,
+    required this.transferSubtypeCarRental,
+    required this.transferSubtypeTrain,
+    required this.transferSubtypeTransit,
+    required this.transferSubtypeDrive,
+    required this.transferSubtypeFlight,
     required this.save,
     required this.tabTitle,
     required this.loadError,
@@ -67,6 +79,7 @@ class PlanTabLabels {
   final String kindTrain;
   final String kindActivity;
   final String kindVisit;
+  final String kindTransfer;
   final String kindOther;
   final String sheetTitleAdd;
   final String sheetTitleEdit;
@@ -84,6 +97,17 @@ class PlanTabLabels {
   final String visitAddressRequiredForGeocode;
   final String visitCoordinatesSaved;
   final String visitCoordinatesNotFound;
+  final String transferSectionTitle;
+  final String transferSubtypeLabel;
+  final String transferOriginLabel;
+  final String transferDestinationLabel;
+  final String transferProviderLabel;
+  final String transferReferenceLabel;
+  final String transferSubtypeCarRental;
+  final String transferSubtypeTrain;
+  final String transferSubtypeTransit;
+  final String transferSubtypeDrive;
+  final String transferSubtypeFlight;
   final String save;
   final String tabTitle;
   final String loadError;
@@ -109,6 +133,15 @@ class PlanTabLabels {
         PlanItemKind.train => kindTrain,
         PlanItemKind.activity => kindActivity,
         PlanItemKind.visit => kindVisit,
+        PlanItemKind.transfer => kindTransfer,
         PlanItemKind.other => kindOther,
+      };
+
+  String transferSubtype(TransferSubtype subtype) => switch (subtype) {
+        TransferSubtype.carRental => transferSubtypeCarRental,
+        TransferSubtype.train => transferSubtypeTrain,
+        TransferSubtype.transit => transferSubtypeTransit,
+        TransferSubtype.drive => transferSubtypeDrive,
+        TransferSubtype.flight => transferSubtypeFlight,
       };
 }
