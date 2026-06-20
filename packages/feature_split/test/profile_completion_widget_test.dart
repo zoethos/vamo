@@ -190,6 +190,12 @@ final _labels = ProfileScreenLabels(
   avatarUpload: 'Upload',
   avatarUseInitials: 'Use initials',
   avatarUsePhoto: 'Use photo',
+  avatarRemovePhoto: 'Remove photo',
+  avatarRemovePhotoTitle: 'Remove profile photo?',
+  avatarRemovePhotoBody:
+      'This deletes your uploaded photo from Vamo storage. You can keep using initials without deleting it.',
+  avatarRemovePhotoCancel: 'Keep photo',
+  avatarRemovePhotoConfirm: 'Remove photo',
   avatarInitialsLabel: 'Initials or alias',
   avatarInitialsHint: 'Up to 4 characters',
   billingSection: 'Billing',

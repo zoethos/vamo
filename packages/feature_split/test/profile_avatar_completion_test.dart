@@ -70,6 +70,8 @@ void main() {
     );
 
     await _pumpCompletionScreen(tester, repository);
+    await tester.ensureVisible(find.text('Use initials'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Use initials'));
     await tester.pumpAndSettle();
 
@@ -99,11 +101,39 @@ void main() {
 
     await _pumpCompletionScreen(tester, repository);
     await tester.enterText(_avatarInitialsField(), 'mlc');
+    await tester.ensureVisible(find.text('Use initials'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Use initials'));
     await tester.pumpAndSettle();
 
     expect(repository.profile.avatarUrl, 'user-1/profile.jpg');
     expect(repository.profile.avatarInitials, 'MLC');
+    expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
+  });
+
+  testWidgets('remove photo confirms and deletes stored avatar path', (
+    tester,
+  ) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Chen',
+        baseCurrency: 'EUR',
+        avatarUrl: 'user-1/profile.jpg',
+      ),
+    );
+
+    await _pumpCompletionScreen(tester, repository);
+    await tester.tap(find.text('Remove photo'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove profile photo?'), findsOneWidget);
+
+    await tester.tap(find.text('Remove photo').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.clearAvatarCalls, 1);
+    expect(repository.profile.avatarUrl, isNull);
     expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
   });
 
@@ -196,6 +226,7 @@ class _FakeProfileRepository extends ProfileRepository {
   final String? oauthPreviewUrl;
   int useInitialsCalls = 0;
   int usePhotoCalls = 0;
+  int clearAvatarCalls = 0;
 
   @override
   Future<UserProfile> fetchCurrent() async => profile;
@@ -233,6 +264,20 @@ class _FakeProfileRepository extends ProfileRepository {
       displayNameSetAt: profile.displayNameSetAt,
       avatarUrl: profile.avatarUrl,
       avatarDisplayMode: AvatarDisplayMode.photo,
+      avatarInitials: profile.avatarInitials,
+    );
+    return profile;
+  }
+
+  @override
+  Future<UserProfile> clearAvatar() async {
+    clearAvatarCalls++;
+    profile = UserProfile(
+      id: profile.id,
+      displayName: profile.displayName,
+      baseCurrency: profile.baseCurrency,
+      displayNameSetAt: profile.displayNameSetAt,
+      avatarDisplayMode: AvatarDisplayMode.initials,
       avatarInitials: profile.avatarInitials,
     );
     return profile;
@@ -277,6 +322,12 @@ final _labels = ProfileScreenLabels(
   avatarUpload: 'Upload',
   avatarUseInitials: 'Use initials',
   avatarUsePhoto: 'Use photo',
+  avatarRemovePhoto: 'Remove photo',
+  avatarRemovePhotoTitle: 'Remove profile photo?',
+  avatarRemovePhotoBody:
+      'This deletes your uploaded photo from Vamo storage. You can keep using initials without deleting it.',
+  avatarRemovePhotoCancel: 'Keep photo',
+  avatarRemovePhotoConfirm: 'Remove photo',
   avatarInitialsLabel: 'Initials or alias',
   avatarInitialsHint: 'Up to 4 characters',
   billingSection: 'Billing',
