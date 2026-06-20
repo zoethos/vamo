@@ -34,9 +34,14 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   late TextEditingController _notes;
   late TextEditingController _visitPlaceLabel;
   late TextEditingController _visitAddress;
+  late TextEditingController _transferOrigin;
+  late TextEditingController _transferDestination;
+  late TextEditingController _transferProvider;
+  late TextEditingController _transferReference;
   DateTime? _startsAt;
   DateTime? _endsAt;
   String? _dateRangeError;
+  TransferSubtype _transferSubtype = TransferSubtype.transit;
   double? _visitLat;
   double? _visitLng;
   String? _visitPlaceId;
@@ -61,6 +66,16 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _visitLat = visit?.lat;
     _visitLng = visit?.lng;
     _visitPlaceId = visit?.placeId;
+    final transfer = parseTransferMetadata(widget.existing?.metadata);
+    _transferSubtype = transfer?.subtype ??
+        legacyTransferSubtypeForKind(
+            widget.existing?.kind ?? PlanItemKind.other) ??
+        TransferSubtype.transit;
+    _transferOrigin = TextEditingController(text: transfer?.origin ?? '');
+    _transferDestination =
+        TextEditingController(text: transfer?.destination ?? '');
+    _transferProvider = TextEditingController(text: transfer?.provider ?? '');
+    _transferReference = TextEditingController(text: transfer?.reference ?? '');
     _startsAt = widget.existing?.startsAt;
     _endsAt = widget.existing?.endsAt;
   }
@@ -71,11 +86,16 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _notes.dispose();
     _visitPlaceLabel.dispose();
     _visitAddress.dispose();
+    _transferOrigin.dispose();
+    _transferDestination.dispose();
+    _transferProvider.dispose();
+    _transferReference.dispose();
     super.dispose();
   }
 
   bool get _isActivity => _kind == PlanItemKind.activity;
   bool get _isVisit => _kind == PlanItemKind.visit;
+  bool get _isTransfer => _kind == PlanItemKind.transfer;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +160,10 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                                   _visitPlaceLabel.text.trim().isEmpty) {
                                 _visitPlaceLabel.text = _title.text.trim();
                               }
+                              if (_isTransfer && _title.text.trim().isEmpty) {
+                                _title.text = widget.labels
+                                    .transferSubtype(_transferSubtype);
+                              }
                             }),
                   ),
                 ),
@@ -175,6 +199,24 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   hasCoords: _visitLat != null && _visitLng != null,
                   onPlaceSelected: _applyTripPlace,
                   onGeocode: _geocodeVisitAddress,
+                ),
+              ],
+              if (_isTransfer) ...[
+                const SizedBox(height: 12),
+                _TransferDetailsSection(
+                  labels: widget.labels,
+                  readOnly: widget.readOnly,
+                  subtype: _transferSubtype,
+                  originController: _transferOrigin,
+                  destinationController: _transferDestination,
+                  providerController: _transferProvider,
+                  referenceController: _transferReference,
+                  onSubtypeChanged: (value) => setState(() {
+                    _transferSubtype = value;
+                    if (_title.text.trim().isEmpty) {
+                      _title.text = widget.labels.transferSubtype(value);
+                    }
+                  }),
                 ),
               ],
               const SizedBox(height: 8),
@@ -256,6 +298,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     if (_isVisit && title.isEmpty) {
                       title = _visitPlaceLabel.text.trim();
                     }
+                    if (_isTransfer && title.isEmpty) {
+                      title = widget.labels.transferSubtype(_transferSubtype);
+                    }
                     if (title.isEmpty) return;
                     _validateDateRange();
                     if (_dateRangeError != null) {
@@ -285,29 +330,41 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   }
 
   Map<String, Object?>? _metadataForSave() {
-    if (!_isVisit) {
+    if (_isVisit) {
+      final placeLabel = _visitPlaceLabel.text.trim();
+      if (placeLabel.isEmpty) {
+        setState(() {
+          _visitStatus = widget.labels.visitPlaceRequired;
+          _visitStatusIsError = true;
+        });
+        return null;
+      }
+
+      return buildVisitPlaceMetadata(
+        placeLabel: placeLabel,
+        address: _visitAddress.text,
+        lat: _visitLat,
+        lng: _visitLng,
+        placeId: _visitPlaceId,
+      );
+    }
+
+    if (_isTransfer) {
+      return buildTransferMetadata(
+        subtype: _transferSubtype,
+        origin: _transferOrigin.text,
+        destination: _transferDestination.text,
+        provider: _transferProvider.text,
+        reference: _transferReference.text,
+      );
+    }
+
+    {
       if (widget.existing != null && widget.existing!.kind == _kind) {
         return widget.existing!.metadata;
       }
       return const <String, Object?>{};
     }
-
-    final placeLabel = _visitPlaceLabel.text.trim();
-    if (placeLabel.isEmpty) {
-      setState(() {
-        _visitStatus = widget.labels.visitPlaceRequired;
-        _visitStatusIsError = true;
-      });
-      return null;
-    }
-
-    return buildVisitPlaceMetadata(
-      placeLabel: placeLabel,
-      address: _visitAddress.text,
-      lat: _visitLat,
-      lng: _visitLng,
-      placeId: _visitPlaceId,
-    );
   }
 
   void _applyTripPlace(PlaceSummary place) {
@@ -539,6 +596,93 @@ class _VisitDetailsSection extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+class _TransferDetailsSection extends StatelessWidget {
+  const _TransferDetailsSection({
+    required this.labels,
+    required this.readOnly,
+    required this.subtype,
+    required this.originController,
+    required this.destinationController,
+    required this.providerController,
+    required this.referenceController,
+    required this.onSubtypeChanged,
+  });
+
+  final PlanTabLabels labels;
+  final bool readOnly;
+  final TransferSubtype subtype;
+  final TextEditingController originController;
+  final TextEditingController destinationController;
+  final TextEditingController providerController;
+  final TextEditingController referenceController;
+  final ValueChanged<TransferSubtype> onSubtypeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          labels.transferSectionTitle,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InputDecorator(
+          decoration: InputDecoration(labelText: labels.transferSubtypeLabel),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<TransferSubtype>(
+              value: subtype,
+              isExpanded: true,
+              items: TransferSubtype.values
+                  .map(
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: Text(labels.transferSubtype(value)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: readOnly
+                  ? null
+                  : (value) {
+                      if (value != null) onSubtypeChanged(value);
+                    },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: originController,
+          readOnly: readOnly,
+          decoration: InputDecoration(labelText: labels.transferOriginLabel),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: destinationController,
+          readOnly: readOnly,
+          decoration:
+              InputDecoration(labelText: labels.transferDestinationLabel),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: providerController,
+          readOnly: readOnly,
+          decoration: InputDecoration(labelText: labels.transferProviderLabel),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: referenceController,
+          readOnly: readOnly,
+          decoration: InputDecoration(labelText: labels.transferReferenceLabel),
+        ),
       ],
     );
   }

@@ -17,6 +17,31 @@ void main() {
     });
   });
 
+  group('PlanItemKind.transfer', () {
+    test('parses from the postgres enum name', () {
+      expect(PlanItemKind.parse('transfer'), PlanItemKind.transfer);
+    });
+
+    test('renders a transfer icon', () {
+      expect(PlanItemKind.transfer.icon, Icons.sync_alt_outlined);
+    });
+  });
+
+  group('fallbackFor(transfer)', () {
+    final caps = PlanItemCapabilities.fallbackFor(PlanItemKind.transfer);
+
+    test('has status, check-time, and details affordances', () {
+      expect(caps.hasLiveStatus, isTrue);
+      expect(caps.hasCheckTimes, isTrue);
+      expect(caps.hasDetailsForm, isTrue);
+    });
+
+    test('does not RSVP or suggest POIs', () {
+      expect(caps.supportsRsvp, isFalse);
+      expect(caps.suggestsPois, isFalse);
+    });
+  });
+
   group('fallbackFor(visit)', () {
     final caps = PlanItemCapabilities.fallbackFor(PlanItemKind.visit);
 
@@ -66,7 +91,8 @@ void main() {
     });
 
     test('returns null without a place_label', () {
-      expect(parseVisitPlaceMetadata(<String, Object?>{'address': 'x'}), isNull);
+      expect(
+          parseVisitPlaceMetadata(<String, Object?>{'address': 'x'}), isNull);
       expect(parseVisitPlaceMetadata(null), isNull);
     });
 
@@ -77,6 +103,52 @@ void main() {
       });
       expect(parsePlanMetadata(encoded)['future_key'], 'keep-me');
       expect(parseVisitPlaceMetadata(encoded)!.placeLabel, 'Roman Forum');
+    });
+  });
+
+  group('TransferMetadata', () {
+    test('build trims, encode/parse round-trips a transfer', () {
+      final map = buildTransferMetadata(
+        subtype: TransferSubtype.carRental,
+        origin: '  Napoli Centrale  ',
+        destination: '  Amalfi  ',
+        provider: '  Driver Luigi  ',
+        reference: '  VAN-42  ',
+      );
+      expect(map, {
+        'subtype': 'car_rental',
+        'origin': 'Napoli Centrale',
+        'destination': 'Amalfi',
+        'provider': 'Driver Luigi',
+        'reference': 'VAN-42',
+      });
+
+      final parsed = parseTransferMetadata(encodePlanMetadata(map));
+      expect(parsed, isNotNull);
+      expect(parsed!.subtype, TransferSubtype.carRental);
+      expect(parsed.origin, 'Napoli Centrale');
+      expect(parsed.destination, 'Amalfi');
+      expect(parsed.provider, 'Driver Luigi');
+      expect(parsed.reference, 'VAN-42');
+    });
+
+    test('omits empty optional fields', () {
+      final map = buildTransferMetadata(
+        subtype: TransferSubtype.transit,
+        origin: '  ',
+        destination: '',
+      );
+      expect(map, {'subtype': 'transit'});
+      expect(parseTransferMetadata(map)!.subtype, TransferSubtype.transit);
+    });
+
+    test('requires subtype and maps legacy kinds', () {
+      expect(parseTransferMetadata(<String, Object?>{'origin': 'x'}), isNull);
+      expect(legacyTransferSubtypeForKind(PlanItemKind.flight),
+          TransferSubtype.flight);
+      expect(legacyTransferSubtypeForKind(PlanItemKind.train),
+          TransferSubtype.train);
+      expect(legacyTransferSubtypeForKind(PlanItemKind.visit), isNull);
     });
   });
 }

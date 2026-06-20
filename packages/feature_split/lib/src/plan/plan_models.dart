@@ -8,6 +8,7 @@ enum PlanItemKind {
   train,
   activity,
   visit,
+  transfer,
   other;
 
   static PlanItemKind parse(String? raw) {
@@ -23,8 +24,28 @@ enum PlanItemKind {
         PlanItemKind.train => Icons.train_outlined,
         PlanItemKind.activity => Icons.local_activity_outlined,
         PlanItemKind.visit => Icons.place_outlined,
+        PlanItemKind.transfer => Icons.sync_alt_outlined,
         PlanItemKind.other => Icons.event_note_outlined,
       };
+}
+
+enum TransferSubtype {
+  carRental('car_rental'),
+  train('train'),
+  transit('transit'),
+  drive('drive'),
+  flight('flight');
+
+  const TransferSubtype(this.wireName);
+
+  final String wireName;
+
+  static TransferSubtype parse(String? raw) {
+    return TransferSubtype.values.firstWhere(
+      (v) => v.wireName == raw,
+      orElse: () => TransferSubtype.transit,
+    );
+  }
 }
 
 class PlanItemSummary {
@@ -77,8 +98,12 @@ class PlanItemCapabilities {
       kind: kind,
       supportsRsvp: kind == PlanItemKind.activity,
       suggestsPois: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
-      hasLiveStatus: kind == PlanItemKind.flight || kind == PlanItemKind.train,
-      hasDetailsForm: kind == PlanItemKind.visit,
+      hasLiveStatus: kind == PlanItemKind.flight ||
+          kind == PlanItemKind.train ||
+          kind == PlanItemKind.transfer,
+      hasCheckTimes: kind == PlanItemKind.transfer,
+      hasDetailsForm:
+          kind == PlanItemKind.visit || kind == PlanItemKind.transfer,
     );
   }
 
@@ -149,6 +174,22 @@ class VisitPlaceMetadata {
   bool get hasCoords => lat != null && lng != null;
 }
 
+class TransferMetadata {
+  const TransferMetadata({
+    required this.subtype,
+    this.origin,
+    this.destination,
+    this.provider,
+    this.reference,
+  });
+
+  final TransferSubtype subtype;
+  final String? origin;
+  final String? destination;
+  final String? provider;
+  final String? reference;
+}
+
 VisitPlaceMetadata? parseVisitPlaceMetadata(Object? raw) {
   final metadata = parsePlanMetadata(raw);
   final placeLabel = _stringValue(metadata['place_label']);
@@ -181,6 +222,52 @@ Map<String, Object?> buildVisitPlaceMetadata({
     if (lng != null) 'lng': lng,
     if (normalizedPlaceId != null && normalizedPlaceId.isNotEmpty)
       'place_id': normalizedPlaceId,
+  };
+}
+
+TransferMetadata? parseTransferMetadata(Object? raw) {
+  final metadata = parsePlanMetadata(raw);
+  final subtypeRaw = _stringValue(metadata['subtype']);
+  if (subtypeRaw == null) return null;
+
+  return TransferMetadata(
+    subtype: TransferSubtype.parse(subtypeRaw),
+    origin: _stringValue(metadata['origin']),
+    destination: _stringValue(metadata['destination']),
+    provider: _stringValue(metadata['provider']),
+    reference: _stringValue(metadata['reference']),
+  );
+}
+
+Map<String, Object?> buildTransferMetadata({
+  required TransferSubtype subtype,
+  String? origin,
+  String? destination,
+  String? provider,
+  String? reference,
+}) {
+  final normalizedOrigin = origin?.trim();
+  final normalizedDestination = destination?.trim();
+  final normalizedProvider = provider?.trim();
+  final normalizedReference = reference?.trim();
+  return <String, Object?>{
+    'subtype': subtype.wireName,
+    if (normalizedOrigin != null && normalizedOrigin.isNotEmpty)
+      'origin': normalizedOrigin,
+    if (normalizedDestination != null && normalizedDestination.isNotEmpty)
+      'destination': normalizedDestination,
+    if (normalizedProvider != null && normalizedProvider.isNotEmpty)
+      'provider': normalizedProvider,
+    if (normalizedReference != null && normalizedReference.isNotEmpty)
+      'reference': normalizedReference,
+  };
+}
+
+TransferSubtype? legacyTransferSubtypeForKind(PlanItemKind kind) {
+  return switch (kind) {
+    PlanItemKind.flight => TransferSubtype.flight,
+    PlanItemKind.train => TransferSubtype.train,
+    _ => null,
   };
 }
 

@@ -117,6 +117,11 @@ void main() {
     expect(fallback[PlanItemKind.visit]?.supportsRsvp, isFalse);
     expect(fallback[PlanItemKind.visit]?.suggestsPois, isTrue);
     expect(fallback[PlanItemKind.visit]?.hasDetailsForm, isTrue);
+    expect(PlanItemKind.parse('transfer'), PlanItemKind.transfer);
+    expect(fallback[PlanItemKind.transfer]?.hasLiveStatus, isTrue);
+    expect(fallback[PlanItemKind.transfer]?.hasCheckTimes, isTrue);
+    expect(fallback[PlanItemKind.transfer]?.hasDetailsForm, isTrue);
+    expect(fallback[PlanItemKind.transfer]?.suggestsPois, isFalse);
     expect(fallback[PlanItemKind.flight]?.hasLiveStatus, isTrue);
     expect(fallback[PlanItemKind.train]?.hasLiveStatus, isTrue);
     expect(fallback[PlanItemKind.other]?.supportsRsvp, isFalse);
@@ -194,6 +199,57 @@ void main() {
     final pending = await queue.pending();
     final payload = decodePayload(pending.single.payload);
     expect(payload['metadata'], {'flight_number': 'AZ123'});
+  });
+
+  test('addPlanItem preserves transfer metadata locally and in outbox',
+      () async {
+    const tripId = 'trip-plan';
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+    );
+    final metadata = buildTransferMetadata(
+      subtype: TransferSubtype.train,
+      origin: 'Roma Termini',
+      destination: 'Napoli Centrale',
+      provider: 'Italo',
+      reference: '8921',
+    );
+
+    await repo.addPlanItem(
+      PlanItemInput(
+        tripId: tripId,
+        kind: PlanItemKind.transfer,
+        title: 'Train to Naples',
+        metadata: metadata,
+      ),
+    );
+
+    final rows = await repo.watchPlanItems(tripId).first;
+    expect(rows.single.kind, PlanItemKind.transfer);
+    expect(rows.single.metadata, metadata);
+    expect(parseTransferMetadata(rows.single.metadata)?.subtype,
+        TransferSubtype.train);
+
+    final pending = await queue.pending();
+    final payload = decodePayload(pending.single.payload);
+    expect(payload['kind'], 'transfer');
+    expect(payload['metadata'], metadata);
   });
 
   test('plan item reorder swaps positions in drift', () async {

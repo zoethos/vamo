@@ -1081,7 +1081,7 @@ Future<void> main() async {
     // --- S18 TripBoard (R4) — before close ---
     final capabilities = await clientA.from('plan_item_capabilities').select(
           'kind, supports_rsvp, suggests_pois, has_live_status, '
-          'has_details_form',
+          'has_check_times, has_details_form',
         );
     final capabilityRows = (capabilities as List).cast<Map<String, dynamic>>();
     final activityRows =
@@ -1090,9 +1090,12 @@ Future<void> main() async {
     final visitRows =
         capabilityRows.where((row) => row['kind'] == 'visit').toList();
     final visitCapability = visitRows.isEmpty ? null : visitRows.first;
+    final transferRows =
+        capabilityRows.where((row) => row['kind'] == 'transfer').toList();
+    final transferCapability = transferRows.isEmpty ? null : transferRows.first;
     results.add(_Check(
       'S49 authenticated reads plan capabilities',
-      capabilityRows.length >= 6 &&
+      capabilityRows.length >= 7 &&
           activityCapability?['supports_rsvp'] == true &&
           activityCapability?['suggests_pois'] == true,
     ));
@@ -1101,6 +1104,14 @@ Future<void> main() async {
       visitCapability?['supports_rsvp'] == false &&
           visitCapability?['suggests_pois'] == true &&
           visitCapability?['has_details_form'] == true,
+    ));
+    results.add(_Check(
+      'S53 transfer capability exposed',
+      transferCapability?['supports_rsvp'] == false &&
+          transferCapability?['suggests_pois'] == false &&
+          transferCapability?['has_live_status'] == true &&
+          transferCapability?['has_check_times'] == true &&
+          transferCapability?['has_details_form'] == true,
     ));
 
     var capabilityUpdateBlocked = false;
@@ -1182,6 +1193,37 @@ Future<void> main() async {
       visitPlanItem['kind'] == 'visit' &&
           visitMetadata['place_label'] == 'Amalfi Cathedral' &&
           visitMetadata['address'] == 'Piazza Duomo, Amalfi',
+    ));
+
+    final transferPlanItemId = _uuid();
+    await clientB.from('trip_plan_items').insert({
+      'id': transferPlanItemId,
+      'trip_id': tripId,
+      'kind': 'transfer',
+      'title': 'Train to Naples',
+      'metadata': {
+        'subtype': 'train',
+        'origin': 'Roma Termini',
+        'destination': 'Napoli Centrale',
+        'provider': 'Italo',
+        'reference': '8921',
+      },
+      'created_by': userB,
+    });
+    final transferPlanItem = await clientA
+        .from('trip_plan_items')
+        .select('kind, metadata')
+        .eq('id', transferPlanItemId)
+        .single();
+    final transferMetadata = transferPlanItem['metadata'] as Map;
+    results.add(_Check(
+      'S53 same-trip member reads transfer metadata',
+      transferPlanItem['kind'] == 'transfer' &&
+          transferMetadata['subtype'] == 'train' &&
+          transferMetadata['origin'] == 'Roma Termini' &&
+          transferMetadata['destination'] == 'Napoli Centrale' &&
+          transferMetadata['provider'] == 'Italo' &&
+          transferMetadata['reference'] == '8921',
     ));
 
     var nonObjectMetadataBlocked = false;
