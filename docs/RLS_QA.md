@@ -4,17 +4,19 @@ Run before TestFlight / Play internal.
 
 ## Automated smoke test (recommended)
 
-Against your **cloud** Supabase project (never commit credentials):
+Against the **staging** Supabase project (never commit credentials):
 
 ```bash
 dart pub get
-# Set: SUPABASE_URL, SUPABASE_ANON_KEY,
+# Set: SUPABASE_URL=https://sfwziwcuyctxvidivnsh.supabase.co, SUPABASE_ANON_KEY,
 #      RLS_USER_A_EMAIL/PASSWORD, RLS_USER_B_EMAIL/PASSWORD, RLS_USER_C_EMAIL/PASSWORD
 # (three password-auth test users — create once in Supabase Auth dashboard)
 dart run tool/rls_smoke.dart
 ```
 
 The script creates a throwaway trip, verifies member vs outsider access (including **captures** bucket receipt paths with four segments), suggestions isolation, `trip_members` self-insert denial (`0007`), **S16 role cases** (`0012`/`0013`: member cannot edit trip, co-admin can, co-admin cannot grant roles), and **S17 lifecycle cases** (`0015`: write-after-close blocked, settlements allowed on closed, deemed close via service-role job, objection holds closing, co-admin cannot cancel), then cleans up storage. Set `RLS_SERVICE_ROLE_KEY` for job/backdate tests. Exit code `0` = all checks PASS.
+
+`tool/rls_smoke.dart` refuses the known production project ref. For another intentional non-production project, set `RLS_ALLOW_NON_STAGING=true`; do not run this smoke against production.
 
 Use this as the primary storage + RLS gate; manual steps below remain as an appendix.
 
@@ -89,7 +91,7 @@ Confirm `0005` policies run as the `storage` role and `public.is_trip_member(...
 
 ## Sign-off
 
-- [ ] `dart run tool/rls_smoke.dart` PASS on cloud project
+- [ ] `dart run tool/rls_smoke.dart` PASS on staging project
 - [ ] All manual rows above spot-checked if needed
 - [ ] No `service_role` key embedded in the Flutter app
 - [ ] `captures` bucket is **private** (no public list)

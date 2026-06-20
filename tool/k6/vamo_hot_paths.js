@@ -16,14 +16,10 @@ if (
 }
 
 const baseUrl = requireEnv('SUPABASE_URL').replace(/\/$/, '');
-if (
-  baseUrl.includes(knownProdSupabaseRef) &&
-  __ENV.K6_ALLOW_PROD_REF !== 'true'
-) {
+if (baseUrl.includes(knownProdSupabaseRef)) {
   throw new Error(
     'Refusing to run: SUPABASE_URL contains the known production project ref. ' +
-      'The k6 script writes trips and expenses. Use staging, or set ' +
-      'K6_ALLOW_PROD_REF=true only during an explicit production load window.',
+      'The k6 script writes trips and expenses; use staging instead.',
   );
 }
 const anonKey = requireEnv('SUPABASE_ANON_KEY');

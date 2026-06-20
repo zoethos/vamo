@@ -9,6 +9,11 @@
 //
 // Also required:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
+//   SUPABASE_URL must point at staging by default. The smoke creates and
+//     deletes trips, storage objects, notifications, FX rows, and lifecycle
+//     state; it refuses the known production project ref.
+//   RLS_ALLOW_NON_STAGING=true can be used only for another explicit non-prod
+//     target. There is no production override.
 //
 // Run from repo root (after `dart pub get`):
 //   dart run tool/rls_smoke.dart
@@ -35,10 +40,33 @@ String expenseReceiptPath({
 
 const _capturesBucket = 'captures';
 const _avatarsBucket = 'avatars';
+const _knownProdSupabaseRef = 'mjercplkmuoctdklosyy';
+const _stagingSupabaseRef = 'sfwziwcuyctxvidivnsh';
 
 final _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
+
+void _guardSupabaseTarget(String url) {
+  if (url.contains(_knownProdSupabaseRef)) {
+    stderr.writeln(
+      'Refusing to run: SUPABASE_URL contains the known production project '
+      'ref. RLS smoke writes and deletes test data; use staging instead.',
+    );
+    exit(2);
+  }
+
+  if (!url.contains(_stagingSupabaseRef) &&
+      Platform.environment['RLS_ALLOW_NON_STAGING'] != 'true') {
+    stderr.writeln(
+      'Refusing to run: SUPABASE_URL is not the staging project. Set '
+      'SUPABASE_URL=https://$_stagingSupabaseRef.supabase.co, or set '
+      'RLS_ALLOW_NON_STAGING=true only for another intentional non-production '
+      'project.',
+    );
+    exit(2);
+  }
+}
 
 const _s23SmokeTheme = {
   'id': 'rls-smoke',
@@ -117,6 +145,9 @@ Future<void> main() async {
     );
     exit(2);
   }
+  final checkedUrl = url!;
+  final checkedAnon = anon!;
+  _guardSupabaseTarget(checkedUrl);
 
   final results = <_Check>[];
   String? tripId;
@@ -129,13 +160,13 @@ Future<void> main() async {
   SupabaseClient? serviceClient;
 
   try {
-    clientA = await _signIn(url!, anon!, aEmail!, aPass!);
+    clientA = await _signIn(checkedUrl, checkedAnon, aEmail!, aPass!);
     final userA = clientA.auth.currentUser!.id;
-    clientB = await _signIn(url, anon, bEmail!, bPass!);
-    final clientC = await _signIn(url, anon, cEmail!, cPass!);
+    clientB = await _signIn(checkedUrl, checkedAnon, bEmail!, bPass!);
+    final clientC = await _signIn(checkedUrl, checkedAnon, cEmail!, cPass!);
     final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
     serviceClient = serviceKey != null && serviceKey.isNotEmpty
-        ? SupabaseClient(url, serviceKey)
+        ? SupabaseClient(checkedUrl, serviceKey)
         : null;
 
     tripId = _uuid();
@@ -154,7 +185,7 @@ Future<void> main() async {
     results.add(_Check('A create invite', true));
 
     // --- S25 share preview (anon RPC; no direct table reads) ---
-    final anonPreviewClient = SupabaseClient(url, anon);
+    final anonPreviewClient = SupabaseClient(checkedUrl, checkedAnon);
     final preview = await anonPreviewClient
         .rpc('get_trip_preview', params: {'p_token': token});
     results.add(_Check('S25 get_trip_preview valid token', preview != null));

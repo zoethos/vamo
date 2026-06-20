@@ -36,13 +36,10 @@ Future<void> main(List<String> args) async {
   }
 
   final url = _required('SUPABASE_URL');
-  if (url.contains(_knownProdSupabaseRef) &&
-      _env('SCENARIO_ALLOW_PROD_REF') != 'true') {
+  if (url.contains(_knownProdSupabaseRef)) {
     stderr.writeln(
       'Refusing to run: SUPABASE_URL contains the known production project '
-      'ref. Scenario runs write trips and expenses. Use a staging project, or '
-      'set SCENARIO_ALLOW_PROD_REF=true only during an explicit production '
-      'load window.',
+      'ref. Scenario runs write trips and expenses; use staging instead.',
     );
     exit(2);
   }

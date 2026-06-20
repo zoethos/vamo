@@ -14,8 +14,7 @@ param(
   [string]$RedirectTo = "app.vamo://auth/callback",
   [string]$Token = "123456",
   [string]$TokenHash = "fallback-proof-token-hash",
-  [switch]$DryRun,
-  [switch]$AllowProdRef
+  [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
@@ -32,8 +31,8 @@ if (-not $HookSecret) {
 if (-not $To) {
   throw "Set TEST_AUTH_EMAIL_TO or pass -To."
 }
-if ($SupabaseUrl.Contains($knownProdSupabaseRef) -and -not $AllowProdRef) {
-  throw "Refusing to invoke the known production project ref without -AllowProdRef."
+if ($SupabaseUrl.Contains($knownProdSupabaseRef)) {
+  throw "Refusing to invoke the known production project ref. Use staging for email fallback proof."
 }
 
 function ConvertFrom-Base64Url {
