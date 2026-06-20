@@ -67,7 +67,7 @@ bucket or policy).
 - **UI cell:** a `CaptureVideoCell` (mirror `CapturePhotoCell`) showing a frame/
   placeholder with a play affordance + duration; tap → full-screen playback.
 - **Playback dependency (deliberate):** in-app playback needs `video_player`
-  (and optionally `chewie` for controls). Register in `docs/DEPENDENCIES.md`
+  (and optionally `chewie` for controls). Register in `docs/architecture/DEPENDENCIES.md`
   (lock-in rating, why). Thumbnail generation (`video_thumbnail`) is **optional /
   deferred** — until then use a generic video tile with a play icon. If a
   zero-dep MVP is preferred, open the video via the OS instead and defer in-app
@@ -98,7 +98,7 @@ bucket or policy).
 - [ ] Reuses `captures` bucket + existing Storage RLS (no new bucket/policy)
 - [ ] `captured_lat/lng/at` stored at capture time (Postcard forward-compat; EXIF only, no device-location permission)
 - [ ] `pickVideo` with `maxDuration`; offline-tolerant insert; large-upload behavior decided in PR
-- [ ] Playback dep (`video_player`) registered in DEPENDENCIES.md, or zero-dep OS-open MVP called out
+- [ ] Playback dep (`video_player`) registered in docs/architecture/DEPENDENCIES.md, or zero-dep OS-open MVP called out
 - [ ] `add_capture_video` analytics: no PII / paths / amounts
 - [ ] Migration at next free ordinal; monotonic (coordinate with S22 `0028`)
 - [ ] Goldens (small + dark + RTL) + device pass green

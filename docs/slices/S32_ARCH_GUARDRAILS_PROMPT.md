@@ -1,7 +1,7 @@
 # S32 — Architecture guardrails: import-guard + `app_core` barrel re-layering
 
 **Branch:** `feature/arch-guardrails` **from `main`** · **Est:** ~1–1.5 dev-days
-**Depends:** S31 report (`docs/ARCHITECTURE_BOUNDARIES.md`) landed — uses its agreed
+**Depends:** S31 report (`docs/architecture/ARCHITECTURE_BOUNDARIES.md`) landed — uses its agreed
 sub-barrel taxonomy + pure-file allowlist.
 **Why:** these are the two items S31 flags as worth doing **proactively** (low-risk,
 high-leverage) instead of opportunistically: a guard that makes "boundaries-first"

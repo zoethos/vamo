@@ -4,7 +4,7 @@ Status: S31 report and governance only. No production code, schema, RPC, or
 package changes are included here.
 
 This report extends the repository growth path in `ARCHITECTURE.md`, plus the
-rules in `docs/CONVENTIONS.md` and `docs/DEPENDENCIES.md`. Its job is to make
+rules in `docs/CONVENTIONS.md` and `docs/architecture/DEPENDENCIES.md`. Its job is to make
 boundary choices concrete enough that future slices can extract logic when they
 already touch the relevant files, without starting a broad refactor wave.
 

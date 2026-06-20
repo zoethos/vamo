@@ -26,7 +26,7 @@ Wave-3 surfaces. One item (custom split) is a money-model change in disguise.
 ## Sequencing — mostly *later*, nothing blocks closed beta
 
 1. **Stay on the critical path now:** finish **S51 (Visit/POI)** → clear the **Cycle 2 gates**
-   ([`LAUNCH_GATES.md`](../LAUNCH_GATES.md)) → **closed beta on the current UX.** The current build is
+   ([`LAUNCH_GATES.md`](../operations/LAUNCH_GATES.md)) → **closed beta on the current UX.** The current build is
    good enough for testers' hands.
 2. **Let the beta validate this backlog.** These are well-argued hypotheses (is `flow_abandoned`
    actually high? is the non-editable split a real complaint?). Spend the FE budget on confirmed

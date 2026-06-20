@@ -10,7 +10,7 @@ shared logic — **boundaries-first, not package sprawl.**
 ## 0. Preflight (AGENTS.md)
 - Start from a clean `main` on the branch above. The working tree may carry
   unrelated docs/brand WIP — **do not touch, stage, or overwrite it.**
-- Stage only S31 files: `AGENTS.md`, `docs/ARCHITECTURE_BOUNDARIES.md`, this prompt.
+- Stage only S31 files: `AGENTS.md`, `docs/architecture/ARCHITECTURE_BOUNDARIES.md`, this prompt.
 - No destructive git. No production code changes. No new packages.
 
 ## 1. Grounding already done (verify, then extend — don't re-derive from zero)
@@ -77,10 +77,10 @@ Every feature-slice handoff must state the architecture decision —
 one-line reason.
 ```
 
-## 3. Part B — produce the report (`docs/ARCHITECTURE_BOUNDARIES.md`)
+## 3. Part B — produce the report (`docs/architecture/ARCHITECTURE_BOUNDARIES.md`)
 A written report only. Cross-reference (don't duplicate) the existing root
 `ARCHITECTURE.md` "Repository growth path" section, `docs/CONVENTIONS.md`,
-`docs/DEPENDENCIES.md`. Required sections:
+`docs/architecture/DEPENDENCIES.md`. Required sections:
 
 1. **Dependency map** — `app` → `app_core` / `feature_split`; what `feature_split`
    reaches in `app_core`; web; `supabase/functions`. Call out the `app_core`

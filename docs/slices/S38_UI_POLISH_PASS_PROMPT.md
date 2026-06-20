@@ -49,7 +49,7 @@ Replace `PopupMenuButton` edit/delete with **swipe left/right** actions on list 
   a 3-dot menu.
 - **Dependency decision (call out in PR):** `flutter_slidable` gives clean
   two-direction action panes (e.g. swipe-left → Delete, swipe-right → Edit) — register
-  in `docs/DEPENDENCIES.md` if used. Zero-dep alternative: `Dismissible` with
+  in `docs/architecture/DEPENDENCIES.md` if used. Zero-dep alternative: `Dismissible` with
   `confirmDismiss` for delete + a tap-to-edit, but it's clumsier for two actions.
   Recommend `flutter_slidable` for the two-action UX the founder described.
 - Destructive (delete) needs confirm; keep undo where it exists. A11y: swipe actions
@@ -93,7 +93,7 @@ Replace `PopupMenuButton` edit/delete with **swipe left/right** actions on list 
 - [ ] Dates optional everywhere; start≤end enforced (create-trip + plan) when both set
 - [ ] Date picker actions = Cancel · Skip · Select (consistent)
 - [ ] Swipe left/right edit/delete replaces 3-dot menus; confirm on delete; a11y fallback
-- [ ] flutter_slidable registered in DEPENDENCIES.md (if used)
+- [ ] flutter_slidable registered in docs/architecture/DEPENDENCIES.md (if used)
 - [ ] Plan: small header "+" → add menu (event / checklist); big lime button removed
 - [ ] Checklist restyled to tokens, no longer breaks coherence
 - [ ] Consumes S29 tokens; light+dark; current logo; goldens + a11y + device pass

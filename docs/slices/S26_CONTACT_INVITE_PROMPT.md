@@ -166,7 +166,7 @@ Optional only if the implementation uses it on iOS or for non-Android picker sup
 
 - `flutter_contacts: ^2.2.1`
 
-Add both chosen packages to `docs/DEPENDENCIES.md` key packages:
+Add both chosen packages to `docs/architecture/DEPENDENCIES.md` key packages:
 
 - `url_launcher`: compose SMS/email; lock-in Low.
 - `flutter_contacts` only if actually added: native contact picker helper; lock-in Medium-Low; note Android property picker limitation and no broad contacts permission.

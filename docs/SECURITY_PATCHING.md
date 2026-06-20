@@ -1,7 +1,7 @@
 # Security patching & dependency-vulnerability response
 
 Status: process standard · 2026-06-06 · solo-pragmatic, scalable later
-Feeds/links: `DEPENDENCIES.md` (blast-radius tiers), `design/PROVIDER_RESILIENCE.md`
+Feeds/links: `docs/architecture/DEPENDENCIES.md` (blast-radius tiers), `design/PROVIDER_RESILIENCE.md`
 (runtime throttle/quota handling), `CONTRIBUTING.md` (secret rule),
 `feedback` memory *credential-handling* (rotation discipline).
 
@@ -27,7 +27,7 @@ Two axes decide how hard we jump, never severity alone:
 - **Severity** — the CVE's CVSS base score (Critical ≥9.0, High 7.0–8.9,
   Medium 4.0–6.9, Low <4.0), adjusted for **reachability** (is the vulnerable
   code path actually used by us, or is it a dev-only / transitive-unused dep?).
-- **Blast radius** — the dependency's tier from `DEPENDENCIES.md`:
+- **Blast radius** — the dependency's tier from `docs/architecture/DEPENDENCIES.md`:
   **T0** critical-path (sign-in/sync/core), **T1** degraded (a feature breaks),
   **T2** background (no runtime impact).
 
@@ -52,7 +52,7 @@ a production emergency — confirm before you sprint.
 **Layer 2 — manual / periodic:**
 
 - **Quarterly dependency review** (already scheduled) — batch minor bumps, read
-  the upgrade-debt list in `DEPENDENCIES.md`.
+  the upgrade-debt list in `docs/architecture/DEPENDENCIES.md`.
 - **Provider security feeds** for the non-package dependencies (Supabase,
   Vercel, Firebase, Brevo, PostHog) — these live in *no lockfile*, so scanners
   never see them. Subscribe to their status/security pages and changelogs. See §8.
