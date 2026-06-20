@@ -37,7 +37,8 @@ void main() {
         .setMockMethodCallHandler(packageInfoChannel, null);
   });
 
-  testWidgets('completion screen shows avatar options when OAuth preview exists', (
+  testWidgets(
+      'completion screen shows avatar options when OAuth preview exists', (
     tester,
   ) async {
     final repository = _FakeProfileRepository(
@@ -56,7 +57,9 @@ void main() {
     expect(find.text('Use initials'), findsOneWidget);
   });
 
-  testWidgets('use initials clears stored avatar path', (tester) async {
+  testWidgets('use initials preserves stored avatar path for switching back', (
+    tester,
+  ) async {
     final repository = _FakeProfileRepository(
       UserProfile(
         id: 'user-1',
@@ -70,8 +73,38 @@ void main() {
     await tester.tap(find.text('Use initials'));
     await tester.pumpAndSettle();
 
-    expect(repository.clearAvatarCalls, 1);
-    expect(repository.profile.avatarUrl, isNull);
+    expect(repository.useInitialsCalls, 1);
+    expect(repository.profile.avatarUrl, 'user-1/profile.jpg');
+    expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
+    expect(find.text('Use photo'), findsOneWidget);
+
+    await tester.tap(find.text('Use photo'));
+    await tester.pumpAndSettle();
+
+    expect(repository.usePhotoCalls, 1);
+    expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.photo);
+  });
+
+  testWidgets('custom initials or alias are persisted for avatar fallback', (
+    tester,
+  ) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Luna Chen',
+        baseCurrency: 'EUR',
+        avatarUrl: 'user-1/profile.jpg',
+      ),
+    );
+
+    await _pumpCompletionScreen(tester, repository);
+    await tester.enterText(_avatarInitialsField(), 'mlc');
+    await tester.tap(find.text('Use initials'));
+    await tester.pumpAndSettle();
+
+    expect(repository.profile.avatarUrl, 'user-1/profile.jpg');
+    expect(repository.profile.avatarInitials, 'MLC');
+    expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
   });
 
   testWidgets('steady-state profile exposes avatar options to an existing user',
@@ -161,7 +194,8 @@ class _FakeProfileRepository extends ProfileRepository {
 
   UserProfile profile;
   final String? oauthPreviewUrl;
-  int clearAvatarCalls = 0;
+  int useInitialsCalls = 0;
+  int usePhotoCalls = 0;
 
   @override
   Future<UserProfile> fetchCurrent() async => profile;
@@ -173,17 +207,40 @@ class _FakeProfileRepository extends ProfileRepository {
   Future<String?> signedAvatarUrl(String? storagePath) async => null;
 
   @override
-  Future<UserProfile> clearAvatar() async {
-    clearAvatarCalls++;
+  Future<UserProfile> useInitialsAvatar(String? initials) async {
+    useInitialsCalls++;
     profile = UserProfile(
       id: profile.id,
       displayName: profile.displayName,
       baseCurrency: profile.baseCurrency,
       displayNameSetAt: profile.displayNameSetAt,
-      avatarUrl: null,
+      avatarUrl: profile.avatarUrl,
+      avatarDisplayMode: AvatarDisplayMode.initials,
+      avatarInitials: initials == null || initials.trim().isEmpty
+          ? null
+          : normalizeAvatarInitials(initials),
     );
     return profile;
   }
+
+  @override
+  Future<UserProfile> usePhotoAvatar() async {
+    usePhotoCalls++;
+    profile = UserProfile(
+      id: profile.id,
+      displayName: profile.displayName,
+      baseCurrency: profile.baseCurrency,
+      displayNameSetAt: profile.displayNameSetAt,
+      avatarUrl: profile.avatarUrl,
+      avatarDisplayMode: AvatarDisplayMode.photo,
+      avatarInitials: profile.avatarInitials,
+    );
+    return profile;
+  }
+}
+
+Finder _avatarInitialsField() {
+  return find.byKey(const Key('profileAvatarInitialsField'));
 }
 
 final _labels = ProfileScreenLabels(
@@ -219,6 +276,9 @@ final _labels = ProfileScreenLabels(
   avatarUseOAuth: 'Use this',
   avatarUpload: 'Upload',
   avatarUseInitials: 'Use initials',
+  avatarUsePhoto: 'Use photo',
+  avatarInitialsLabel: 'Initials or alias',
+  avatarInitialsHint: 'Up to 4 characters',
   billingSection: 'Billing',
   plusTitle: 'Vamo Plus',
   plusSubtitle: 'Coming soon.',

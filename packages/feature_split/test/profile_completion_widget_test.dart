@@ -15,14 +15,14 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(packageInfoChannel, (_) async {
-          return {
-            'appName': 'Vamo',
-            'packageName': 'app.vamo',
-            'version': '0.2.0',
-            'buildNumber': '1',
-            'buildSignature': '',
-          };
-        });
+      return {
+        'appName': 'Vamo',
+        'packageName': 'app.vamo',
+        'version': '0.2.0',
+        'buildNumber': '1',
+        'buildSignature': '',
+      };
+    });
   });
 
   tearDown(() {
@@ -71,8 +71,13 @@ void main() {
     expect(find.text('Finish your profile'), findsOneWidget);
     expect(find.text(kPlaceholderDisplayName), findsNothing);
 
+    await tester.scrollUntilVisible(
+      _displayNameField(),
+      48,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Display name'),
+      _displayNameField(),
       kPlaceholderDisplayName,
     );
     await tester.pump();
@@ -89,8 +94,13 @@ void main() {
       findsOneWidget,
     );
 
+    await tester.scrollUntilVisible(
+      _displayNameField(),
+      48,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Display name'),
+      _displayNameField(),
       'Maya Chen',
     );
     await tester.pump();
@@ -108,15 +118,19 @@ void main() {
   });
 }
 
+Finder _displayNameField() {
+  return find.byKey(const Key('profileDisplayNameField'));
+}
+
 class _FakeProfileRepository extends ProfileRepository {
   _FakeProfileRepository(this.profile)
-    : super(
-        SupabaseClient(
-          'http://localhost',
-          'test-anon-key',
-          authOptions: const AuthClientOptions(autoRefreshToken: false),
-        ),
-      );
+      : super(
+          SupabaseClient(
+            'http://localhost',
+            'test-anon-key',
+            authOptions: const AuthClientOptions(autoRefreshToken: false),
+          ),
+        );
 
   UserProfile profile;
 
@@ -175,6 +189,9 @@ final _labels = ProfileScreenLabels(
   avatarUseOAuth: 'Use this',
   avatarUpload: 'Upload',
   avatarUseInitials: 'Use initials',
+  avatarUsePhoto: 'Use photo',
+  avatarInitialsLabel: 'Initials or alias',
+  avatarInitialsHint: 'Up to 4 characters',
   billingSection: 'Billing',
   plusTitle: 'Vamo Plus',
   plusSubtitle: 'Coming soon.',

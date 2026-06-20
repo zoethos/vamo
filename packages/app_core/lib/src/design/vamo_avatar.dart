@@ -12,6 +12,7 @@ class VamoAvatar extends StatelessWidget {
   const VamoAvatar({
     super.key,
     this.displayName,
+    this.initials,
     this.photoUrl,
     this.radius = 22,
     this.showNameLabel = false,
@@ -20,6 +21,7 @@ class VamoAvatar extends StatelessWidget {
   });
 
   final String? displayName;
+  final String? initials;
   final String? photoUrl;
   final double radius;
   final bool showNameLabel;
@@ -55,6 +57,7 @@ class VamoAvatar extends StatelessWidget {
         radius: radius,
         fallback: _buildInitialsOrSilhouette(
           displayName: displayName,
+          initials: initials,
           radius: radius,
           colors: colors,
           type: type,
@@ -64,6 +67,7 @@ class VamoAvatar extends StatelessWidget {
     } else {
       avatar = _buildInitialsOrSilhouette(
         displayName: displayName,
+        initials: initials,
         radius: radius,
         colors: colors,
         type: type,
@@ -99,18 +103,22 @@ class VamoAvatar extends StatelessWidget {
 
   static Widget _buildInitialsOrSilhouette({
     required String? displayName,
+    required String? initials,
     required double radius,
     required VamoSemanticColors colors,
     required VamoTypeScale type,
     required bool useBrandMark,
   }) {
-    final initials = avatarInitialsFromDisplayName(displayName);
-    if (initials != null) {
+    final avatarInitials = preferredAvatarInitials(
+      preferredInitials: initials,
+      displayName: displayName,
+    );
+    if (avatarInitials != null) {
       return CircleAvatar(
         radius: radius,
         backgroundColor: AppColors.jadeTeal,
         child: Text(
-          initials,
+          avatarInitials,
           style: type.labelMedium.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,

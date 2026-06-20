@@ -26,7 +26,8 @@ class ProfileRepository {
     final row = await _client
         .from('profiles')
         .select(
-          'id, display_name, display_name_set_at, base_currency, avatar_url',
+          'id, display_name, display_name_set_at, base_currency, avatar_url, '
+          'avatar_display_mode, avatar_initials',
         )
         .eq('id', uid)
         .single();
@@ -42,17 +43,39 @@ class ProfileRepository {
 
   Future<UserProfile> updateAvatar(String? storagePath) async {
     final uid = _client.auth.currentUser!.id;
-    await _client
-        .from('profiles')
-        .update({'avatar_url': storagePath})
-        .eq('id', uid);
+    await _client.from('profiles').update({
+      'avatar_url': storagePath,
+      'avatar_display_mode': AvatarDisplayMode.photo.name,
+    }).eq('id', uid);
     return fetchCurrent();
   }
 
   Future<UserProfile> clearAvatar() async {
     final uid = _client.auth.currentUser!.id;
     await AvatarStorage.deleteCanonicalAvatar(client: _client, userId: uid);
-    return updateAvatar(null);
+    await _client.from('profiles').update({
+      'avatar_url': null,
+      'avatar_display_mode': AvatarDisplayMode.initials.name,
+    }).eq('id', uid);
+    return fetchCurrent();
+  }
+
+  Future<UserProfile> useInitialsAvatar(String? initials) async {
+    final uid = _client.auth.currentUser!.id;
+    final normalized =
+        initials == null ? '' : normalizeAvatarInitials(initials);
+    await _client.from('profiles').update({
+      'avatar_display_mode': AvatarDisplayMode.initials.name,
+      'avatar_initials': normalized.isEmpty ? null : normalized,
+    }).eq('id', uid);
+    return fetchCurrent();
+  }
+
+  Future<UserProfile> usePhotoAvatar() async {
+    final uid = _client.auth.currentUser!.id;
+    await _client.from('profiles').update(
+        {'avatar_display_mode': AvatarDisplayMode.photo.name}).eq('id', uid);
+    return fetchCurrent();
   }
 
   Future<UserProfile> uploadAvatarFromFile(String localPath) async {
@@ -94,14 +117,11 @@ class ProfileRepository {
       throw ArgumentError('Unsupported currency: $baseCurrency');
     }
 
-    await _client
-        .from('profiles')
-        .update({
-          'display_name': trimmed,
-          'display_name_set_at': DateTime.now().toUtc().toIso8601String(),
-          'base_currency': baseCurrency,
-        })
-        .eq('id', uid);
+    await _client.from('profiles').update({
+      'display_name': trimmed,
+      'display_name_set_at': DateTime.now().toUtc().toIso8601String(),
+      'base_currency': baseCurrency,
+    }).eq('id', uid);
 
     return fetchCurrent();
   }

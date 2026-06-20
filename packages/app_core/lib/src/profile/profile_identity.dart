@@ -53,5 +53,25 @@ String? avatarInitialsFromDisplayName(String? displayName) {
     }
     return word[0].toUpperCase();
   }
-  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
+String normalizeAvatarInitials(String value) {
+  return value.trim().replaceAll(RegExp(r'\s+'), '').toUpperCase();
+}
+
+bool isUsableAvatarInitials(String value) {
+  final normalized = normalizeAvatarInitials(value);
+  return normalized.isNotEmpty && normalized.length <= 4;
+}
+
+String? preferredAvatarInitials({
+  required String? preferredInitials,
+  required String? displayName,
+}) {
+  final normalized = preferredInitials == null
+      ? ''
+      : normalizeAvatarInitials(preferredInitials);
+  if (normalized.isNotEmpty && normalized.length <= 4) return normalized;
+  return avatarInitialsFromDisplayName(displayName);
 }

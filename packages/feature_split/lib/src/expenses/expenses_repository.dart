@@ -165,6 +165,10 @@ class ExpensesRepository {
                   displayName: m.displayName ?? 'Vamigo',
                   role: m.role,
                   avatarUrl: m.avatarUrl,
+                  avatarDisplayMode: AvatarDisplayMode.parse(
+                    m.avatarDisplayMode,
+                  ),
+                  avatarInitials: m.avatarInitials,
                 ),
               )
               .toList(),
@@ -827,8 +831,7 @@ class ExpensesRepository {
   }) {
     final hasManualBase = manualBaseCents != null;
     final source = fxRateSource ?? (hasManualBase ? 'manual' : 'auto');
-    final locked =
-        lockConversion || hasManualBase || source == 'receipt';
+    final locked = lockConversion || hasManualBase || source == 'receipt';
     final manual = source == 'receipt' ? fxRate : null;
     return (source: source, manual: manual, locked: locked);
   }
