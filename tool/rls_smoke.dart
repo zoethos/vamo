@@ -327,6 +327,39 @@ Future<void> main() async {
       detail: memberWeatherDetail?.toString(),
     ));
 
+    await clientA.from('trips').update({
+      'name': 'Munich',
+      'destination': null,
+      'start_date': weatherStartIso,
+    }).eq('id', tripId);
+
+    var nameOnlyWeatherAvailable = false;
+    Object? nameOnlyWeatherDetail;
+    try {
+      final response = await clientA.functions.invoke(
+        'weather-forecast',
+        body: {'trip_id': tripId},
+      );
+      if (response.status == 200 && response.data is Map) {
+        final map = Map<String, dynamic>.from(response.data as Map);
+        nameOnlyWeatherAvailable = map['available'] == true &&
+            map['bucket'] is String &&
+            map['temp_high'] != null;
+        if (!nameOnlyWeatherAvailable) {
+          nameOnlyWeatherDetail = map;
+        }
+      } else {
+        nameOnlyWeatherDetail = 'status=${response.status}';
+      }
+    } catch (error) {
+      nameOnlyWeatherDetail = error;
+    }
+    results.add(_Check(
+      'H-P0 name-only trip weather-forecast available',
+      nameOnlyWeatherAvailable,
+      detail: nameOnlyWeatherDetail?.toString(),
+    ));
+
     var outsiderWeatherBlocked = false;
     Object? outsiderWeatherDetail;
     try {
@@ -336,8 +369,8 @@ Future<void> main() async {
       );
       if (response.data is Map) {
         final map = Map<String, dynamic>.from(response.data as Map);
-        outsiderWeatherBlocked = response.status == 404 &&
-            map['error'] == 'trip_not_found';
+        outsiderWeatherBlocked =
+            response.status == 404 && map['error'] == 'trip_not_found';
         if (!outsiderWeatherBlocked) {
           outsiderWeatherDetail = 'status=${response.status} body=$map';
         }

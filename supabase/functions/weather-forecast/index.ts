@@ -1,8 +1,9 @@
 // H-P0 — weather-forecast gateway.
 // Input: trip_id (query ?trip_id= or JSON body). Resolves the trip via the
-// caller's JWT (RLS = member-only), reads destination + start_date server-side,
-// then geocodes + forecasts via Open-Meteo and returns a provider-agnostic
-// condition bucket for the trip's start date. Caches by (destination, date).
+// caller's JWT (RLS = member-only), reads destination/name + start_date
+// server-side, then geocodes + forecasts via Open-Meteo and returns a
+// provider-agnostic condition bucket for the trip's start date. Caches by
+// (location label, date).
 //
 // Prototype provider: Open-Meteo (free, no key, non-commercial). Swap to a
 // licensed provider before public scale — gateway + buckets make it server-only.
@@ -50,19 +51,21 @@ Deno.serve(async (req) => {
 
   const { data: trip, error } = await userClient
     .from('trips')
-    .select('id, destination, start_date')
+    .select('id, name, destination, start_date')
     .eq('id', tripId)
     .maybeSingle();
   if (error || !trip) return json({ error: 'trip_not_found' }, 404);
 
   const destination = String(trip.destination ?? '').trim();
+  const name = String(trip.name ?? '').trim();
+  const locationLabel = destination.length > 0 ? destination : name;
   const startDate = trip.start_date as string | null;
-  if (!destination || !startDate) {
-    return json({ available: false, reason: 'no_destination_or_date' });
+  if (!locationLabel || !startDate) {
+    return json({ available: false, reason: 'no_location_or_date' });
   }
 
   const serviceClient = createClient(supabaseUrl, serviceKey);
-  const destinationKey = destination.toLowerCase();
+  const destinationKey = locationLabel.toLowerCase();
 
   // 1) cache
   const { data: cached } = await serviceClient
@@ -76,7 +79,7 @@ Deno.serve(async (req) => {
   }
 
   // 2) geocode (Open-Meteo)
-  const place = await firstGeocodeResult(destination);
+  const place = await firstGeocodeResult(locationLabel);
   if (!place) return json({ available: false, reason: 'geocode_failed' });
 
   // 3) forecast for the start date
