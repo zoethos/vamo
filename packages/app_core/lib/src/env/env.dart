@@ -13,9 +13,9 @@ class Env {
 
   static String get posthogApiKey => _optional('POSTHOG_API_KEY') ?? '';
 
-  /// PostHog ingest host (default US cloud).
+  /// PostHog ingest host (default EU cloud).
   static String get posthogHost =>
-      _optional('POSTHOG_HOST') ?? 'https://us.i.posthog.com';
+      _optional('POSTHOG_HOST') ?? 'https://eu.i.posthog.com';
   static String get fxRatesFunctionUrl =>
       _optional('FX_RATES_FUNCTION_URL') ?? '';
 

@@ -1,6 +1,10 @@
 "use client";
 
 import { appInviteUrl } from "../../../lib/invite-urls";
+import {
+  analyticsChannel,
+  captureWebEvent,
+} from "../../../lib/analytics";
 
 type Props = {
   token: string;
@@ -16,6 +20,9 @@ export function InviteCtas({ token, channel }: Props) {
         type="button"
         className="invite-cta invite-cta-primary"
         onClick={() => {
+          captureWebEvent("share_open_app_tapped", {
+            channel: analyticsChannel(channel),
+          });
           window.location.href = appUrl;
         }}
       >
