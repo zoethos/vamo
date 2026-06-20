@@ -11,7 +11,7 @@ command:
 scripts:
   analyze:
     description: Analyze all packages
-    run: melos exec -- "flutter analyze ."
+    run: melos exec --concurrency=1 -- "flutter analyze ."
 
   test:
     description: Run all tests

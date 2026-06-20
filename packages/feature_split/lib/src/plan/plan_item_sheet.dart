@@ -343,12 +343,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitStatusIsError = false;
     });
 
-    GeocodeCoords? coords;
-    try {
-      coords = await geocodeAddress(address);
-    } catch (_) {
-      coords = null;
-    }
+    final coords = await geocodeAddress(address);
     if (!mounted) return;
 
     setState(() {
