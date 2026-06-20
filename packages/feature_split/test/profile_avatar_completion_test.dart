@@ -73,6 +73,24 @@ void main() {
     expect(repository.clearAvatarCalls, 1);
     expect(repository.profile.avatarUrl, isNull);
   });
+
+  testWidgets('steady-state profile exposes avatar options to an existing user',
+      (tester) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Chen',
+        baseCurrency: 'EUR',
+      ),
+      oauthPreviewUrl: 'https://provider.example/photo.jpg',
+    );
+
+    await _pumpSteadyStateProfile(tester, repository);
+
+    expect(find.text('Profile picture'), findsOneWidget);
+    expect(find.text('Upload'), findsOneWidget);
+    expect(find.text('Use initials'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpCompletionScreen(
@@ -86,6 +104,33 @@ Future<void> _pumpCompletionScreen(
         path: AppRoutes.profileCompletion,
         builder: (context, state) =>
             ProfileScreen(labels: _labels, completionRequired: true),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(repository),
+        userProfileProvider.overrideWith((ref) => repository.fetchCurrent()),
+      ],
+      child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpSteadyStateProfile(
+  WidgetTester tester,
+  _FakeProfileRepository repository,
+) async {
+  final router = GoRouter(
+    initialLocation: AppRoutes.profile,
+    routes: [
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) =>
+            ProfileScreen(labels: _labels, completionRequired: false),
       ),
     ],
   );
