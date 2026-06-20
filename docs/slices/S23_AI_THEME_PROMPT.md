@@ -92,12 +92,12 @@ cache rows, logs, or analytics.
   optional `THEME_AI_BASE_URL`, optional `THEME_AI_DEPLOYMENT` as **Supabase Edge
   Function secrets/config** — NOT in the client bundle, and distinct from any
   Codex/ChatGPT subscription (that's a coding tool, not this runtime key).
-- Theme AI is registered in **`docs/DEPENDENCIES.md`** — tier **T2**, cost
+- Theme AI is registered in **`docs/architecture/DEPENDENCIES.md`** — tier **T2**, cost
   negligible in expected usage (cache-gated), with telemetry feeding the future
   provider dashboard.
 - `PROVIDER_RESILIENCE.md`: 429/5xx/timeout → bounded wait → **fallback** (never
   hang the create-trip flow on theming); log `provider_throttled`.
-- `PROVIDER_CONTROL_PLANE.md`: S23 is the first producer for provider registry /
+- `docs/architecture/PROVIDER_CONTROL_PLANE.md`: S23 is the first producer for provider registry /
   cost ledger data; do not build the dashboard in this slice.
 - Edge fn deno hygiene (`SECURITY_PATCHING.md` §2.1): `deno.json`, frozen
   `deno.lock`, `deno check`, no raw imports. A raw `fetch` to the compatible API

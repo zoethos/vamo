@@ -87,7 +87,7 @@ The venue-photo and static-map lookups are **external providers** and MUST follo
   telemetry, soft in UI** (fall through to the next chain step, never a 500-style
   surface).
 - Register the chosen static-map + venue-photo providers in
-  `docs/DEPENDENCIES.md` with lock-in rating, keys, and cost ceiling **before**
+  `docs/architecture/DEPENDENCIES.md` with lock-in rating, keys, and cost ceiling **before**
   first use (deliberate dependency — not a casual add).
 
 ## 5. Data needs (forward-compatible, cheap now)

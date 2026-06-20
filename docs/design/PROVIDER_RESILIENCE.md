@@ -1,7 +1,7 @@
 # Provider resilience — throttling, quotas & observability
 
 Status: design standard · 2026-06-05 · applies to **every** external provider
-(see `docs/DEPENDENCIES.md`).
+(see `docs/architecture/DEPENDENCIES.md`).
 
 ## Why (the scar-tissue lesson)
 
@@ -43,7 +43,7 @@ Behind the provider abstraction seam (so it's uniform, not per-call):
 2. **Persisted incident log** (a table, service-role write) so trends survive
    beyond ephemeral analytics — the dashboard and the quarterly review read it.
 3. **Quota-burn tracking vs documented ceilings.** Each provider's limits live
-   in `DEPENDENCIES.md` (cost-watch). Telemetry tracks *actual* call volume
+   in `docs/architecture/DEPENDENCIES.md` (cost-watch). Telemetry tracks *actual* call volume
    against them → early warning ("80% of monthly quota", "sustained 429s").
 4. **Dashboard panel** (the internal ops console, W3): per-provider health,
    quota burn %, recent throttle events, last incident. This is the concrete
@@ -75,6 +75,6 @@ Behind the provider abstraction seam (so it's uniform, not per-call):
 ## Standard for new integrations
 
 Any new external provider must, at integration time: declare its limits in
-`DEPENDENCIES.md`, route through the abstraction seam (inherits Layer-1), and
+`docs/architecture/DEPENDENCIES.md`, route through the abstraction seam (inherits Layer-1), and
 emit the throttle telemetry (Layer-2). No raw, unguarded, unobserved external
 calls.

@@ -49,7 +49,7 @@ const defaultRules = [
   ),
   // NOTE: the `app_core domain sub-barrel` rule is intentionally deferred until
   // the layered barrels (domain.dart / infra.dart) land. Re-add it then; see
-  // docs/ARCHITECTURE_BOUNDARIES.md §5.
+  // docs/architecture/ARCHITECTURE_BOUNDARIES.md §5.
 ];
 
 Future<void> main(List<String> args) async {

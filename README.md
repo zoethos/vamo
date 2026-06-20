@@ -170,8 +170,8 @@ events print to the debug console.
 | `docs/I18N_PLAN.md` | RTL (ar/he) + script readiness (zh/hi/ja/ru) |
 | `docs/AUTH_EMAIL_TEMPLATE.md` | OTP-first email templates + SMTP notes |
 | `docs/RLS_QA.md` / `docs/SHIP_INTERNAL.md` | pre-ship checklists |
-| `Vamo_Roadmap.docx` | five waves, gates, extras ledger |
-| `Vamo_Business_Plan.docx` / `Vamo_Financial_Model.xlsx` | the business case (3 scenarios + operator track) |
+| `docs/business/Vamo_Roadmap.docx` | five waves, gates, extras ledger |
+| `docs/business/Vamo_Business_Plan.docx` / `docs/business/Vamo_Financial_Model.xlsx` | the business case (3 scenarios + operator track) |
 
 ---
 

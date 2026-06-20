@@ -70,7 +70,7 @@ the handlers (`_setBackground`, `_addPhoto`, …) stay in the app.
 ## Reuse / promotion criteria
 - Now: one consumer (capture) → keep in `app_core`. Done.
 - Promote to `packages/vamo_carousel` only when (a) a 2nd distinct surface uses it, **or**
-  (b) it needs independent release. Record that trigger in `docs/ARCHITECTURE_BOUNDARIES.md`.
+  (b) it needs independent release. Record that trigger in `docs/architecture/ARCHITECTURE_BOUNDARIES.md`.
 
 ## Verification
 - `melos run ci` (incl. the import-guard) green.
