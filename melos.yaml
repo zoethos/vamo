@@ -15,7 +15,7 @@ scripts:
 
   test:
     description: Run all tests
-    run: melos exec --dir-exists=test -- "flutter test"
+    run: melos exec --dir-exists=test --concurrency=1 -- "flutter test"
 
   build_runner:
     description: Run codegen across packages that need it
