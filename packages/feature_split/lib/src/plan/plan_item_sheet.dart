@@ -646,15 +646,17 @@ class _VisitDetailsSection extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            OutlinedButton.icon(
-              onPressed: readOnly || geocoding ? null : onGeocode,
-              icon: geocoding
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.my_location_outlined),
-              label: Text(labels.visitFindCoordinates),
+            Flexible(
+              child: OutlinedButton.icon(
+                onPressed: readOnly || geocoding ? null : onGeocode,
+                icon: geocoding
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.my_location_outlined),
+                label: Text(labels.visitFindCoordinates),
+              ),
             ),
             const SizedBox(width: 8),
             if (hasCoords && status == null)
