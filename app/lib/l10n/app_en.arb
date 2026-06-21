@@ -403,6 +403,8 @@
   "planVisitDiscoverEmpty": "No matching places found.",
   "planVisitDiscoverGated": "You have used your free place lookups this month. Vamo Plus unlocks more.",
   "planVisitDiscoverLoadError": "Could not load suggestions. You can still save manually.",
+  "planCtaTapType": "tap a type",
+  "planCtaTapPlace": "tap a place",
   "planTransferSectionTitle": "Transfer details",
   "planTransferSubtypeLabel": "Subtype",
   "planTransferOriginLabel": "From",

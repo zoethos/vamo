@@ -60,6 +60,8 @@ class PlanTabLabels {
     required this.transferSubtypeDrive,
     required this.transferSubtypeFlight,
     required this.save,
+    this.ctaTapType = 'tap a type',
+    this.ctaTapPlace = 'tap a place',
     required this.tabTitle,
     required this.loadError,
     required this.checklistsLoadError,
@@ -133,6 +135,8 @@ class PlanTabLabels {
   final String transferSubtypeDrive;
   final String transferSubtypeFlight;
   final String save;
+  final String ctaTapType;
+  final String ctaTapPlace;
   final String tabTitle;
   final String loadError;
   final String checklistsLoadError;
@@ -152,20 +156,20 @@ class PlanTabLabels {
   final String cancelLabel;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
-        PlanItemKind.lodging => kindLodging,
-        PlanItemKind.flight => kindFlight,
-        PlanItemKind.train => kindTrain,
-        PlanItemKind.activity => kindActivity,
-        PlanItemKind.visit => kindVisit,
-        PlanItemKind.transfer => kindTransfer,
-        PlanItemKind.other => kindOther,
-      };
+    PlanItemKind.lodging => kindLodging,
+    PlanItemKind.flight => kindFlight,
+    PlanItemKind.train => kindTrain,
+    PlanItemKind.activity => kindActivity,
+    PlanItemKind.visit => kindVisit,
+    PlanItemKind.transfer => kindTransfer,
+    PlanItemKind.other => kindOther,
+  };
 
   String transferSubtype(TransferSubtype subtype) => switch (subtype) {
-        TransferSubtype.carRental => transferSubtypeCarRental,
-        TransferSubtype.train => transferSubtypeTrain,
-        TransferSubtype.transit => transferSubtypeTransit,
-        TransferSubtype.drive => transferSubtypeDrive,
-        TransferSubtype.flight => transferSubtypeFlight,
-      };
+    TransferSubtype.carRental => transferSubtypeCarRental,
+    TransferSubtype.train => transferSubtypeTrain,
+    TransferSubtype.transit => transferSubtypeTransit,
+    TransferSubtype.drive => transferSubtypeDrive,
+    TransferSubtype.flight => transferSubtypeFlight,
+  };
 }
