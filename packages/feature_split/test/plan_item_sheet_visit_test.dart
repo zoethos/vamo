@@ -42,6 +42,11 @@ void main() {
     await tester.tap(find.text(_labels.kindVisit).last);
     await tester.pumpAndSettle();
 
+    expect(find.text(_labels.visitFindCoordinates), findsNothing);
+    expect(find.text(_labels.visitPlaceHelper), findsOneWidget);
+    expect(find.text(_labels.visitAddressHelper), findsOneWidget);
+    expect(find.text(_labels.visitDiscoverHelper), findsOneWidget);
+
     await tester.enterText(
       find.widgetWithText(TextField, _labels.visitPlaceLabel),
       'Marienplatz',
@@ -68,6 +73,46 @@ void main() {
     expect(saved?.title, 'Morning visit');
     expect(saved?.metadata['place_label'], 'Marienplatz');
     expect(saved?.metadata['address'], 'Marienplatz, Munich');
+  });
+
+  testWidgets('discover nearby asks for human place input, not coordinates',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          planItemCapabilitiesProvider.overrideWith(
+            (ref) async => PlanItemCapabilities.fallbackByKind(),
+          ),
+          tripResolvedPlacesProvider.overrideWith(
+            (ref, tripId) => const Stream.empty(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: PlanItemSheet(
+              tripId: 'trip-1',
+              labels: _labels,
+              existing: null,
+              readOnly: false,
+              onSave: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(DropdownButton<PlanItemKind>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_labels.kindVisit).last);
+    await tester.pumpAndSettle();
+
+    await tester
+        .tap(find.widgetWithText(OutlinedButton, _labels.visitDiscoverNearby));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_labels.visitDiscoverNeedsPlace), findsOneWidget);
+    expect(find.text(_labels.visitDiscoverNeedsCoordinates), findsNothing);
   });
 }
 
@@ -105,6 +150,7 @@ final _labels = PlanTabLabels(
   visitAddressRequiredForGeocode: 'Add an address first.',
   visitCoordinatesSaved: 'Coordinates saved.',
   visitCoordinatesNotFound: 'Could not find coordinates.',
+  visitDiscoverNeedsCoordinates: 'Find coordinates first.',
   transferSectionTitle: 'Transfer details',
   transferSubtypeLabel: 'Subtype',
   transferOriginLabel: 'From',

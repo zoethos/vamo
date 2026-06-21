@@ -28,18 +28,25 @@ class PlanTabLabels {
     required this.visitSectionTitle,
     required this.visitFromTripPlaces,
     required this.visitPlaceLabel,
+    this.visitPlaceHelper = 'Name of the place, stop, restaurant, or sight.',
     required this.visitAddressLabel,
+    this.visitAddressHelper = 'Optional, but helps Vamo find suggestions.',
     required this.visitFindCoordinates,
     required this.visitPlaceRequired,
     required this.visitAddressRequiredForGeocode,
     required this.visitCoordinatesSaved,
     required this.visitCoordinatesNotFound,
     this.visitDiscoverNearby = 'Discover nearby',
-    this.visitDiscoverNeedsCoordinates = 'Find coordinates first.',
+    this.visitDiscoverHelper =
+        'Suggestions use the place or address above. You can always save manually.',
+    this.visitDiscoverNeedsPlace = 'Type a place or address first.',
+    this.visitDiscoverResolving = 'Looking up the area...',
+    this.visitDiscoverNeedsCoordinates = 'Type a place or address first.',
     this.visitDiscoverEmpty = 'No nearby suggestions found.',
     this.visitDiscoverGated =
         'You have used your free place lookups this month. Vamo Plus unlocks more.',
-    this.visitDiscoverLoadError = 'Could not load nearby places.',
+    this.visitDiscoverLoadError =
+        'Could not load suggestions. You can still save manually.',
     required this.transferSectionTitle,
     required this.transferSubtypeLabel,
     required this.transferOriginLabel,
@@ -97,13 +104,18 @@ class PlanTabLabels {
   final String visitSectionTitle;
   final String visitFromTripPlaces;
   final String visitPlaceLabel;
+  final String visitPlaceHelper;
   final String visitAddressLabel;
+  final String visitAddressHelper;
   final String visitFindCoordinates;
   final String visitPlaceRequired;
   final String visitAddressRequiredForGeocode;
   final String visitCoordinatesSaved;
   final String visitCoordinatesNotFound;
   final String visitDiscoverNearby;
+  final String visitDiscoverHelper;
+  final String visitDiscoverNeedsPlace;
+  final String visitDiscoverResolving;
   final String visitDiscoverNeedsCoordinates;
   final String visitDiscoverEmpty;
   final String visitDiscoverGated;

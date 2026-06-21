@@ -207,7 +207,6 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   poiGateVisible: _poiGateVisible,
                   onPlaceSelected: _applyTripPlace,
                   onPoiSelected: _applyPoi,
-                  onGeocode: _geocodeVisitAddress,
                   onDiscoverPois: _discoverPois,
                 ),
               ],
@@ -395,9 +394,11 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   }
 
   void _applyPoi(PoiSummary poi) {
+    final previousLabel = _visitPlaceLabel.text.trim();
+    final currentTitle = _title.text.trim();
     setState(() {
       _visitPlaceLabel.text = poi.name;
-      if (_title.text.trim().isEmpty) {
+      if (currentTitle.isEmpty || currentTitle == previousLabel) {
         _title.text = poi.name;
       }
       _visitAddress.text = poi.address ?? '';
@@ -410,15 +411,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   }
 
   Future<void> _discoverPois() async {
-    final lat = _visitLat;
-    final lng = _visitLng;
-    if (lat == null || lng == null) {
-      setState(() {
-        _visitStatus = widget.labels.visitDiscoverNeedsCoordinates;
-        _visitStatusIsError = true;
-      });
-      return;
-    }
+    if (_discoveringPois) return;
 
     setState(() {
       _discoveringPois = true;
@@ -426,6 +419,53 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitStatus = null;
       _visitStatusIsError = false;
     });
+
+    var lat = _visitLat;
+    var lng = _visitLng;
+    if (lat == null || lng == null) {
+      final query = _visitAddress.text.trim().isNotEmpty
+          ? _visitAddress.text.trim()
+          : _visitPlaceLabel.text.trim().isNotEmpty
+              ? _visitPlaceLabel.text.trim()
+              : _title.text.trim();
+
+      if (query.isEmpty) {
+        setState(() {
+          _discoveringPois = false;
+          _visitStatus = widget.labels.visitDiscoverNeedsPlace;
+          _visitStatusIsError = true;
+        });
+        return;
+      }
+
+      setState(() {
+        _geocoding = true;
+        _visitStatus = widget.labels.visitDiscoverResolving;
+        _visitStatusIsError = false;
+      });
+
+      final coords = await geocodeAddress(query);
+      if (!mounted) return;
+      if (coords == null) {
+        setState(() {
+          _discoveringPois = false;
+          _geocoding = false;
+          _visitStatus = widget.labels.visitCoordinatesNotFound;
+          _visitStatusIsError = true;
+        });
+        return;
+      }
+      lat = coords.lat;
+      lng = coords.lng;
+      setState(() {
+        _visitLat = lat;
+        _visitLng = lng;
+        _visitPlaceId = null;
+        _geocoding = false;
+        _visitStatus = null;
+        _visitStatusIsError = false;
+      });
+    }
 
     final result = await ref.read(poiRepositoryProvider).discoverNearby(
           tripId: widget.tripId,
@@ -439,7 +479,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       if (result == null) {
         _poiSuggestions = const <PoiSummary>[];
         _visitStatus = widget.labels.visitDiscoverLoadError;
-        _visitStatusIsError = true;
+        _visitStatusIsError = false;
         return;
       }
       if (result.gated) {
@@ -451,40 +491,6 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       }
       _poiSuggestions = result.pois;
       _visitStatus = result.isEmpty ? widget.labels.visitDiscoverEmpty : null;
-      _visitStatusIsError = false;
-    });
-  }
-
-  Future<void> _geocodeVisitAddress() async {
-    final address = _visitAddress.text.trim();
-    if (address.isEmpty) {
-      setState(() {
-        _visitStatus = widget.labels.visitAddressRequiredForGeocode;
-        _visitStatusIsError = true;
-      });
-      return;
-    }
-
-    setState(() {
-      _geocoding = true;
-      _visitStatus = null;
-      _visitStatusIsError = false;
-    });
-
-    final coords = await geocodeAddress(address);
-    if (!mounted) return;
-
-    setState(() {
-      _geocoding = false;
-      if (coords == null) {
-        _visitStatus = widget.labels.visitCoordinatesNotFound;
-        _visitStatusIsError = true;
-        return;
-      }
-      _visitLat = coords.lat;
-      _visitLng = coords.lng;
-      _visitPlaceId = null;
-      _visitStatus = widget.labels.visitCoordinatesSaved;
       _visitStatusIsError = false;
     });
   }
@@ -575,7 +581,6 @@ class _VisitDetailsSection extends StatelessWidget {
     required this.poiGateVisible,
     required this.onPlaceSelected,
     required this.onPoiSelected,
-    required this.onGeocode,
     required this.onDiscoverPois,
   });
 
@@ -593,7 +598,6 @@ class _VisitDetailsSection extends StatelessWidget {
   final bool poiGateVisible;
   final ValueChanged<PlaceSummary> onPlaceSelected;
   final ValueChanged<PoiSummary> onPoiSelected;
-  final VoidCallback onGeocode;
   final VoidCallback onDiscoverPois;
 
   @override
@@ -635,42 +639,25 @@ class _VisitDetailsSection extends StatelessWidget {
         TextField(
           controller: placeLabelController,
           readOnly: readOnly,
-          decoration: InputDecoration(labelText: labels.visitPlaceLabel),
+          decoration: InputDecoration(
+            labelText: labels.visitPlaceLabel,
+            helperText: labels.visitPlaceHelper,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: addressController,
           readOnly: readOnly,
-          decoration: InputDecoration(labelText: labels.visitAddressLabel),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Flexible(
-              child: OutlinedButton.icon(
-                onPressed: readOnly || geocoding ? null : onGeocode,
-                icon: geocoding
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location_outlined),
-                label: Text(labels.visitFindCoordinates),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (hasCoords && status == null)
-              Icon(
-                Icons.check_circle_outline,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-          ],
+          decoration: InputDecoration(
+            labelText: labels.visitAddressLabel,
+            helperText: labels.visitAddressHelper,
+          ),
         ),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: readOnly || discoveringPois ? null : onDiscoverPois,
-          icon: discoveringPois
+          onPressed:
+              readOnly || discoveringPois || geocoding ? null : onDiscoverPois,
+          icon: discoveringPois || geocoding
               ? const SizedBox.square(
                   dimension: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
@@ -678,6 +665,24 @@ class _VisitDetailsSection extends StatelessWidget {
               : const Icon(Icons.travel_explore_outlined),
           label: Text(labels.visitDiscoverNearby),
         ),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(top: 4),
+          child: Text(
+            labels.visitDiscoverHelper,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        if (hasCoords && status == null)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 4),
+            child: Icon(
+              Icons.check_circle_outline,
+              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
         if (poiGateVisible) ...[
           const SizedBox(height: 8),
           _PoiGateRow(message: labels.visitDiscoverGated),
