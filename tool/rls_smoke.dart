@@ -155,6 +155,7 @@ Future<void> main() async {
   String? bStoragePath;
   String? aAvatarPath;
   String? bAvatarPath;
+  String? poiCacheKey;
   SupabaseClient? clientA;
   SupabaseClient? clientB;
   SupabaseClient? serviceClient;
@@ -390,6 +391,131 @@ Future<void> main() async {
     results.add(_Check(
       'H-P0 weather_forecast_cache not readable by authenticated',
       await _selectDeniedOrEmpty(clientA, 'weather_forecast_cache'),
+    ));
+
+    // --- D-P1.a POI discovery gateway ---
+    const poiLat = 48.137154;
+    const poiLng = 11.576124;
+    final poiGeohash = _encodeGeohash(poiLat, poiLng, 6);
+    poiCacheKey = 'poi:foursquare:$poiGeohash:all';
+
+    if (serviceClient != null) {
+      await serviceClient.from('poi_cache').upsert({
+        'cache_key': poiCacheKey,
+        'provider': 'foursquare',
+        'geohash': poiGeohash,
+        'category': 'all',
+        'results': [
+          {
+            'id': 'fsq-rls-smoke',
+            'name': 'Marienplatz',
+            'category': 'attraction',
+            'lat': poiLat,
+            'lng': poiLng,
+            'address': 'Marienplatz, Munich',
+            'distanceM': 12,
+            'source': 'foursquare',
+            'providerPlaceId': 'fsq-rls-smoke',
+          }
+        ],
+        'fetched_at': DateTime.now().toUtc().toIso8601String(),
+        'expires_at': DateTime.now()
+            .toUtc()
+            .add(const Duration(hours: 1))
+            .toIso8601String(),
+      }, onConflict: 'cache_key');
+
+      var memberPoiAvailable = false;
+      Object? memberPoiDetail;
+      try {
+        final response = await clientA.functions.invoke(
+          'poi-discovery',
+          body: {
+            'trip_id': tripId,
+            'lat': poiLat,
+            'lng': poiLng,
+          },
+        );
+        if (response.status == 200 && response.data is Map) {
+          final map = Map<String, dynamic>.from(response.data as Map);
+          final pois = map['pois'];
+          memberPoiAvailable = map['available'] == true &&
+              map['cached'] == true &&
+              pois is List &&
+              pois.any((row) =>
+                  row is Map && row['providerPlaceId'] == 'fsq-rls-smoke');
+          if (!memberPoiAvailable) {
+            memberPoiDetail = map;
+          }
+        } else {
+          memberPoiDetail = 'status=${response.status}';
+        }
+      } catch (error) {
+        memberPoiDetail = error;
+      }
+      results.add(_Check(
+        'D-P1 member poi-discovery cache available',
+        memberPoiAvailable,
+        detail: memberPoiDetail?.toString(),
+      ));
+
+      var outsiderPoiBlocked = false;
+      Object? outsiderPoiDetail;
+      try {
+        final response = await clientC.functions.invoke(
+          'poi-discovery',
+          body: {
+            'trip_id': tripId,
+            'lat': poiLat,
+            'lng': poiLng,
+          },
+        );
+        if (response.data is Map) {
+          final map = Map<String, dynamic>.from(response.data as Map);
+          outsiderPoiBlocked =
+              response.status == 404 && map['error'] == 'trip_not_found';
+          if (!outsiderPoiBlocked) {
+            outsiderPoiDetail = 'status=${response.status} body=$map';
+          }
+        } else {
+          outsiderPoiDetail = 'status=${response.status}';
+        }
+      } catch (error) {
+        outsiderPoiBlocked = true;
+        outsiderPoiDetail = error;
+      }
+      results.add(_Check(
+        'D-P1 outsider poi-discovery trip_not_found',
+        outsiderPoiBlocked,
+        detail: outsiderPoiDetail?.toString(),
+      ));
+    } else {
+      results.add(_Check(
+        'D-P1 poi-discovery cache smoke skipped',
+        false,
+        detail: 'set RLS_SERVICE_ROLE_KEY for POI cache smoke',
+      ));
+    }
+
+    results.add(_Check(
+      'D-P1 provider_config not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'provider_config'),
+    ));
+    results.add(_Check(
+      'D-P1 service_usage_global not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'service_usage_global'),
+    ));
+    results.add(_Check(
+      'D-P1 service_usage_user not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'service_usage_user'),
+    ));
+    results.add(_Check(
+      'D-P1 service_usage_reservations not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'service_usage_reservations'),
+    ));
+    results.add(_Check(
+      'D-P1 poi_cache not readable by authenticated',
+      await _selectDeniedOrEmpty(clientA, 'poi_cache'),
     ));
 
     // --- S47 profile avatars (display_name privacy tier) ---
@@ -2598,6 +2724,17 @@ Future<void> main() async {
       removeClient: clientB,
       verifyClient: clientB ?? clientA,
     );
+    if (serviceClient != null && poiCacheKey != null) {
+      try {
+        await serviceClient.from('poi_cache').delete().eq(
+              'cache_key',
+              poiCacheKey,
+            );
+        results.add(_Check('cleanup poi cache', true));
+      } catch (e) {
+        results.add(_Check('cleanup poi cache', false, detail: '$e'));
+      }
+    }
     if (clientA != null && tripId != null) {
       try {
         await clientA.from('trips').delete().eq('id', tripId);
@@ -2743,6 +2880,49 @@ Future<bool> _selectDeniedOrEmpty(SupabaseClient client, String table) async {
   } catch (_) {
     return true;
   }
+}
+
+String _encodeGeohash(double lat, double lng, int precision) {
+  const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+  var idx = 0;
+  var bit = 0;
+  var evenBit = true;
+  var geohash = '';
+  var latMin = -90.0;
+  var latMax = 90.0;
+  var lngMin = -180.0;
+  var lngMax = 180.0;
+
+  while (geohash.length < precision) {
+    if (evenBit) {
+      final mid = (lngMin + lngMax) / 2;
+      if (lng >= mid) {
+        idx = idx * 2 + 1;
+        lngMin = mid;
+      } else {
+        idx *= 2;
+        lngMax = mid;
+      }
+    } else {
+      final mid = (latMin + latMax) / 2;
+      if (lat >= mid) {
+        idx = idx * 2 + 1;
+        latMin = mid;
+      } else {
+        idx *= 2;
+        latMax = mid;
+      }
+    }
+    evenBit = !evenBit;
+
+    bit++;
+    if (bit == 5) {
+      geohash += base32[idx];
+      bit = 0;
+      idx = 0;
+    }
+  }
+  return geohash;
 }
 
 class _Check {

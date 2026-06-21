@@ -10,6 +10,7 @@ class NotificationLabels {
     required this.typeDeemedClosed,
     required this.typeSettleNudge,
     required this.typeWrappedTrip,
+    required this.typePremiumGate,
     required this.typeGeneric,
   });
 
@@ -23,5 +24,6 @@ class NotificationLabels {
   final String typeDeemedClosed;
   final String typeSettleNudge;
   final String typeWrappedTrip;
+  final String typePremiumGate;
   final String typeGeneric;
 }
