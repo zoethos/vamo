@@ -631,6 +631,51 @@ class TripsRepository {
       tripId: tripId,
       sourcePath: sourcePath,
     );
+    await _setTripBackgroundLocal(
+      tripId: tripId,
+      userId: userId,
+      localPath: localPath,
+    );
+  }
+
+  /// Sets the trip hero background from picker bytes.
+  ///
+  /// Android's photo picker can return content-backed paths that are not safe
+  /// to copy with [File]. Keep picker handling at the UI adapter and persist
+  /// bytes here.
+  Future<void> setTripBackgroundBytes({
+    required String tripId,
+    required String sourceName,
+    required Uint8List bytes,
+  }) async {
+    debugBreadcrumb(
+      'start',
+      screen: 'trip_home',
+      action: 'set_trip_background',
+      details: {'tripId': tripId},
+    );
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw StateError('Must be signed in to set a trip background');
+    }
+
+    final localPath = await TripBackgroundStorage.persistBytes(
+      tripId: tripId,
+      sourceName: sourceName,
+      bytes: bytes,
+    );
+    await _setTripBackgroundLocal(
+      tripId: tripId,
+      userId: userId,
+      localPath: localPath,
+    );
+  }
+
+  Future<void> _setTripBackgroundLocal({
+    required String tripId,
+    required String userId,
+    required String localPath,
+  }) async {
     await TripBackgroundStorage.evictHeroImageCache(localPath);
 
     await _db.updateTripFields(
