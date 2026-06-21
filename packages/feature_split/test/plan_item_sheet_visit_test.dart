@@ -75,7 +75,7 @@ void main() {
     expect(saved?.metadata['address'], 'Marienplatz, Munich');
   });
 
-  testWidgets('discover nearby asks for human place input, not coordinates',
+  testWidgets('search places asks for human place input, not coordinates',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -149,7 +149,7 @@ final _labels = PlanTabLabels(
   visitPlaceRequired: 'Add a place for the visit.',
   visitAddressRequiredForGeocode: 'Add an address first.',
   visitCoordinatesSaved: 'Coordinates saved.',
-  visitCoordinatesNotFound: 'Could not find coordinates.',
+  visitCoordinatesNotFound: 'Could not find that place.',
   visitDiscoverNeedsCoordinates: 'Find coordinates first.',
   transferSectionTitle: 'Transfer details',
   transferSubtypeLabel: 'Subtype',

@@ -1,5 +1,5 @@
 // D-P1.a — POI discovery gateway.
-// Input: { trip_id, lat, lng, category?, radius? }
+// Input: { trip_id, lat, lng, query?, category?, radius? }
 // Auth: caller JWT required; trip row is selected through RLS so only members
 // can resolve POIs for a trip. Provider keys stay server-side.
 
@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
   const serviceClient = createClient(supabaseUrl, serviceKey);
   const geohash = encodeGeohash(input.lat, input.lng, 6);
   const category = normalizeCategory(input.category);
-  const cacheKey = `${SERVICE}:foursquare:${geohash}:${category}`;
+  const queryKey = normalizeQuery(input.query) ?? "any";
+  const cacheKey = `${SERVICE}:foursquare:${geohash}:${category}:${queryKey}`;
 
   const cached = await readCachedPois(serviceClient, cacheKey);
   if (cached) {
@@ -137,6 +138,7 @@ interface PoiInput {
   tripId: string;
   lat: number;
   lng: number;
+  query: string | null;
   category: string | null;
   radius: number;
 }
@@ -154,6 +156,7 @@ async function readInput(req: Request): Promise<PoiInput | null> {
       tripId,
       lat,
       lng,
+      query: stringValue(body?.query) ?? null,
       category: stringValue(body?.category) ?? null,
       radius,
     };
@@ -212,7 +215,8 @@ async function fetchFoursquare(
     "fsq_place_id,name,categories,fsq_category_labels,latitude,longitude,location,distance",
   );
   const query = queryForCategory(input.category);
-  if (query) url.searchParams.set("query", query);
+  const searchQuery = input.query?.trim() || query;
+  if (searchQuery) url.searchParams.set("query", searchQuery);
 
   const response = await fetch(url, {
     headers: {
@@ -240,6 +244,11 @@ function normalizeCategory(raw: string | null): string {
     ].includes(value)
     ? value
     : "all";
+}
+
+function normalizeQuery(raw: string | null): string | null {
+  const value = raw?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  return value.length > 0 ? value.slice(0, 80) : null;
 }
 
 function clampRadius(raw: number | undefined): number {

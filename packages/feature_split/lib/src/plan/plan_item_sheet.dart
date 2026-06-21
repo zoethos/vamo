@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +38,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   late TextEditingController _notes;
   late TextEditingController _visitPlaceLabel;
   late TextEditingController _visitAddress;
+  late FocusNode _visitPlaceFocus;
+  late FocusNode _visitAddressFocus;
   late TextEditingController _transferOrigin;
   late TextEditingController _transferDestination;
   late TextEditingController _transferProvider;
@@ -53,6 +57,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   bool _discoveringPois = false;
   List<PoiSummary> _poiSuggestions = const <PoiSummary>[];
   bool _poiGateVisible = false;
+  Timer? _visitSearchDebounce;
+  int _visitSearchToken = 0;
+  bool _suppressVisitSearch = false;
 
   @override
   void initState() {
@@ -68,6 +75,12 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
               : ''),
     );
     _visitAddress = TextEditingController(text: visit?.address ?? '');
+    _visitPlaceFocus = FocusNode();
+    _visitAddressFocus = FocusNode();
+    _visitPlaceLabel.addListener(_scheduleVisitSearch);
+    _visitAddress.addListener(_scheduleVisitSearch);
+    _visitPlaceFocus.addListener(_handleVisitFocusChanged);
+    _visitAddressFocus.addListener(_handleVisitFocusChanged);
     _visitLat = visit?.lat;
     _visitLng = visit?.lng;
     _visitPlaceId = visit?.placeId;
@@ -89,8 +102,11 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   void dispose() {
     _title.dispose();
     _notes.dispose();
+    _visitSearchDebounce?.cancel();
     _visitPlaceLabel.dispose();
     _visitAddress.dispose();
+    _visitPlaceFocus.dispose();
+    _visitAddressFocus.dispose();
     _transferOrigin.dispose();
     _transferDestination.dispose();
     _transferProvider.dispose();
@@ -198,6 +214,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   readOnly: widget.readOnly,
                   placeLabelController: _visitPlaceLabel,
                   addressController: _visitAddress,
+                  placeFocusNode: _visitPlaceFocus,
+                  addressFocusNode: _visitAddressFocus,
                   geocoding: _geocoding,
                   status: _visitStatus,
                   statusIsError: _visitStatusIsError,
@@ -207,7 +225,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   poiGateVisible: _poiGateVisible,
                   onPlaceSelected: _applyTripPlace,
                   onPoiSelected: _applyPoi,
-                  onDiscoverPois: _discoverPois,
+                  onDiscoverPois: () => _searchPoisForVisit(showErrors: true),
                 ),
               ],
               if (_isTransfer) ...[
@@ -377,7 +395,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   }
 
   void _applyTripPlace(PlaceSummary place) {
+    _visitSearchDebounce?.cancel();
     setState(() {
+      _suppressVisitSearch = true;
       _visitPlaceLabel.text = place.label;
       if (_title.text.trim().isEmpty) {
         _title.text = place.label;
@@ -390,13 +410,17 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
           ? widget.labels.visitCoordinatesSaved
           : null;
       _visitStatusIsError = false;
+      _poiSuggestions = const <PoiSummary>[];
+      _suppressVisitSearch = false;
     });
   }
 
   void _applyPoi(PoiSummary poi) {
+    _visitSearchDebounce?.cancel();
     final previousLabel = _visitPlaceLabel.text.trim();
     final currentTitle = _title.text.trim();
     setState(() {
+      _suppressVisitSearch = true;
       _visitPlaceLabel.text = poi.name;
       if (currentTitle.isEmpty || currentTitle == previousLabel) {
         _title.text = poi.name;
@@ -407,78 +431,114 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitPlaceId = poi.providerPlaceId;
       _visitStatus = widget.labels.visitCoordinatesSaved;
       _visitStatusIsError = false;
+      _poiSuggestions = const <PoiSummary>[];
+      _suppressVisitSearch = false;
     });
   }
 
-  Future<void> _discoverPois() async {
-    if (_discoveringPois) return;
+  void _handleVisitFocusChanged() {
+    if (mounted) setState(() {});
+  }
 
+  void _scheduleVisitSearch() {
+    if (_suppressVisitSearch || widget.readOnly || !_isVisit) return;
+    _visitSearchDebounce?.cancel();
+    _visitSearchToken++;
+    final query = _visitSearchQuery();
     setState(() {
-      _discoveringPois = true;
+      _visitPlaceId = null;
+      _visitLat = null;
+      _visitLng = null;
       _poiGateVisible = false;
       _visitStatus = null;
       _visitStatusIsError = false;
+      if (query.length < 3) {
+        _poiSuggestions = const <PoiSummary>[];
+        _discoveringPois = false;
+        _geocoding = false;
+      }
+    });
+    if (query.length < 3) return;
+    _visitSearchDebounce = Timer(
+      const Duration(milliseconds: 650),
+      () => _searchPoisForVisit(showErrors: false),
+    );
+  }
+
+  String _visitSearchQuery() {
+    final place = _visitPlaceLabel.text.trim();
+    if (place.isNotEmpty) return place;
+    final address = _visitAddress.text.trim();
+    if (address.isNotEmpty) return address;
+    return _title.text.trim();
+  }
+
+  String _visitGeocodeQuery(String searchQuery) {
+    final place = _visitPlaceLabel.text.trim();
+    final address = _visitAddress.text.trim();
+    if (place.isNotEmpty && address.isNotEmpty) {
+      return '$place, $address';
+    }
+    return searchQuery;
+  }
+
+  Future<void> _searchPoisForVisit({required bool showErrors}) async {
+    _visitSearchDebounce?.cancel();
+    final query = _visitSearchQuery();
+
+    if (query.isEmpty || query.length < 3) {
+      setState(() {
+        _poiSuggestions = const <PoiSummary>[];
+        _poiGateVisible = false;
+        _visitStatus =
+            showErrors ? widget.labels.visitDiscoverNeedsPlace : null;
+        _visitStatusIsError = showErrors;
+      });
+      return;
+    }
+
+    final token = ++_visitSearchToken;
+
+    setState(() {
+      _discoveringPois = true;
+      _geocoding = true;
+      _poiGateVisible = false;
+      _visitStatus = widget.labels.visitDiscoverResolving;
+      _visitStatusIsError = false;
     });
 
-    var lat = _visitLat;
-    var lng = _visitLng;
-    if (lat == null || lng == null) {
-      final query = _visitAddress.text.trim().isNotEmpty
-          ? _visitAddress.text.trim()
-          : _visitPlaceLabel.text.trim().isNotEmpty
-              ? _visitPlaceLabel.text.trim()
-              : _title.text.trim();
-
-      if (query.isEmpty) {
-        setState(() {
-          _discoveringPois = false;
-          _visitStatus = widget.labels.visitDiscoverNeedsPlace;
-          _visitStatusIsError = true;
-        });
-        return;
-      }
-
+    final coords = await geocodeAddress(_visitGeocodeQuery(query));
+    if (!mounted || token != _visitSearchToken) return;
+    if (coords == null) {
       setState(() {
-        _geocoding = true;
-        _visitStatus = widget.labels.visitDiscoverResolving;
-        _visitStatusIsError = false;
-      });
-
-      final coords = await geocodeAddress(query);
-      if (!mounted) return;
-      if (coords == null) {
-        setState(() {
-          _discoveringPois = false;
-          _geocoding = false;
-          _visitStatus = widget.labels.visitCoordinatesNotFound;
-          _visitStatusIsError = true;
-        });
-        return;
-      }
-      lat = coords.lat;
-      lng = coords.lng;
-      setState(() {
-        _visitLat = lat;
-        _visitLng = lng;
-        _visitPlaceId = null;
+        _discoveringPois = false;
         _geocoding = false;
-        _visitStatus = null;
-        _visitStatusIsError = false;
+        _poiSuggestions = const <PoiSummary>[];
+        _visitStatus =
+            showErrors ? widget.labels.visitCoordinatesNotFound : null;
+        _visitStatusIsError = showErrors;
       });
+      return;
     }
 
     final result = await ref.read(poiRepositoryProvider).discoverNearby(
           tripId: widget.tripId,
-          lat: lat,
-          lng: lng,
+          lat: coords.lat,
+          lng: coords.lng,
+          query: query,
+          radius: 5000,
         );
-    if (!mounted) return;
+    if (!mounted || token != _visitSearchToken) return;
 
     setState(() {
       _discoveringPois = false;
+      _geocoding = false;
+      _visitLat = coords.lat;
+      _visitLng = coords.lng;
+      _visitPlaceId = null;
       if (result == null) {
         _poiSuggestions = const <PoiSummary>[];
-        _visitStatus = widget.labels.visitDiscoverLoadError;
+        _visitStatus = showErrors ? widget.labels.visitDiscoverLoadError : null;
         _visitStatusIsError = false;
         return;
       }
@@ -572,6 +632,8 @@ class _VisitDetailsSection extends StatelessWidget {
     required this.readOnly,
     required this.placeLabelController,
     required this.addressController,
+    required this.placeFocusNode,
+    required this.addressFocusNode,
     required this.geocoding,
     required this.status,
     required this.statusIsError,
@@ -589,6 +651,8 @@ class _VisitDetailsSection extends StatelessWidget {
   final bool readOnly;
   final TextEditingController placeLabelController;
   final TextEditingController addressController;
+  final FocusNode placeFocusNode;
+  final FocusNode addressFocusNode;
   final bool geocoding;
   final String? status;
   final bool statusIsError;
@@ -636,21 +700,60 @@ class _VisitDetailsSection extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 8),
-        TextField(
-          controller: placeLabelController,
-          readOnly: readOnly,
-          decoration: InputDecoration(
-            labelText: labels.visitPlaceLabel,
-            helperText: labels.visitPlaceHelper,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: placeFocusNode.hasFocus
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.primary.withValues(alpha: 0.22),
+              width: placeFocusNode.hasFocus ? 1.4 : 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 4),
+            child: TextField(
+              controller: placeLabelController,
+              focusNode: placeFocusNode,
+              readOnly: readOnly,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                icon: Icon(
+                  Icons.search_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                border: InputBorder.none,
+                labelText: labels.visitPlaceLabel,
+                helperText: labels.visitPlaceHelper,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
         TextField(
           controller: addressController,
+          focusNode: addressFocusNode,
           readOnly: readOnly,
           decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.location_on_outlined),
             labelText: labels.visitAddressLabel,
             helperText: labels.visitAddressHelper,
+            filled: true,
+            fillColor: addressFocusNode.hasFocus
+                ? theme.colorScheme.primary.withValues(alpha: 0.05)
+                : theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.35),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.colorScheme.primary),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: theme.colorScheme.outlineVariant,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -758,21 +861,44 @@ class _PoiSuggestionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final distance = poi.distanceM == null ? null : '${poi.distanceM} m';
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(poi.category.icon),
-      title: Text(poi.name),
-      subtitle: Text(
-        [
-          if (distance != null) distance,
-          if (poi.address != null) poi.address!,
-        ].join(' - '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 6),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          leading: CircleAvatar(
+            radius: 17,
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
+            child: Icon(
+              poi.category.icon,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          title: Text(
+            poi.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            [
+              if (distance != null) distance,
+              if (poi.address != null) poi.address!,
+            ].join(' - '),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: readOnly ? null : onTap,
+        ),
       ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: readOnly ? null : onTap,
     );
   }
 }
