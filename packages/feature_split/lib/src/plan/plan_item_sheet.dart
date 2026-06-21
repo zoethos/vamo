@@ -4,7 +4,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../places/place_geocode.dart';
+import '../places/place_models.dart';
 import '../poi/poi_models.dart';
 import '../poi/poi_providers.dart';
 import 'plan_event_rsvp_chips.dart';
@@ -47,6 +47,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   DateTime? _startsAt;
   DateTime? _endsAt;
   String? _dateRangeError;
+  late bool _kindChosen;
   TransferSubtype _transferSubtype = TransferSubtype.transit;
   double? _visitLat;
   double? _visitLng;
@@ -60,16 +61,21 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   Timer? _visitSearchDebounce;
   int _visitSearchToken = 0;
   bool _suppressVisitSearch = false;
+  late String _visitSearchSessionId;
 
   @override
   void initState() {
     super.initState();
     _kind = widget.existing?.kind ?? PlanItemKind.other;
+    _kindChosen = widget.existing != null;
+    _visitSearchSessionId = _newVisitSearchSessionId();
     _title = TextEditingController(text: widget.existing?.title ?? '');
+    _title.addListener(_handleFormChanged);
     _notes = TextEditingController(text: widget.existing?.notes ?? '');
     final visit = parseVisitPlaceMetadata(widget.existing?.metadata);
     _visitPlaceLabel = TextEditingController(
-      text: visit?.placeLabel ??
+      text:
+          visit?.placeLabel ??
           (widget.existing?.kind == PlanItemKind.visit
               ? widget.existing?.title ?? ''
               : ''),
@@ -85,13 +91,16 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _visitLng = visit?.lng;
     _visitPlaceId = visit?.placeId;
     final transfer = parseTransferMetadata(widget.existing?.metadata);
-    _transferSubtype = transfer?.subtype ??
+    _transferSubtype =
+        transfer?.subtype ??
         legacyTransferSubtypeForKind(
-            widget.existing?.kind ?? PlanItemKind.other) ??
+          widget.existing?.kind ?? PlanItemKind.other,
+        ) ??
         TransferSubtype.transit;
     _transferOrigin = TextEditingController(text: transfer?.origin ?? '');
-    _transferDestination =
-        TextEditingController(text: transfer?.destination ?? '');
+    _transferDestination = TextEditingController(
+      text: transfer?.destination ?? '',
+    );
     _transferProvider = TextEditingController(text: transfer?.provider ?? '');
     _transferReference = TextEditingController(text: transfer?.reference ?? '');
     _startsAt = widget.existing?.startsAt;
@@ -100,6 +109,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
 
   @override
   void dispose() {
+    _title.removeListener(_handleFormChanged);
     _title.dispose();
     _notes.dispose();
     _visitSearchDebounce?.cancel();
@@ -123,15 +133,18 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     final eventViews = _isActivity && widget.existing != null
         ? ref.watch(tripPlanEventViewsProvider(widget.tripId))
         : null;
-    final eventView =
-        widget.existing == null ? null : eventViews?[widget.existing!.id];
-    final capabilities = ref.watch(planItemCapabilitiesProvider).valueOrNull ??
+    final eventView = widget.existing == null
+        ? null
+        : eventViews?[widget.existing!.id];
+    final capabilities =
+        ref.watch(planItemCapabilitiesProvider).valueOrNull ??
         PlanItemCapabilities.fallbackByKind();
-    final visitCapabilities = capabilities[PlanItemKind.visit] ??
+    final visitCapabilities =
+        capabilities[PlanItemKind.visit] ??
         PlanItemCapabilities.fallbackFor(PlanItemKind.visit);
     final tripPlaces = _isVisit && visitCapabilities.suggestsPois
         ? ref.watch(tripResolvedPlacesProvider(widget.tripId)).valueOrNull ??
-            const <PlaceSummary>[]
+              const <PlaceSummary>[]
         : const <PlaceSummary>[];
 
     return SafeArea(
@@ -142,218 +155,269 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
           top: 16,
           bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.existing == null
-                    ? widget.labels.sheetTitleAdd
-                    : widget.labels.sheetTitleEdit,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              InputDecorator(
-                decoration: InputDecoration(labelText: widget.labels.fieldKind),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<PlanItemKind>(
-                    value: _kind,
-                    isExpanded: true,
-                    items: PlanItemKind.values
-                        .map(
-                          (k) => DropdownMenuItem(
-                            value: k,
-                            child: Row(
-                              children: [
-                                Icon(k.icon, size: 20),
-                                const SizedBox(width: 8),
-                                Text(widget.labels.kindLabel(k)),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: widget.readOnly
-                        ? null
-                        : (v) => setState(() {
-                              _kind = v ?? _kind;
-                              if (_isVisit &&
-                                  _visitPlaceLabel.text.trim().isEmpty) {
-                                _visitPlaceLabel.text = _title.text.trim();
-                              }
-                              if (_isTransfer && _title.text.trim().isEmpty) {
-                                _title.text = widget.labels
-                                    .transferSubtype(_transferSubtype);
-                              }
-                            }),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    widget.existing == null
+                        ? widget.labels.sheetTitleAdd
+                        : widget.labels.sheetTitleEdit,
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _PlanKindBadge(kind: _kind, labels: widget.labels),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _title,
-                readOnly: widget.readOnly,
-                decoration:
-                    InputDecoration(labelText: widget.labels.fieldTitle),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _notes,
-                readOnly: widget.readOnly,
-                maxLines: 3,
-                decoration:
-                    InputDecoration(labelText: widget.labels.fieldNotes),
-              ),
-              if (_isVisit) ...[
-                const SizedBox(height: 12),
-                _VisitDetailsSection(
-                  labels: widget.labels,
-                  places: tripPlaces,
-                  readOnly: widget.readOnly,
-                  placeLabelController: _visitPlaceLabel,
-                  addressController: _visitAddress,
-                  placeFocusNode: _visitPlaceFocus,
-                  addressFocusNode: _visitAddressFocus,
-                  geocoding: _geocoding,
-                  status: _visitStatus,
-                  statusIsError: _visitStatusIsError,
-                  hasCoords: _visitLat != null && _visitLng != null,
-                  discoveringPois: _discoveringPois,
-                  poiSuggestions: _poiSuggestions,
-                  poiGateVisible: _poiGateVisible,
-                  onPlaceSelected: _applyTripPlace,
-                  onPoiSelected: _applyPoi,
-                  onDiscoverPois: () => _searchPoisForVisit(showErrors: true),
-                ),
-              ],
-              if (_isTransfer) ...[
-                const SizedBox(height: 12),
-                _TransferDetailsSection(
-                  labels: widget.labels,
-                  readOnly: widget.readOnly,
-                  subtype: _transferSubtype,
-                  originController: _transferOrigin,
-                  destinationController: _transferDestination,
-                  providerController: _transferProvider,
-                  referenceController: _transferReference,
-                  onSubtypeChanged: (value) => setState(() {
-                    _transferSubtype = value;
-                    if (_title.text.trim().isEmpty) {
-                      _title.text = widget.labels.transferSubtype(value);
-                    }
-                  }),
-                ),
-              ],
-              const SizedBox(height: 8),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(widget.labels.fieldStart),
-                subtitle: Text(
-                  _startsAt == null ? '—' : _startsAt!.toLocal().toString(),
-                ),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: widget.readOnly ? null : () => _pickDate(isStart: true),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(widget.labels.fieldEnd),
-                subtitle: Text(
-                  _endsAt == null ? '—' : _endsAt!.toLocal().toString(),
-                ),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: widget.readOnly ? null : () => _pickDate(isStart: false),
-              ),
-              if (_dateRangeError != null)
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(top: 4),
-                  child: Text(
-                    _dateRangeError!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  const SizedBox(height: 12),
+                  _PlanKindTileGrid(
+                    labels: widget.labels,
+                    selected: _kindChosen ? _kind : null,
+                    readOnly:
+                        widget.readOnly ||
+                        widget.existing?.kind == PlanItemKind.activity,
+                    onSelected: _chooseKind,
+                  ),
+                  const SizedBox(height: 8),
+                  if (widget.existing?.kind == PlanItemKind.activity) ...[
+                    _PlanKindBadge(kind: _kind, labels: widget.labels),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_kindChosen && !_isVisit) ...[
+                    TextField(
+                      controller: _title,
+                      readOnly: widget.readOnly,
+                      decoration: InputDecoration(
+                        labelText: widget.labels.fieldTitle,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_kindChosen)
+                    TextField(
+                      controller: _notes,
+                      readOnly: widget.readOnly,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: widget.labels.fieldNotes,
+                      ),
+                    ),
+                  if (_kindChosen && _isVisit) ...[
+                    const SizedBox(height: 12),
+                    _VisitDetailsSection(
+                      labels: widget.labels,
+                      places: tripPlaces,
+                      readOnly: widget.readOnly,
+                      placeLabelController: _visitPlaceLabel,
+                      addressController: _visitAddress,
+                      placeFocusNode: _visitPlaceFocus,
+                      addressFocusNode: _visitAddressFocus,
+                      geocoding: _geocoding,
+                      status: _visitStatus,
+                      statusIsError: _visitStatusIsError,
+                      hasCoords: _visitLat != null && _visitLng != null,
+                      discoveringPois: _discoveringPois,
+                      poiSuggestions: _poiSuggestions,
+                      poiGateVisible: _poiGateVisible,
+                      onPlaceSelected: _applyTripPlace,
+                      onPoiSelected: _applyPoi,
+                    ),
+                  ],
+                  if (_kindChosen && _isTransfer) ...[
+                    const SizedBox(height: 12),
+                    _TransferDetailsSection(
+                      labels: widget.labels,
+                      readOnly: widget.readOnly,
+                      subtype: _transferSubtype,
+                      originController: _transferOrigin,
+                      destinationController: _transferDestination,
+                      providerController: _transferProvider,
+                      referenceController: _transferReference,
+                      onSubtypeChanged: (value) => setState(() {
+                        _transferSubtype = value;
+                        if (_title.text.trim().isEmpty) {
+                          _title.text = widget.labels.transferSubtype(value);
+                        }
+                      }),
+                    ),
+                  ],
+                  if (_kindChosen) ...[
+                    const SizedBox(height: 8),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(widget.labels.fieldStart),
+                      subtitle: Text(
+                        _startsAt == null
+                            ? '—'
+                            : _startsAt!.toLocal().toString(),
+                      ),
+                      trailing: const Icon(Icons.calendar_today_outlined),
+                      onTap: widget.readOnly
+                          ? null
+                          : () => _pickDate(isStart: true),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(widget.labels.fieldEnd),
+                      subtitle: Text(
+                        _endsAt == null ? '—' : _endsAt!.toLocal().toString(),
+                      ),
+                      trailing: const Icon(Icons.calendar_today_outlined),
+                      onTap: widget.readOnly
+                          ? null
+                          : () => _pickDate(isStart: false),
+                    ),
+                  ],
+                  if (_dateRangeError != null)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(top: 4),
+                      child: Text(
+                        _dateRangeError!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.error,
                         ),
-                  ),
-                ),
-              if (_isActivity &&
-                  widget.existing != null &&
-                  eventView != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  widget.labels.eventRsvpSection,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      ),
+                    ),
+                  if (_isActivity &&
+                      widget.existing != null &&
+                      eventView != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.labels.eventRsvpSection,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
-                ),
-                const SizedBox(height: 8),
-                if (!eventView.counts.isEmpty)
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(bottom: 8),
-                    child: Text(
-                      widget.labels.rsvpSummary(
-                        eventView.counts.going,
-                        eventView.counts.maybe,
-                        eventView.counts.declined,
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.graphite,
-                          ),
                     ),
-                  ),
-                PlanEventRsvpChips(
-                  planItemId: widget.existing!.id,
-                  labels: widget.labels,
-                  myStatus: eventView.myStatus,
-                  readOnly: widget.readOnly,
-                ),
-              ] else if (_isActivity && widget.existing == null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  widget.labels.eventRsvpHint,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    const SizedBox(height: 8),
+                    if (!eventView.counts.isEmpty)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(bottom: 8),
+                        child: Text(
+                          widget.labels.rsvpSummary(
+                            eventView.counts.going,
+                            eventView.counts.maybe,
+                            eventView.counts.declined,
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.graphite),
+                        ),
+                      ),
+                    PlanEventRsvpChips(
+                      planItemId: widget.existing!.id,
+                      labels: widget.labels,
+                      myStatus: eventView.myStatus,
+                      readOnly: widget.readOnly,
+                    ),
+                  ] else if (_isActivity && widget.existing == null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.labels.eventRsvpHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.graphite,
                       ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              if (!widget.readOnly)
-                FilledButton(
-                  onPressed: () async {
-                    var title = _title.text.trim();
-                    final metadata = _metadataForSave();
-                    if (metadata == null) return;
-                    if (_isVisit && title.isEmpty) {
-                      title = _visitPlaceLabel.text.trim();
-                    }
-                    if (_isTransfer && title.isEmpty) {
-                      title = widget.labels.transferSubtype(_transferSubtype);
-                    }
-                    if (title.isEmpty) return;
-                    _validateDateRange();
-                    if (_dateRangeError != null) {
-                      setState(() {});
-                      return;
-                    }
-                    await widget.onSave(
-                      PlanItemInput(
-                        tripId: widget.tripId,
-                        kind: _kind,
-                        title: title,
-                        notes: _notes.text.trim(),
-                        startsAt: _startsAt,
-                        endsAt: _endsAt,
-                        metadata: metadata,
+                    ),
+                  ],
+                  const SizedBox(height: 88),
+                ],
+              ),
+            ),
+            if (!widget.readOnly)
+              PositionedDirectional(
+                start: 0,
+                end: 0,
+                bottom: 0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.ink.withValues(alpha: 0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, -6),
                       ),
-                    );
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  child: Text(widget.labels.save),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(top: 10),
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.goLime,
+                        foregroundColor: AppColors.ink,
+                      ),
+                      onPressed: _canSubmit ? _save : null,
+                      child: Text(_ctaLabel),
+                    ),
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  bool get _canSubmit {
+    if (widget.readOnly || !_kindChosen) return false;
+    if (_isVisit) return _visitPlaceLabel.text.trim().isNotEmpty;
+    if (_isTransfer) return true;
+    return _title.text.trim().isNotEmpty;
+  }
+
+  String get _ctaLabel {
+    if (!_kindChosen) return widget.labels.ctaTapType;
+    if (_isVisit && _visitPlaceLabel.text.trim().isEmpty) {
+      return widget.labels.ctaTapPlace;
+    }
+    return widget.labels.save;
+  }
+
+  void _chooseKind(PlanItemKind kind) {
+    if (widget.readOnly) return;
+    setState(() {
+      _kind = kind;
+      _kindChosen = true;
+      _visitSearchDebounce?.cancel();
+      _visitSearchSessionId = _newVisitSearchSessionId();
+      _poiSuggestions = const <PoiSummary>[];
+      _poiGateVisible = false;
+      _visitStatus = null;
+      _visitStatusIsError = false;
+      if (_isVisit && _visitPlaceLabel.text.trim().isEmpty) {
+        _visitPlaceLabel.text = _title.text.trim();
+      }
+      if (_isTransfer && _title.text.trim().isEmpty) {
+        _title.text = widget.labels.transferSubtype(_transferSubtype);
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    if (!_canSubmit) return;
+    var title = _title.text.trim();
+    final metadata = _metadataForSave();
+    if (metadata == null) return;
+    if (_isVisit && title.isEmpty) {
+      title = _visitPlaceLabel.text.trim();
+    }
+    if (_isTransfer && title.isEmpty) {
+      title = widget.labels.transferSubtype(_transferSubtype);
+    }
+    if (title.isEmpty) return;
+    _validateDateRange();
+    if (_dateRangeError != null) {
+      setState(() {});
+      return;
+    }
+    await widget.onSave(
+      PlanItemInput(
+        tripId: widget.tripId,
+        kind: _kind,
+        title: title,
+        notes: _notes.text.trim(),
+        startsAt: _startsAt,
+        endsAt: _endsAt,
+        metadata: metadata,
+      ),
+    );
+    if (mounted) Navigator.pop(context);
   }
 
   Map<String, Object?>? _metadataForSave() {
@@ -440,6 +504,10 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     if (mounted) setState(() {});
   }
 
+  void _handleFormChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _scheduleVisitSearch() {
     if (_suppressVisitSearch || widget.readOnly || !_isVisit) return;
     _visitSearchDebounce?.cancel();
@@ -460,7 +528,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     });
     if (query.length < 3) return;
     _visitSearchDebounce = Timer(
-      const Duration(milliseconds: 650),
+      const Duration(milliseconds: 300),
       () => _searchPoisForVisit(showErrors: false),
     );
   }
@@ -473,15 +541,6 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     return _title.text.trim();
   }
 
-  String _visitGeocodeQuery(String searchQuery) {
-    final place = _visitPlaceLabel.text.trim();
-    final address = _visitAddress.text.trim();
-    if (place.isNotEmpty && address.isNotEmpty) {
-      return '$place, $address';
-    }
-    return searchQuery;
-  }
-
   Future<void> _searchPoisForVisit({required bool showErrors}) async {
     _visitSearchDebounce?.cancel();
     final query = _visitSearchQuery();
@@ -490,8 +549,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       setState(() {
         _poiSuggestions = const <PoiSummary>[];
         _poiGateVisible = false;
-        _visitStatus =
-            showErrors ? widget.labels.visitDiscoverNeedsPlace : null;
+        _visitStatus = showErrors
+            ? widget.labels.visitDiscoverNeedsPlace
+            : null;
         _visitStatusIsError = showErrors;
       });
       return;
@@ -501,40 +561,24 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
 
     setState(() {
       _discoveringPois = true;
-      _geocoding = true;
+      _geocoding = false;
       _poiGateVisible = false;
       _visitStatus = widget.labels.visitDiscoverResolving;
       _visitStatusIsError = false;
     });
 
-    final coords = await geocodeAddress(_visitGeocodeQuery(query));
-    if (!mounted || token != _visitSearchToken) return;
-    if (coords == null) {
-      setState(() {
-        _discoveringPois = false;
-        _geocoding = false;
-        _poiSuggestions = const <PoiSummary>[];
-        _visitStatus =
-            showErrors ? widget.labels.visitCoordinatesNotFound : null;
-        _visitStatusIsError = showErrors;
-      });
-      return;
-    }
-
-    final result = await ref.read(poiRepositoryProvider).discoverNearby(
+    final result = await ref
+        .read(poiRepositoryProvider)
+        .searchForTrip(
           tripId: widget.tripId,
-          lat: coords.lat,
-          lng: coords.lng,
           query: query,
-          radius: 5000,
+          sessionId: _visitSearchSessionId,
         );
     if (!mounted || token != _visitSearchToken) return;
 
     setState(() {
       _discoveringPois = false;
       _geocoding = false;
-      _visitLat = coords.lat;
-      _visitLng = coords.lng;
       _visitPlaceId = null;
       if (result == null) {
         _poiSuggestions = const <PoiSummary>[];
@@ -554,6 +598,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitStatusIsError = false;
     });
   }
+
+  String _newVisitSearchSessionId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(this)}';
 
   void _validateDateRange() {
     if (_startsAt != null && _endsAt != null && _endsAt!.isBefore(_startsAt!)) {
@@ -643,7 +690,6 @@ class _VisitDetailsSection extends StatelessWidget {
     required this.poiGateVisible,
     required this.onPlaceSelected,
     required this.onPoiSelected,
-    required this.onDiscoverPois,
   });
 
   final PlanTabLabels labels;
@@ -662,7 +708,6 @@ class _VisitDetailsSection extends StatelessWidget {
   final bool poiGateVisible;
   final ValueChanged<PlaceSummary> onPlaceSelected;
   final ValueChanged<PoiSummary> onPoiSelected;
-  final VoidCallback onDiscoverPois;
 
   @override
   Widget build(BuildContext context) {
@@ -742,31 +787,18 @@ class _VisitDetailsSection extends StatelessWidget {
             filled: true,
             fillColor: addressFocusNode.hasFocus
                 ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.35),
+                : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.35,
+                  ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: theme.colorScheme.primary),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: theme.colorScheme.outlineVariant,
-              ),
+              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed:
-              readOnly || discoveringPois || geocoding ? null : onDiscoverPois,
-          icon: discoveringPois || geocoding
-              ? const SizedBox.square(
-                  dimension: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.travel_explore_outlined),
-          label: Text(labels.visitDiscoverNearby),
         ),
         Padding(
           padding: const EdgeInsetsDirectional.only(top: 4),
@@ -816,6 +848,110 @@ class _VisitDetailsSection extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PlanKindTileGrid extends StatelessWidget {
+  const _PlanKindTileGrid({
+    required this.labels,
+    required this.selected,
+    required this.readOnly,
+    required this.onSelected,
+  });
+
+  static const _kinds = <PlanItemKind>[
+    PlanItemKind.visit,
+    PlanItemKind.train,
+    PlanItemKind.flight,
+    PlanItemKind.transfer,
+    PlanItemKind.lodging,
+    PlanItemKind.other,
+  ];
+
+  final PlanTabLabels labels;
+  final PlanItemKind? selected;
+  final bool readOnly;
+  final ValueChanged<PlanItemKind> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 1.08,
+      children: [
+        for (final kind in _kinds)
+          _PlanKindTile(
+            kind: kind,
+            label: labels.kindLabel(kind),
+            selected: selected == kind,
+            readOnly: readOnly,
+            onTap: () => onSelected(kind),
+          ),
+      ],
+    );
+  }
+}
+
+class _PlanKindTile extends StatelessWidget {
+  const _PlanKindTile({
+    required this.kind,
+    required this.label,
+    required this.selected,
+    required this.readOnly,
+    required this.onTap,
+  });
+
+  final PlanItemKind kind;
+  final String label;
+  final bool selected;
+  final bool readOnly;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = selected ? AppColors.coralText : AppColors.graphite;
+    return Material(
+      color: selected
+          ? AppColors.coralText.withValues(alpha: 0.08)
+          : theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected
+              ? AppColors.coralText
+              : theme.colorScheme.outlineVariant,
+          width: selected ? 1.4 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: readOnly ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.all(10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(kind.icon, color: color),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -882,11 +1018,7 @@ class _PoiSuggestionTile extends StatelessWidget {
               color: theme.colorScheme.primary,
             ),
           ),
-          title: Text(
-            poi.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          title: Text(poi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(
             [
               if (distance != null) distance,
@@ -970,8 +1102,9 @@ class _TransferDetailsSection extends StatelessWidget {
         TextField(
           controller: destinationController,
           readOnly: readOnly,
-          decoration:
-              InputDecoration(labelText: labels.transferDestinationLabel),
+          decoration: InputDecoration(
+            labelText: labels.transferDestinationLabel,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -1001,11 +1134,7 @@ class _PlanKindBadge extends StatelessWidget {
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Chip(
-        avatar: Icon(
-          kind.icon,
-          size: 18,
-          color: AppColors.jadeTeal,
-        ),
+        avatar: Icon(kind.icon, size: 18, color: AppColors.jadeTeal),
         label: Text(labels.kindLabel(kind)),
         visualDensity: VisualDensity.compact,
       ),

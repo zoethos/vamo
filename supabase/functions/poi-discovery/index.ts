@@ -1,5 +1,7 @@
 // D-P1.a — POI discovery gateway.
-// Input: { trip_id, lat, lng, query?, category?, radius? }
+// Input:
+//   nearby: { trip_id, lat, lng, query?, category?, radius? }
+//   search: { trip_id, mode: "search", query, regionBias?, category?, session_id? }
 // Auth: caller JWT required; trip row is selected through RLS so only members
 // can resolve POIs for a trip. Provider keys stay server-side.
 
@@ -11,11 +13,15 @@ import {
   reserveServiceUsage,
 } from "../_shared/premium.ts";
 import { normalizeFoursquarePlaces, queryForCategory } from "./poi.ts";
+import {
+  cacheKeyForPoiInput,
+  normalizeQuery,
+  type PoiInput,
+  readPoiInputFromBody,
+} from "./request.ts";
 
 const FOURSQUARE_SEARCH = "https://places-api.foursquare.com/places/search";
 const SERVICE = "poi";
-const DEFAULT_RADIUS_M = 1200;
-const MAX_RADIUS_M = 5000;
 const DEFAULT_LIMIT = 12;
 
 Deno.serve(async (req) => {
@@ -50,16 +56,25 @@ Deno.serve(async (req) => {
 
   const { data: trip, error: tripError } = await userClient
     .from("trips")
-    .select("id")
+    .select("id,destination")
     .eq("id", input.tripId)
     .maybeSingle();
   if (tripError || !trip) return json({ error: "trip_not_found" }, 404);
 
   const serviceClient = createClient(supabaseUrl, serviceKey);
-  const geohash = encodeGeohash(input.lat, input.lng, 6);
-  const category = normalizeCategory(input.category);
-  const queryKey = normalizeQuery(input.query) ?? "any";
-  const cacheKey = `${SERVICE}:foursquare:${geohash}:${category}:${queryKey}`;
+  const regionBias = input.mode === "search"
+    ? normalizeQuery(input.regionBias) ?? normalizeQuery(trip.destination) ??
+      null
+    : null;
+  if (input.mode === "search" && !regionBias) {
+    return json({ available: false, reason: "missing_region_bias" });
+  }
+  const { cacheKey, geohash, category } = cacheKeyForPoiInput(
+    SERVICE,
+    "foursquare",
+    input,
+    regionBias,
+  );
 
   const cached = await readCachedPois(serviceClient, cacheKey);
   if (cached) {
@@ -67,7 +82,9 @@ Deno.serve(async (req) => {
   }
 
   const reservation = await reserveServiceUsage(serviceClient, {
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: input.mode === "search" && input.sessionId
+      ? `poi:search:${user.id}:${input.sessionId}`
+      : crypto.randomUUID(),
     service: SERVICE,
     userId: user.id,
   });
@@ -106,7 +123,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const raw = await fetchFoursquare(apiKey, input);
+    const raw = await fetchFoursquare(apiKey, input, regionBias);
     const pois = normalizeFoursquarePlaces(raw);
     await completeServiceUsageReservation(
       serviceClient,
@@ -134,32 +151,9 @@ Deno.serve(async (req) => {
   }
 });
 
-interface PoiInput {
-  tripId: string;
-  lat: number;
-  lng: number;
-  query: string | null;
-  category: string | null;
-  radius: number;
-}
-
 async function readInput(req: Request): Promise<PoiInput | null> {
   try {
-    const body = await req.json();
-    const tripId = stringValue(body?.trip_id);
-    const lat = numberValue(body?.lat);
-    const lng = numberValue(body?.lng);
-    if (!tripId || lat == null || lng == null) return null;
-    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-    const radius = clampRadius(numberValue(body?.radius));
-    return {
-      tripId,
-      lat,
-      lng,
-      query: stringValue(body?.query) ?? null,
-      category: stringValue(body?.category) ?? null,
-      radius,
-    };
+    return readPoiInputFromBody(await req.json());
   } catch {
     return null;
   }
@@ -205,10 +199,15 @@ async function writeCachedPois(
 async function fetchFoursquare(
   apiKey: string,
   input: PoiInput,
+  regionBias: string | null,
 ): Promise<unknown> {
   const url = new URL(FOURSQUARE_SEARCH);
-  url.searchParams.set("ll", `${input.lat},${input.lng}`);
-  url.searchParams.set("radius", `${input.radius}`);
+  if (input.mode === "search") {
+    url.searchParams.set("near", regionBias ?? "");
+  } else {
+    url.searchParams.set("ll", `${input.lat},${input.lng}`);
+    url.searchParams.set("radius", `${input.radius}`);
+  }
   url.searchParams.set("limit", `${DEFAULT_LIMIT}`);
   url.searchParams.set(
     "fields",
@@ -228,87 +227,6 @@ async function fetchFoursquare(
     throw new Error(`Foursquare search failed: ${response.status}`);
   }
   return await response.json();
-}
-
-function normalizeCategory(raw: string | null): string {
-  const value = raw?.trim().toLowerCase() ?? "";
-  return [
-      "food",
-      "lodging",
-      "attraction",
-      "museum",
-      "nature",
-      "nightlife",
-      "shopping",
-      "transport",
-    ].includes(value)
-    ? value
-    : "all";
-}
-
-function normalizeQuery(raw: string | null): string | null {
-  const value = raw?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
-  return value.length > 0 ? value.slice(0, 80) : null;
-}
-
-function clampRadius(raw: number | undefined): number {
-  if (raw == null) return DEFAULT_RADIUS_M;
-  return Math.max(100, Math.min(MAX_RADIUS_M, Math.round(raw)));
-}
-
-function stringValue(raw: unknown): string | undefined {
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function numberValue(raw: unknown): number | undefined {
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (typeof raw !== "string") return undefined;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function encodeGeohash(lat: number, lng: number, precision: number): string {
-  const base32 = "0123456789bcdefghjkmnpqrstuvwxyz";
-  let idx = 0;
-  let bit = 0;
-  let evenBit = true;
-  let geohash = "";
-  let latMin = -90;
-  let latMax = 90;
-  let lngMin = -180;
-  let lngMax = 180;
-
-  while (geohash.length < precision) {
-    if (evenBit) {
-      const mid = (lngMin + lngMax) / 2;
-      if (lng >= mid) {
-        idx = idx * 2 + 1;
-        lngMin = mid;
-      } else {
-        idx = idx * 2;
-        lngMax = mid;
-      }
-    } else {
-      const mid = (latMin + latMax) / 2;
-      if (lat >= mid) {
-        idx = idx * 2 + 1;
-        latMin = mid;
-      } else {
-        idx = idx * 2;
-        latMax = mid;
-      }
-    }
-    evenBit = !evenBit;
-
-    if (++bit === 5) {
-      geohash += base32.charAt(idx);
-      bit = 0;
-      idx = 0;
-    }
-  }
-  return geohash;
 }
 
 function json(body: Record<string, unknown>, status = 200) {
