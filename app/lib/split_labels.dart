@@ -60,6 +60,7 @@ class SplitLabels {
         typeDeemedClosed: l10n.notificationTypeDeemedClosed,
         typeSettleNudge: l10n.notificationTypeSettleNudge,
         typeWrappedTrip: l10n.notificationTypeWrappedTrip,
+        typePremiumGate: l10n.notificationTypePremiumGate,
         typeGeneric: l10n.notificationTypeGeneric,
       );
 
@@ -134,6 +135,11 @@ class SplitLabels {
     visitAddressRequiredForGeocode: l10n.planVisitAddressRequiredForGeocode,
     visitCoordinatesSaved: l10n.planVisitCoordinatesSaved,
     visitCoordinatesNotFound: l10n.planVisitCoordinatesNotFound,
+    visitDiscoverNearby: l10n.planVisitDiscoverNearby,
+    visitDiscoverNeedsCoordinates: l10n.planVisitDiscoverNeedsCoordinates,
+    visitDiscoverEmpty: l10n.planVisitDiscoverEmpty,
+    visitDiscoverGated: l10n.planVisitDiscoverGated,
+    visitDiscoverLoadError: l10n.planVisitDiscoverLoadError,
     transferSectionTitle: l10n.planTransferSectionTitle,
     transferSubtypeLabel: l10n.planTransferSubtypeLabel,
     transferOriginLabel: l10n.planTransferOriginLabel,

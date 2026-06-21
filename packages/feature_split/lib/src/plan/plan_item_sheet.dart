@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../places/place_geocode.dart';
+import '../poi/poi_models.dart';
+import '../poi/poi_providers.dart';
 import 'plan_event_rsvp_chips.dart';
 import 'plan_labels.dart';
 import 'plan_models.dart';
@@ -48,6 +50,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   String? _visitStatus;
   bool _visitStatusIsError = false;
   bool _geocoding = false;
+  bool _discoveringPois = false;
+  List<PoiSummary> _poiSuggestions = const <PoiSummary>[];
+  bool _poiGateVisible = false;
 
   @override
   void initState() {
@@ -197,8 +202,13 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   status: _visitStatus,
                   statusIsError: _visitStatusIsError,
                   hasCoords: _visitLat != null && _visitLng != null,
+                  discoveringPois: _discoveringPois,
+                  poiSuggestions: _poiSuggestions,
+                  poiGateVisible: _poiGateVisible,
                   onPlaceSelected: _applyTripPlace,
+                  onPoiSelected: _applyPoi,
                   onGeocode: _geocodeVisitAddress,
+                  onDiscoverPois: _discoverPois,
                 ),
               ],
               if (_isTransfer) ...[
@@ -384,6 +394,67 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     });
   }
 
+  void _applyPoi(PoiSummary poi) {
+    setState(() {
+      _visitPlaceLabel.text = poi.name;
+      if (_title.text.trim().isEmpty) {
+        _title.text = poi.name;
+      }
+      _visitAddress.text = poi.address ?? '';
+      _visitLat = poi.lat;
+      _visitLng = poi.lng;
+      _visitPlaceId = poi.providerPlaceId;
+      _visitStatus = widget.labels.visitCoordinatesSaved;
+      _visitStatusIsError = false;
+    });
+  }
+
+  Future<void> _discoverPois() async {
+    final lat = _visitLat;
+    final lng = _visitLng;
+    if (lat == null || lng == null) {
+      setState(() {
+        _visitStatus = widget.labels.visitDiscoverNeedsCoordinates;
+        _visitStatusIsError = true;
+      });
+      return;
+    }
+
+    setState(() {
+      _discoveringPois = true;
+      _poiGateVisible = false;
+      _visitStatus = null;
+      _visitStatusIsError = false;
+    });
+
+    final result = await ref.read(poiRepositoryProvider).discoverNearby(
+          tripId: widget.tripId,
+          lat: lat,
+          lng: lng,
+        );
+    if (!mounted) return;
+
+    setState(() {
+      _discoveringPois = false;
+      if (result == null) {
+        _poiSuggestions = const <PoiSummary>[];
+        _visitStatus = widget.labels.visitDiscoverLoadError;
+        _visitStatusIsError = true;
+        return;
+      }
+      if (result.gated) {
+        _poiSuggestions = const <PoiSummary>[];
+        _poiGateVisible = true;
+        _visitStatus = null;
+        _visitStatusIsError = false;
+        return;
+      }
+      _poiSuggestions = result.pois;
+      _visitStatus = result.isEmpty ? widget.labels.visitDiscoverEmpty : null;
+      _visitStatusIsError = false;
+    });
+  }
+
   Future<void> _geocodeVisitAddress() async {
     final address = _visitAddress.text.trim();
     if (address.isEmpty) {
@@ -499,8 +570,13 @@ class _VisitDetailsSection extends StatelessWidget {
     required this.status,
     required this.statusIsError,
     required this.hasCoords,
+    required this.discoveringPois,
+    required this.poiSuggestions,
+    required this.poiGateVisible,
     required this.onPlaceSelected,
+    required this.onPoiSelected,
     required this.onGeocode,
+    required this.onDiscoverPois,
   });
 
   final PlanTabLabels labels;
@@ -512,8 +588,13 @@ class _VisitDetailsSection extends StatelessWidget {
   final String? status;
   final bool statusIsError;
   final bool hasCoords;
+  final bool discoveringPois;
+  final List<PoiSummary> poiSuggestions;
+  final bool poiGateVisible;
   final ValueChanged<PlaceSummary> onPlaceSelected;
+  final ValueChanged<PoiSummary> onPoiSelected;
   final VoidCallback onGeocode;
+  final VoidCallback onDiscoverPois;
 
   @override
   Widget build(BuildContext context) {
@@ -584,6 +665,34 @@ class _VisitDetailsSection extends StatelessWidget {
               ),
           ],
         ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: readOnly || discoveringPois ? null : onDiscoverPois,
+          icon: discoveringPois
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.travel_explore_outlined),
+          label: Text(labels.visitDiscoverNearby),
+        ),
+        if (poiGateVisible) ...[
+          const SizedBox(height: 8),
+          _PoiGateRow(message: labels.visitDiscoverGated),
+        ],
+        if (poiSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Column(
+            children: [
+              for (final poi in poiSuggestions.take(5))
+                _PoiSuggestionTile(
+                  poi: poi,
+                  readOnly: readOnly,
+                  onTap: () => onPoiSelected(poi),
+                ),
+            ],
+          ),
+        ],
         if (status != null)
           Padding(
             padding: const EdgeInsetsDirectional.only(top: 4),
@@ -597,6 +706,66 @@ class _VisitDetailsSection extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _PoiGateRow extends StatelessWidget {
+  const _PoiGateRow({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.jadeTeal.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.jadeTeal.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          children: [
+            const Icon(Icons.lock_open_outlined, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PoiSuggestionTile extends StatelessWidget {
+  const _PoiSuggestionTile({
+    required this.poi,
+    required this.readOnly,
+    required this.onTap,
+  });
+
+  final PoiSummary poi;
+  final bool readOnly;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = poi.distanceM == null ? null : '${poi.distanceM} m';
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(poi.category.icon),
+      title: Text(poi.name),
+      subtitle: Text(
+        [
+          if (distance != null) distance,
+          if (poi.address != null) poi.address!,
+        ].join(' - '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: readOnly ? null : onTap,
     );
   }
 }

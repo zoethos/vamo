@@ -237,6 +237,7 @@ class _NotificationRow extends StatelessWidget {
       'deemed_closed' => Icons.lock_outline,
       'settle_nudge' => Icons.payments_outlined,
       'wrapped_trip' => Icons.auto_awesome_outlined,
+      'premium_gate' => Icons.workspace_premium_outlined,
       _ => Icons.notifications_outlined,
     };
   }
@@ -248,6 +249,7 @@ class _NotificationRow extends StatelessWidget {
       'deemed_closed' => labels.typeDeemedClosed,
       'settle_nudge' => labels.typeSettleNudge,
       'wrapped_trip' => labels.typeWrappedTrip,
+      'premium_gate' => labels.typePremiumGate,
       _ => labels.typeGeneric,
     };
   }

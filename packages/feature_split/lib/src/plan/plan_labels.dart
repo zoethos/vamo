@@ -34,6 +34,12 @@ class PlanTabLabels {
     required this.visitAddressRequiredForGeocode,
     required this.visitCoordinatesSaved,
     required this.visitCoordinatesNotFound,
+    this.visitDiscoverNearby = 'Discover nearby',
+    this.visitDiscoverNeedsCoordinates = 'Find coordinates first.',
+    this.visitDiscoverEmpty = 'No nearby suggestions found.',
+    this.visitDiscoverGated =
+        'You have used your free place lookups this month. Vamo Plus unlocks more.',
+    this.visitDiscoverLoadError = 'Could not load nearby places.',
     required this.transferSectionTitle,
     required this.transferSubtypeLabel,
     required this.transferOriginLabel,
@@ -97,6 +103,11 @@ class PlanTabLabels {
   final String visitAddressRequiredForGeocode;
   final String visitCoordinatesSaved;
   final String visitCoordinatesNotFound;
+  final String visitDiscoverNearby;
+  final String visitDiscoverNeedsCoordinates;
+  final String visitDiscoverEmpty;
+  final String visitDiscoverGated;
+  final String visitDiscoverLoadError;
   final String transferSectionTitle;
   final String transferSubtypeLabel;
   final String transferOriginLabel;

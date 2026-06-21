@@ -21,6 +21,7 @@ NotificationLabels _testNotificationLabels() => const NotificationLabels(
       typeDeemedClosed: 'Trip closed',
       typeSettleNudge: 'Settle up',
       typeWrappedTrip: 'Trip wrapped',
+      typePremiumGate: 'Vamo Plus',
       typeGeneric: 'Notice',
     );
 
