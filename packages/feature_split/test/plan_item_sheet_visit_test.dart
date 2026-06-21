@@ -3,6 +3,9 @@ import 'package:feature_split/src/plan/plan_item_sheet.dart';
 import 'package:feature_split/src/plan/plan_labels.dart';
 import 'package:feature_split/src/plan/plan_models.dart';
 import 'package:feature_split/src/plan/plan_providers.dart';
+import 'package:feature_split/src/poi/poi_models.dart';
+import 'package:feature_split/src/poi/poi_providers.dart';
+import 'package:feature_split/src/poi/poi_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +14,7 @@ void main() {
   testWidgets('visit manual fields stay editable without POI API calls',
       (tester) async {
     PlanItemInput? saved;
+    final fakePoiRepository = _FakePoiRepository();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -21,6 +25,7 @@ void main() {
           tripResolvedPlacesProvider.overrideWith(
             (ref, tripId) => const Stream.empty(),
           ),
+          poiRepositoryProvider.overrideWithValue(fakePoiRepository),
         ],
         child: MaterialApp(
           theme: AppTheme.light,
@@ -37,12 +42,16 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(DropdownButton<PlanItemKind>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(_labels.kindVisit).last);
+    expect(
+        find.widgetWithText(FilledButton, _labels.ctaTapType), findsOneWidget);
+
+    await tester.tap(find.text(_labels.kindVisit));
     await tester.pumpAndSettle();
 
+    expect(
+        find.widgetWithText(FilledButton, _labels.ctaTapPlace), findsOneWidget);
     expect(find.text(_labels.visitFindCoordinates), findsNothing);
+    expect(find.text(_labels.visitDiscoverNearby), findsNothing);
     expect(find.text(_labels.visitPlaceHelper), findsOneWidget);
     expect(find.text(_labels.visitAddressHelper), findsOneWidget);
     expect(find.text(_labels.visitDiscoverHelper), findsOneWidget);
@@ -55,10 +64,6 @@ void main() {
       find.widgetWithText(TextField, _labels.visitAddressLabel),
       'Marienplatz, Munich',
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, _labels.fieldTitle),
-      'Morning visit',
-    );
 
     expect(find.text('Marienplatz'), findsOneWidget);
     expect(find.text('Marienplatz, Munich'), findsOneWidget);
@@ -70,13 +75,31 @@ void main() {
 
     expect(saved, isNotNull);
     expect(saved?.kind, PlanItemKind.visit);
-    expect(saved?.title, 'Morning visit');
+    expect(saved?.title, 'Marienplatz');
     expect(saved?.metadata['place_label'], 'Marienplatz');
     expect(saved?.metadata['address'], 'Marienplatz, Munich');
+    expect(saved?.metadata['lat'], isNull);
+    expect(saved?.metadata['lng'], isNull);
   });
 
-  testWidgets('search places asks for human place input, not coordinates',
+  testWidgets('visit search debounces and maps selected POI to metadata',
       (tester) async {
+    PlanItemInput? saved;
+    final fakePoiRepository = _FakePoiRepository(
+      result: const PoiDiscoveryResult.available([
+        PoiSummary(
+          id: 'fsq-marienplatz',
+          name: 'Marienplatz',
+          category: PoiCategory.attraction,
+          lat: 48.1374,
+          lng: 11.5755,
+          source: 'foursquare',
+          providerPlaceId: 'fsq:123',
+          address: 'Marienplatz 1, Munich',
+        ),
+      ]),
+    );
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -86,6 +109,7 @@ void main() {
           tripResolvedPlacesProvider.overrideWith(
             (ref, tripId) => const Stream.empty(),
           ),
+          poiRepositoryProvider.overrideWithValue(fakePoiRepository),
         ],
         child: MaterialApp(
           theme: AppTheme.light,
@@ -95,25 +119,88 @@ void main() {
               labels: _labels,
               existing: null,
               readOnly: false,
-              onSave: (_) async {},
+              onSave: (input) async => saved = input,
             ),
           ),
         ),
       ),
     );
 
-    await tester.tap(find.byType(DropdownButton<PlanItemKind>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(_labels.kindVisit).last);
+    await tester.tap(find.text(_labels.kindVisit));
     await tester.pumpAndSettle();
 
-    await tester
-        .tap(find.widgetWithText(OutlinedButton, _labels.visitDiscoverNearby));
+    await tester.enterText(
+      find.widgetWithText(TextField, _labels.visitPlaceLabel),
+      'mar',
+    );
+    await tester.pump(const Duration(milliseconds: 299));
+    expect(fakePoiRepository.searchCalls, 0);
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text(_labels.visitDiscoverNeedsPlace), findsOneWidget);
+    expect(fakePoiRepository.searchCalls, 1);
+    expect(fakePoiRepository.lastTripId, 'trip-1');
+    expect(fakePoiRepository.lastQuery, 'mar');
+    expect(fakePoiRepository.lastSessionId, isNotEmpty);
+    expect(find.text('Marienplatz'), findsOneWidget);
     expect(find.text(_labels.visitDiscoverNeedsCoordinates), findsNothing);
+
+    final suggestion = find.widgetWithText(ListTile, 'Marienplatz');
+    await tester.ensureVisible(suggestion);
+    await tester.tap(suggestion);
+    await tester.pumpAndSettle();
+
+    final saveButton = find.widgetWithText(FilledButton, _labels.save);
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved?.title, 'Marienplatz');
+    expect(saved?.metadata['place_label'], 'Marienplatz');
+    expect(saved?.metadata['address'], 'Marienplatz 1, Munich');
+    expect(saved?.metadata['lat'], 48.1374);
+    expect(saved?.metadata['lng'], 11.5755);
+    expect(saved?.metadata['place_id'], 'fsq:123');
   });
+}
+
+class _FakePoiRepository implements PoiRepository {
+  _FakePoiRepository({this.result});
+
+  final PoiDiscoveryResult? result;
+  int searchCalls = 0;
+  String? lastTripId;
+  String? lastQuery;
+  String? lastSessionId;
+
+  @override
+  Future<PoiDiscoveryResult?> searchForTrip({
+    required String tripId,
+    required String query,
+    String? regionBias,
+    String? category,
+    String? sessionId,
+  }) async {
+    searchCalls++;
+    lastTripId = tripId;
+    lastQuery = query;
+    lastSessionId = sessionId;
+    return result;
+  }
+
+  @override
+  Future<PoiDiscoveryResult?> discoverNearby({
+    required String tripId,
+    required double lat,
+    required double lng,
+    String? query,
+    String? category,
+    int? radius,
+  }) async {
+    throw UnimplementedError('Nearby search is not used by the visit sheet.');
+  }
 }
 
 final _labels = PlanTabLabels(
@@ -162,6 +249,8 @@ final _labels = PlanTabLabels(
   transferSubtypeTransit: 'Transit',
   transferSubtypeDrive: 'Drive',
   transferSubtypeFlight: 'Flight',
+  ctaTapType: 'tap a type',
+  ctaTapPlace: 'tap a place',
   save: 'Save',
   loadError: 'Could not load the plan.',
   checklistsLoadError: 'Could not load checklists.',
