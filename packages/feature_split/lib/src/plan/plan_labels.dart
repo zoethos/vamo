@@ -28,7 +28,8 @@ class PlanTabLabels {
     required this.visitSectionTitle,
     required this.visitFromTripPlaces,
     required this.visitPlaceLabel,
-    this.visitPlaceHelper = 'Name of the place, stop, restaurant, or sight.',
+    this.visitPlaceHelper =
+        'Start typing a place, sight, restaurant, hotel, or station.',
     required this.visitAddressLabel,
     this.visitAddressHelper = 'Optional, but helps Vamo find suggestions.',
     required this.visitFindCoordinates,
@@ -36,13 +37,13 @@ class PlanTabLabels {
     required this.visitAddressRequiredForGeocode,
     required this.visitCoordinatesSaved,
     required this.visitCoordinatesNotFound,
-    this.visitDiscoverNearby = 'Discover nearby',
+    this.visitDiscoverNearby = 'Search places',
     this.visitDiscoverHelper =
-        'Suggestions use the place or address above. You can always save manually.',
+        'Suggestions follow what you type. You can always save manually.',
     this.visitDiscoverNeedsPlace = 'Type a place or address first.',
-    this.visitDiscoverResolving = 'Looking up the area...',
+    this.visitDiscoverResolving = 'Finding matching places...',
     this.visitDiscoverNeedsCoordinates = 'Type a place or address first.',
-    this.visitDiscoverEmpty = 'No nearby suggestions found.',
+    this.visitDiscoverEmpty = 'No matching places found.',
     this.visitDiscoverGated =
         'You have used your free place lookups this month. Vamo Plus unlocks more.',
     this.visitDiscoverLoadError =

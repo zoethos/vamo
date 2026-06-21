@@ -12,6 +12,7 @@ class PoiRepository {
     required String tripId,
     required double lat,
     required double lng,
+    String? query,
     String? category,
     int? radius,
   }) async {
@@ -22,6 +23,7 @@ class PoiRepository {
           'trip_id': tripId,
           'lat': lat,
           'lng': lng,
+          if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
           if (category != null) 'category': category,
           if (radius != null) 'radius': radius,
         },
