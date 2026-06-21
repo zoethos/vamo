@@ -159,16 +159,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'VAMO',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
                         labels.tagline,
                         textAlign: TextAlign.center,
                         style: theme.textTheme.titleMedium?.copyWith(
