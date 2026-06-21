@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:app_core/app_core.dart';
 import 'package:flutter/painting.dart';
@@ -27,6 +28,22 @@ abstract final class TripBackgroundStorage {
       folder: folder,
       ext: ext,
       write: (dest) => File(sourcePath).copy(dest.path),
+    );
+  }
+
+  static Future<String> persistBytes({
+    required String tripId,
+    required String sourceName,
+    required Uint8List bytes,
+  }) async {
+    final folder = await _tripFolder(tripId);
+    final ext = CaptureStorage.normalizeExt(p.extension(sourceName));
+    return _writeHeroFile(
+      folder: folder,
+      ext: ext,
+      write: (dest) async {
+        await dest.writeAsBytes(bytes);
+      },
     );
   }
 

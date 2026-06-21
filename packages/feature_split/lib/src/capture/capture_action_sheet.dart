@@ -142,7 +142,7 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
   Future<void> _runCaptureAction({
     required String action,
     required Future<XFile?> Function() pick,
-    required Future<void> Function(String path, ProviderContainer container)
+    required Future<void> Function(XFile picked, ProviderContainer container)
         run,
   }) async {
     final container = _rootContainer;
@@ -171,7 +171,7 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         );
       }
       _dismissOverlayFireAndForget(analytics: analytics, action: action);
-      await run(picked.path, container);
+      await run(picked, container);
       analytics.reportCaptureActionCompleted(
         screen: _captureScreen,
         action: action,
@@ -268,10 +268,10 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         maxHeight: 1600,
         imageQuality: 80,
       ),
-      run: (path, container) =>
+      run: (picked, container) =>
           container.read(captureRepositoryProvider).addPhoto(
                 tripId: widget.tripId,
-                sourcePath: path,
+                sourcePath: picked.path,
               ),
     );
   }
@@ -285,11 +285,14 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         maxHeight: 1920,
         imageQuality: 85,
       ),
-      run: (path, container) =>
-          container.read(tripsRepositoryProvider).setTripBackground(
-                tripId: widget.tripId,
-                sourcePath: path,
-              ),
+      run: (picked, container) async {
+        final bytes = await picked.readAsBytes();
+        await container.read(tripsRepositoryProvider).setTripBackgroundBytes(
+              tripId: widget.tripId,
+              sourceName: picked.name.isNotEmpty ? picked.name : picked.path,
+              bytes: bytes,
+            );
+      },
     );
   }
 
@@ -300,10 +303,10 @@ class _CaptureChoiceSheetState extends ConsumerState<CaptureChoiceSheet> {
         source: ImageSource.gallery,
         maxDuration: const Duration(seconds: 60),
       ),
-      run: (path, container) =>
+      run: (picked, container) =>
           container.read(captureRepositoryProvider).addVideo(
                 tripId: widget.tripId,
-                sourcePath: path,
+                sourcePath: picked.path,
               ),
     );
   }

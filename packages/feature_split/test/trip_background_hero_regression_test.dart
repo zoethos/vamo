@@ -289,6 +289,23 @@ void main() {
     expect(File(storedPath!).existsSync(), isTrue);
   });
 
+  test('setTripBackgroundBytes persists a local hero path', () async {
+    final bytes = await File(fixturePath).readAsBytes();
+
+    await repo
+        .setTripBackgroundBytes(
+          tripId: tripId,
+          sourceName: 'photo-picker-background.png',
+          bytes: bytes,
+        )
+        .timeout(const Duration(seconds: 2));
+
+    final storedPath = await _readBackgroundLocalPath(db, tripId);
+    expect(storedPath, isNotNull);
+    expect(File(storedPath!).existsSync(), isTrue);
+    expect(await File(storedPath).readAsBytes(), bytes);
+  });
+
   test('remote background cache uses partial-safe trip update', () async {
     final badPartialUpsert = db.upsertTrip(
       const LocalTripsCompanion(
@@ -511,7 +528,9 @@ void main() {
       expect(find.byType(Image), findsOneWidget);
 
       expect(
-        events.where((e) => e['event'] == VamoEvent.captureActionStarted).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.captureActionStarted)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'set_trip_background',
@@ -519,7 +538,9 @@ void main() {
         },
       );
       expect(
-        events.where((e) => e['event'] == VamoEvent.captureActionAbandoned).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.captureActionAbandoned)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'set_trip_background',
@@ -527,14 +548,18 @@ void main() {
         },
       );
       expect(
-        events.where((e) => e['event'] == VamoEvent.captureActionCompleted).single['properties'],
+        events
+            .where((e) => e['event'] == VamoEvent.captureActionCompleted)
+            .single['properties'],
         {
           'screen': 'trip_home',
           'action': 'set_trip_background',
         },
       );
       expect(
-        events.where((e) => e['event'] == VamoEvent.captureActionAbandoned).length,
+        events
+            .where((e) => e['event'] == VamoEvent.captureActionAbandoned)
+            .length,
         1,
       );
 

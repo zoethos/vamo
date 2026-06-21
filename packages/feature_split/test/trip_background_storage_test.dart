@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:feature_split/src/trips/trip_background_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,5 +32,20 @@ void main() {
     expect(p.basename(second), matches(RegExp(r'^hero_\d+\.png$')));
     expect(File(first).existsSync(), isFalse);
     expect(File(second).existsSync(), isTrue);
+  });
+
+  test('persistBytes does not require a readable source path', () async {
+    setUpFakePathProvider();
+    addTearDown(tearDownFakePathProvider);
+
+    const tripId = 'trip-storage-bytes';
+    final stored = await TripBackgroundStorage.persistBytes(
+      tripId: tripId,
+      sourceName: 'picked-from-photo-picker.jpg',
+      bytes: Uint8List.fromList([1, 2, 3, 4]),
+    );
+
+    expect(p.basename(stored), matches(RegExp(r'^hero_\d+\.jpg$')));
+    expect(await File(stored).readAsBytes(), [1, 2, 3, 4]);
   });
 }
