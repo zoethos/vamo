@@ -137,8 +137,7 @@ void main() {
     expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
   });
 
-  testWidgets(
-      'steady-state profile head and settings rows open sheets on tap',
+  testWidgets('steady-state profile head and settings rows open sheets on tap',
       (tester) async {
     final repository = _FakeProfileRepository(
       UserProfile(
@@ -180,7 +179,8 @@ void main() {
     expect(find.byKey(const Key('profileThemeOption_dark')), findsOneWidget);
   });
 
-  testWidgets('steady-state avatar sheet opens from header tap', (tester) async {
+  testWidgets('steady-state avatar sheet opens from header tap',
+      (tester) async {
     final repository = _FakeProfileRepository(
       UserProfile(
         id: 'user-1',
@@ -198,6 +198,33 @@ void main() {
     expect(find.text('Profile picture'), findsOneWidget);
     expect(find.text('Upload'), findsOneWidget);
     expect(find.text('Use initials'), findsOneWidget);
+  });
+
+  testWidgets('avatar sheet actions stay tappable above shell bottom nav', (
+    tester,
+  ) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Chen',
+        baseCurrency: 'EUR',
+      ),
+    );
+
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await _pumpShellProfile(tester, repository);
+
+    await tester.tap(find.byKey(const Key('profileHeaderAvatar')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile picture'), findsOneWidget);
+    await tester.ensureVisible(find.text('Use initials'));
+    await tester.tap(find.text('Use initials'));
+    await tester.pumpAndSettle();
+
+    expect(repository.useInitialsCalls, 1);
   });
 }
 
@@ -250,6 +277,53 @@ Future<void> _pumpSteadyStateProfile(
         userProfileProvider.overrideWith((ref) => repository.fetchCurrent()),
       ],
       child: MaterialApp.router(theme: AppTheme.light, routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpShellProfile(
+  WidgetTester tester,
+  _FakeProfileRepository repository,
+) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(repository),
+        userProfileProvider.overrideWith((ref) => repository.fetchCurrent()),
+      ],
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          extendBody: true,
+          body: Navigator(
+            onGenerateRoute: (settings) => MaterialPageRoute<void>(
+              builder: (context) => ProfileScreen(
+                labels: _labels,
+                completionRequired: false,
+              ),
+            ),
+          ),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+          floatingActionButton: const FloatingActionButton(
+            onPressed: null,
+            child: Icon(Icons.add),
+          ),
+          bottomNavigationBar: NavigationBar(
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.luggage_outlined),
+                label: 'Trips',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                label: 'Profile',
+              ),
+            ],
+          ),
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();

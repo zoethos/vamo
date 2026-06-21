@@ -513,6 +513,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (sheetContext) {
         return Padding(
@@ -569,6 +570,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
@@ -582,7 +584,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       widget.labels.defaultCurrency,
-                      style: Theme.of(sheetContext).textTheme.titleMedium
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .titleMedium
                           ?.copyWith(
                             color: AppColors.ink,
                             fontWeight: FontWeight.w700,
@@ -617,6 +621,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final current = ref.read(themePreferenceProvider);
     showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
@@ -629,11 +634,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     'Theme',
-                    style: Theme.of(sheetContext).textTheme.titleMedium
-                        ?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
@@ -664,6 +669,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useRootNavigator: true,
       showDragHandle: true,
       builder: (sheetContext) {
         void dismissThen(VoidCallback action) {
@@ -671,29 +677,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           action();
         }
 
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
+        final viewInsets = MediaQuery.viewInsetsOf(sheetContext);
+        return SafeArea(
+          top: false,
           child: SingleChildScrollView(
-            child: _AvatarCompletionBlock(
-              labels: widget.labels,
-              displayName: _effectiveDisplayName(profile),
-              initials: _avatarInitialsController.text,
-              photoUrl: _avatarPhotoUrl,
-              oauthPreviewUrl:
-                  profile.avatarUrl == null ? oauthPreview : null,
-              oauthPreviewAvailable: oauthPreview != null,
-              storedPhotoAvailable:
-                  profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty,
-              busy: _avatarBusy,
-              onUseOAuth: () => dismissThen(() => _adoptOAuthAvatar(profile)),
-              onUpload: () => dismissThen(() => _uploadAvatar(profile)),
-              onUseInitials: () => dismissThen(() => _useInitialsAvatar(profile)),
-              onUsePhoto: () => dismissThen(() => _usePhotoAvatar(profile)),
-              onRemovePhoto: () => dismissThen(() => _removeAvatarPhoto(profile)),
-              initialsController: _avatarInitialsController,
-              onInitialsChanged: (_) => setState(() {}),
+            padding: EdgeInsets.only(bottom: viewInsets.bottom + 24),
+            child: Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 12, 0),
+              child: _AvatarCompletionBlock(
+                labels: widget.labels,
+                displayName: _effectiveDisplayName(profile),
+                initials: _avatarInitialsController.text,
+                photoUrl: _avatarPhotoUrl,
+                oauthPreviewUrl:
+                    profile.avatarUrl == null ? oauthPreview : null,
+                oauthPreviewAvailable: oauthPreview != null,
+                storedPhotoAvailable:
+                    profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty,
+                busy: _avatarBusy,
+                onUseOAuth: () => dismissThen(() => _adoptOAuthAvatar(profile)),
+                onUpload: () => dismissThen(() => _uploadAvatar(profile)),
+                onUseInitials: () =>
+                    dismissThen(() => _useInitialsAvatar(profile)),
+                onUsePhoto: () => dismissThen(() => _usePhotoAvatar(profile)),
+                onRemovePhoto: () =>
+                    dismissThen(() => _removeAvatarPhoto(profile)),
+                initialsController: _avatarInitialsController,
+                onInitialsChanged: (_) => setState(() {}),
+              ),
             ),
           ),
         );
@@ -1297,8 +1308,7 @@ class _SettingsRow extends StatelessWidget {
     this.iconColor,
   });
 
-  static double get dividerInset =>
-      _horizontalPadding + _iconSize + _iconGap;
+  static double get dividerInset => _horizontalPadding + _iconSize + _iconGap;
   static const _rowHeight = 52.0;
   static const _iconSize = 20.0;
   static const _iconGap = 12.0;
