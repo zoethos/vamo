@@ -137,7 +137,8 @@ void main() {
     expect(repository.profile.avatarDisplayMode, AvatarDisplayMode.initials);
   });
 
-  testWidgets('steady-state profile exposes avatar options to an existing user',
+  testWidgets(
+      'steady-state profile header and pinned save render; avatar actions in sheet',
       (tester) async {
     final repository = _FakeProfileRepository(
       UserProfile(
@@ -149,6 +150,17 @@ void main() {
     );
 
     await _pumpSteadyStateProfile(tester, repository);
+
+    expect(find.byKey(const Key('profileHeaderDisplayName')), findsOneWidget);
+    expect(find.byKey(const Key('profileHeaderTagline')), findsOneWidget);
+    expect(find.text('Si va?'), findsOneWidget);
+    expect(find.byKey(const Key('profileSaveBar')), findsOneWidget);
+    expect(find.text('Save changes'), findsOneWidget);
+    expect(find.text('Profile picture'), findsNothing);
+    expect(find.text('Upload'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('profileHeaderAvatar')));
+    await tester.pumpAndSettle();
 
     expect(find.text('Profile picture'), findsOneWidget);
     expect(find.text('Upload'), findsOneWidget);

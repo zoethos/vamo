@@ -207,136 +207,232 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final currency = _baseCurrency ?? p.baseCurrency;
           final tagCaptureLocation = ref.watch(captureLocationTaggingProvider);
 
-          return ListView(
+          if (completionRequired) {
+            return _buildCompletionBody(
+              context,
+              p: p,
+              currency: currency,
+            );
+          }
+          return _buildSteadyStateBody(
+            context,
+            p: p,
+            currency: currency,
+            tagCaptureLocation: tagCaptureLocation,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCompletionBody(
+    BuildContext context, {
+    required UserProfile p,
+    required String currency,
+  }) {
+    return ListView(
+      padding: const EdgeInsetsDirectional.all(20),
+      children: [
+        _CompletionBlock(subtitle: widget.labels.completionSubtitle),
+        const SizedBox(height: 24),
+        _avatarBlock(p),
+        const SizedBox(height: 24),
+        Text(
+          widget.labels.profileSection,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const Key('profileDisplayNameField'),
+          controller: _nameController,
+          decoration: InputDecoration(
+            labelText: widget.labels.displayName,
+            hintText: widget.labels.displayNameHint,
+            errorText: _nameError,
+          ),
+          textCapitalization: TextCapitalization.words,
+          onChanged: (_) => setState(() {
+            _dirty = true;
+            _nameError = null;
+          }),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          initialValue: currency,
+          decoration: InputDecoration(
+            labelText: widget.labels.defaultCurrency,
+            helperText: widget.labels.defaultCurrencyHelper,
+          ),
+          items: [
+            for (final c in kProfileCurrencies)
+              DropdownMenuItem(value: c, child: Text(c)),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() {
+              _baseCurrency = v;
+              _dirty = true;
+            });
+          },
+        ),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: _saving || !_dirty ? null : () => _save(p),
+          child: _saving
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(widget.labels.saveChanges),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _saving || _signingOut ? null : _signOut,
+          icon: const Icon(Icons.logout),
+          label: Text(widget.labels.signOut),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSteadyStateBody(
+    BuildContext context, {
+    required UserProfile p,
+    required String currency,
+    required bool tagCaptureLocation,
+  }) {
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
+    final headerPhotoUrl =
+        _avatarPhotoUrl ?? (p.avatarUrl == null ? oauthPreview : null);
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
             padding: const EdgeInsetsDirectional.all(20),
             children: [
-              if (completionRequired) ...[
-                _CompletionBlock(subtitle: widget.labels.completionSubtitle),
-                const SizedBox(height: 24),
-                _avatarBlock(p),
-                const SizedBox(height: 24),
-              ] else ...[
-                _avatarBlock(p),
-                const SizedBox(height: 24),
-                _AboutBlock(
-                  version: _version,
-                  versionLabel: widget.labels.versionLabel,
-                  tagline: widget.labels.tagline,
-                  licensesLabel: widget.labels.licenses,
-                  privacyLabel: widget.labels.privacyPolicy,
-                ),
-                const SizedBox(height: 24),
-              ],
-              Text(
-                widget.labels.profileSection,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w700,
-                    ),
+              _ProfileHeader(
+                displayName: _effectiveDisplayName(p),
+                initials: _avatarInitialsController.text,
+                photoUrl: headerPhotoUrl,
+                tagline: widget.labels.tagline,
+                onAvatarTap: () => _showAvatarActionsSheet(p),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                key: const Key('profileDisplayNameField'),
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: widget.labels.displayName,
-                  hintText: widget.labels.displayNameHint,
-                  errorText: _nameError,
-                ),
-                textCapitalization: TextCapitalization.words,
-                onChanged: (_) => setState(() {
-                  _dirty = true;
-                  _nameError = null;
-                }),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: currency,
-                decoration: InputDecoration(
-                  labelText: widget.labels.defaultCurrency,
-                  helperText: widget.labels.defaultCurrencyHelper,
-                ),
-                items: [
-                  for (final c in kProfileCurrencies)
-                    DropdownMenuItem(value: c, child: Text(c)),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _baseCurrency = v;
-                    _dirty = true;
-                  });
-                },
-              ),
-              if (!completionRequired) ...[
-                const SizedBox(height: 24),
-                Text(
-                  widget.labels.appearanceSection,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: context.vamoColors.onSurface,
-                        fontWeight: FontWeight.w700,
+              const SizedBox(height: 24),
+              _SettingsSection(
+                title: widget.labels.profileSection,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
+                    child: TextFormField(
+                      key: const Key('profileDisplayNameField'),
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: widget.labels.displayName,
+                        hintText: widget.labels.displayNameHint,
+                        errorText: _nameError,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
                       ),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<VamoThemePreference>(
-                  segments: [
-                    ButtonSegment(
-                      value: VamoThemePreference.light,
-                      label: Text(widget.labels.appearanceLight),
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (_) => setState(() {
+                        _dirty = true;
+                        _nameError = null;
+                      }),
                     ),
-                    ButtonSegment(
-                      value: VamoThemePreference.dark,
-                      label: Text(widget.labels.appearanceDark),
-                    ),
-                    ButtonSegment(
-                      value: VamoThemePreference.system,
-                      label: Text(widget.labels.appearanceSystem),
-                    ),
-                  ],
-                  selected: {ref.watch(themePreferenceProvider)},
-                  onSelectionChanged: (selection) {
-                    ref
-                        .read(themePreferenceProvider.notifier)
-                        .setPreference(selection.first);
-                  },
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  widget.labels.privacySection,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: context.vamoColors.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(widget.labels.tagCaptureLocation),
-                  subtitle: Text(
-                    widget.labels.tagCaptureLocationHelper,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.graphite),
                   ),
-                  value: tagCaptureLocation,
-                  onChanged: (enabled) {
-                    ref
-                        .read(captureLocationTaggingProvider.notifier)
-                        .setEnabled(enabled);
-                  },
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  widget.labels.billingSection,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w700,
+                  Padding(
+                    padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: currency,
+                      decoration: InputDecoration(
+                        labelText: widget.labels.defaultCurrency,
+                        helperText: widget.labels.defaultCurrencyHelper,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: ListTile(
+                      items: [
+                        for (final c in kProfileCurrencies)
+                          DropdownMenuItem(value: c, child: Text(c)),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() {
+                          _baseCurrency = v;
+                          _dirty = true;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: widget.labels.appearanceSection,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.all(16),
+                    child: SegmentedButton<VamoThemePreference>(
+                      segments: [
+                        ButtonSegment(
+                          value: VamoThemePreference.light,
+                          label: Text(widget.labels.appearanceLight),
+                        ),
+                        ButtonSegment(
+                          value: VamoThemePreference.dark,
+                          label: Text(widget.labels.appearanceDark),
+                        ),
+                        ButtonSegment(
+                          value: VamoThemePreference.system,
+                          label: Text(widget.labels.appearanceSystem),
+                        ),
+                      ],
+                      selected: {ref.watch(themePreferenceProvider)},
+                      onSelectionChanged: (selection) {
+                        ref
+                            .read(themePreferenceProvider.notifier)
+                            .setPreference(selection.first);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: widget.labels.privacySection,
+                children: [
+                  SwitchListTile.adaptive(
+                    contentPadding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 16,
+                    ),
+                    title: Text(widget.labels.tagCaptureLocation),
+                    subtitle: Text(
+                      widget.labels.tagCaptureLocationHelper,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.graphite),
+                    ),
+                    value: tagCaptureLocation,
+                    onChanged: (enabled) {
+                      ref
+                          .read(captureLocationTaggingProvider.notifier)
+                          .setEnabled(enabled);
+                    },
+                  ),
+                ],
+              ),
+              _SettingsSection(
+                title: widget.labels.billingSection,
+                children: [
+                  ListTile(
                     leading: const Icon(
                       Icons.workspace_premium_outlined,
                       color: AppColors.jadeTeal,
@@ -362,10 +458,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       description: widget.labels.plusSheetDescription,
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: ListTile(
+                  ListTile(
                     leading: const Icon(
                       Icons.lightbulb_outline,
                       color: AppColors.jadeTeal,
@@ -379,78 +472,158 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     onTap: () => context.push(AppRoutes.suggestFeature),
                   ),
+                ],
+              ),
+              if (kDebugMode) ...[
+                _SettingsSection(
+                  title: widget.labels.devLocaleSection,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.all(16),
+                      child: SegmentedButton<DevLocaleOverride>(
+                        segments: [
+                          ButtonSegment(
+                            value: DevLocaleOverride.system,
+                            label: Text(widget.labels.devLocaleSystem),
+                          ),
+                          ButtonSegment(
+                            value: DevLocaleOverride.rtlArabic,
+                            label: Text(widget.labels.devLocaleRtl),
+                          ),
+                          ButtonSegment(
+                            value: DevLocaleOverride.pseudoLocale,
+                            label: Text(widget.labels.devLocalePseudo),
+                          ),
+                        ],
+                        selected: {ref.watch(devLocaleOverrideProvider)},
+                        onSelectionChanged: (selection) {
+                          ref.read(devLocaleOverrideProvider.notifier).state =
+                              selection.first;
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                if (kDebugMode) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    widget.labels.devLocaleSection,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+              ],
+              _SettingsSection(
+                title: widget.labels.analyticsSection,
+                children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.all(16),
+                    child: Text(
+                      Env.posthogApiKey.isEmpty
+                          ? widget.labels.analyticsHint
+                          : widget.labels.posthogActive,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.graphite,
+                          ),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<DevLocaleOverride>(
-                    segments: [
-                      ButtonSegment(
-                        value: DevLocaleOverride.system,
-                        label: Text(widget.labels.devLocaleSystem),
-                      ),
-                      ButtonSegment(
-                        value: DevLocaleOverride.rtlArabic,
-                        label: Text(widget.labels.devLocaleRtl),
-                      ),
-                      ButtonSegment(
-                        value: DevLocaleOverride.pseudoLocale,
-                        label: Text(widget.labels.devLocalePseudo),
-                      ),
-                    ],
-                    selected: {ref.watch(devLocaleOverrideProvider)},
-                    onSelectionChanged: (selection) {
-                      ref.read(devLocaleOverrideProvider.notifier).state =
-                          selection.first;
+                ],
+              ),
+              _SettingsSection(
+                title: widget.labels.aboutSection,
+                children: [
+                  if (_version != null)
+                    ListTile(
+                      title: Text('${widget.labels.versionLabel} $_version'),
+                    ),
+                  ListTile(
+                    title: Text(widget.labels.licenses),
+                    trailing: Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_left
+                          : Icons.chevron_right,
+                    ),
+                    onTap: () => showLicensePage(
+                      context: context,
+                      applicationName: 'Vamo',
+                      applicationVersion: _version ?? '',
+                    ),
+                  ),
+                  ListTile(
+                    title: Text(widget.labels.privacyPolicy),
+                    trailing: Icon(
+                      Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_left
+                          : Icons.chevron_right,
+                    ),
+                    onTap: () async {
+                      final uri = Uri.parse('https://vamo.world/privacy');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
                     },
                   ),
                 ],
-                const SizedBox(height: 24),
-                Text(
-                  widget.labels.analyticsSection,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  Env.posthogApiKey.isEmpty
-                      ? widget.labels.analyticsHint
-                      : widget.labels.posthogActive,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
-                ),
-              ],
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _saving || !_dirty ? null : () => _save(p),
-                child: _saving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(widget.labels.saveChanges),
               ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _saving || _signingOut ? null : _signOut,
-                icon: const Icon(Icons.logout),
-                label: Text(widget.labels.signOut),
+              _SettingsSection(
+                title: 'Account',
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.logout),
+                    title: Text(widget.labels.signOut),
+                    enabled: !_saving && !_signingOut,
+                    onTap: _saving || _signingOut ? null : _signOut,
+                  ),
+                ],
               ),
             ],
-          );
-        },
-      ),
+          ),
+        ),
+        _SaveBar(
+          dirty: _dirty,
+          saving: _saving,
+          label: widget.labels.saveChanges,
+          onSave: () => _save(p),
+        ),
+      ],
+    );
+  }
+
+  void _showAvatarActionsSheet(UserProfile profile) {
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        void dismissThen(VoidCallback action) {
+          Navigator.of(sheetContext).pop();
+          action();
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: SingleChildScrollView(
+            child: _AvatarCompletionBlock(
+              labels: widget.labels,
+              displayName: _effectiveDisplayName(profile),
+              initials: _avatarInitialsController.text,
+              photoUrl: _avatarPhotoUrl,
+              oauthPreviewUrl:
+                  profile.avatarUrl == null ? oauthPreview : null,
+              oauthPreviewAvailable: oauthPreview != null,
+              storedPhotoAvailable:
+                  profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty,
+              busy: _avatarBusy,
+              onUseOAuth: () => dismissThen(() => _adoptOAuthAvatar(profile)),
+              onUpload: () => dismissThen(() => _uploadAvatar(profile)),
+              onUseInitials: () => dismissThen(() => _useInitialsAvatar(profile)),
+              onUsePhoto: () => dismissThen(() => _usePhotoAvatar(profile)),
+              onRemovePhoto: () => dismissThen(() => _removeAvatarPhoto(profile)),
+              initialsController: _avatarInitialsController,
+              onInitialsChanged: (_) => setState(() {}),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -873,73 +1046,156 @@ class _AvatarCompletionBlock extends StatelessWidget {
   }
 }
 
-class _AboutBlock extends StatelessWidget {
-  const _AboutBlock({
-    required this.version,
-    required this.versionLabel,
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.displayName,
+    required this.initials,
+    required this.photoUrl,
     required this.tagline,
-    required this.licensesLabel,
-    required this.privacyLabel,
+    required this.onAvatarTap,
   });
 
-  final String? version;
-  final String versionLabel;
+  final String displayName;
+  final String initials;
+  final String? photoUrl;
   final String tagline;
-  final String licensesLabel;
-  final String privacyLabel;
+  final VoidCallback onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsetsDirectional.all(20),
-        child: Column(
-          children: [
-            Image.asset(BrandAssets.primaryMark, height: 56),
-            const SizedBox(height: 8),
-            Text(
-              tagline,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            key: const Key('profileHeaderAvatar'),
+            onTap: onAvatarTap,
+            customBorder: const CircleBorder(),
+            child: VamoAvatar(
+              displayName: displayName,
+              initials: initials,
+              photoUrl: photoUrl,
+              radius: 40,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          displayName,
+          key: const Key('profileHeaderDisplayName'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          tagline,
+          key: const Key('profileHeaderTagline'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.graphite,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+  });
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppColors.ink,
                     fontWeight: FontWeight.w700,
                   ),
             ),
-            if (version != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                '$versionLabel $version',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
-              ),
-            ],
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          ),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            margin: EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextButton(
-                  onPressed: () => showLicensePage(
-                    context: context,
-                    applicationName: 'Vamo',
-                    applicationVersion: version ?? '',
-                  ),
-                  child: Text(licensesLabel),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final uri = Uri.parse('https://vamo.world/privacy');
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
-                  child: Text(privacyLabel),
-                ),
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AppColors.graphite.withValues(alpha: 0.2),
+                    ),
+                  children[i],
+                ],
               ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SaveBar extends StatelessWidget {
+  const _SaveBar({
+    required this.dirty,
+    required this.saving,
+    required this.label,
+    required this.onSave,
+  });
+
+  final bool dirty;
+  final bool saving;
+  final String label;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Material(
+        color: Theme.of(context).colorScheme.surface,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: AppColors.graphite.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+          child: Padding(
+            key: const Key('profileSaveBar'),
+            padding: const EdgeInsetsDirectional.all(20),
+            child: FilledButton(
+              onPressed: saving || !dirty ? null : onSave,
+              child: saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(label),
+            ),
+          ),
         ),
       ),
     );
