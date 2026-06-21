@@ -12,6 +12,9 @@ import 'plan_labels.dart';
 import 'plan_models.dart';
 import 'plan_providers.dart';
 
+const _visitCoral = AppColors.sunsetCoral;
+const _visitCoralText = AppColors.coralText;
+
 class PlanItemSheet extends ConsumerStatefulWidget {
   const PlanItemSheet({
     super.key,
@@ -191,7 +194,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  if (_kindChosen)
+                  if (_kindChosen && !_isVisit)
                     TextField(
                       controller: _notes,
                       readOnly: widget.readOnly,
@@ -208,6 +211,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       readOnly: widget.readOnly,
                       placeLabelController: _visitPlaceLabel,
                       addressController: _visitAddress,
+                      notesController: _notes,
                       placeFocusNode: _visitPlaceFocus,
                       addressFocusNode: _visitAddressFocus,
                       geocoding: _geocoding,
@@ -217,8 +221,10 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       discoveringPois: _discoveringPois,
                       poiSuggestions: _poiSuggestions,
                       poiGateVisible: _poiGateVisible,
+                      selectedPlaceId: _visitPlaceId,
                       onPlaceSelected: _applyTripPlace,
                       onPoiSelected: _applyPoi,
+                      onClearSearch: _clearVisitSearch,
                     ),
                   ],
                   if (_kindChosen && _isTransfer) ...[
@@ -366,7 +372,22 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     if (_isVisit && _visitPlaceLabel.text.trim().isEmpty) {
       return widget.labels.ctaTapPlace;
     }
+    if (_isVisit) return widget.labels.visitSave;
     return widget.labels.save;
+  }
+
+  void _clearVisitSearch() {
+    setState(() {
+      _visitSearchDebounce?.cancel();
+      _poiSuggestions = const <PoiSummary>[];
+      _poiGateVisible = false;
+      _visitPlaceId = null;
+      _visitLat = null;
+      _visitLng = null;
+      _visitStatus = null;
+      _visitStatusIsError = false;
+      _discoveringPois = false;
+    });
   }
 
   void _chooseKind(PlanItemKind kind) {
@@ -672,13 +693,14 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   }
 }
 
-class _VisitDetailsSection extends StatelessWidget {
+class _VisitDetailsSection extends StatefulWidget {
   const _VisitDetailsSection({
     required this.labels,
     required this.places,
     required this.readOnly,
     required this.placeLabelController,
     required this.addressController,
+    required this.notesController,
     required this.placeFocusNode,
     required this.addressFocusNode,
     required this.geocoding,
@@ -688,8 +710,10 @@ class _VisitDetailsSection extends StatelessWidget {
     required this.discoveringPois,
     required this.poiSuggestions,
     required this.poiGateVisible,
+    required this.selectedPlaceId,
     required this.onPlaceSelected,
     required this.onPoiSelected,
+    required this.onClearSearch,
   });
 
   final PlanTabLabels labels;
@@ -697,6 +721,7 @@ class _VisitDetailsSection extends StatelessWidget {
   final bool readOnly;
   final TextEditingController placeLabelController;
   final TextEditingController addressController;
+  final TextEditingController notesController;
   final FocusNode placeFocusNode;
   final FocusNode addressFocusNode;
   final bool geocoding;
@@ -706,28 +731,109 @@ class _VisitDetailsSection extends StatelessWidget {
   final bool discoveringPois;
   final List<PoiSummary> poiSuggestions;
   final bool poiGateVisible;
+  final String? selectedPlaceId;
   final ValueChanged<PlaceSummary> onPlaceSelected;
   final ValueChanged<PoiSummary> onPoiSelected;
+  final VoidCallback onClearSearch;
+
+  @override
+  State<_VisitDetailsSection> createState() => _VisitDetailsSectionState();
+}
+
+class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
+  late bool _notesExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesExpanded = widget.notesController.text.trim().isNotEmpty;
+    widget.placeLabelController.addListener(_rebuild);
+    widget.placeFocusNode.addListener(_rebuild);
+  }
+
+  @override
+  void didUpdateWidget(covariant _VisitDetailsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.placeLabelController != widget.placeLabelController) {
+      oldWidget.placeLabelController.removeListener(_rebuild);
+      widget.placeLabelController.addListener(_rebuild);
+    }
+    if (oldWidget.placeFocusNode != widget.placeFocusNode) {
+      oldWidget.placeFocusNode.removeListener(_rebuild);
+      widget.placeFocusNode.addListener(_rebuild);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.placeLabelController.removeListener(_rebuild);
+    widget.placeFocusNode.removeListener(_rebuild);
+    super.dispose();
+  }
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
+
+  void _clearSearch() {
+    widget.placeLabelController.clear();
+    widget.onClearSearch();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shape = context.vamoShape;
+    final query = widget.placeLabelController.text.trim();
+    final showEmptyState = !widget.discoveringPois &&
+        !widget.poiGateVisible &&
+        query.length >= 3 &&
+        widget.poiSuggestions.isEmpty &&
+        widget.status == widget.labels.visitDiscoverEmpty;
+    final showErrorStatus = widget.status != null &&
+        widget.statusIsError &&
+        widget.status != widget.labels.visitDiscoverResolving;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          labels.visitSectionTitle,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Text(
+              widget.labels.visitPlaceLabel,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(width: 8),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: _visitCoral.withValues(alpha: 0.12),
+                borderRadius: shape.chipBorderRadius,
+              ),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                child: Text(
+                  widget.labels.kindVisit,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: _visitCoralText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        if (places.isNotEmpty) ...[
+        if (widget.places.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            labels.visitFromTripPlaces,
+            widget.labels.visitFromTripPlaces,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: AppColors.graphite,
             ),
           ),
           const SizedBox(height: 6),
@@ -735,120 +841,318 @@ class _VisitDetailsSection extends StatelessWidget {
             spacing: 8,
             runSpacing: 4,
             children: [
-              for (final place in places.take(8))
+              for (final place in widget.places.take(8))
                 ActionChip(
-                  avatar: const Icon(Icons.place_outlined, size: 16),
+                  avatar: Icon(
+                    Icons.place_outlined,
+                    size: 16,
+                    color: widget.selectedPlaceId == place.id
+                        ? _visitCoralText
+                        : AppColors.graphite,
+                  ),
                   label: Text(place.label),
-                  onPressed: readOnly ? null : () => onPlaceSelected(place),
+                  backgroundColor: widget.selectedPlaceId == place.id
+                      ? _visitCoral.withValues(alpha: 0.12)
+                      : null,
+                  side: widget.selectedPlaceId == place.id
+                      ? BorderSide(color: _visitCoral)
+                      : null,
+                  onPressed:
+                      widget.readOnly ? null : () => widget.onPlaceSelected(place),
                 ),
             ],
           ),
         ],
-        const SizedBox(height: 8),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: placeFocusNode.hasFocus
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primary.withValues(alpha: 0.22),
-              width: placeFocusNode.hasFocus ? 1.4 : 1,
+        const SizedBox(height: 10),
+        TextField(
+          key: const Key('visitPlaceSearchField'),
+          controller: widget.placeLabelController,
+          focusNode: widget.placeFocusNode,
+          readOnly: widget.readOnly,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: widget.labels.visitPlaceHelper,
+            prefixIcon: const Icon(
+              Icons.search,
+              color: _visitCoral,
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 4),
-            child: TextField(
-              controller: placeLabelController,
-              focusNode: placeFocusNode,
-              readOnly: readOnly,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                icon: Icon(
-                  Icons.search_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-                border: InputBorder.none,
-                labelText: labels.visitPlaceLabel,
-                helperText: labels.visitPlaceHelper,
+            suffixIcon: widget.placeLabelController.text.isNotEmpty &&
+                    !widget.readOnly
+                ? IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    color: AppColors.graphite,
+                    onPressed: _clearSearch,
+                  )
+                : null,
+            filled: true,
+            fillColor: context.vamoColors.surface,
+            contentPadding: const EdgeInsetsDirectional.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: BorderSide(
+                color: AppColors.graphite.withValues(alpha: 0.22),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: const BorderSide(
+                color: _visitCoral,
+                width: 1.5,
               ),
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: addressController,
-          focusNode: addressFocusNode,
-          readOnly: readOnly,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.location_on_outlined),
-            labelText: labels.visitAddressLabel,
-            helperText: labels.visitAddressHelper,
-            filled: true,
-            fillColor: addressFocusNode.hasFocus
-                ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.35,
+        if (widget.discoveringPois) ...[
+          const SizedBox(height: 10),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: _visitCoral,
+              ),
+            ),
+          ),
+        ],
+        if (widget.poiGateVisible) ...[
+          const SizedBox(height: 10),
+          _PoiGateRow(message: widget.labels.visitDiscoverGated),
+        ],
+        if (widget.poiSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.vamoColors.surface,
+              borderRadius: shape.cardBorderRadius,
+              border: Border.all(
+                color: AppColors.graphite.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < widget.poiSuggestions.take(5).length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: AppColors.graphite.withValues(alpha: 0.12),
+                    ),
+                  _VisitPoiSuggestionRow(
+                    poi: widget.poiSuggestions[i],
+                    selected: widget.selectedPlaceId != null &&
+                        widget.selectedPlaceId ==
+                            widget.poiSuggestions[i].providerPlaceId,
+                    readOnly: widget.readOnly,
+                    onTap: () => widget.onPoiSelected(widget.poiSuggestions[i]),
                   ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.colorScheme.primary),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+                ],
+              ],
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsetsDirectional.only(top: 4),
-          child: Text(
-            labels.visitDiscoverHelper,
+        ],
+        if (showEmptyState) ...[
+          const SizedBox(height: 10),
+          Text(
+            widget.labels.visitDiscoverEmpty,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              color: AppColors.graphite,
+            ),
+          ),
+        ],
+        if (showErrorStatus)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 8),
+            child: Text(
+              widget.status!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+        if (widget.hasCoords &&
+            widget.status == widget.labels.visitCoordinatesSaved)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 8),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_outline,
+                  size: 18,
+                  color: _visitCoral,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  widget.status!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.graphite,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        TextField(
+          key: const Key('visitAddressField'),
+          controller: widget.addressController,
+          focusNode: widget.addressFocusNode,
+          readOnly: widget.readOnly,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(
+              Icons.location_on_outlined,
+              color: AppColors.graphite,
+            ),
+            labelText:
+                '${widget.labels.visitAddressLabel} (${widget.labels.visitAddressHelper})',
+            enabledBorder: OutlineInputBorder(
+              borderRadius: shape.controlBorderRadius,
+              borderSide: BorderSide(
+                color: AppColors.graphite.withValues(alpha: 0.22),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: shape.controlBorderRadius,
+              borderSide: const BorderSide(color: _visitCoral),
             ),
           ),
         ),
-        if (hasCoords && status == null)
-          Padding(
-            padding: const EdgeInsetsDirectional.only(top: 4),
-            child: Icon(
-              Icons.check_circle_outline,
-              size: 20,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        if (poiGateVisible) ...[
-          const SizedBox(height: 8),
-          _PoiGateRow(message: labels.visitDiscoverGated),
-        ],
-        if (poiSuggestions.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Column(
-            children: [
-              for (final poi in poiSuggestions.take(5))
-                _PoiSuggestionTile(
-                  poi: poi,
-                  readOnly: readOnly,
-                  onTap: () => onPoiSelected(poi),
+        const SizedBox(height: 12),
+        if (_notesExpanded)
+          TextField(
+            key: const Key('visitNotesField'),
+            controller: widget.notesController,
+            readOnly: widget.readOnly,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: widget.labels.fieldNotes,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: shape.controlBorderRadius,
+                borderSide: BorderSide(
+                  color: AppColors.graphite.withValues(alpha: 0.22),
                 ),
-            ],
-          ),
-        ],
-        if (status != null)
-          Padding(
-            padding: const EdgeInsetsDirectional.only(top: 4),
-            child: Text(
-              status!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: statusIsError
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.primary,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: shape.controlBorderRadius,
+                borderSide: const BorderSide(color: _visitCoral),
+              ),
+            ),
+          )
+        else
+          InkWell(
+            key: const Key('visitAddNoteRow'),
+            onTap: widget.readOnly
+                ? null
+                : () => setState(() => _notesExpanded = true),
+            borderRadius: shape.controlBorderRadius,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.symmetric(vertical: 10),
+              child: Text(
+                widget.labels.visitAddNote,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.graphite,
+                ),
               ),
             ),
           ),
       ],
     );
+  }
+}
+
+class _VisitPoiSuggestionRow extends StatelessWidget {
+  const _VisitPoiSuggestionRow({
+    required this.poi,
+    required this.selected,
+    required this.readOnly,
+    required this.onTap,
+  });
+
+  final PoiSummary poi;
+  final bool selected;
+  final bool readOnly;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitleParts = <String>[
+      _categoryLabel(poi.category),
+      if (_locality(poi.address) case final locality?) locality,
+      if (poi.distanceM case final distance?) '${distance} m',
+    ];
+
+    return Material(
+      color: selected
+          ? _visitCoral.withValues(alpha: 0.10)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: readOnly ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsetsDirectional.only(top: 2),
+                child: Icon(
+                  Icons.place_outlined,
+                  size: 20,
+                  color: _visitCoral,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      poi.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    if (subtitleParts.isNotEmpty)
+                      Text(
+                        subtitleParts.join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (selected)
+                const Icon(
+                  Icons.check_circle,
+                  size: 20,
+                  color: _visitCoral,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _categoryLabel(PoiCategory category) {
+    final raw = category.name;
+    return raw[0].toUpperCase() + raw.substring(1);
+  }
+
+  static String? _locality(String? address) {
+    if (address == null || address.trim().isEmpty) return null;
+    final parts = address.split(',').map((part) => part.trim()).toList();
+    if (parts.length >= 2) return parts[parts.length - 2];
+    return parts.last;
   }
 }
 
@@ -965,70 +1269,29 @@ class _PoiGateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.jadeTeal.withValues(alpha: 0.08),
+        color: _visitCoral.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.jadeTeal.withValues(alpha: 0.28)),
+        border: Border.all(color: _visitCoral.withValues(alpha: 0.28)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            const Icon(Icons.lock_open_outlined, size: 18),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PoiSuggestionTile extends StatelessWidget {
-  const _PoiSuggestionTile({
-    required this.poi,
-    required this.readOnly,
-    required this.onTap,
-  });
-
-  final PoiSummary poi;
-  final bool readOnly;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final distance = poi.distanceM == null ? null : '${poi.distanceM} m';
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: 6),
-      child: Material(
-        color: theme.colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          dense: true,
-          leading: CircleAvatar(
-            radius: 17,
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
-            child: Icon(
-              poi.category.icon,
+            const Icon(
+              Icons.lock_open_outlined,
               size: 18,
-              color: theme.colorScheme.primary,
+              color: _visitCoral,
             ),
-          ),
-          title: Text(poi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(
-            [
-              if (distance != null) distance,
-              if (poi.address != null) poi.address!,
-            ].join(' - '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: readOnly ? null : onTap,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.graphite,
+                    ),
+              ),
+            ),
+          ],
         ),
       ),
     );

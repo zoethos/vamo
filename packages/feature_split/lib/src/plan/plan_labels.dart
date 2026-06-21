@@ -28,10 +28,10 @@ class PlanTabLabels {
     required this.visitSectionTitle,
     required this.visitFromTripPlaces,
     required this.visitPlaceLabel,
-    this.visitPlaceHelper =
-        'Start typing a place, sight, restaurant, hotel, or station.',
+    this.visitPlaceHelper = 'Start typing a place…',
     required this.visitAddressLabel,
-    this.visitAddressHelper = 'Optional, but helps Vamo find suggestions.',
+    this.visitAddressHelper = 'Optional',
+    this.visitAddNote = 'Add a note',
     required this.visitFindCoordinates,
     required this.visitPlaceRequired,
     required this.visitAddressRequiredForGeocode,
@@ -43,7 +43,7 @@ class PlanTabLabels {
     this.visitDiscoverNeedsPlace = 'Type a place or address first.',
     this.visitDiscoverResolving = 'Finding matching places...',
     this.visitDiscoverNeedsCoordinates = 'Type a place or address first.',
-    this.visitDiscoverEmpty = 'No matching places found.',
+    this.visitDiscoverEmpty = 'No matches — you can still save manually.',
     this.visitDiscoverGated =
         'You have used your free place lookups this month. Vamo Plus unlocks more.',
     this.visitDiscoverLoadError =
@@ -60,6 +60,7 @@ class PlanTabLabels {
     required this.transferSubtypeDrive,
     required this.transferSubtypeFlight,
     required this.save,
+    this.visitSave = 'Add Visit',
     this.ctaTapType = 'tap a type',
     this.ctaTapPlace = 'tap a place',
     required this.tabTitle,
@@ -110,6 +111,7 @@ class PlanTabLabels {
   final String visitPlaceHelper;
   final String visitAddressLabel;
   final String visitAddressHelper;
+  final String visitAddNote;
   final String visitFindCoordinates;
   final String visitPlaceRequired;
   final String visitAddressRequiredForGeocode;
@@ -135,6 +137,7 @@ class PlanTabLabels {
   final String transferSubtypeDrive;
   final String transferSubtypeFlight;
   final String save;
+  final String visitSave;
   final String ctaTapType;
   final String ctaTapPlace;
   final String tabTitle;
