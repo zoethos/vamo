@@ -90,6 +90,91 @@ void main() {
     expect(grouped.last.items.single.startsAt, isNull);
   });
 
+  test('groupPlanItemsBySubtrip keeps main and subtrip sections separate', () {
+    final subtrip = SubtripSummary(
+      id: 'sub-1',
+      tripId: 't',
+      name: 'Tokyo crew',
+      createdBy: 'u1',
+      createdAt: DateTime.utc(2026, 6, 1),
+      memberIds: const ['u1', 'u2'],
+    );
+    final grouped = groupPlanItemsBySubtrip(
+      subtrips: [subtrip],
+      items: [
+        const PlanItemSummary(
+          id: 'main',
+          tripId: 't',
+          kind: PlanItemKind.other,
+          title: 'Everyone dinner',
+          position: 0,
+        ),
+        const PlanItemSummary(
+          id: 'sub',
+          tripId: 't',
+          subtripId: 'sub-1',
+          kind: PlanItemKind.visit,
+          title: 'Ghibli Museum',
+          position: 1,
+        ),
+      ],
+    );
+
+    expect(grouped, hasLength(2));
+    expect(grouped.first.subtrip, isNull);
+    expect(grouped.first.daySections.single.items.single.id, 'main');
+    expect(grouped.last.subtrip?.name, 'Tokyo crew');
+    expect(grouped.last.daySections.single.items.single.id, 'sub');
+  });
+
+  test('groupPlanItemsBySubtrip applies trip bounds in every lane', () {
+    final subtrip = SubtripSummary(
+      id: 'sub-1',
+      tripId: 't',
+      name: 'Tokyo crew',
+      createdBy: 'u1',
+      createdAt: DateTime.utc(2026, 6, 1),
+    );
+    final grouped = groupPlanItemsBySubtrip(
+      subtrips: [subtrip],
+      bounds: TripPlanDateBounds.fromIso(
+        startDateIso: '2026-06-17',
+        endDateIso: '2026-06-19',
+      ),
+      items: [
+        PlanItemSummary(
+          id: 'outside-range',
+          tripId: 't',
+          subtripId: 'sub-1',
+          kind: PlanItemKind.visit,
+          title: 'Too early',
+          startsAt: DateTime.utc(2026, 6, 6, 10),
+          position: 0,
+        ),
+      ],
+    );
+
+    final subtripSection = grouped.singleWhere(
+      (section) => section.subtrip?.id == 'sub-1',
+    );
+    expect(subtripSection.daySections.single.dayKey, isNull);
+    expect(subtripSection.daySections.single.items.single.startsAt, isNull);
+  });
+
+  test('PlanItemSummary copyWith retains and can clear the subtrip id', () {
+    const item = PlanItemSummary(
+      id: 'plan-1',
+      tripId: 'trip-1',
+      subtripId: 'subtrip-1',
+      kind: PlanItemKind.visit,
+      title: 'Museum',
+      position: 0,
+    );
+
+    expect(item.copyWith().subtripId, 'subtrip-1');
+    expect(item.copyWith(clearSubtripId: true).subtripId, isNull);
+  });
+
   test('plan metadata helpers preserve objects and reject invalid shapes', () {
     expect(parsePlanMetadata(null), isEmpty);
     expect(parsePlanMetadata(''), isEmpty);
@@ -227,6 +312,46 @@ void main() {
     final pending = await queue.pending();
     final payload = decodePayload(pending.single.payload);
     expect(payload['metadata'], {'flight_number': 'AZ123'});
+  });
+
+  test('addPlanItem preserves subtrip id locally and in outbox', () async {
+    const tripId = 'trip-plan';
+    const subtripId = 'subtrip-plan';
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+    );
+
+    await repo.addPlanItem(
+      const PlanItemInput(
+        tripId: tripId,
+        subtripId: subtripId,
+        kind: PlanItemKind.visit,
+        title: 'Ghibli Museum',
+      ),
+    );
+
+    final rows = await repo.watchPlanItems(tripId).first;
+    expect(rows.single.subtripId, subtripId);
+
+    final pending = await queue.pending();
+    final payload = decodePayload(pending.single.payload);
+    expect(payload['subtrip_id'], subtripId);
   });
 
   test('addPlanItem rejects dates outside the local trip range', () async {

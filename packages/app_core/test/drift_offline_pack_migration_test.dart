@@ -4,11 +4,11 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema v24 includes offline pack manifest table', () async {
+  test('schema v25 retains the offline pack manifest table', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 24);
+    expect(db.schemaVersion, 25);
 
     await db.upsertOfflinePack(
       LocalOfflinePacksCompanion.insert(

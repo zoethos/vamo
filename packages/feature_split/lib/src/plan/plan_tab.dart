@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../places/place_resolve.dart';
 import '../shared/vamo_slidable_row.dart';
+import '../trips/trips_providers.dart';
 import 'event_rsvp_models.dart';
 import 'plan_event_rsvp_picker.dart';
 import 'plan_item_sheet.dart';
@@ -45,7 +46,7 @@ class PlanTab extends ConsumerStatefulWidget {
 class PlanTabState extends ConsumerState<PlanTab> {
   DateTime? _selectedDay;
 
-  void openAddPlanItem() => _openSheet(context, null);
+  void openAddPlanItem() => _openSheet(context, null, subtripId: null);
 
   /// Header "+" — choose event/plan item or checklist item.
   Future<void> openAddMenu() async {
@@ -74,7 +75,7 @@ class PlanTabState extends ConsumerState<PlanTab> {
     if (!mounted || choice == null) return;
     switch (choice) {
       case _PlanAddChoice.planItem:
-        await _openSheet(context, null);
+        await _openSheet(context, null, subtripId: null);
       case _PlanAddChoice.checklistItem:
         await _openAddChecklistSheet();
     }
@@ -84,8 +85,11 @@ class PlanTabState extends ConsumerState<PlanTab> {
   Widget build(BuildContext context) {
     final plans = ref.watch(tripPlanItemsProvider(widget.tripId));
     final lists = ref.watch(tripListItemsProvider(widget.tripId));
+    final subtrips = ref.watch(tripSubtripsProvider(widget.tripId));
+    final trip = ref.watch(tripDetailProvider(widget.tripId)).valueOrNull;
     final eventViews = ref.watch(tripPlanEventViewsProvider(widget.tripId));
     final repo = ref.read(planRepositoryProvider);
+    final subtripsEnabled = trip?.subtripsEnabled == true;
 
     return plans.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -103,10 +107,14 @@ class PlanTabState extends ConsumerState<PlanTab> {
             onRetry: () => ref.invalidate(tripListItemsProvider(widget.tripId)),
           ),
           data: (listItems) {
+            final subtripRows =
+                subtrips.valueOrNull ?? const <SubtripSummary>[];
             final checklists = groupListItemsByName(listItems);
 
             return _PlanTabContent(
               planItems: planItems,
+              subtrips: subtripRows,
+              subtripsEnabled: subtripsEnabled,
               checklists: checklists,
               eventViews: eventViews,
               labels: widget.labels,
@@ -120,8 +128,17 @@ class PlanTabState extends ConsumerState<PlanTab> {
               onSelectedDayChanged: (day) => setState(() {
                 _selectedDay = day;
               }),
-              onAddPlanItem: () => _openSheet(context, null),
-              onEditPlanItem: (item) => _openSheet(context, item),
+              onAddPlanItem: (subtripId) => _openSheet(
+                context,
+                null,
+                subtripId: subtripId,
+              ),
+              onCreateSubtrip: _openCreateSubtripSheet,
+              onEditPlanItem: (item) => _openSheet(
+                context,
+                item,
+                subtripId: item.subtripId,
+              ),
               onDeletePlanItem: (item) => repo.deletePlanItem(item.id),
               onToggleChecklistItem: (id) => repo.toggleListItem(id),
             );
@@ -205,7 +222,11 @@ class PlanTabState extends ConsumerState<PlanTab> {
     itemController.dispose();
   }
 
-  Future<void> _openSheet(BuildContext context, PlanItemSummary? existing) {
+  Future<void> _openSheet(
+    BuildContext context,
+    PlanItemSummary? existing, {
+    required String? subtripId,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -221,7 +242,18 @@ class PlanTabState extends ConsumerState<PlanTab> {
         ),
         onSave: (input) async {
           if (existing == null) {
-            await ref.read(planRepositoryProvider).addPlanItem(input);
+            await ref.read(planRepositoryProvider).addPlanItem(
+                  PlanItemInput(
+                    tripId: input.tripId,
+                    subtripId: subtripId,
+                    kind: input.kind,
+                    title: input.title,
+                    notes: input.notes,
+                    startsAt: input.startsAt,
+                    endsAt: input.endsAt,
+                    metadata: input.metadata,
+                  ),
+                );
           } else {
             await ref.read(planRepositoryProvider).updatePlanItem(
                   id: existing.id,
@@ -237,6 +269,138 @@ class PlanTabState extends ConsumerState<PlanTab> {
       ),
     );
   }
+
+  Future<void> _openCreateSubtripSheet() async {
+    final nameController = TextEditingController();
+    final members =
+        ref.read(tripActiveMembersProvider(widget.tripId)).valueOrNull ??
+            const <LocalTripMember>[];
+    final selected = members.map((m) => m.userId).toSet();
+    var saving = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final space = ctx.vamoSpace;
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                space.x4,
+                space.x2,
+                space.x4,
+                MediaQuery.viewInsetsOf(ctx).bottom + space.x4,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    widget.labels.addSubtrip,
+                    style: Theme.of(ctx).textTheme.titleLarge,
+                  ),
+                  SizedBox(height: space.x3),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: widget.labels.subtripNameLabel,
+                    ),
+                    textInputAction: TextInputAction.done,
+                  ),
+                  SizedBox(height: space.x3),
+                  Text(
+                    widget.labels.subtripMembersLabel,
+                    style: Theme.of(ctx).textTheme.titleSmall,
+                  ),
+                  SizedBox(height: space.x1),
+                  for (final member in members)
+                    CheckboxListTile(
+                      value: selected.contains(member.userId),
+                      onChanged: saving
+                          ? null
+                          : (value) {
+                              setSheetState(() {
+                                if (value == true) {
+                                  selected.add(member.userId);
+                                } else {
+                                  selected.remove(member.userId);
+                                }
+                              });
+                            },
+                      title: Text(
+                        member.displayName?.trim().isNotEmpty == true
+                            ? member.displayName!
+                            : member.userId,
+                      ),
+                    ),
+                  if (error != null) ...[
+                    SizedBox(height: space.x2),
+                    Text(
+                      error!,
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(ctx).colorScheme.error,
+                          ),
+                    ),
+                  ],
+                  SizedBox(height: space.x3),
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final name = nameController.text.trim();
+                            if (name.isEmpty) {
+                              setSheetState(() {
+                                error = widget.labels.subtripNameRequired;
+                              });
+                              return;
+                            }
+                            if (selected.isEmpty) {
+                              setSheetState(() {
+                                error = widget.labels.subtripMembersRequired;
+                              });
+                              return;
+                            }
+                            setSheetState(() {
+                              saving = true;
+                              error = null;
+                            });
+                            try {
+                              await ref
+                                  .read(planRepositoryProvider)
+                                  .createSubtrip(
+                                    tripId: widget.tripId,
+                                    name: name,
+                                    memberIds: selected.toList(),
+                                  );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            } catch (e) {
+                              setSheetState(() {
+                                saving = false;
+                                error = widget.labels.subtripCreateFailed;
+                              });
+                            }
+                          },
+                    child: saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(widget.labels.addSubtrip),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    nameController.dispose();
+  }
 }
 
 enum _PlanAddChoice { planItem, checklistItem }
@@ -244,6 +408,8 @@ enum _PlanAddChoice { planItem, checklistItem }
 class _PlanTabContent extends StatelessWidget {
   const _PlanTabContent({
     required this.planItems,
+    required this.subtrips,
+    required this.subtripsEnabled,
     required this.checklists,
     required this.eventViews,
     required this.labels,
@@ -256,12 +422,15 @@ class _PlanTabContent extends StatelessWidget {
     required this.selectedDay,
     required this.onSelectedDayChanged,
     required this.onAddPlanItem,
+    required this.onCreateSubtrip,
     required this.onEditPlanItem,
     required this.onDeletePlanItem,
     required this.onToggleChecklistItem,
   });
 
   final List<PlanItemSummary> planItems;
+  final List<SubtripSummary> subtrips;
+  final bool subtripsEnabled;
   final Map<String, List<TripListItemSummary>> checklists;
   final Map<String, PlanItemEventView> eventViews;
   final PlanTabLabels labels;
@@ -273,7 +442,8 @@ class _PlanTabContent extends StatelessWidget {
   final String? tripDestination;
   final DateTime? selectedDay;
   final ValueChanged<DateTime> onSelectedDayChanged;
-  final VoidCallback onAddPlanItem;
+  final ValueChanged<String?> onAddPlanItem;
+  final VoidCallback onCreateSubtrip;
   final ValueChanged<PlanItemSummary> onEditPlanItem;
   final ValueChanged<PlanItemSummary> onDeletePlanItem;
   final ValueChanged<String> onToggleChecklistItem;
@@ -287,7 +457,18 @@ class _PlanTabContent extends StatelessWidget {
       startDateIso: tripStartDateIso,
       endDateIso: tripEndDateIso,
     );
-    final grouped = groupPlanItemsByDay(planItems, bounds: bounds);
+    final groupedBySubtrip = subtripsEnabled
+        ? groupPlanItemsBySubtrip(
+            items: planItems,
+            subtrips: subtrips,
+            bounds: bounds,
+          )
+        : [
+            (
+              subtrip: null,
+              daySections: groupPlanItemsByDay(planItems, bounds: bounds),
+            ),
+          ];
     final days = _timelineDays(planItems, bounds);
     final effectiveSelectedDay = _selectedDayFor(
       days: days,
@@ -295,10 +476,24 @@ class _PlanTabContent extends StatelessWidget {
     );
     final selectedKey =
         effectiveSelectedDay == null ? null : _dayKey(effectiveSelectedDay);
-    final visibleSections = selectedKey == null
-        ? grouped
-        : grouped.where((section) => section.dayKey == selectedKey).toList();
-    final hasBody = planItems.isNotEmpty || checklists.isNotEmpty;
+    final visibleGroups = groupedBySubtrip
+        .map(
+          (group) => (
+            subtrip: group.subtrip,
+            daySections: selectedKey == null
+                ? group.daySections
+                : group.daySections
+                    .where((section) => section.dayKey == selectedKey)
+                    .toList(),
+          ),
+        )
+        .toList();
+    final hasVisibleSections = visibleGroups.any(
+      (group) => group.daySections.isNotEmpty,
+    );
+    final hasBody = planItems.isNotEmpty ||
+        checklists.isNotEmpty ||
+        subtripsEnabled && subtrips.isNotEmpty;
     final bottomInset = (!readOnly && showBottomAddAction) ? 104.0 : 16.0;
 
     return Stack(
@@ -333,9 +528,18 @@ class _PlanTabContent extends StatelessWidget {
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
                   child: TextButton.icon(
-                    onPressed: onAddPlanItem,
+                    onPressed: () => onAddPlanItem(null),
                     icon: const Icon(Icons.add),
                     label: Text(labels.addPlanItem),
+                  ),
+                ),
+              if (subtripsEnabled && !readOnly)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: onCreateSubtrip,
+                    icon: const Icon(Icons.account_tree_outlined),
+                    label: Text(labels.addSubtrip),
                   ),
                 ),
               if (days.isNotEmpty) ...[
@@ -357,7 +561,7 @@ class _PlanTabContent extends StatelessWidget {
                 ),
                 SizedBox(height: space.x3),
               ],
-              if (visibleSections.isEmpty && selectedKey != null)
+              if (!hasVisibleSections && selectedKey != null)
                 Padding(
                   padding: EdgeInsetsDirectional.only(bottom: space.x6),
                   child: Text(
@@ -367,26 +571,47 @@ class _PlanTabContent extends StatelessWidget {
                     ),
                   ),
                 ),
-              for (final section in visibleSections) ...[
-                _TimelineSectionHeader(
-                  dayKey: section.dayKey,
-                  labels: labels,
-                  tripDestination: tripDestination,
-                ),
-                SizedBox(height: space.x2),
-                for (final (index, item) in section.items.indexed)
-                  _PlanTimelineRow(
-                    item: item,
-                    nextItem: index == section.items.length - 1
-                        ? null
-                        : section.items[index + 1],
-                    eventView: eventViews[item.id],
-                    labels: labels,
+              for (final group in visibleGroups) ...[
+                if (subtripsEnabled) ...[
+                  _SubtripSectionHeader(
+                    title: group.subtrip?.name ?? labels.mainTripSection,
+                    addLabel: labels.addPlanItem,
                     readOnly: readOnly,
-                    onEdit: () => onEditPlanItem(item),
-                    onDelete: () => onDeletePlanItem(item),
+                    onAdd: () => onAddPlanItem(group.subtrip?.id),
                   ),
-                SizedBox(height: space.x4),
+                  SizedBox(height: space.x2),
+                ],
+                if (group.daySections.isEmpty && group.subtrip != null)
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(bottom: space.x4),
+                    child: Text(
+                      labels.emptySubtitle,
+                      style: type.bodyMedium.copyWith(
+                        color: colors.onSurfaceMuted,
+                      ),
+                    ),
+                  ),
+                for (final section in group.daySections) ...[
+                  _TimelineSectionHeader(
+                    dayKey: section.dayKey,
+                    labels: labels,
+                    tripDestination: tripDestination,
+                  ),
+                  SizedBox(height: space.x2),
+                  for (final (index, item) in section.items.indexed)
+                    _PlanTimelineRow(
+                      item: item,
+                      nextItem: index == section.items.length - 1
+                          ? null
+                          : section.items[index + 1],
+                      eventView: eventViews[item.id],
+                      labels: labels,
+                      readOnly: readOnly,
+                      onEdit: () => onEditPlanItem(item),
+                      onDelete: () => onDeletePlanItem(item),
+                    ),
+                  SizedBox(height: space.x4),
+                ],
               ],
               if (checklists.isNotEmpty) ...[
                 Text(
@@ -424,7 +649,7 @@ class _PlanTabContent extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  onPressed: onAddPlanItem,
+                  onPressed: () => onAddPlanItem(null),
                   icon: const Icon(Icons.add),
                   label: Text(labels.addPlanItem),
                 ),
@@ -473,6 +698,46 @@ class _PlanTabContent extends StatelessWidget {
       }
     }
     return days.toList()..sort();
+  }
+}
+
+class _SubtripSectionHeader extends StatelessWidget {
+  const _SubtripSectionHeader({
+    required this.title,
+    required this.addLabel,
+    required this.readOnly,
+    required this.onAdd,
+  });
+
+  final String title;
+  final String addLabel;
+  final bool readOnly;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: type.titleMedium.copyWith(
+              fontWeight: FontWeight.w800,
+              color: colors.onSurface,
+            ),
+          ),
+        ),
+        if (!readOnly)
+          IconButton(
+            tooltip: addLabel,
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+      ],
+    );
   }
 }
 
