@@ -309,267 +309,184 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
     final headerPhotoUrl =
         _avatarPhotoUrl ?? (p.avatarUrl == null ? oauthPreview : null);
+    final themePreference = ref.watch(themePreferenceProvider);
+    final displayName = _effectiveDisplayName(p);
 
     return Column(
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsetsDirectional.all(20),
+            padding: EdgeInsets.zero,
             children: [
               _ProfileHeader(
-                displayName: _effectiveDisplayName(p),
+                displayName: displayName,
                 initials: _avatarInitialsController.text,
                 photoUrl: headerPhotoUrl,
                 tagline: widget.labels.tagline,
                 onAvatarTap: () => _showAvatarActionsSheet(p),
               ),
-              const SizedBox(height: 24),
-              _SettingsSection(
-                title: widget.labels.profileSection,
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 0),
-                    child: TextFormField(
-                      key: const Key('profileDisplayNameField'),
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: widget.labels.displayName,
-                        hintText: widget.labels.displayNameHint,
-                        errorText: _nameError,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {
-                        _dirty = true;
-                        _nameError = null;
-                      }),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 8),
-                    child: DropdownButtonFormField<String>(
-                      initialValue: currency,
-                      decoration: InputDecoration(
-                        labelText: widget.labels.defaultCurrency,
-                        helperText: widget.labels.defaultCurrencyHelper,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                      ),
-                      items: [
-                        for (final c in kProfileCurrencies)
-                          DropdownMenuItem(value: c, child: Text(c)),
-                      ],
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() {
-                          _baseCurrency = v;
-                          _dirty = true;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: widget.labels.appearanceSection,
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.all(16),
-                    child: SegmentedButton<VamoThemePreference>(
-                      segments: [
-                        ButtonSegment(
-                          value: VamoThemePreference.light,
-                          label: Text(widget.labels.appearanceLight),
-                        ),
-                        ButtonSegment(
-                          value: VamoThemePreference.dark,
-                          label: Text(widget.labels.appearanceDark),
-                        ),
-                        ButtonSegment(
-                          value: VamoThemePreference.system,
-                          label: Text(widget.labels.appearanceSystem),
-                        ),
-                      ],
-                      selected: {ref.watch(themePreferenceProvider)},
-                      onSelectionChanged: (selection) {
-                        ref
-                            .read(themePreferenceProvider.notifier)
-                            .setPreference(selection.first);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: widget.labels.privacySection,
-                children: [
-                  SwitchListTile.adaptive(
-                    contentPadding: const EdgeInsetsDirectional.symmetric(
-                      horizontal: 16,
-                    ),
-                    title: Text(widget.labels.tagCaptureLocation),
-                    subtitle: Text(
-                      widget.labels.tagCaptureLocationHelper,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: AppColors.graphite),
-                    ),
-                    value: tagCaptureLocation,
-                    onChanged: (enabled) {
-                      ref
-                          .read(captureLocationTaggingProvider.notifier)
-                          .setEnabled(enabled);
-                    },
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: widget.labels.billingSection,
-                children: [
-                  ListTile(
-                    leading: const Icon(
-                      Icons.workspace_premium_outlined,
-                      color: AppColors.jadeTeal,
-                    ),
-                    title: Text(widget.labels.plusTitle),
-                    subtitle: Text(
-                      widget.labels.plusSubtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.graphite,
-                          ),
-                    ),
-                    trailing: Icon(
-                      Directionality.of(context) == TextDirection.rtl
-                          ? Icons.chevron_left
-                          : Icons.chevron_right,
-                    ),
-                    onTap: () => showComingSoonSheet(
-                      context: context,
-                      ref: ref,
-                      interestEvent: VamoEvent.plusInterestTapped,
-                      feature: 'plus',
-                      title: widget.labels.plusTitle,
-                      description: widget.labels.plusSheetDescription,
-                    ),
-                  ),
-                  ListTile(
-                    leading: const Icon(
-                      Icons.lightbulb_outline,
-                      color: AppColors.jadeTeal,
-                    ),
-                    title: Text(widget.labels.suggestTitle),
-                    subtitle: Text(widget.labels.suggestSubtitle),
-                    trailing: Icon(
-                      Directionality.of(context) == TextDirection.rtl
-                          ? Icons.chevron_left
-                          : Icons.chevron_right,
-                    ),
-                    onTap: () => context.push(AppRoutes.suggestFeature),
-                  ),
-                ],
-              ),
-              if (kDebugMode) ...[
-                _SettingsSection(
-                  title: widget.labels.devLocaleSection,
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsetsDirectional.all(16),
-                      child: SegmentedButton<DevLocaleOverride>(
-                        segments: [
-                          ButtonSegment(
-                            value: DevLocaleOverride.system,
-                            label: Text(widget.labels.devLocaleSystem),
+                    _SettingsSection(
+                      title: widget.labels.profileSection,
+                      children: [
+                        _SettingsRow(
+                          key: const Key('profileRowDisplayName'),
+                          icon: Icons.badge_outlined,
+                          label: widget.labels.displayName,
+                          trailingText: displayName,
+                          showChevron: true,
+                          onTap: () => _showDisplayNameSheet(),
+                        ),
+                        _SettingsRow(
+                          key: const Key('profileRowCurrency'),
+                          icon: Icons.payments_outlined,
+                          label: widget.labels.defaultCurrency,
+                          trailingText: currency,
+                          showChevron: true,
+                          onTap: () => _showCurrencyPickerSheet(currency),
+                        ),
+                      ],
+                    ),
+                    _SettingsSection(
+                      title: 'Appearance & privacy',
+                      children: [
+                        _SettingsRow(
+                          key: const Key('profileRowTheme'),
+                          icon: Icons.palette_outlined,
+                          label: 'Theme',
+                          trailingText: _themePreferenceLabel(themePreference),
+                          showChevron: true,
+                          onTap: _showThemePickerSheet,
+                        ),
+                        _SettingsRow(
+                          key: const Key('profileRowLocationTag'),
+                          icon: Icons.location_on_outlined,
+                          label: widget.labels.tagCaptureLocation,
+                          toggleValue: tagCaptureLocation,
+                          onToggleChanged: (enabled) {
+                            ref
+                                .read(captureLocationTaggingProvider.notifier)
+                                .setEnabled(enabled);
+                          },
+                        ),
+                      ],
+                    ),
+                    _SettingsSection(
+                      title: 'Membership',
+                      children: [
+                        _SettingsRow(
+                          key: const Key('profileRowPlus'),
+                          icon: Icons.workspace_premium_outlined,
+                          label: widget.labels.plusTitle,
+                          subtitle: widget.labels.plusSubtitle,
+                          showChevron: true,
+                          onTap: () => showComingSoonSheet(
+                            context: context,
+                            ref: ref,
+                            interestEvent: VamoEvent.plusInterestTapped,
+                            feature: 'plus',
+                            title: widget.labels.plusTitle,
+                            description: widget.labels.plusSheetDescription,
                           ),
-                          ButtonSegment(
-                            value: DevLocaleOverride.rtlArabic,
-                            label: Text(widget.labels.devLocaleRtl),
-                          ),
-                          ButtonSegment(
-                            value: DevLocaleOverride.pseudoLocale,
-                            label: Text(widget.labels.devLocalePseudo),
+                        ),
+                        _SettingsRow(
+                          key: const Key('profileRowSuggest'),
+                          icon: Icons.lightbulb_outline,
+                          label: widget.labels.suggestTitle,
+                          subtitle: widget.labels.suggestSubtitle,
+                          showChevron: true,
+                          onTap: () => context.push(AppRoutes.suggestFeature),
+                        ),
+                      ],
+                    ),
+                    if (kDebugMode)
+                      _SettingsSection(
+                        title: widget.labels.devLocaleSection,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsetsDirectional.all(16),
+                            child: SegmentedButton<DevLocaleOverride>(
+                              segments: [
+                                ButtonSegment(
+                                  value: DevLocaleOverride.system,
+                                  label: Text(widget.labels.devLocaleSystem),
+                                ),
+                                ButtonSegment(
+                                  value: DevLocaleOverride.rtlArabic,
+                                  label: Text(widget.labels.devLocaleRtl),
+                                ),
+                                ButtonSegment(
+                                  value: DevLocaleOverride.pseudoLocale,
+                                  label: Text(widget.labels.devLocalePseudo),
+                                ),
+                              ],
+                              selected: {ref.watch(devLocaleOverrideProvider)},
+                              onSelectionChanged: (selection) {
+                                ref
+                                    .read(devLocaleOverrideProvider.notifier)
+                                    .state = selection.first;
+                              },
+                            ),
                           ),
                         ],
-                        selected: {ref.watch(devLocaleOverrideProvider)},
-                        onSelectionChanged: (selection) {
-                          ref.read(devLocaleOverrideProvider.notifier).state =
-                              selection.first;
-                        },
                       ),
+                    _SettingsSection(
+                      title: widget.labels.aboutSection,
+                      children: [
+                        if (_version != null)
+                          _SettingsRow(
+                            key: const Key('profileRowVersion'),
+                            icon: Icons.info_outline,
+                            label: widget.labels.versionLabel,
+                            trailingText: _version,
+                          ),
+                        _SettingsRow(
+                          key: const Key('profileRowLicenses'),
+                          icon: Icons.description_outlined,
+                          label: widget.labels.licenses,
+                          showChevron: true,
+                          onTap: () => showLicensePage(
+                            context: context,
+                            applicationName: 'Vamo',
+                            applicationVersion: _version ?? '',
+                          ),
+                        ),
+                        _SettingsRow(
+                          key: const Key('profileRowPrivacy'),
+                          icon: Icons.privacy_tip_outlined,
+                          label: widget.labels.privacyPolicy,
+                          showChevron: true,
+                          onTap: () async {
+                            final uri = Uri.parse('https://vamo.world/privacy');
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    _SettingsSection(
+                      title: 'Account',
+                      children: [
+                        _SettingsRow(
+                          key: const Key('profileRowSignOut'),
+                          icon: Icons.logout,
+                          label: widget.labels.signOut,
+                          titleColor: AppColors.coralText,
+                          iconColor: AppColors.coralText,
+                          onTap: _saving || _signingOut ? null : _signOut,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-              _SettingsSection(
-                title: widget.labels.analyticsSection,
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.all(16),
-                    child: Text(
-                      Env.posthogApiKey.isEmpty
-                          ? widget.labels.analyticsHint
-                          : widget.labels.posthogActive,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.graphite,
-                          ),
-                    ),
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: widget.labels.aboutSection,
-                children: [
-                  if (_version != null)
-                    ListTile(
-                      title: Text('${widget.labels.versionLabel} $_version'),
-                    ),
-                  ListTile(
-                    title: Text(widget.labels.licenses),
-                    trailing: Icon(
-                      Directionality.of(context) == TextDirection.rtl
-                          ? Icons.chevron_left
-                          : Icons.chevron_right,
-                    ),
-                    onTap: () => showLicensePage(
-                      context: context,
-                      applicationName: 'Vamo',
-                      applicationVersion: _version ?? '',
-                    ),
-                  ),
-                  ListTile(
-                    title: Text(widget.labels.privacyPolicy),
-                    trailing: Icon(
-                      Directionality.of(context) == TextDirection.rtl
-                          ? Icons.chevron_left
-                          : Icons.chevron_right,
-                    ),
-                    onTap: () async {
-                      final uri = Uri.parse('https://vamo.world/privacy');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    },
-                  ),
-                ],
-              ),
-              _SettingsSection(
-                title: 'Account',
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.logout),
-                    title: Text(widget.labels.signOut),
-                    enabled: !_saving && !_signingOut,
-                    onTap: _saving || _signingOut ? null : _signOut,
-                  ),
-                ],
               ),
             ],
           ),
@@ -581,6 +498,163 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           onSave: () => _save(p),
         ),
       ],
+    );
+  }
+
+  String _themePreferenceLabel(VamoThemePreference preference) {
+    return switch (preference) {
+      VamoThemePreference.light => widget.labels.appearanceLight,
+      VamoThemePreference.dark => widget.labels.appearanceDark,
+      VamoThemePreference.system => widget.labels.appearanceSystem,
+    };
+  }
+
+  void _showDisplayNameSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsetsDirectional.only(
+            start: 20,
+            end: 20,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.labels.displayName,
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('profileDisplayNameField'),
+                controller: _nameController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: widget.labels.displayName,
+                  hintText: widget.labels.displayNameHint,
+                  errorText: _nameError,
+                ),
+                textCapitalization: TextCapitalization.words,
+                onChanged: (_) => setState(() {
+                  _dirty = true;
+                  _nameError = null;
+                }),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.jadeTeal,
+                  foregroundColor: AppColors.ink,
+                ),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCurrencyPickerSheet(String currentCurrency) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      widget.labels.defaultCurrency,
+                      style: Theme.of(sheetContext).textTheme.titleMedium
+                          ?.copyWith(
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ),
+                for (final code in kProfileCurrencies)
+                  ListTile(
+                    key: Key('profileCurrencyOption_$code'),
+                    title: Text(code),
+                    trailing: code == currentCurrency
+                        ? const Icon(Icons.check, color: AppColors.jadeTeal)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _baseCurrency = code;
+                        _dirty = true;
+                      });
+                      Navigator.of(sheetContext).pop();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showThemePickerSheet() {
+    final current = ref.read(themePreferenceProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    'Theme',
+                    style: Theme.of(sheetContext).textTheme.titleMedium
+                        ?.copyWith(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+              ),
+              for (final preference in VamoThemePreference.values)
+                ListTile(
+                  key: Key('profileThemeOption_${preference.name}'),
+                  title: Text(_themePreferenceLabel(preference)),
+                  trailing: preference == current
+                      ? const Icon(Icons.check, color: AppColors.jadeTeal)
+                      : null,
+                  onTap: () {
+                    ref
+                        .read(themePreferenceProvider.notifier)
+                        .setPreference(preference);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1063,42 +1137,79 @@ class _ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: const Key('profileHeaderAvatar'),
-            onTap: onAvatarTap,
-            customBorder: const CircleBorder(),
-            child: VamoAvatar(
-              displayName: displayName,
-              initials: initials,
-              photoUrl: photoUrl,
-              radius: 40,
+    final heroTint = Color.alphaBlend(
+      AppColors.jadeTeal.withValues(alpha: 0.10),
+      context.vamoColors.background,
+    );
+
+    return ColoredBox(
+      color: heroTint,
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 28, 20, 24),
+        child: Column(
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: const Key('profileHeaderAvatar'),
+                onTap: onAvatarTap,
+                customBorder: const CircleBorder(),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    VamoAvatar(
+                      displayName: displayName,
+                      initials: initials,
+                      photoUrl: photoUrl,
+                      radius: 44,
+                    ),
+                    PositionedDirectional(
+                      end: 0,
+                      bottom: 0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: context.vamoColors.surface,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.graphite.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.photo_camera_outlined,
+                            size: 14,
+                            color: AppColors.jadeTeal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 16),
+            Text(
+              displayName,
+              key: const Key('profileHeaderDisplayName'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              tagline,
+              key: const Key('profileHeaderTagline'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.deepTeal,
+                  ),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-        Text(
-          displayName,
-          key: const Key('profileHeaderDisplayName'),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          tagline,
-          key: const Key('profileHeaderTagline'),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.graphite,
-              ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1116,8 +1227,10 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (children.isEmpty) return const SizedBox.shrink();
 
+    final shape = context.vamoShape;
+
     return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: 24),
+      padding: const EdgeInsetsDirectional.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1125,31 +1238,151 @@ class _SettingsSection extends StatelessWidget {
             padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
             child: Text(
               title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.graphite,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
           ),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            margin: EdgeInsets.zero,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: AppColors.graphite.withValues(alpha: 0.2),
-                    ),
-                  children[i],
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.vamoColors.surface,
+              borderRadius: shape.cardBorderRadius,
+              border: Border.all(
+                color: AppColors.graphite.withValues(alpha: 0.25),
+                width: 0.5,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: shape.cardBorderRadius,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i > 0)
+                      Padding(
+                        padding: EdgeInsetsDirectional.only(
+                          start: _SettingsRow.dividerInset,
+                        ),
+                        child: Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: AppColors.graphite.withValues(alpha: 0.15),
+                        ),
+                      ),
+                    children[i],
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingsRow extends StatelessWidget {
+  const _SettingsRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.trailingText,
+    this.showChevron = false,
+    this.toggleValue,
+    this.onToggleChanged,
+    this.onTap,
+    this.titleColor,
+    this.iconColor,
+  });
+
+  static double get dividerInset =>
+      _horizontalPadding + _iconSize + _iconGap;
+  static const _rowHeight = 52.0;
+  static const _iconSize = 20.0;
+  static const _iconGap = 12.0;
+  static const _horizontalPadding = 16.0;
+
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final String? trailingText;
+  final bool showChevron;
+  final bool? toggleValue;
+  final ValueChanged<bool>? onToggleChanged;
+  final VoidCallback? onTap;
+  final Color? titleColor;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final chevron = Directionality.of(context) == TextDirection.rtl
+        ? Icons.chevron_left
+        : Icons.chevron_right;
+    final isToggle = toggleValue != null && onToggleChanged != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isToggle ? null : onTap,
+        child: SizedBox(
+          height: subtitle == null ? _rowHeight : null,
+          child: Padding(
+            padding: EdgeInsetsDirectional.symmetric(
+              horizontal: _horizontalPadding,
+              vertical: subtitle == null ? 0 : 10,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: _iconSize,
+                  color: iconColor ?? AppColors.jadeTeal,
+                ),
+                const SizedBox(width: _iconGap),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: titleColor ?? AppColors.ink,
+                            ),
+                      ),
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: AppColors.graphite),
+                        ),
+                    ],
+                  ),
+                ),
+                if (trailingText != null) ...[
+                  Text(
+                    trailingText!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.graphite,
+                        ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                if (isToggle)
+                  Switch.adaptive(
+                    value: toggleValue!,
+                    onChanged: onToggleChanged,
+                  )
+                else if (showChevron)
+                  Icon(chevron, color: AppColors.graphite, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1173,7 +1406,7 @@ class _SaveBar extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Material(
-        color: Theme.of(context).colorScheme.surface,
+        color: context.vamoColors.surface,
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border(
@@ -1186,6 +1419,12 @@ class _SaveBar extends StatelessWidget {
             key: const Key('profileSaveBar'),
             padding: const EdgeInsetsDirectional.all(20),
             child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.jadeTeal,
+                foregroundColor: AppColors.ink,
+                disabledBackgroundColor: context.vamoColors.surfaceMuted,
+                disabledForegroundColor: AppColors.graphite,
+              ),
               onPressed: saving || !dirty ? null : onSave,
               child: saving
                   ? const SizedBox(

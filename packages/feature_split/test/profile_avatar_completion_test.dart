@@ -138,7 +138,7 @@ void main() {
   });
 
   testWidgets(
-      'steady-state profile header and pinned save render; avatar actions in sheet',
+      'steady-state profile head and settings rows open sheets on tap',
       (tester) async {
     final repository = _FakeProfileRepository(
       UserProfile(
@@ -156,8 +156,41 @@ void main() {
     expect(find.text('Si va?'), findsOneWidget);
     expect(find.byKey(const Key('profileSaveBar')), findsOneWidget);
     expect(find.text('Save changes'), findsOneWidget);
+    expect(find.byKey(const Key('profileDisplayNameField')), findsNothing);
     expect(find.text('Profile picture'), findsNothing);
-    expect(find.text('Upload'), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('profileRowDisplayName')));
+    await tester.tap(find.byKey(const Key('profileRowDisplayName')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileDisplayNameField')), findsOneWidget);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('profileRowCurrency')));
+    await tester.tap(find.byKey(const Key('profileRowCurrency')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileCurrencyOption_USD')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profileCurrencyOption_USD')));
+    await tester.pumpAndSettle();
+    expect(find.text('USD'), findsWidgets);
+
+    await tester.ensureVisible(find.byKey(const Key('profileRowTheme')));
+    await tester.tap(find.byKey(const Key('profileRowTheme')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profileThemeOption_dark')), findsOneWidget);
+  });
+
+  testWidgets('steady-state avatar sheet opens from header tap', (tester) async {
+    final repository = _FakeProfileRepository(
+      UserProfile(
+        id: 'user-1',
+        displayName: 'Maya Chen',
+        baseCurrency: 'EUR',
+      ),
+      oauthPreviewUrl: 'https://provider.example/photo.jpg',
+    );
+
+    await _pumpSteadyStateProfile(tester, repository);
 
     await tester.tap(find.byKey(const Key('profileHeaderAvatar')));
     await tester.pumpAndSettle();
