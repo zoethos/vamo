@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../shared/vamo_slidable_row.dart';
+import '../trips/trips_providers.dart';
 import 'event_rsvp_models.dart';
 import 'plan_event_tile.dart';
 import 'plan_item_sheet.dart';
@@ -32,7 +33,7 @@ class PlanTab extends ConsumerStatefulWidget {
 }
 
 class PlanTabState extends ConsumerState<PlanTab> {
-  void openAddPlanItem() => _openSheet(context, null);
+  void openAddPlanItem() => _openSheet(context, null, subtripId: null);
 
   /// Header "+" — choose event/plan item or checklist item.
   Future<void> openAddMenu() async {
@@ -61,7 +62,7 @@ class PlanTabState extends ConsumerState<PlanTab> {
     if (!mounted || choice == null) return;
     switch (choice) {
       case _PlanAddChoice.planItem:
-        await _openSheet(context, null);
+        await _openSheet(context, null, subtripId: null);
       case _PlanAddChoice.checklistItem:
         await _openAddChecklistSheet();
     }
@@ -74,8 +75,11 @@ class PlanTabState extends ConsumerState<PlanTab> {
     final space = context.vamoSpace;
     final plans = ref.watch(tripPlanItemsProvider(widget.tripId));
     final lists = ref.watch(tripListItemsProvider(widget.tripId));
+    final subtrips = ref.watch(tripSubtripsProvider(widget.tripId));
+    final trip = ref.watch(tripDetailProvider(widget.tripId)).valueOrNull;
     final eventViews = ref.watch(tripPlanEventViewsProvider(widget.tripId));
     final repo = ref.read(planRepositoryProvider);
+    final subtripsEnabled = trip?.subtripsEnabled == true;
 
     return plans.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -93,10 +97,22 @@ class PlanTabState extends ConsumerState<PlanTab> {
             onRetry: () => ref.invalidate(tripListItemsProvider(widget.tripId)),
           ),
           data: (listItems) {
-            final grouped = groupPlanItemsByDay(planItems);
+            final subtripRows =
+                subtrips.valueOrNull ?? const <SubtripSummary>[];
+            final grouped = subtripsEnabled
+                ? groupPlanItemsBySubtrip(
+                    items: planItems,
+                    subtrips: subtripRows,
+                  )
+                : [
+                    (
+                      subtrip: null,
+                      daySections: groupPlanItemsByDay(planItems),
+                    ),
+                  ];
             final checklists = groupListItemsByName(listItems);
 
-            if (planItems.isEmpty && listItems.isEmpty) {
+            if (planItems.isEmpty && listItems.isEmpty && !subtripsEnabled) {
               return Center(
                 child: AppEmptyState(
                   screen: 'trip_plan',
@@ -114,47 +130,93 @@ class PlanTabState extends ConsumerState<PlanTab> {
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: TextButton.icon(
-                      onPressed: () => _openSheet(context, null),
+                      onPressed: () =>
+                          _openSheet(context, null, subtripId: null),
                       icon: const Icon(Icons.add),
                       label: Text(widget.labels.addPlanItem),
                     ),
                   ),
-                for (final section in grouped) ...[
-                  Text(
-                    section.dayKey ?? widget.labels.undatedSection,
-                    style: type.titleSmall.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: colors.onSurfaceMuted,
+                if (subtripsEnabled && !widget.readOnly)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: OutlinedButton.icon(
+                      onPressed: _openCreateSubtripSheet,
+                      icon: const Icon(Icons.group_add_outlined),
+                      label: Text(widget.labels.addSubtrip),
+                    ),
+                  ),
+                if (subtripsEnabled) SizedBox(height: space.x2),
+                for (final group in grouped) ...[
+                  _SubtripSectionHeader(
+                    title: group.subtrip?.name ?? widget.labels.mainTripSection,
+                    memberCount: group.subtrip?.memberIds.length,
+                    readOnly: widget.readOnly,
+                    addLabel: widget.labels.addPlanItem,
+                    onAdd: () => _openSheet(
+                      context,
+                      null,
+                      subtripId: group.subtrip?.id,
                     ),
                   ),
                   SizedBox(height: space.x2),
-                  ...section.items.map(
-                    (item) {
-                      if (item.kind == PlanItemKind.activity) {
-                        final view = eventViews[item.id];
-                        return PlanEventTile(
-                          tripId: widget.tripId,
-                          view: view ??
-                              PlanItemEventView(
-                                item: item,
-                                counts: const EventRsvpCounts(),
-                                myStatus: null,
+                  if (group.daySections
+                      .every((section) => section.items.isEmpty))
+                    Padding(
+                      padding: EdgeInsetsDirectional.only(bottom: space.x4),
+                      child: Text(
+                        widget.labels.emptySubtitle,
+                        style: type.bodySmall.copyWith(
+                          color: colors.onSurfaceMuted,
+                        ),
+                      ),
+                    ),
+                  for (final section in group.daySections) ...[
+                    if (section.items.isNotEmpty) ...[
+                      Text(
+                        section.dayKey ?? widget.labels.undatedSection,
+                        style: type.titleSmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.onSurfaceMuted,
+                        ),
+                      ),
+                      SizedBox(height: space.x2),
+                      ...section.items.map(
+                        (item) {
+                          if (item.kind == PlanItemKind.activity) {
+                            final view = eventViews[item.id];
+                            return PlanEventTile(
+                              tripId: widget.tripId,
+                              view: view ??
+                                  PlanItemEventView(
+                                    item: item,
+                                    counts: const EventRsvpCounts(),
+                                    myStatus: null,
+                                  ),
+                              labels: widget.labels,
+                              readOnly: widget.readOnly,
+                              onEdit: () => _openSheet(
+                                context,
+                                item,
+                                subtripId: item.subtripId,
                               ),
-                          labels: widget.labels,
-                          readOnly: widget.readOnly,
-                          onEdit: () => _openSheet(context, item),
-                          onDelete: () => repo.deletePlanItem(item.id),
-                        );
-                      }
-                      return _PlanItemTile(
-                        item: item,
-                        labels: widget.labels,
-                        readOnly: widget.readOnly,
-                        onEdit: () => _openSheet(context, item),
-                        onDelete: () => repo.deletePlanItem(item.id),
-                      );
-                    },
-                  ),
+                              onDelete: () => repo.deletePlanItem(item.id),
+                            );
+                          }
+                          return _PlanItemTile(
+                            item: item,
+                            labels: widget.labels,
+                            readOnly: widget.readOnly,
+                            onEdit: () => _openSheet(
+                              context,
+                              item,
+                              subtripId: item.subtripId,
+                            ),
+                            onDelete: () => repo.deletePlanItem(item.id),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                   SizedBox(height: space.x4),
                 ],
                 if (checklists.isNotEmpty) ...[
@@ -256,7 +318,11 @@ class PlanTabState extends ConsumerState<PlanTab> {
     itemController.dispose();
   }
 
-  Future<void> _openSheet(BuildContext context, PlanItemSummary? existing) {
+  Future<void> _openSheet(
+    BuildContext context,
+    PlanItemSummary? existing, {
+    required String? subtripId,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -268,7 +334,18 @@ class PlanTabState extends ConsumerState<PlanTab> {
         readOnly: widget.readOnly,
         onSave: (input) async {
           if (existing == null) {
-            await ref.read(planRepositoryProvider).addPlanItem(input);
+            await ref.read(planRepositoryProvider).addPlanItem(
+                  PlanItemInput(
+                    tripId: input.tripId,
+                    subtripId: subtripId,
+                    kind: input.kind,
+                    title: input.title,
+                    notes: input.notes,
+                    startsAt: input.startsAt,
+                    endsAt: input.endsAt,
+                    metadata: input.metadata,
+                  ),
+                );
           } else {
             await ref.read(planRepositoryProvider).updatePlanItem(
                   id: existing.id,
@@ -284,9 +361,194 @@ class PlanTabState extends ConsumerState<PlanTab> {
       ),
     );
   }
+
+  Future<void> _openCreateSubtripSheet() async {
+    final nameController = TextEditingController();
+    final members =
+        ref.read(tripActiveMembersProvider(widget.tripId)).valueOrNull ??
+            const <LocalTripMember>[];
+    final selected = members.map((m) => m.userId).toSet();
+    var saving = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final space = ctx.vamoSpace;
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsetsDirectional.fromSTEB(
+                space.x4,
+                space.x2,
+                space.x4,
+                MediaQuery.viewInsetsOf(ctx).bottom + space.x4,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    widget.labels.addSubtrip,
+                    style: Theme.of(ctx).textTheme.titleLarge,
+                  ),
+                  SizedBox(height: space.x3),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: widget.labels.subtripNameLabel,
+                    ),
+                    textInputAction: TextInputAction.done,
+                  ),
+                  SizedBox(height: space.x3),
+                  Text(
+                    widget.labels.subtripMembersLabel,
+                    style: Theme.of(ctx).textTheme.titleSmall,
+                  ),
+                  SizedBox(height: space.x1),
+                  for (final member in members)
+                    CheckboxListTile(
+                      value: selected.contains(member.userId),
+                      onChanged: saving
+                          ? null
+                          : (value) {
+                              setSheetState(() {
+                                if (value == true) {
+                                  selected.add(member.userId);
+                                } else {
+                                  selected.remove(member.userId);
+                                }
+                              });
+                            },
+                      title: Text(
+                        member.displayName?.trim().isNotEmpty == true
+                            ? member.displayName!
+                            : member.userId,
+                      ),
+                    ),
+                  if (error != null) ...[
+                    SizedBox(height: space.x2),
+                    Text(
+                      error!,
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(ctx).colorScheme.error,
+                          ),
+                    ),
+                  ],
+                  SizedBox(height: space.x3),
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final name = nameController.text.trim();
+                            if (name.isEmpty) {
+                              setSheetState(() {
+                                error = widget.labels.subtripNameRequired;
+                              });
+                              return;
+                            }
+                            if (selected.isEmpty) {
+                              setSheetState(() {
+                                error = widget.labels.subtripMembersRequired;
+                              });
+                              return;
+                            }
+                            setSheetState(() {
+                              saving = true;
+                              error = null;
+                            });
+                            try {
+                              await ref
+                                  .read(planRepositoryProvider)
+                                  .createSubtrip(
+                                    tripId: widget.tripId,
+                                    name: name,
+                                    memberIds: selected.toList(),
+                                  );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            } catch (e) {
+                              setSheetState(() {
+                                saving = false;
+                                error = widget.labels.subtripCreateFailed;
+                              });
+                            }
+                          },
+                    child: saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(widget.labels.addSubtrip),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    nameController.dispose();
+  }
 }
 
 enum _PlanAddChoice { planItem, checklistItem }
+
+class _SubtripSectionHeader extends StatelessWidget {
+  const _SubtripSectionHeader({
+    required this.title,
+    required this.memberCount,
+    required this.readOnly,
+    required this.addLabel,
+    required this.onAdd,
+  });
+
+  final String title;
+  final int? memberCount;
+  final bool readOnly;
+  final String addLabel;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: type.titleMedium.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: colors.onSurface,
+                ),
+              ),
+              if (memberCount != null)
+                Text(
+                  '$memberCount members',
+                  style: type.bodySmall.copyWith(
+                    color: colors.onSurfaceMuted,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (!readOnly)
+          IconButton(
+            tooltip: addLabel,
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+      ],
+    );
+  }
+}
 
 class _ChecklistSection extends StatelessWidget {
   const _ChecklistSection({

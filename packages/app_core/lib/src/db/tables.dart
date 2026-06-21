@@ -12,6 +12,8 @@ class LocalTrips extends Table {
   TextColumn get lifecycle => text().withDefault(const Constant('active'))();
   TextColumn get budgetMode => text().withDefault(const Constant('none'))();
   IntColumn get budgetCents => integer().nullable()();
+  BoolColumn get subtripsEnabled =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get backgroundPath => text().nullable()();
   TextColumn get backgroundLocalPath => text().nullable()();
   DateTimeColumn get closeRequestedAt => dateTime().nullable()();
@@ -176,6 +178,7 @@ class LocalTripVideos extends Table {
 class LocalPlanItems extends Table {
   TextColumn get id => text()();
   TextColumn get tripId => text()();
+  TextColumn get subtripId => text().nullable()();
   TextColumn get kind => text()();
   TextColumn get title => text()();
   TextColumn get notes => text().nullable()();
@@ -192,6 +195,27 @@ class LocalPlanItems extends Table {
 
   @override
   Set<Column<Object>> get primaryKey => {id};
+}
+
+/// M-P0 — subtrip lanes inside a trip.
+class LocalSubtrips extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get name => text()();
+  TextColumn get createdBy => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// M-P0 — local mirror of subtrip membership.
+class LocalSubtripMembers extends Table {
+  TextColumn get subtripId => text()();
+  TextColumn get userId => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {subtripId, userId};
 }
 
 /// S18 — shared checklist rows (mirrors trip_list_items).

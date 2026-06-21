@@ -53,6 +53,43 @@ void main() {
     expect(grouped.last.items.single.title, 'Undated');
   });
 
+  test('groupPlanItemsBySubtrip keeps main and subtrip sections separate', () {
+    final subtrip = SubtripSummary(
+      id: 'sub-1',
+      tripId: 't',
+      name: 'Tokyo crew',
+      createdBy: 'u1',
+      createdAt: DateTime.utc(2026, 6, 1),
+      memberIds: const ['u1', 'u2'],
+    );
+    final grouped = groupPlanItemsBySubtrip(
+      subtrips: [subtrip],
+      items: [
+        const PlanItemSummary(
+          id: 'main',
+          tripId: 't',
+          kind: PlanItemKind.other,
+          title: 'Everyone dinner',
+          position: 0,
+        ),
+        const PlanItemSummary(
+          id: 'sub',
+          tripId: 't',
+          subtripId: 'sub-1',
+          kind: PlanItemKind.visit,
+          title: 'Ghibli Museum',
+          position: 1,
+        ),
+      ],
+    );
+
+    expect(grouped, hasLength(2));
+    expect(grouped.first.subtrip, isNull);
+    expect(grouped.first.daySections.single.items.single.id, 'main');
+    expect(grouped.last.subtrip?.name, 'Tokyo crew');
+    expect(grouped.last.daySections.single.items.single.id, 'sub');
+  });
+
   test('plan metadata helpers preserve objects and reject invalid shapes', () {
     expect(parsePlanMetadata(null), isEmpty);
     expect(parsePlanMetadata(''), isEmpty);
@@ -199,6 +236,46 @@ void main() {
     final pending = await queue.pending();
     final payload = decodePayload(pending.single.payload);
     expect(payload['metadata'], {'flight_number': 'AZ123'});
+  });
+
+  test('addPlanItem preserves subtrip id locally and in outbox', () async {
+    const tripId = 'trip-plan';
+    const subtripId = 'subtrip-plan';
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+    );
+
+    await repo.addPlanItem(
+      const PlanItemInput(
+        tripId: tripId,
+        subtripId: subtripId,
+        kind: PlanItemKind.visit,
+        title: 'Ghibli Museum',
+      ),
+    );
+
+    final rows = await repo.watchPlanItems(tripId).first;
+    expect(rows.single.subtripId, subtripId);
+
+    final pending = await queue.pending();
+    final payload = decodePayload(pending.single.payload);
+    expect(payload['subtrip_id'], subtripId);
   });
 
   test('addPlanItem preserves transfer metadata locally and in outbox',

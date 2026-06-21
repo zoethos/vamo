@@ -38,6 +38,11 @@ class TripBudgetLabels {
     required this.datePickerSkip,
     required this.datePickerSelect,
     required this.retentionSectionTitle,
+    this.subtripsSectionTitle = 'Subtrips',
+    this.subtripsToggleLabel = 'Enable subtrips',
+    this.subtripsToggleBody =
+        'Create smaller planning lanes for parts of the group.',
+    this.subtripsSaveError = 'Could not update subtrips. Try again.',
     required this.offloadMedia,
     required this.offloadMediaBody,
     required this.offloadMediaConfirmTitle,
@@ -78,6 +83,10 @@ class TripBudgetLabels {
   final String datePickerSkip;
   final String datePickerSelect;
   final String retentionSectionTitle;
+  final String subtripsSectionTitle;
+  final String subtripsToggleLabel;
+  final String subtripsToggleBody;
+  final String subtripsSaveError;
   final String offloadMedia;
   final String offloadMediaBody;
   final String offloadMediaConfirmTitle;

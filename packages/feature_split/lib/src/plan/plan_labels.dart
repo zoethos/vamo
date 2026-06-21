@@ -76,6 +76,13 @@ class PlanTabLabels {
     required this.datePickerSkip,
     required this.datePickerSelect,
     required this.addChecklistItem,
+    this.mainTripSection = 'Everyone',
+    this.addSubtrip = 'New subtrip',
+    this.subtripNameLabel = 'Subtrip name',
+    this.subtripMembersLabel = 'Members',
+    this.subtripNameRequired = 'Name this subtrip.',
+    this.subtripMembersRequired = 'Pick at least one member.',
+    this.subtripCreateFailed = 'Could not create subtrip. Try again.',
     required this.deleteConfirmTitle,
     required this.endBeforeStart,
     required this.cancelLabel,
@@ -151,25 +158,32 @@ class PlanTabLabels {
   final String datePickerSkip;
   final String datePickerSelect;
   final String addChecklistItem;
+  final String mainTripSection;
+  final String addSubtrip;
+  final String subtripNameLabel;
+  final String subtripMembersLabel;
+  final String subtripNameRequired;
+  final String subtripMembersRequired;
+  final String subtripCreateFailed;
   final String deleteConfirmTitle;
   final String endBeforeStart;
   final String cancelLabel;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
-    PlanItemKind.lodging => kindLodging,
-    PlanItemKind.flight => kindFlight,
-    PlanItemKind.train => kindTrain,
-    PlanItemKind.activity => kindActivity,
-    PlanItemKind.visit => kindVisit,
-    PlanItemKind.transfer => kindTransfer,
-    PlanItemKind.other => kindOther,
-  };
+        PlanItemKind.lodging => kindLodging,
+        PlanItemKind.flight => kindFlight,
+        PlanItemKind.train => kindTrain,
+        PlanItemKind.activity => kindActivity,
+        PlanItemKind.visit => kindVisit,
+        PlanItemKind.transfer => kindTransfer,
+        PlanItemKind.other => kindOther,
+      };
 
   String transferSubtype(TransferSubtype subtype) => switch (subtype) {
-    TransferSubtype.carRental => transferSubtypeCarRental,
-    TransferSubtype.train => transferSubtypeTrain,
-    TransferSubtype.transit => transferSubtypeTransit,
-    TransferSubtype.drive => transferSubtypeDrive,
-    TransferSubtype.flight => transferSubtypeFlight,
-  };
+        TransferSubtype.carRental => transferSubtypeCarRental,
+        TransferSubtype.train => transferSubtypeTrain,
+        TransferSubtype.transit => transferSubtypeTransit,
+        TransferSubtype.drive => transferSubtypeDrive,
+        TransferSubtype.flight => transferSubtypeFlight,
+      };
 }

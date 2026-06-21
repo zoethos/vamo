@@ -43,6 +43,7 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
   bool _savingDates = false;
   String? _dateRangeError;
   bool _offloadingMedia = false;
+  bool _savingSubtrips = false;
 
   @override
   void dispose() {
@@ -235,6 +236,21 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: 28),
+              Text(
+                widget.labels.subtripsSectionTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(widget.labels.subtripsToggleLabel),
+                subtitle: Text(widget.labels.subtripsToggleBody),
+                value: detail.subtripsEnabled,
+                onChanged: canManage && !_savingSubtrips
+                    ? (enabled) => _setSubtripsEnabled(enabled)
+                    : null,
               ),
               const SizedBox(height: 28),
               ..._buildRetentionSection(),
@@ -563,6 +579,24 @@ class _TripSettingsScreenState extends ConsumerState<TripSettingsScreen> {
       }
     } finally {
       if (mounted) setState(() => _offloadingMedia = false);
+    }
+  }
+
+  Future<void> _setSubtripsEnabled(bool enabled) async {
+    setState(() => _savingSubtrips = true);
+    try {
+      await ref.read(tripsRepositoryProvider).setSubtripsEnabled(
+            tripId: widget.tripId,
+            enabled: enabled,
+          );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(widget.labels.subtripsSaveError)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingSubtrips = false);
     }
   }
 
