@@ -112,8 +112,13 @@ void main() {
               labels: const MainShellLabels(
                 trips: 'Trips',
                 activity: 'Activity',
+                add: 'Add',
                 expenses: 'Expenses',
                 profile: 'Profile',
+                createTrip: 'Create trip',
+                addExpense: 'Add expense',
+                addExpensePickerTitle: 'Choose trip',
+                addExpenseLastUsed: 'Last used',
               ),
             ),
             branches: [
@@ -171,7 +176,7 @@ void main() {
     testWidgets('nav strip light small', (tester) async {
       await pumpNav(tester);
       await expectLater(
-        find.byType(BottomAppBar),
+        find.byType(NavigationBar),
         matchesGoldenFile('goldens/s38_nav_light_small.png'),
       );
     });
@@ -179,7 +184,7 @@ void main() {
     testWidgets('nav strip dark small', (tester) async {
       await pumpNav(tester, brightness: Brightness.dark);
       await expectLater(
-        find.byType(BottomAppBar),
+        find.byType(NavigationBar),
         matchesGoldenFile('goldens/s38_nav_dark_small.png'),
       );
     });
@@ -187,7 +192,7 @@ void main() {
     testWidgets('nav strip light rtl', (tester) async {
       await pumpNav(tester, textDirection: TextDirection.rtl);
       await expectLater(
-        find.byType(BottomAppBar),
+        find.byType(NavigationBar),
         matchesGoldenFile('goldens/s38_nav_light_rtl.png'),
       );
     });

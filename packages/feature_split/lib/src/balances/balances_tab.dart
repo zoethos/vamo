@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
 import '../settle/settlements_providers.dart';
 import '../settle/settlements_repository.dart';
+import 'balances_models.dart';
 import 'balances_providers.dart';
 import 'balances_tab_labels.dart';
 import 'mark_settle_sheet.dart';
@@ -61,8 +64,16 @@ class BalancesTab extends ConsumerWidget {
             .toList(growable: false);
 
         final hasMyAction = pending.isNotEmpty || payerAwaiting.isNotEmpty;
-        final isEmpty =
-            lines.isEmpty && !hasMyAction && consentLabels.isEmpty;
+        final isEmpty = lines.isEmpty && !hasMyAction && consentLabels.isEmpty;
+        final rawNets =
+            ref.watch(tripNetBalancesProvider(tripId)).valueOrNull?.nets ??
+                const <String, int>{};
+        final myNet = currentUserId == null ? 0 : rawNets[currentUserId] ?? 0;
+        final myPayableLines = currentUserId == null
+            ? const <SettlementDisplay>[]
+            : lines
+                .where((line) => line.line.fromUserId == currentUserId)
+                .toList(growable: false);
 
         if (isEmpty) {
           return ListView(
@@ -81,6 +92,26 @@ class BalancesTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            _NetBalanceHero(
+              labels: labels,
+              amount: formatMoneyFromCents(myNet.abs(), currency),
+              netCents: myNet,
+              currency: currency,
+              owedTotal: rawNets.values
+                  .where((value) => value > 0)
+                  .fold<int>(0, (sum, value) => sum + value),
+              owedByMe: rawNets.values
+                  .where((value) => value < 0)
+                  .fold<int>(0, (sum, value) => sum + value.abs()),
+              canSettle: myPayableLines.isNotEmpty,
+              onSettle: () => _openSettleUp(
+                context: context,
+                ref: ref,
+                lines: myPayableLines,
+                consentLabels: consentLabels,
+              ),
+            ),
+            const SizedBox(height: 18),
             if (lines.isNotEmpty) ...[
               _sectionTitle(context, labels.whoOwesWhomTitle),
               Text(
@@ -94,52 +125,19 @@ class BalancesTab extends ConsumerWidget {
               ...lines.map(
                 (s) {
                   final isPayer = currentUserId == s.line.fromUserId;
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            labels.paysLine(s.fromName, s.toName),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(
-                            formatMoneyFromCents(s.line.cents, s.currency),
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  color: AppColors.jadeTeal,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          if (isPayer) ...[
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: () => showMarkSettleSheet(
-                                  context: context,
-                                  ref: ref,
-                                  tripId: tripId,
-                                  display: s,
-                                  consentLabels: consentLabels,
-                                ),
-                                child: Text(labels.markAsSettled),
-                              ),
-                            ),
-                          ] else
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                labels.waitingForPayer(s.fromName),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(color: AppColors.graphite),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                  return _SettlementRow(
+                    display: s,
+                    labels: labels,
+                    isPayer: isPayer,
+                    onTap: isPayer
+                        ? () => showMarkSettleSheet(
+                              context: context,
+                              ref: ref,
+                              tripId: tripId,
+                              display: s,
+                              consentLabels: consentLabels,
+                            )
+                        : null,
                   );
                 },
               ),
@@ -190,7 +188,9 @@ class BalancesTab extends ConsumerWidget {
                           ),
                           Text(
                             formatMoneyFromCents(s.amountCents, s.currency),
-                            style: Theme.of(context).textTheme.titleMedium
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
                                 ?.copyWith(
                                   color: AppColors.jadeTeal,
                                   fontWeight: FontWeight.w700,
@@ -201,8 +201,7 @@ class BalancesTab extends ConsumerWidget {
                             children: [
                               Expanded(
                                 child: FilledButton(
-                                  onPressed: () =>
-                                      _confirm(context, ref, s.id),
+                                  onPressed: () => _confirm(context, ref, s.id),
                                   child: Text(labels.confirm),
                                 ),
                               ),
@@ -287,6 +286,71 @@ class BalancesTab extends ConsumerWidget {
     );
   }
 
+  Future<void> _openSettleUp({
+    required BuildContext context,
+    required WidgetRef ref,
+    required List<SettlementDisplay> lines,
+    required List<String> consentLabels,
+  }) async {
+    if (lines.isEmpty) return;
+    if (lines.length == 1) {
+      showMarkSettleSheet(
+        context: context,
+        ref: ref,
+        tripId: tripId,
+        display: lines.first,
+        consentLabels: consentLabels,
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<SettlementDisplay>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+              child: Text(
+                labels.settleUp,
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+            for (final line in lines)
+              ListTile(
+                leading: const Icon(Icons.payments_outlined),
+                title: Text(labels.paysLine(line.fromName, line.toName)),
+                trailing: Text(
+                  formatMoneyFromCents(line.line.cents, line.currency),
+                  style: const TextStyle(
+                    color: AppColors.coralText,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                onTap: () => Navigator.pop(ctx, line),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (selected == null || !context.mounted) return;
+    showMarkSettleSheet(
+      context: context,
+      ref: ref,
+      tripId: tripId,
+      display: selected,
+      consentLabels: consentLabels,
+    );
+  }
+
   Future<void> _confirm(
     BuildContext context,
     WidgetRef ref,
@@ -340,6 +404,229 @@ class BalancesTab extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+class _NetBalanceHero extends StatelessWidget {
+  const _NetBalanceHero({
+    required this.labels,
+    required this.amount,
+    required this.netCents,
+    required this.currency,
+    required this.owedTotal,
+    required this.owedByMe,
+    required this.canSettle,
+    required this.onSettle,
+  });
+
+  final BalancesTabLabels labels;
+  final String amount;
+  final int netCents;
+  final String currency;
+  final int owedTotal;
+  final int owedByMe;
+  final bool canSettle;
+  final VoidCallback onSettle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = netCents == 0
+        ? labels.netHeroSettled
+        : netCents < 0
+            ? labels.netHeroYouOwe
+            : labels.netHeroYouAreOwed;
+    final amountColor = netCents < 0 ? AppColors.coralText : AppColors.jadeTeal;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.mistGray.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SizedBox.square(
+                  dimension: 110,
+                  child: CustomPaint(
+                    painter: _BalanceDonutPainter(
+                      owedTotal: owedTotal,
+                      owedByMe: owedByMe,
+                    ),
+                    child: Center(
+                      child: Icon(
+                        netCents == 0
+                            ? Icons.check_circle_outline
+                            : Icons.payments_outlined,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        labels.netHeroTitle,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: AppColors.graphite,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        amount,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: amountColor,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '$status · $currency',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.graphite,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.goLime,
+                foregroundColor: AppColors.ink,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: canSettle ? onSettle : null,
+              child: Text(labels.settleUp),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceDonutPainter extends CustomPainter {
+  const _BalanceDonutPainter({
+    required this.owedTotal,
+    required this.owedByMe,
+  });
+
+  final int owedTotal;
+  final int owedByMe;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final strokeWidth = size.shortestSide * 0.12;
+    final basePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.graphite.withValues(alpha: 0.14);
+    final owedPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.jadeTeal;
+    final owePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.coralText;
+
+    final inset = strokeWidth / 2;
+    final arcRect = rect.deflate(inset);
+    canvas.drawArc(arcRect, -math.pi / 2, math.pi * 2, false, basePaint);
+
+    final total = owedTotal + owedByMe;
+    if (total <= 0) return;
+    final owedSweep = (owedTotal / total) * math.pi * 2;
+    final oweSweep = (owedByMe / total) * math.pi * 2;
+    canvas.drawArc(arcRect, -math.pi / 2, owedSweep, false, owedPaint);
+    canvas.drawArc(
+      arcRect,
+      -math.pi / 2 + owedSweep + 0.08,
+      math.max(0, oweSweep - 0.08),
+      false,
+      owePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _BalanceDonutPainter oldDelegate) {
+    return oldDelegate.owedTotal != owedTotal ||
+        oldDelegate.owedByMe != owedByMe;
+  }
+}
+
+class _SettlementRow extends StatelessWidget {
+  const _SettlementRow({
+    required this.display,
+    required this.labels,
+    required this.isPayer,
+    required this.onTap,
+  });
+
+  final SettlementDisplay display;
+  final BalancesTabLabels labels;
+  final bool isPayer;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 8),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          leading: CircleAvatar(
+            radius: 17,
+            backgroundColor:
+                (isPayer ? AppColors.coralText : AppColors.jadeTeal)
+                    .withValues(alpha: 0.12),
+            child: Text(
+              display.fromName.trim().isEmpty
+                  ? '?'
+                  : String.fromCharCode(display.fromName.trim().runes.first)
+                      .toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          title: Text(labels.paysLine(display.fromName, display.toName)),
+          subtitle: Text(
+            isPayer
+                ? labels.settleUp
+                : labels.waitingForPayer(display.fromName),
+          ),
+          trailing: Text(
+            formatMoneyFromCents(display.line.cents, display.currency),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: isPayer ? AppColors.coralText : AppColors.jadeTeal,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          onTap: onTap,
+        ),
+      ),
+    );
   }
 }
 

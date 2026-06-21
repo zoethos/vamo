@@ -7,6 +7,11 @@ class BalancesTabLabels {
     required this.paysLine,
     required this.waitingForPayer,
     required this.markAsSettled,
+    this.netHeroTitle = 'Net balance',
+    this.netHeroSettled = "You're even",
+    this.netHeroYouOwe = 'You owe',
+    this.netHeroYouAreOwed = "You're owed",
+    this.settleUp = 'Settle up',
     required this.myActionTitle,
     required this.confirmPaymentsHint,
     required this.confirmPaymentFrom,
@@ -34,6 +39,11 @@ class BalancesTabLabels {
   final String Function(String from, String to) paysLine;
   final String Function(String name) waitingForPayer;
   final String markAsSettled;
+  final String netHeroTitle;
+  final String netHeroSettled;
+  final String netHeroYouOwe;
+  final String netHeroYouAreOwed;
+  final String settleUp;
   final String myActionTitle;
   final String confirmPaymentsHint;
   final String Function(String name) confirmPaymentFrom;

@@ -234,11 +234,6 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
         actions: [
           _NotificationsBell(labels: widget.labels),
           SizedBox(width: space.x1),
-          IconButton(
-            tooltip: widget.labels.createTripTooltip,
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push(AppRoutes.tripCreate),
-          ),
         ],
       ),
       body: sync.when(
