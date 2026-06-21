@@ -71,6 +71,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   Future<void>? _pendingOcr;
   bool _ocrUsed = false;
   bool _currencyUserTouched = false;
+  String? _amountError;
   final Set<OcrSuggestionField> _ocrSuggested = {};
   final Map<OcrSuggestionField, String> _ocrOriginal = {};
 
@@ -245,10 +246,29 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   onPressed: _saving ? null : () => context.pop(),
                 ),
               ),
+              bottomNavigationBar: SafeArea(
+                minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.goLime,
+                    foregroundColor: AppColors.ink,
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  onPressed: (_saving || _ocrLoading)
+                      ? null
+                      : () => _save(tripBaseCurrency: tripBase),
+                  child: _saving
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(_ctaLabel(saveLabel, tripBase)),
+                ),
+              ),
               body: Form(
                 key: _formKey,
                 child: ListView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 28),
                   children: [
                     Text(
                       detail.name,
@@ -264,11 +284,27 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           .bodySmall
                           ?.copyWith(color: AppColors.graphite),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    _AmountEntryPanel(
+                      amountText: _amountController.text,
+                      currency: _expenseCurrency,
+                      currencySymbol: _currencySymbol(_expenseCurrency),
+                      errorText: _amountError,
+                      onDigit: (value) => _appendAmountToken(value, tripBase),
+                      onDecimal: () => _appendAmountToken('.', tripBase),
+                      onBackspace: () => _backspaceAmount(tripBase),
+                    ),
+                    if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
+                        !isPropose)
+                      const Padding(
+                        padding: EdgeInsetsDirectional.only(top: 8),
+                        child: OcrSuggestionChip(),
+                      ),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       initialValue: _expenseCurrency,
                       decoration: const InputDecoration(
-                        labelText: 'Spent in',
+                        labelText: 'Currency',
                       ),
                       items: availableCurrencies
                           .map(
@@ -294,32 +330,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         !isPropose)
                       const OcrSuggestionChip(),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: 'Amount',
-                        prefixText: _currencySymbol(_expenseCurrency),
-                      ),
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[\d.,]'),
-                        ),
-                      ],
-                      onChanged: (_) {
-                        _onUserEdited(OcrSuggestionField.amount);
-                        _refreshFxPreview(tripBase);
-                      },
-                      validator: (v) {
-                        if (parseAmountToCents(v ?? '') == null) {
-                          return 'Enter a valid amount';
-                        }
-                        return null;
-                      },
-                    ),
                     if (inForeignCurrency) ...[
-                      const SizedBox(height: 8),
                       if (_previewLoading)
                         const LinearProgressIndicator(minHeight: 2)
                       else if (_fxPreview != null)
@@ -334,8 +345,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       TextFormField(
                         controller: _baseOverrideController,
                         decoration: InputDecoration(
-                          labelText: widget.labels
-                              .convertedAmountLabel(tripBase),
+                          labelText:
+                              widget.labels.convertedAmountLabel(tripBase),
                           prefixText: _currencySymbol(tripBase),
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
@@ -366,11 +377,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               .bodySmall
                               ?.copyWith(color: AppColors.graphite),
                         ),
+                      const SizedBox(height: 16),
                     ],
-                    if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
-                        !isPropose)
-                      const OcrSuggestionChip(),
-                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _descriptionController,
                       decoration: const InputDecoration(
@@ -506,34 +514,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           _saving ? null : (v) => setState(() => _payerId = v),
                     ),
                     const SizedBox(height: 16),
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Split',
-                      ),
-                      child: Text(
-                        splitLabel,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: FilledButton(
-                        onPressed: (_saving || _ocrLoading)
-                            ? null
-                            : () => _save(
-                                  tripBaseCurrency: tripBase,
-                                ),
-                        child: _saving
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(saveLabel),
+                    _SplitPreviewCard(
+                      splitLabel: splitLabel,
+                      members: memberList.map((m) => m.displayName).toList(),
+                      amountPreview: _splitAmountPreview(
+                        tripBase: tripBase,
+                        memberCount: memberList.length,
                       ),
                     ),
                   ],
@@ -544,6 +530,63 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         );
       },
     );
+  }
+
+  void _setAmountText(String value, String tripBase) {
+    _amountController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    _onUserEdited(OcrSuggestionField.amount);
+    setState(() => _amountError = null);
+    _refreshFxPreview(tripBase);
+  }
+
+  void _appendAmountToken(String token, String tripBase) {
+    final current = _amountController.text;
+    var next = current;
+    if (token == '.') {
+      if (current.contains('.')) return;
+      next = current.isEmpty ? '0.' : '$current.';
+    } else {
+      final decimalIndex = current.indexOf('.');
+      if (decimalIndex >= 0 &&
+          current.length - decimalIndex > 2 &&
+          token != 'backspace') {
+        return;
+      }
+      next = current == '0' ? token : '$current$token';
+    }
+    _setAmountText(next, tripBase);
+  }
+
+  void _backspaceAmount(String tripBase) {
+    final current = _amountController.text;
+    if (current.isEmpty) return;
+    _setAmountText(current.substring(0, current.length - 1), tripBase);
+  }
+
+  String _ctaLabel(String saveLabel, String tripBase) {
+    final cents = parseAmountToCents(_amountController.text);
+    if (cents == null || cents <= 0) return saveLabel;
+    final currency = _expenseCurrency.toUpperCase() == tripBase.toUpperCase()
+        ? tripBase
+        : _expenseCurrency;
+    return '$saveLabel · ${formatMoneyFromCents(cents, currency)}';
+  }
+
+  String? _splitAmountPreview({
+    required String tripBase,
+    required int memberCount,
+  }) {
+    if (memberCount <= 0) return null;
+    final cents = parseAmountToCents(_amountController.text);
+    if (cents == null || cents <= 0) return null;
+    final baseCents = _expenseCurrency.toUpperCase() == tripBase.toUpperCase()
+        ? cents
+        : parseAmountToCents(_baseOverrideController.text) ?? _autoBaseCents;
+    if (baseCents == null) return null;
+    return formatMoneyFromCents((baseCents / memberCount).round(), tripBase);
   }
 
   Future<void> _pickReceipt() async {
@@ -724,7 +767,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
 
     final cents = parseAmountToCents(_amountController.text);
-    if (cents == null) return;
+    if (cents == null || cents <= 0) {
+      setState(() => _amountError = 'Enter a valid amount');
+      return;
+    }
 
     final inForeignCurrency =
         _expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase();
@@ -792,7 +838,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 placeId: _resolvedPlaceId,
                 ocrUsed: _ocrUsed,
                 manualBaseCents: useManualBase ? baseCents : null,
-                fxRateSource: useManualBase ? (_fxRateSource ?? 'manual') : null,
+                fxRateSource:
+                    useManualBase ? (_fxRateSource ?? 'manual') : null,
                 lockConversion: useManualBase,
               ),
               baseCurrency: tripBaseCurrency,
@@ -835,5 +882,251 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       default:
         return '$code ';
     }
+  }
+}
+
+class _AmountEntryPanel extends StatelessWidget {
+  const _AmountEntryPanel({
+    required this.amountText,
+    required this.currency,
+    required this.currencySymbol,
+    required this.errorText,
+    required this.onDigit,
+    required this.onDecimal,
+    required this.onBackspace,
+  });
+
+  final String amountText;
+  final String currency;
+  final String currencySymbol;
+  final String? errorText;
+  final ValueChanged<String> onDigit;
+  final VoidCallback onDecimal;
+  final VoidCallback onBackspace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final display = amountText.trim().isEmpty ? '0.00' : amountText;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.jadeTeal.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: errorText == null
+              ? AppColors.jadeTeal.withValues(alpha: 0.24)
+              : theme.colorScheme.error,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    alignment: AlignmentDirectional.centerStart,
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      '$currencySymbol$display',
+                      maxLines: 1,
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(currency),
+                ),
+              ],
+            ),
+            if (errorText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                errorText!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            _AmountKeypad(
+              onDigit: onDigit,
+              onDecimal: onDecimal,
+              onBackspace: onBackspace,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AmountKeypad extends StatelessWidget {
+  const _AmountKeypad({
+    required this.onDigit,
+    required this.onDecimal,
+    required this.onBackspace,
+  });
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onDecimal;
+  final VoidCallback onBackspace;
+
+  @override
+  Widget build(BuildContext context) {
+    const rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['.', '0', 'backspace'],
+    ];
+
+    return Column(
+      children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(bottom: 2),
+            child: Row(
+              children: [
+                for (final key in row)
+                  Expanded(
+                    child: Padding(
+                      padding:
+                          const EdgeInsetsDirectional.symmetric(horizontal: 2),
+                      child: _AmountKey(
+                        value: key,
+                        onTap: switch (key) {
+                          '.' => onDecimal,
+                          'backspace' => onBackspace,
+                          _ => () => onDigit(key),
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AmountKey extends StatelessWidget {
+  const _AmountKey({required this.value, required this.onTap});
+
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBackspace = value == 'backspace';
+    return SizedBox(
+      height: 42,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.ink,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: isBackspace
+            ? const Icon(Icons.backspace_outlined, size: 20)
+            : Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+      ),
+    );
+  }
+}
+
+class _SplitPreviewCard extends StatelessWidget {
+  const _SplitPreviewCard({
+    required this.splitLabel,
+    required this.members,
+    required this.amountPreview,
+  });
+
+  final String splitLabel;
+  final List<String> members;
+  final String? amountPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Split',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: AppColors.graphite,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: -4,
+                    children: [
+                      for (final name in members.take(5))
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor:
+                              AppColors.jadeTeal.withValues(alpha: 0.16),
+                          child: Text(
+                            _initial(name),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    amountPreview == null
+                        ? splitLabel
+                        : '$splitLabel · $amountPreview each',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.lock_outline, color: AppColors.graphite, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _initial(String name) {
+    final trimmed = name.trim();
+    return trimmed.isEmpty
+        ? '?'
+        : String.fromCharCode(trimmed.runes.first).toUpperCase();
   }
 }

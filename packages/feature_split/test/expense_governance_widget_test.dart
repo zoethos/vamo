@@ -489,10 +489,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, '50');
-    await tester.enterText(find.byType(TextFormField).at(1), 'Hotel deposit');
-    await tester.ensureVisible(find.text(governanceTestLabels.saveProposal));
-    await tester.tap(find.text(governanceTestLabels.saveProposal));
+    await tester.tap(find.text('5'));
+    await tester.tap(find.text('0'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).first, 'Hotel deposit');
+    final saveButton = find.textContaining(governanceTestLabels.saveProposal);
+    await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(spy.proposeCalls, 1);

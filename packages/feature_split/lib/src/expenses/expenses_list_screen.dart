@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'expense_trip_picker_sheet.dart';
 import 'expenses_overview.dart';
 import 'expenses_overview_providers.dart';
 import 'money_format.dart';
@@ -76,18 +75,6 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.labels.title),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: widget.labels.addExpenseTooltip,
-            onPressed: () => openAddExpenseFromShell(
-              context: context,
-              ref: ref,
-              pickerTitle: widget.labels.pickerTitle,
-              lastUsedLabel: widget.labels.pickerLastUsed,
-            ),
-          ),
-        ],
       ),
       body: overview.when(
         loading: () => const Center(child: CircularProgressIndicator()),

@@ -100,7 +100,8 @@ void main() {
     expect(find.byKey(const Key('expense_receipt_thumbnail')), findsNothing);
   });
 
-  testWidgets('add expense passes default other category on save', (tester) async {
+  testWidgets('add expense passes default other category on save',
+      (tester) async {
     await tester.binding.setSurfaceSize(const Size(480, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -185,9 +186,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), '12');
-    await tester.enterText(find.byType(TextFormField).at(1), 'Pizza');
-    await tester.tap(find.text(governanceTestLabels.saveExpense));
+    await tester.tap(find.text('1'));
+    await tester.tap(find.text('2'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField).first, 'Pizza');
+    await tester.tap(find.textContaining(governanceTestLabels.saveExpense));
     await tester.pumpAndSettle();
 
     expect(spy.addCalls, 1);

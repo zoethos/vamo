@@ -1,9 +1,12 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Bottom nav shell — Trips · Activity · Expenses · Profile.
-class MainShell extends StatelessWidget {
+import '../expenses/expense_trip_picker_sheet.dart';
+
+/// Bottom nav shell — Trips · Activity · Add · Expenses · Profile.
+class MainShell extends ConsumerWidget {
   const MainShell({
     super.key,
     required this.navigationShell,
@@ -17,6 +20,7 @@ class MainShell extends StatelessWidget {
   static const activityBranch = 1;
   static const expensesBranch = 2;
   static const profileBranch = 3;
+  static const addNavIndex = 2;
 
   void _onTab(int index) {
     navigationShell.goBranch(
@@ -25,53 +29,99 @@ class MainShell extends StatelessWidget {
     );
   }
 
+  int _branchToNavIndex(int branchIndex) => switch (branchIndex) {
+        tripBranch => 0,
+        activityBranch => 1,
+        expensesBranch => 3,
+        profileBranch => 4,
+        _ => 0,
+      };
+
+  int? _navIndexToBranch(int navIndex) => switch (navIndex) {
+        0 => tripBranch,
+        1 => activityBranch,
+        3 => expensesBranch,
+        4 => profileBranch,
+        _ => null,
+      };
+
+  void _onNavSelected(BuildContext context, WidgetRef ref, int navIndex) {
+    if (navIndex == addNavIndex) {
+      _openPrimaryAction(context, ref);
+      return;
+    }
+    final branch = _navIndexToBranch(navIndex);
+    if (branch != null) _onTab(branch);
+  }
+
+  void _openPrimaryAction(BuildContext context, WidgetRef ref) {
+    if (navigationShell.currentIndex == expensesBranch) {
+      openAddExpenseFromShell(
+        context: context,
+        ref: ref,
+        pickerTitle: labels.addExpensePickerTitle,
+        lastUsedLabel: labels.addExpenseLastUsed,
+      );
+      return;
+    }
+    context.push(AppRoutes.tripCreate);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final index = navigationShell.currentIndex;
     final colors = context.vamoColors;
 
     return Scaffold(
+      extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: BottomAppBar(
-        height: 56,
-        padding: EdgeInsets.zero,
-        color: colors.surface,
-        child: Padding(
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavSlot(
-                selected: index == tripBranch,
-                icon: Icons.luggage_outlined,
-                selectedIcon: Icons.luggage,
-                label: labels.trips,
-                onTap: () => _onTab(tripBranch),
-              ),
-              _NavSlot(
-                selected: index == activityBranch,
-                icon: Icons.timeline_outlined,
-                selectedIcon: Icons.timeline,
-                label: labels.activity,
-                onTap: () => _onTab(activityBranch),
-              ),
-              _NavSlot(
-                selected: index == expensesBranch,
-                icon: Icons.receipt_long_outlined,
-                selectedIcon: Icons.receipt_long,
-                label: labels.expenses,
-                onTap: () => _onTab(expensesBranch),
-              ),
-              _NavSlot(
-                selected: index == profileBranch,
-                icon: Icons.person_outline,
-                selectedIcon: Icons.person,
-                label: labels.profile,
-                onTap: () => _onTab(profileBranch),
-              ),
-            ],
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'main_shell_primary_action',
+        tooltip:
+            index == expensesBranch ? labels.addExpense : labels.createTrip,
+        backgroundColor: AppColors.goLime,
+        foregroundColor: AppColors.ink,
+        elevation: 1,
+        shape: const CircleBorder(),
+        onPressed: () => _openPrimaryAction(context, ref),
+        child: const Icon(Icons.add),
+      ),
+      bottomNavigationBar: NavigationBar(
+        height: 68,
+        selectedIndex: _branchToNavIndex(index),
+        onDestinationSelected: (navIndex) =>
+            _onNavSelected(context, ref, navIndex),
+        backgroundColor: colors.surface,
+        indicatorColor: AppColors.goLime.withValues(alpha: 0.18),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.luggage_outlined),
+            selectedIcon: const Icon(Icons.luggage),
+            label: labels.trips,
           ),
-        ),
+          NavigationDestination(
+            icon: const Icon(Icons.timeline_outlined),
+            selectedIcon: const Icon(Icons.timeline),
+            label: labels.activity,
+          ),
+          NavigationDestination(
+            icon: const SizedBox.square(dimension: 24),
+            selectedIcon: const SizedBox.square(dimension: 24),
+            label: labels.add,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: labels.expenses,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: labels.profile,
+          ),
+        ],
       ),
     );
   }
@@ -83,62 +133,20 @@ class MainShellLabels {
     required this.activity,
     required this.expenses,
     required this.profile,
+    required this.add,
+    required this.createTrip,
+    required this.addExpense,
+    required this.addExpensePickerTitle,
+    required this.addExpenseLastUsed,
   });
 
   final String trips;
   final String activity;
   final String expenses;
   final String profile;
-}
-
-class _NavSlot extends StatelessWidget {
-  const _NavSlot({
-    required this.selected,
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final IconData icon;
-  final IconData selectedIcon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.vamoColors;
-    final color = selected ? colors.onSurface : colors.onSurfaceMuted;
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.symmetric(horizontal: 2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(selected ? selectedIcon : icon, color: color, size: 22),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: color,
-                        fontSize: 10,
-                        height: 1.1,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  final String add;
+  final String createTrip;
+  final String addExpense;
+  final String addExpensePickerTitle;
+  final String addExpenseLastUsed;
 }

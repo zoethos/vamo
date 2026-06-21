@@ -6,7 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  testWidgets('main shell has four nav tabs and no FAB', (tester) async {
+  testWidgets('main shell has five nav slots and a centered FAB',
+      (tester) async {
     final router = GoRouter(
       routes: [
         StatefulShellRoute.indexedStack(
@@ -15,8 +16,13 @@ void main() {
             labels: const MainShellLabels(
               trips: 'Trips',
               activity: 'Activity',
+              add: 'Add',
               expenses: 'Expenses',
               profile: 'Profile',
+              createTrip: 'Create trip',
+              addExpense: 'Add expense',
+              addExpensePickerTitle: 'Choose trip',
+              addExpenseLastUsed: 'Last used',
             ),
           ),
           branches: [
@@ -67,11 +73,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.text('Trips'), findsOneWidget);
     expect(find.text('Activity'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
     expect(find.text('Expenses'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
-    expect(find.byIcon(Icons.add), findsNothing);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }
