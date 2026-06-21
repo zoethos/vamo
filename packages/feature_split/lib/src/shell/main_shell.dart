@@ -93,7 +93,7 @@ class MainShell extends ConsumerWidget {
         onDestinationSelected: (navIndex) =>
             _onNavSelected(context, ref, navIndex),
         backgroundColor: colors.surface,
-        indicatorColor: AppColors.goLime.withValues(alpha: 0.18),
+        indicatorColor: AppColors.jadeTeal.withValues(alpha: 0.14),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           NavigationDestination(
