@@ -176,6 +176,7 @@ class _TripHomeScreenState extends ConsumerState<TripHomeScreen> {
           onBalances: () => context.push(AppRoutes.tripBalances(widget.tripId)),
           onMembers: () => context.push(AppRoutes.tripMembers(widget.tripId)),
           onMemories: () => context.push(AppRoutes.tripMemories(widget.tripId)),
+          onMap: () => context.push(AppRoutes.tripMap(widget.tripId)),
           onInvite: () => context.push(AppRoutes.tripMembers(widget.tripId)),
         );
 

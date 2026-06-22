@@ -24,6 +24,7 @@ class TripHomeLabels {
     required this.quickBalances,
     required this.quickMembers,
     required this.quickMemories,
+    this.quickMap = 'Map',
   });
 
   final String tabOverview;
@@ -49,4 +50,5 @@ class TripHomeLabels {
   final String quickBalances;
   final String quickMembers;
   final String quickMemories;
+  final String quickMap;
 }
