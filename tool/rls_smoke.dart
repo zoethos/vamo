@@ -1451,7 +1451,7 @@ Future<void> main() async {
     ));
     results.add(_Check(
       'S51 visit capability exposed',
-      visitCapability?['supports_rsvp'] == false &&
+      visitCapability?['supports_rsvp'] == true &&
           visitCapability?['suggests_pois'] == true &&
           visitCapability?['has_details_form'] == true,
     ));
