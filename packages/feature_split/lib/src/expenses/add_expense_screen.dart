@@ -269,8 +269,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 ? null
                 : formatMoneyFromCents(shareCents, tripBase);
             final screenLabels = widget.screenLabels;
-            final categoryEntry =
-                CategoryCatalog.resolve(_selectedCategoryKey);
+            final categoryEntry = CategoryCatalog.resolve(_selectedCategoryKey);
 
             return Scaffold(
               appBar: AppBar(
@@ -328,7 +327,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                 _currencySymbol(_expenseCurrency).trim(),
                             errorText: _amountError,
                           ),
-                          if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.amount) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
@@ -429,17 +429,17 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               _EssentialChip(
                                 icon: Icons.notes_outlined,
                                 iconColor: _graphite,
-                                label: _descriptionController.text
-                                        .trim()
-                                        .isEmpty
-                                    ? screenLabels.addNote
-                                    : _descriptionController.text.trim(),
+                                label:
+                                    _descriptionController.text.trim().isEmpty
+                                        ? screenLabels.addNote
+                                        : _descriptionController.text.trim(),
                                 enabled: !_saving,
                                 onTap: _showDescriptionSheet,
                               ),
                             ],
                           ),
-                          if (_ocrSuggested.contains(OcrSuggestionField.title) &&
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.title) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
@@ -456,8 +456,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                             const SizedBox(height: 12),
                             const LinearProgressIndicator(minHeight: 2),
                             Padding(
-                              padding:
-                                  const EdgeInsetsDirectional.only(top: 8),
+                              padding: const EdgeInsetsDirectional.only(top: 8),
                               child: Text(
                                 screenLabels.readingReceipt,
                                 style: Theme.of(context)
@@ -558,13 +557,11 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     widget.screenLabels.currencySheetTitle,
-                    style: Theme.of(sheetContext)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(
-                          color: _ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: _ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
@@ -609,13 +606,11 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     widget.screenLabels.payerSheetTitle,
-                    style: Theme.of(sheetContext)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(
-                          color: _ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: _ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
@@ -1816,4 +1811,3 @@ class _AmountKey extends StatelessWidget {
     );
   }
 }
-
