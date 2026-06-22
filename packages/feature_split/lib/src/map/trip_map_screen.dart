@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../capture/capture_providers.dart';
 import '../expenses/expenses_providers.dart';
@@ -28,6 +29,8 @@ abstract final class _TripMapTiles {
   static const urlTemplate = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   static const userAgentPackageName = 'app.vamo';
   static const attribution = 'OpenStreetMap contributors';
+  static final copyrightUri =
+      Uri.parse('https://www.openstreetmap.org/copyright');
 }
 
 /// Geocoded coordinates for the trip destination, used to center the map before
@@ -81,9 +84,11 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     final trip = ref.watch(tripDetailProvider(widget.tripId));
 
     return trip.when(
-      loading: () => _scaffold(_labels.title, const Center(
-        child: CircularProgressIndicator(),
-      )),
+      loading: () => _scaffold(
+          _labels.title,
+          const Center(
+            child: CircularProgressIndicator(),
+          )),
       error: (_, __) => _scaffold(
         _labels.title,
         AppErrorState(
@@ -122,8 +127,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
   Widget _buildLoaded(BuildContext context, TripDetail detail) {
     final planItems =
-        ref.watch(tripPlanItemsProvider(widget.tripId)).valueOrNull ??
-            const [];
+        ref.watch(tripPlanItemsProvider(widget.tripId)).valueOrNull ?? const [];
     final expenses =
         ref.watch(tripExpensesProvider(widget.tripId)).valueOrNull ?? const [];
     final places =
@@ -167,7 +171,10 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     }
 
     final initial = _initialCamera(allMoments, destCoords);
-    final timed = [for (final m in visible) if (m.at != null) m];
+    final timed = [
+      for (final m in visible)
+        if (m.at != null) m
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -203,7 +210,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                     TileLayer(
                       urlTemplate: _TripMapTiles.urlTemplate,
                       userAgentPackageName: _TripMapTiles.userAgentPackageName,
-                      tileProvider: widget.tileProvider ?? NetworkTileProvider(),
+                      tileProvider:
+                          widget.tileProvider ?? NetworkTileProvider(),
                     ),
                     if (timed.length >= 2)
                       PolylineLayer(
@@ -221,15 +229,17 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                     MarkerLayer(
                       markers: [for (final m in visible) _marker(m)],
                     ),
-                    const RichAttributionWidget(
+                    RichAttributionWidget(
                       attributions: [
-                        TextSourceAttribution(_TripMapTiles.attribution),
+                        TextSourceAttribution(
+                          _TripMapTiles.attribution,
+                          onTap: _openOsmCopyright,
+                        ),
                       ],
                     ),
                   ],
                 ),
-                if (visible.isEmpty)
-                  _EmptyOverlay(text: _labels.emptyOverlay),
+                if (visible.isEmpty) _EmptyOverlay(text: _labels.emptyOverlay),
               ],
             ),
           ),
@@ -238,8 +248,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               dayCount: dayCount,
               selectedDayIndex: _selectedDayIndex,
               labels: _labels,
-              onSelected: (index) =>
-                  setState(() => _selectedDayIndex = index),
+              onSelected: (index) => setState(() => _selectedDayIndex = index),
             ),
         ],
       ),
@@ -344,8 +353,33 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         : detail.name;
     try {
       await Share.share('Our $where trip map — Vamo');
-    } catch (_) {
-      // Sharing is best-effort; never crash the map for it.
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'trip_map',
+        action: 'share_map',
+        severity: ActionFailureSeverity.degraded,
+        analytics: ref.read(analyticsProvider),
+      );
+    }
+  }
+
+  Future<void> _openOsmCopyright() async {
+    try {
+      await launchUrl(
+        _TripMapTiles.copyrightUri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'trip_map',
+        action: 'open_osm_attribution',
+        severity: ActionFailureSeverity.degraded,
+        analytics: ref.read(analyticsProvider),
+      );
     }
   }
 
@@ -366,17 +400,24 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       _mapController.fitCamera(
         CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)),
       );
-    } catch (_) {
-      // Controller not attached yet; initialCenter remains a sane view.
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'trip_map',
+        action: 'fit_camera',
+        severity: ActionFailureSeverity.degraded,
+        analytics: ref.read(analyticsProvider),
+      );
     }
   }
 
   _Camera _initialCamera(List<MapMoment> moments, LatLng? destCoords) {
     if (moments.isNotEmpty) {
-      final lat = moments.map((m) => m.lat).reduce((a, b) => a + b) /
-          moments.length;
-      final lng = moments.map((m) => m.lng).reduce((a, b) => a + b) /
-          moments.length;
+      final lat =
+          moments.map((m) => m.lat).reduce((a, b) => a + b) / moments.length;
+      final lng =
+          moments.map((m) => m.lng).reduce((a, b) => a + b) / moments.length;
       return _Camera(LatLng(lat, lng), moments.length == 1 ? 14 : 11);
     }
     if (destCoords != null) return _Camera(destCoords, 11);
