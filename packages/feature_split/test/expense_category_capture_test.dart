@@ -1,7 +1,6 @@
 import 'package:app_core/app_core.dart';
 import 'package:drift/native.dart';
 import 'package:feature_split/src/expenses/add_expense_screen.dart';
-import 'package:feature_split/src/expenses/add_expense_screen_labels.dart';
 import 'package:feature_split/src/expenses/expense_category_picker.dart';
 import 'package:feature_split/src/expenses/expense_models.dart';
 import 'package:feature_split/src/expenses/expenses_providers.dart';
@@ -15,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'add_expense_test_labels.dart';
 import 'governance_test_labels.dart';
 
 class _SpyExpensesRepository extends ExpensesRepository {
@@ -41,14 +41,7 @@ class _SpyExpensesRepository extends ExpensesRepository {
   }
 }
 
-const _screenLabels = AddExpenseScreenLabels(
-  title: 'Add expense',
-  tripNotFound: 'Trip not found',
-  scanReceipt: 'Scan receipt',
-  takePhoto: 'Take photo',
-  chooseGallery: 'Choose from gallery',
-  choosePayer: 'Choose who paid.',
-);
+const _screenLabels = addExpenseTestScreenLabels;
 
 void main() {
   test('multi-category rows produce multiple donut slices', () {
@@ -157,6 +150,7 @@ void main() {
             ]),
           ),
           tripFxRatesProvider('trip-1').overrideWith((ref) => Stream.value([])),
+          tripExpensesProvider('trip-1').overrideWith((ref) => Stream.value([])),
         ],
         child: MaterialApp.router(
           theme: AppTheme.light,
@@ -189,8 +183,7 @@ void main() {
     await tester.tap(find.text('1'));
     await tester.tap(find.text('2'));
     await tester.pump();
-    await tester.enterText(find.byType(TextFormField).first, 'Pizza');
-    await tester.tap(find.textContaining(governanceTestLabels.saveExpense));
+    await tester.tap(find.byKey(const Key('addExpensePinnedCta')));
     await tester.pumpAndSettle();
 
     expect(spy.addCalls, 1);

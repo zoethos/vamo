@@ -1,7 +1,6 @@
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart' hide isNotNull;
 import 'package:drift/native.dart';
-import 'package:feature_split/src/expenses/add_expense_screen_labels.dart';
 import 'package:feature_split/src/expenses/add_expense_screen.dart';
 import 'package:feature_split/src/expenses/expense_consent_providers.dart';
 import 'package:feature_split/src/expenses/expense_governance.dart';
@@ -20,15 +19,9 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'governance_test_labels.dart';
+import 'add_expense_test_labels.dart';
 
-const _addExpenseScreenLabels = AddExpenseScreenLabels(
-  title: 'Add expense',
-  tripNotFound: 'Trip not found',
-  scanReceipt: 'Scan receipt',
-  takePhoto: 'Take photo',
-  chooseGallery: 'Choose from gallery',
-  choosePayer: 'Choose who paid.',
-);
+const _addExpenseScreenLabels = addExpenseTestScreenLabels;
 
 class _SpyExpensesRepository extends ExpensesRepository {
   _SpyExpensesRepository({
@@ -179,6 +172,7 @@ List<Override> _proposeScreenOverrides({
       ),
     ),
     tripFxRatesProvider(tripId).overrideWith((ref) => Stream.value([])),
+    tripExpensesProvider(tripId).overrideWith((ref) => Stream.value([])),
   ];
 }
 
@@ -369,7 +363,7 @@ void main() {
 
     expect(find.text(governanceTestLabels.saveProposal), findsOneWidget);
     expect(find.text('Scan receipt'), findsNothing);
-    expect(find.text('Place'), findsNothing);
+    expect(find.text(addExpenseTestScreenLabels.attachReceipt), findsNothing);
   });
 
   testWidgets('propose route bounces members before showing the form', (
@@ -492,7 +486,14 @@ void main() {
     await tester.tap(find.text('5'));
     await tester.tap(find.text('0'));
     await tester.pump();
-    await tester.enterText(find.byType(TextFormField).first, 'Hotel deposit');
+    await tester.tap(find.text('Add note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('addExpenseDescriptionField')),
+      'Hotel deposit',
+    );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
     final saveButton = find.textContaining(governanceTestLabels.saveProposal);
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
