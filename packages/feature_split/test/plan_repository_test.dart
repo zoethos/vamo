@@ -53,6 +53,43 @@ void main() {
     expect(grouped.last.items.single.title, 'Undated');
   });
 
+  test('groupPlanItemsByDay treats out-of-range trip items as undated', () {
+    final items = [
+      PlanItemSummary(
+        id: '1',
+        tripId: 't',
+        kind: PlanItemKind.visit,
+        title: 'In range',
+        startsAt: DateTime.utc(2026, 6, 18, 10),
+        position: 0,
+      ),
+      PlanItemSummary(
+        id: '2',
+        tripId: 't',
+        kind: PlanItemKind.visit,
+        title: 'Too early',
+        startsAt: DateTime.utc(2026, 6, 6, 10),
+        position: 1,
+      ),
+    ];
+
+    final grouped = groupPlanItemsByDay(
+      items,
+      bounds: TripPlanDateBounds.fromIso(
+        startDateIso: '2026-06-17',
+        endDateIso: '2026-06-19',
+      ),
+    );
+
+    expect(grouped, hasLength(2));
+    expect(grouped.first.dayKey, '2026-06-18');
+    expect(grouped.map((section) => section.dayKey),
+        isNot(contains('2026-06-06')));
+    expect(grouped.last.dayKey, isNull);
+    expect(grouped.last.items.single.title, 'Too early');
+    expect(grouped.last.items.single.startsAt, isNull);
+  });
+
   test('plan metadata helpers preserve objects and reject invalid shapes', () {
     expect(parsePlanMetadata(null), isEmpty);
     expect(parsePlanMetadata(''), isEmpty);
@@ -190,6 +227,57 @@ void main() {
     final pending = await queue.pending();
     final payload = decodePayload(pending.single.payload);
     expect(payload['metadata'], {'flight_number': 'AZ123'});
+  });
+
+  test('addPlanItem rejects dates outside the local trip range', () async {
+    const tripId = 'trip-plan';
+    final now = DateTime.utc(2026, 6, 1);
+    await db.upsertTrip(
+      LocalTripsCompanion(
+        id: const Value(tripId),
+        name: const Value('Cassino'),
+        startDate: const Value('2026-06-17'),
+        endDate: const Value('2026-06-19'),
+        ownerId: const Value('user-1'),
+        baseCurrency: const Value('EUR'),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+    final client = SupabaseClient(
+      'http://localhost',
+      'anon-key',
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    final queue = SyncQueue(db);
+    final worker = SyncWorker(
+      queue: queue,
+      client: client,
+      analytics: DebugAnalytics(),
+    );
+    final repo = PlanRepository(
+      db: db,
+      client: client,
+      analytics: DebugAnalytics(),
+      syncQueue: queue,
+      syncWorker: worker,
+      currentUserIdOverride: 'user-1',
+    );
+
+    await expectLater(
+      repo.addPlanItem(
+        PlanItemInput(
+          tripId: tripId,
+          kind: PlanItemKind.visit,
+          title: 'Spiaggia',
+          startsAt: DateTime.utc(2026, 6, 6, 10),
+        ),
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(await repo.watchPlanItems(tripId).first, isEmpty);
+    expect(await queue.pending(), isEmpty);
   });
 
   test(

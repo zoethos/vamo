@@ -136,6 +136,11 @@ class PlanRepository {
   Future<String> addPlanItem(PlanItemInput input) async {
     final userId = _currentUserId;
     if (userId == null) throw StateError('Must be signed in');
+    await _ensurePlanDatesWithinTrip(
+      tripId: input.tripId,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+    );
 
     final id = _uuid.v4();
     final now = DateTime.now().toUtc();
@@ -204,6 +209,11 @@ class PlanRepository {
           ..where((p) => p.id.equals(id)))
         .getSingleOrNull();
     if (existing == null) return;
+    await _ensurePlanDatesWithinTrip(
+      tripId: existing.tripId,
+      startsAt: startsAt,
+      endsAt: endsAt,
+    );
 
     final now = DateTime.now().toUtc();
     final nextMetadata = parsePlanMetadata(metadata ?? existing.metadata);
@@ -264,6 +274,31 @@ class PlanRepository {
       VamoEvent.planItemDeleted,
       properties: {'trip_id': existing.tripId, 'kind': existing.kind},
     );
+  }
+
+  Future<void> _ensurePlanDatesWithinTrip({
+    required String tripId,
+    required DateTime? startsAt,
+    required DateTime? endsAt,
+  }) async {
+    final trip = await (_db.select(_db.localTrips)
+          ..where((t) => t.id.equals(tripId)))
+        .getSingleOrNull();
+    final bounds = TripPlanDateBounds.fromIso(
+      startDateIso: trip?.startDate,
+      endDateIso: trip?.endDate,
+    );
+    final failure = validatePlanItemDates(
+      startsAt: startsAt,
+      endsAt: endsAt,
+      bounds: bounds,
+    );
+    if (failure == PlanDateValidationFailure.endBeforeStart) {
+      throw StateError('Plan item end date is before start date');
+    }
+    if (failure == PlanDateValidationFailure.outsideTripRange) {
+      throw StateError('Plan item date is outside the trip date range');
+    }
   }
 
   Future<void> reorderPlanItem({
@@ -534,17 +569,32 @@ class PlanRepository {
           'attachment_path, metadata, position, created_by, updated_by, created_at, updated_at',
         )
         .inFilter('trip_id', ids);
+    final localTrips =
+        await (_db.select(_db.localTrips)..where((t) => t.id.isIn(ids))).get();
+    final boundsByTrip = {
+      for (final trip in localTrips)
+        trip.id: TripPlanDateBounds.fromIso(
+          startDateIso: trip.startDate,
+          endDateIso: trip.endDate,
+        ),
+    };
 
     for (final row in (planRows as List).cast<Map<String, dynamic>>()) {
+      final tripId = row['trip_id'] as String;
+      final dates = normalizePlanItemDatesForTripRange(
+        startsAt: _ts(row['starts_at']),
+        endsAt: _ts(row['ends_at']),
+        bounds: boundsByTrip[tripId] ?? const TripPlanDateBounds(),
+      );
       await _db.upsertPlanItem(
         LocalPlanItemsCompanion(
           id: Value(row['id'] as String),
-          tripId: Value(row['trip_id'] as String),
+          tripId: Value(tripId),
           kind: Value(row['kind'] as String),
           title: Value(row['title'] as String),
           notes: Value(row['notes'] as String?),
-          startsAt: Value(_ts(row['starts_at'])),
-          endsAt: Value(_ts(row['ends_at'])),
+          startsAt: Value(dates.startsAt),
+          endsAt: Value(dates.endsAt),
           externalRef: Value(row['external_ref'] as String?),
           attachmentPath: Value(row['attachment_path'] as String?),
           metadata: Value(encodePlanMetadata(parsePlanMetadata(

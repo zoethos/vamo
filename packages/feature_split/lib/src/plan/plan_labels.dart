@@ -79,6 +79,7 @@ class PlanTabLabels {
     required this.addChecklistItem,
     required this.deleteConfirmTitle,
     required this.endBeforeStart,
+    this.dateOutsideTripRange = 'Plan items must stay inside the trip dates.',
     required this.cancelLabel,
   });
 
@@ -156,23 +157,24 @@ class PlanTabLabels {
   final String addChecklistItem;
   final String deleteConfirmTitle;
   final String endBeforeStart;
+  final String dateOutsideTripRange;
   final String cancelLabel;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
-    PlanItemKind.lodging => kindLodging,
-    PlanItemKind.flight => kindFlight,
-    PlanItemKind.train => kindTrain,
-    PlanItemKind.activity => kindActivity,
-    PlanItemKind.visit => kindVisit,
-    PlanItemKind.transfer => kindTransfer,
-    PlanItemKind.other => kindOther,
-  };
+        PlanItemKind.lodging => kindLodging,
+        PlanItemKind.flight => kindFlight,
+        PlanItemKind.train => kindTrain,
+        PlanItemKind.activity => kindActivity,
+        PlanItemKind.visit => kindVisit,
+        PlanItemKind.transfer => kindTransfer,
+        PlanItemKind.other => kindOther,
+      };
 
   String transferSubtype(TransferSubtype subtype) => switch (subtype) {
-    TransferSubtype.carRental => transferSubtypeCarRental,
-    TransferSubtype.train => transferSubtypeTrain,
-    TransferSubtype.transit => transferSubtypeTransit,
-    TransferSubtype.drive => transferSubtypeDrive,
-    TransferSubtype.flight => transferSubtypeFlight,
-  };
+        TransferSubtype.carRental => transferSubtypeCarRental,
+        TransferSubtype.train => transferSubtypeTrain,
+        TransferSubtype.transit => transferSubtypeTransit,
+        TransferSubtype.drive => transferSubtypeDrive,
+        TransferSubtype.flight => transferSubtypeFlight,
+      };
 }
