@@ -52,23 +52,23 @@ void main() {
         find.widgetWithText(FilledButton, _labels.ctaTapPlace), findsOneWidget);
     expect(find.text(_labels.visitFindCoordinates), findsNothing);
     expect(find.text(_labels.visitDiscoverNearby), findsNothing);
-    expect(find.text(_labels.visitPlaceHelper), findsOneWidget);
-    expect(find.text(_labels.visitAddressHelper), findsOneWidget);
-    expect(find.text(_labels.visitDiscoverHelper), findsOneWidget);
+    expect(find.byKey(const Key('visitPlaceSearchField')), findsOneWidget);
+    expect(find.text(_labels.visitDiscoverHelper), findsNothing);
+    expect(find.byKey(const Key('visitAddNoteRow')), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextField, _labels.visitPlaceLabel),
+      find.byKey(const Key('visitPlaceSearchField')),
       'Marienplatz',
     );
     await tester.enterText(
-      find.widgetWithText(TextField, _labels.visitAddressLabel),
+      find.byKey(const Key('visitAddressField')),
       'Marienplatz, Munich',
     );
 
     expect(find.text('Marienplatz'), findsOneWidget);
     expect(find.text('Marienplatz, Munich'), findsOneWidget);
 
-    final saveButton = find.widgetWithText(FilledButton, _labels.save);
+    final saveButton = find.widgetWithText(FilledButton, _labels.visitSave);
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(
-      find.widgetWithText(TextField, _labels.visitPlaceLabel),
+      find.byKey(const Key('visitPlaceSearchField')),
       'mar',
     );
     await tester.pump(const Duration(milliseconds: 299));
@@ -146,12 +146,12 @@ void main() {
     expect(find.text('Marienplatz'), findsOneWidget);
     expect(find.text(_labels.visitDiscoverNeedsCoordinates), findsNothing);
 
-    final suggestion = find.widgetWithText(ListTile, 'Marienplatz');
-    await tester.ensureVisible(suggestion);
-    await tester.tap(suggestion);
+    final suggestion = find.text('Marienplatz');
+    await tester.ensureVisible(suggestion.first);
+    await tester.tap(suggestion.first);
     await tester.pumpAndSettle();
 
-    final saveButton = find.widgetWithText(FilledButton, _labels.save);
+    final saveButton = find.widgetWithText(FilledButton, _labels.visitSave);
     await tester.ensureVisible(saveButton);
     await tester.tap(saveButton);
     await tester.pumpAndSettle();

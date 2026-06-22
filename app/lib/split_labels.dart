@@ -151,6 +151,8 @@ class SplitLabels {
         visitDiscoverEmpty: l10n.planVisitDiscoverEmpty,
         visitDiscoverGated: l10n.planVisitDiscoverGated,
         visitDiscoverLoadError: l10n.planVisitDiscoverLoadError,
+        visitSave: l10n.planVisitSave,
+        visitAddNote: l10n.planVisitAddNote,
         ctaTapType: l10n.planCtaTapType,
         ctaTapPlace: l10n.planCtaTapPlace,
         transferSectionTitle: l10n.planTransferSectionTitle,
