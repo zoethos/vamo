@@ -354,6 +354,19 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
+          GoRoute(
+            path: 'map',
+            name: 'trip_map',
+            parentNavigatorKey: _rootNavigatorKey,
+            builder: (context, state) {
+              final id = state.pathParameters['tripId']!;
+              final l10n = AppLocalizations.of(context);
+              return TripMapScreen(
+                tripId: id,
+                tripHomeLabels: SplitLabels.tripHome(l10n),
+              );
+            },
+          ),
         ],
       ),
     ],

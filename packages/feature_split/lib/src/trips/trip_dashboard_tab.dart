@@ -32,6 +32,7 @@ class TripDashboardTab extends ConsumerWidget {
     required this.onBalances,
     required this.onMembers,
     required this.onMemories,
+    required this.onMap,
     required this.onInvite,
   });
 
@@ -47,6 +48,7 @@ class TripDashboardTab extends ConsumerWidget {
   final VoidCallback onBalances;
   final VoidCallback onMembers;
   final VoidCallback onMemories;
+  final VoidCallback onMap;
   final VoidCallback onInvite;
 
   /// Estimated card height for hero overlap (top ~1/3 sits on the hero).
@@ -182,6 +184,7 @@ class TripDashboardTab extends ConsumerWidget {
             onBalances: onBalances,
             onMembers: onMembers,
             onMemories: onMemories,
+            onMap: onMap,
           ),
         ),
         SizedBox(height: space.x4),
@@ -476,6 +479,7 @@ class _QuickActionsRow extends StatelessWidget {
     required this.onBalances,
     required this.onMembers,
     required this.onMemories,
+    required this.onMap,
   });
 
   static const _tileExtent = 76.0;
@@ -487,6 +491,7 @@ class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onBalances;
   final VoidCallback onMembers;
   final VoidCallback onMemories;
+  final VoidCallback onMap;
 
   @override
   Widget build(BuildContext context) {
@@ -501,6 +506,11 @@ class _QuickActionsRow extends StatelessWidget {
         icon: Icons.event_outlined,
         label: labels.quickPlans,
         onTap: onPlans,
+      ),
+      _QuickActionTile(
+        icon: Icons.map_outlined,
+        label: labels.quickMap,
+        onTap: onMap,
       ),
       if (showBalances)
         _QuickActionTile(

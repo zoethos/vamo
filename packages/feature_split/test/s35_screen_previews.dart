@@ -302,6 +302,7 @@ Widget pumpTripDashboardTab({
             onBalances: () {},
             onMembers: () {},
             onMemories: () {},
+            onMap: () {},
             onInvite: () {},
           ),
         ),

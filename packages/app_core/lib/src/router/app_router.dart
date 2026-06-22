@@ -30,6 +30,7 @@ abstract final class AppRoutes {
   static String tripAddCaptureNote(String tripId) =>
       '/trips/$tripId/capture/note';
   static String tripMemories(String tripId) => '/trips/$tripId/memories';
+  static String tripMap(String tripId) => '/trips/$tripId/map';
   static const join = '/join';
   static const loginCallback = '/login-callback';
 }
