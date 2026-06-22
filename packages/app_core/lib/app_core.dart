@@ -45,6 +45,7 @@ export 'src/design/vamo_avatar.dart';
 export 'src/design/vamo_carousel.dart';
 export 'src/design/vamo_circle_icon.dart';
 export 'src/design/vamo_date_picker.dart';
+export 'src/design/vamo_plan_type_colors.dart';
 export 'src/env/env.dart';
 export 'src/fx/fx_math.dart';
 export 'src/fx/fx_providers.dart';
