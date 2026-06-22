@@ -4,5 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'poi_repository.dart';
 
 final poiRepositoryProvider = Provider<PoiRepository>((ref) {
-  return PoiRepository(client: ref.watch(supabaseClientProvider));
+  return PoiRepository(
+    client: ref.watch(supabaseClientProvider),
+    analytics: ref.watch(analyticsProvider),
+  );
 });

@@ -101,8 +101,9 @@ media. For Google Places specifically:
 
 ## Open decisions
 1. Per-user free quota per service: seed POI at **5 fresh Foursquare lookups/user/month**.
-2. Provider cap + safety margin: seed Foursquare at **8,000 fresh calls/month** until production burn-down
-   data proves a higher cap is safe.
+2. Provider cap + safety margin: seed Foursquare at **500 fresh calls/month** until production burn-down
+   data proves a higher cap is safe. This intentionally tracks the current free Pro-call allowance; raise it
+   only after reviewing current Foursquare billing terms.
 3. Cache TTL + key granularity per service: seed POI at **geohash precision 6 × category × 7 days** for
    Foursquare content only.
 4. Vamo Plus price point vs. modeled heavy-user marginal cost.

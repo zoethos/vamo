@@ -25,6 +25,21 @@ const FOURSQUARE_API_VERSION = "2025-06-17";
 const SERVICE = "poi";
 const DEFAULT_LIMIT = 12;
 
+interface TripRow {
+  id: string;
+  name?: string | null;
+  destination?: string | null;
+}
+
+interface PoiUsageEvent {
+  operation: "search" | "nearby";
+  status: "success" | "error" | "throttled" | "invalid_output";
+  cached: boolean;
+  latencyMs: number;
+  errorKind?: string;
+  metadata?: Record<string, unknown>;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -37,6 +52,7 @@ Deno.serve(async (req) => {
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "unauthorized" }, 401);
+  const startedAt = performance.now();
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -57,17 +73,28 @@ Deno.serve(async (req) => {
 
   const { data: trip, error: tripError } = await userClient
     .from("trips")
-    .select("id,destination")
+    .select("id,name,destination")
     .eq("id", input.tripId)
     .maybeSingle();
   if (tripError || !trip) return json({ error: "trip_not_found" }, 404);
 
   const serviceClient = createClient(supabaseUrl, serviceKey);
+  const tripRow = trip as TripRow;
   const regionBias = input.mode === "search"
     ? normalizeQuery(input.regionBias) ?? normalizeQuery(trip.destination) ??
+      normalizeQuery(tripRow.name ?? null) ??
       null
     : null;
+  const usageMetadata = await usageMetadataForInput(input, tripRow, regionBias);
   if (input.mode === "search" && !regionBias) {
+    await recordPoiUsage(serviceClient, {
+      operation: "search",
+      status: "error",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: "missing_region_bias",
+      metadata: usageMetadata,
+    });
     return json({ available: false, reason: "missing_region_bias" });
   }
   const { cacheKey, geohash, category } = cacheKeyForPoiInput(
@@ -79,16 +106,38 @@ Deno.serve(async (req) => {
 
   const cached = await readCachedPois(serviceClient, cacheKey);
   if (cached) {
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "success",
+      cached: true,
+      latencyMs: elapsedMs(startedAt),
+      metadata: { ...usageMetadata, result_count: cached.length },
+    });
     return json({ available: true, pois: cached, cached: true });
   }
 
-  const reservation = await reserveServiceUsage(serviceClient, {
-    idempotencyKey: input.mode === "search" && input.sessionId
-      ? `poi:search:${user.id}:${input.sessionId}`
-      : crypto.randomUUID(),
-    service: SERVICE,
-    userId: user.id,
-  });
+  let reservation;
+  try {
+    const idempotencyKey = input.mode === "search" && input.sessionId
+      ? `poi:search:${user.id}:${input.sessionId}:${await hashText(cacheKey)}`
+      : crypto.randomUUID();
+    reservation = await reserveServiceUsage(serviceClient, {
+      idempotencyKey,
+      service: SERVICE,
+      userId: user.id,
+    });
+  } catch (error) {
+    console.error("poi-discovery reservation failure", error);
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "error",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: "reservation_failed",
+      metadata: usageMetadata,
+    });
+    return json({ available: false, reason: "reservation_failed" }, 503);
+  }
 
   if (reservation.gated) {
     const reason = reservation.reason ?? "quota_exceeded";
@@ -97,14 +146,34 @@ Deno.serve(async (req) => {
       service: SERVICE,
       reason,
     });
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "throttled",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: reason,
+      metadata: usageMetadata,
+    });
     return json({ gated: true, upsell: SERVICE, reason });
   }
   if (!reservation.reserved) {
+    const reason = reservation.reason ??
+      (reservation.status === "failed" || reservation.status === "released"
+        ? "reservation_retry_required"
+        : "provider_unavailable");
     console.error("poi-discovery reservation unavailable", {
       status: reservation.status ?? "unknown",
-      reason: reservation.reason ?? "unknown",
+      reason,
     });
-    return json({ available: false, reason: "provider_unavailable" });
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "error",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: reason,
+      metadata: usageMetadata,
+    });
+    return json({ available: false, reason });
   }
 
   if (reservation.provider !== "foursquare") {
@@ -113,6 +182,14 @@ Deno.serve(async (req) => {
       reservation.reservationId,
       "released",
     );
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "throttled",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: "provider_unavailable",
+      metadata: usageMetadata,
+    });
     return json({ available: false, reason: "provider_unavailable" });
   }
 
@@ -123,6 +200,14 @@ Deno.serve(async (req) => {
       reservation.reservationId,
       "failed",
     );
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "error",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind: "provider_unconfigured",
+      metadata: usageMetadata,
+    });
     return json({ available: false, reason: "provider_unconfigured" });
   }
 
@@ -143,15 +228,36 @@ Deno.serve(async (req) => {
         reservation.cacheTtlSeconds ?? 604800,
       );
     }
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "success",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      metadata: { ...usageMetadata, result_count: pois.length },
+    });
     return json({ available: true, pois, cached: false });
   } catch (error) {
+    const errorKind = classifyPoiProviderError(error);
     console.error("poi-discovery provider failure", error);
     await releaseServiceUsageReservation(
       serviceClient,
       reservation.reservationId,
       "failed",
     );
-    return json({ available: false, reason: "provider_unavailable" });
+    await recordPoiUsage(serviceClient, {
+      operation: input.mode,
+      status: "error",
+      cached: false,
+      latencyMs: elapsedMs(startedAt),
+      errorKind,
+      metadata: {
+        ...usageMetadata,
+        provider_status: error instanceof FoursquareHttpError
+          ? error.status
+          : null,
+      },
+    });
+    return json({ available: false, reason: errorKind });
   }
 });
 
@@ -215,7 +321,7 @@ async function fetchFoursquare(
   url.searchParams.set("limit", `${DEFAULT_LIMIT}`);
   url.searchParams.set(
     "fields",
-    "fsq_place_id,name,categories,fsq_category_labels,latitude,longitude,location,distance",
+    "fsq_place_id,name,categories,latitude,longitude,location,distance",
   );
   const query = queryForCategory(input.category);
   const searchQuery = input.query?.trim() || query;
@@ -229,9 +335,95 @@ async function fetchFoursquare(
     },
   });
   if (!response.ok) {
-    throw new Error(`Foursquare search failed: ${response.status}`);
+    throw new FoursquareHttpError(response.status);
   }
   return await response.json();
+}
+
+class FoursquareHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`Foursquare search failed: ${status}`);
+    this.name = "FoursquareHttpError";
+  }
+}
+
+function classifyPoiProviderError(error: unknown): string {
+  if (error instanceof FoursquareHttpError) {
+    if (error.status === 401 || error.status === 403) return "provider_auth";
+    if (error.status === 429) return "provider_throttled";
+    if (error.status >= 400 && error.status < 500) {
+      return "provider_bad_request";
+    }
+    return "provider_error";
+  }
+  if (error instanceof TypeError) return "provider_network";
+  return "provider_error";
+}
+
+async function usageMetadataForInput(
+  input: PoiInput,
+  trip: TripRow,
+  regionBias: string | null,
+): Promise<Record<string, unknown>> {
+  return {
+    mode: input.mode,
+    category: input.category ?? "all",
+    query_present: input.query != null,
+    query_length: input.query?.length ?? 0,
+    query_hash: await hashText(input.query),
+    has_request_region_bias: input.regionBias != null,
+    trip_has_destination: normalizeQuery(trip.destination ?? null) != null,
+    trip_has_name: normalizeQuery(trip.name ?? null) != null,
+    region_bias_source: regionBias == null
+      ? null
+      : normalizeQuery(input.regionBias) != null
+      ? "request"
+      : normalizeQuery(trip.destination ?? null) != null
+      ? "trip_destination"
+      : "trip_name",
+    region_hash: await hashText(regionBias),
+    radius: input.mode === "nearby" ? input.radius : null,
+  };
+}
+
+async function hashText(value: string | null): Promise<string | null> {
+  const normalized = normalizeQuery(value);
+  if (normalized == null) return null;
+  const bytes = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(normalized),
+  );
+  return Array.from(new Uint8Array(bytes))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function recordPoiUsage(
+  supabase: SupabaseClient,
+  event: PoiUsageEvent,
+): Promise<void> {
+  try {
+    await supabase.from("provider_usage_events").insert({
+      feature: SERVICE,
+      provider: "foursquare",
+      model: null,
+      operation: event.operation,
+      status: event.status,
+      cached: event.cached,
+      input_units: null,
+      output_units: null,
+      estimated_cost_usd: null,
+      latency_ms: event.latencyMs,
+      error_kind: event.errorKind ?? null,
+      metadata: event.metadata ?? {},
+    });
+  } catch (error) {
+    console.error("poi provider_usage_events insert failed", error);
+  }
+}
+
+function elapsedMs(startedAt: number): number {
+  return Math.max(0, Math.round(performance.now() - startedAt));
 }
 
 function json(body: Record<string, unknown>, status = 200) {

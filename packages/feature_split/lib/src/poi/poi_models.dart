@@ -88,17 +88,25 @@ class PoiSummary {
 class PoiDiscoveryResult {
   const PoiDiscoveryResult.available(this.pois)
       : gated = false,
+        unavailable = false,
         reason = null;
 
   const PoiDiscoveryResult.gated(this.reason)
       : gated = true,
+        unavailable = false,
+        pois = const <PoiSummary>[];
+
+  const PoiDiscoveryResult.unavailable(this.reason)
+      : gated = false,
+        unavailable = true,
         pois = const <PoiSummary>[];
 
   final bool gated;
+  final bool unavailable;
   final String? reason;
   final List<PoiSummary> pois;
 
-  bool get isEmpty => !gated && pois.isEmpty;
+  bool get isEmpty => !gated && !unavailable && pois.isEmpty;
 
   static PoiDiscoveryResult? fromFunctionPayload(Object? raw) {
     if (raw is! Map) return null;
@@ -106,7 +114,9 @@ class PoiDiscoveryResult {
     if (map['gated'] == true) {
       return PoiDiscoveryResult.gated(_stringValue(map['reason']));
     }
-    if (map['available'] != true) return null;
+    if (map['available'] != true) {
+      return PoiDiscoveryResult.unavailable(_stringValue(map['reason']));
+    }
     final rows = map['pois'];
     if (rows is! List) return const PoiDiscoveryResult.available([]);
     return PoiDiscoveryResult.available(
