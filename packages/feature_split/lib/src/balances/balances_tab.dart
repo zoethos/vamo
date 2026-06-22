@@ -6,14 +6,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../expenses/expense_consent_providers.dart';
 import '../expenses/expense_governance_labels.dart';
+import '../expenses/expense_models.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
 import '../settle/settlements_providers.dart';
 import '../settle/settlements_repository.dart';
+import '../trips/cached_member_avatar.dart';
 import 'balances_models.dart';
 import 'balances_providers.dart';
 import 'balances_tab_labels.dart';
 import 'mark_settle_sheet.dart';
+
+const _ink = AppColors.ink;
+const _graphite = AppColors.graphite;
+const _jade = AppColors.jadeTeal;
+const _coral = AppColors.coralText;
+const _neutral = AppColors.neutralMid;
+const _mist = AppColors.mistGray;
 
 /// Slice 4 — settle-up with S27 scan-first hierarchy.
 class BalancesTab extends ConsumerWidget {
@@ -51,6 +60,9 @@ class BalancesTab extends ConsumerWidget {
         final nameById = members.valueOrNull == null
             ? <String, String>{}
             : {for (final m in members.requireValue) m.userId: m.displayName};
+        final memberById = members.valueOrNull == null
+            ? <String, TripMemberView>{}
+            : {for (final m in members.requireValue) m.userId: m};
         final consentLabels = consentFlags
             .map(
               (f) => governanceLabels.consentDisplayLabel(
@@ -113,14 +125,7 @@ class BalancesTab extends ConsumerWidget {
             ),
             const SizedBox(height: 18),
             if (lines.isNotEmpty) ...[
-              _sectionTitle(context, labels.whoOwesWhomTitle),
-              Text(
-                labels.whoOwesWhomHint,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.graphite),
-              ),
+              _sectionTitle(context, labels.settleUp),
               const SizedBox(height: 12),
               ...lines.map(
                 (s) {
@@ -128,6 +133,7 @@ class BalancesTab extends ConsumerWidget {
                   return _SettlementRow(
                     display: s,
                     labels: labels,
+                    memberById: memberById,
                     isPayer: isPayer,
                     onTap: isPayer
                         ? () => showMarkSettleSheet(
@@ -151,7 +157,7 @@ class BalancesTab extends ConsumerWidget {
                   child: Text(
                     label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.coralText,
+                          color: _coral,
                         ),
                   ),
                 ),
@@ -166,62 +172,38 @@ class BalancesTab extends ConsumerWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: AppColors.graphite),
+                      ?.copyWith(color: _graphite),
                 ),
                 const SizedBox(height: 12),
                 ...pending.map(
-                  (s) => Card(
-                    color: AppColors.blush,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            labels.confirmPaymentFrom(
-                              nameById[s.fromUserId] ??
-                                  fallbackMemberDisplayName(
-                                    userId: s.fromUserId,
-                                  ),
-                            ),
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          Text(
-                            formatMoneyFromCents(s.amountCents, s.currency),
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: AppColors.jadeTeal,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FilledButton(
-                                  onPressed: () => _confirm(context, ref, s.id),
-                                  child: Text(labels.confirm),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _revoke(
-                                    context,
-                                    ref,
-                                    s.id,
-                                    successMessage: labels.markedNotReceived,
-                                  ),
-                                  child: Text(labels.reject),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  (s) => _SettlementStatusRow(
+                    leadingMember: memberById[s.fromUserId],
+                    fallbackName: nameById[s.fromUserId] ??
+                        fallbackMemberDisplayName(userId: s.fromUserId),
+                    title: labels.confirmPaymentFrom(
+                      nameById[s.fromUserId] ??
+                          fallbackMemberDisplayName(userId: s.fromUserId),
                     ),
+                    subtitle: '',
+                    amount: formatMoneyFromCents(s.amountCents, s.currency),
+                    amountColor: _jade,
+                    status: labels.statusAwaiting,
+                    statusColor: _graphite,
+                    actions: [
+                      TextButton(
+                        onPressed: () => _confirm(context, ref, s.id),
+                        child: Text(labels.confirm),
+                      ),
+                      TextButton(
+                        onPressed: () => _revoke(
+                          context,
+                          ref,
+                          s.id,
+                          successMessage: labels.markedNotReceived,
+                        ),
+                        child: Text(labels.reject),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -232,24 +214,27 @@ class BalancesTab extends ConsumerWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: AppColors.graphite),
+                      ?.copyWith(color: _graphite),
                 ),
                 const SizedBox(height: 12),
                 ...payerAwaiting.map(
-                  (s) => Card(
-                    child: ListTile(
-                      title: Text(
-                        labels.youToRecipient(
-                          nameById[s.toUserId] ??
-                              fallbackMemberDisplayName(userId: s.toUserId),
-                        ),
-                      ),
-                      subtitle: Text(
-                        labels.markedNotConfirmed(
-                          formatMoneyFromCents(s.amountCents, s.currency),
-                        ),
-                      ),
-                      trailing: TextButton(
+                  (s) => _SettlementStatusRow(
+                    leadingMember: memberById[s.toUserId],
+                    fallbackName: nameById[s.toUserId] ??
+                        fallbackMemberDisplayName(userId: s.toUserId),
+                    title: labels.youToRecipient(
+                      nameById[s.toUserId] ??
+                          fallbackMemberDisplayName(userId: s.toUserId),
+                    ),
+                    subtitle: labels.markedNotConfirmed(
+                      formatMoneyFromCents(s.amountCents, s.currency),
+                    ),
+                    amount: formatMoneyFromCents(s.amountCents, s.currency),
+                    amountColor: _coral,
+                    status: labels.statusMarkedPaid,
+                    statusColor: _graphite,
+                    actions: [
+                      TextButton(
                         onPressed: () => _revoke(
                           context,
                           ref,
@@ -258,7 +243,7 @@ class BalancesTab extends ConsumerWidget {
                         ),
                         child: Text(labels.cancelMark),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -267,6 +252,7 @@ class BalancesTab extends ConsumerWidget {
             _FinalBalancesSection(
               tripId: tripId,
               nameById: nameById,
+              memberById: memberById,
               currency: currency,
               labels: labels,
             ),
@@ -280,7 +266,7 @@ class BalancesTab extends ConsumerWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppColors.ink,
+            color: _ink,
             fontWeight: FontWeight.w700,
           ),
     );
@@ -317,7 +303,7 @@ class BalancesTab extends ConsumerWidget {
               child: Text(
                 labels.settleUp,
                 style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      color: AppColors.ink,
+                      color: _ink,
                       fontWeight: FontWeight.w700,
                     ),
               ),
@@ -329,7 +315,7 @@ class BalancesTab extends ConsumerWidget {
                 trailing: Text(
                   formatMoneyFromCents(line.line.cents, line.currency),
                   style: const TextStyle(
-                    color: AppColors.coralText,
+                    color: _coral,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -436,11 +422,15 @@ class _NetBalanceHero extends StatelessWidget {
         : netCents < 0
             ? labels.netHeroYouOwe
             : labels.netHeroYouAreOwed;
-    final amountColor = netCents < 0 ? AppColors.coralText : AppColors.jadeTeal;
+    final accentColor = netCents < 0
+        ? _coral
+        : netCents > 0
+            ? _jade
+            : _neutral;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.mistGray.withValues(alpha: 0.35),
+        color: _mist.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -448,66 +438,364 @@ class _NetBalanceHero extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                SizedBox.square(
-                  dimension: 110,
-                  child: CustomPaint(
-                    painter: _BalanceDonutPainter(
-                      owedTotal: owedTotal,
-                      owedByMe: owedByMe,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        netCents == 0
-                            ? Icons.check_circle_outline
-                            : Icons.payments_outlined,
-                        color: AppColors.ink,
-                      ),
+            Center(
+              child: SizedBox.square(
+                dimension: 150,
+                child: CustomPaint(
+                  painter: _BalanceDonutPainter(
+                    owedTotal: owedTotal,
+                    owedByMe: owedByMe,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          labels.netHeroTitle,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: _graphite,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            amount,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: _ink,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        _BalanceStatusPill(
+                          label: status,
+                          color: accentColor,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        labels.netHeroTitle,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppColors.graphite,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        amount,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: amountColor,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      Text(
-                        '$status · $currency',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.graphite,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _BalanceLegend(
+              labels: labels,
+              owedToYouAmount: formatMoneyFromCents(owedTotal, currency),
+              youOweAmount: formatMoneyFromCents(owedByMe, currency),
             ),
             const SizedBox(height: 14),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.goLime,
-                foregroundColor: AppColors.ink,
+                foregroundColor: _ink,
                 minimumSize: const Size.fromHeight(48),
               ),
               onPressed: canSettle ? onSettle : null,
-              child: Text(labels.settleUp),
+              child: Text(
+                labels.settleUp,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: _ink,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceStatusPill extends StatelessWidget {
+  const _BalanceStatusPill({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: 8,
+          vertical: 3,
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceLegend extends StatelessWidget {
+  const _BalanceLegend({
+    required this.labels,
+    required this.owedToYouAmount,
+    required this.youOweAmount,
+  });
+
+  final BalancesTabLabels labels;
+  final String owedToYouAmount;
+  final String youOweAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: _graphite,
+          fontWeight: FontWeight.w600,
+        );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 14,
+      runSpacing: 8,
+      children: [
+        _BalanceLegendItem(
+          color: _jade,
+          label: labels.legendOwedToYou,
+          amount: owedToYouAmount,
+          style: style,
+        ),
+        _BalanceLegendItem(
+          color: _coral,
+          label: labels.legendYouOwe,
+          amount: youOweAmount,
+          style: style,
+        ),
+      ],
+    );
+  }
+}
+
+class _BalanceLegendItem extends StatelessWidget {
+  const _BalanceLegendItem({
+    required this.color,
+    required this.label,
+    required this.amount,
+    required this.style,
+  });
+
+  final Color color;
+  final String label;
+  final String amount;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+          child: const SizedBox.square(dimension: 7),
+        ),
+        const SizedBox(width: 5),
+        Text(label, style: style),
+        const SizedBox(width: 4),
+        Text(
+          amount,
+          style: style?.copyWith(
+            color: _ink,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SettlementStatusRow extends StatelessWidget {
+  const _SettlementStatusRow({
+    required this.leadingMember,
+    required this.fallbackName,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.amountColor,
+    required this.status,
+    required this.statusColor,
+    required this.actions,
+  });
+
+  final TripMemberView? leadingMember;
+  final String fallbackName;
+  final String title;
+  final String subtitle;
+  final String amount;
+  final Color amountColor;
+  final String status;
+  final Color statusColor;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final member = leadingMember;
+    final displayName = member?.displayName ?? fallbackName;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 8),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CachedMemberAvatar(
+                displayName: displayName,
+                avatarStoragePath: member?.avatarUrl,
+                avatarDisplayMode:
+                    member?.avatarDisplayMode ?? AvatarDisplayMode.photo,
+                avatarInitials: member?.avatarInitials,
+                radius: 17,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: _ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _graphite,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 0,
+                      children: actions,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    amount,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: amountColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _BalanceStatusPill(
+                    label: status,
+                    color: statusColor,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemberNetRow extends StatelessWidget {
+  const _MemberNetRow({
+    required this.member,
+    required this.fallbackName,
+    required this.isOwed,
+    required this.amount,
+    required this.labels,
+  });
+
+  final TripMemberView? member;
+  final String fallbackName;
+  final bool isOwed;
+  final String amount;
+  final BalancesTabLabels labels;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final displayName = member?.displayName ?? fallbackName;
+    final accent = isOwed ? _jade : _coral;
+    final fullLine = labels.netBalanceLine(displayName, isOwed, amount);
+    final title =
+        fullLine.replaceFirst(RegExp('${RegExp.escape(amount)}\$'), '').trim();
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 8),
+      child: Material(
+        color: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 10),
+          child: Row(
+            children: [
+              CachedMemberAvatar(
+                displayName: displayName,
+                avatarStoragePath: member?.avatarUrl,
+                avatarDisplayMode:
+                    member?.avatarDisplayMode ?? AvatarDisplayMode.photo,
+                avatarInitials: member?.avatarInitials,
+                radius: 17,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: _ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                amount,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -531,17 +819,17 @@ class _BalanceDonutPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.graphite.withValues(alpha: 0.14);
+      ..color = _graphite.withValues(alpha: 0.14);
     final owedPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.jadeTeal;
+      ..color = _jade;
     final owePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = AppColors.coralText;
+      ..color = _coral;
 
     final inset = strokeWidth / 2;
     final arcRect = rect.deflate(inset);
@@ -572,18 +860,21 @@ class _SettlementRow extends StatelessWidget {
   const _SettlementRow({
     required this.display,
     required this.labels,
+    required this.memberById,
     required this.isPayer,
     required this.onTap,
   });
 
   final SettlementDisplay display;
   final BalancesTabLabels labels;
+  final Map<String, TripMemberView> memberById;
   final bool isPayer;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final member = memberById[display.line.fromUserId];
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: 8),
       child: Material(
@@ -594,21 +885,13 @@ class _SettlementRow extends StatelessWidget {
         ),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
-          leading: CircleAvatar(
+          leading: CachedMemberAvatar(
+            displayName: display.fromName,
+            avatarStoragePath: member?.avatarUrl,
+            avatarDisplayMode:
+                member?.avatarDisplayMode ?? AvatarDisplayMode.photo,
+            avatarInitials: member?.avatarInitials,
             radius: 17,
-            backgroundColor:
-                (isPayer ? AppColors.coralText : AppColors.jadeTeal)
-                    .withValues(alpha: 0.12),
-            child: Text(
-              display.fromName.trim().isEmpty
-                  ? '?'
-                  : String.fromCharCode(display.fromName.trim().runes.first)
-                      .toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
           ),
           title: Text(labels.paysLine(display.fromName, display.toName)),
           subtitle: Text(
@@ -619,7 +902,7 @@ class _SettlementRow extends StatelessWidget {
           trailing: Text(
             formatMoneyFromCents(display.line.cents, display.currency),
             style: theme.textTheme.titleSmall?.copyWith(
-              color: isPayer ? AppColors.coralText : AppColors.jadeTeal,
+              color: isPayer ? _coral : _jade,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -634,12 +917,14 @@ class _FinalBalancesSection extends ConsumerWidget {
   const _FinalBalancesSection({
     required this.tripId,
     required this.nameById,
+    required this.memberById,
     required this.currency,
     required this.labels,
   });
 
   final String tripId;
   final Map<String, String> nameById;
+  final Map<String, TripMemberView> memberById;
   final String currency;
   final BalancesTabLabels labels;
 
@@ -657,22 +942,19 @@ class _FinalBalancesSection extends ConsumerWidget {
         Text(
           labels.finalTitle,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.ink,
+                color: _ink,
                 fontWeight: FontWeight.w700,
               ),
         ),
         const SizedBox(height: 8),
         for (final e in nonZero)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Text(
-              labels.netBalanceLine(
+          _MemberNetRow(
+            member: memberById[e.key],
+            fallbackName:
                 nameById[e.key] ?? fallbackMemberDisplayName(userId: e.key),
-                e.value > 0,
-                formatMoneyFromCents(e.value.abs(), currency),
-              ),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            isOwed: e.value > 0,
+            amount: formatMoneyFromCents(e.value.abs(), currency),
+            labels: labels,
           ),
       ],
     );

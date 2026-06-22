@@ -8,9 +8,13 @@ class BalancesTabLabels {
     required this.waitingForPayer,
     required this.markAsSettled,
     this.netHeroTitle = 'Net balance',
-    this.netHeroSettled = "You're even",
+    this.netHeroSettled = 'Settled',
     this.netHeroYouOwe = 'You owe',
     this.netHeroYouAreOwed = "You're owed",
+    this.legendOwedToYou = 'Owed to you',
+    this.legendYouOwe = 'You owe',
+    this.statusAwaiting = 'Awaiting confirmation',
+    this.statusMarkedPaid = 'Marked paid',
     this.settleUp = 'Settle up',
     required this.myActionTitle,
     required this.confirmPaymentsHint,
@@ -43,6 +47,10 @@ class BalancesTabLabels {
   final String netHeroSettled;
   final String netHeroYouOwe;
   final String netHeroYouAreOwed;
+  final String legendOwedToYou;
+  final String legendYouOwe;
+  final String statusAwaiting;
+  final String statusMarkedPaid;
   final String settleUp;
   final String myActionTitle;
   final String confirmPaymentsHint;
