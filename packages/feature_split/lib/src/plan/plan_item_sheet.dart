@@ -11,6 +11,9 @@ import 'plan_event_rsvp_chips.dart';
 import 'plan_labels.dart';
 import 'plan_models.dart';
 import 'plan_providers.dart';
+import 'plan_type_visuals.dart';
+
+const _visitSearchAccent = Color(0xFFC43628);
 
 class PlanItemSheet extends ConsumerStatefulWidget {
   const PlanItemSheet({
@@ -74,8 +77,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _notes = TextEditingController(text: widget.existing?.notes ?? '');
     final visit = parseVisitPlaceMetadata(widget.existing?.metadata);
     _visitPlaceLabel = TextEditingController(
-      text:
-          visit?.placeLabel ??
+      text: visit?.placeLabel ??
           (widget.existing?.kind == PlanItemKind.visit
               ? widget.existing?.title ?? ''
               : ''),
@@ -91,8 +93,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _visitLng = visit?.lng;
     _visitPlaceId = visit?.placeId;
     final transfer = parseTransferMetadata(widget.existing?.metadata);
-    _transferSubtype =
-        transfer?.subtype ??
+    _transferSubtype = transfer?.subtype ??
         legacyTransferSubtypeForKind(
           widget.existing?.kind ?? PlanItemKind.other,
         ) ??
@@ -130,21 +131,19 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final eventViews = _isActivity && widget.existing != null
         ? ref.watch(tripPlanEventViewsProvider(widget.tripId))
         : null;
-    final eventView = widget.existing == null
-        ? null
-        : eventViews?[widget.existing!.id];
-    final capabilities =
-        ref.watch(planItemCapabilitiesProvider).valueOrNull ??
+    final eventView =
+        widget.existing == null ? null : eventViews?[widget.existing!.id];
+    final capabilities = ref.watch(planItemCapabilitiesProvider).valueOrNull ??
         PlanItemCapabilities.fallbackByKind();
-    final visitCapabilities =
-        capabilities[PlanItemKind.visit] ??
+    final visitCapabilities = capabilities[PlanItemKind.visit] ??
         PlanItemCapabilities.fallbackFor(PlanItemKind.visit);
     final tripPlaces = _isVisit && visitCapabilities.suggestsPois
         ? ref.watch(tripResolvedPlacesProvider(widget.tripId)).valueOrNull ??
-              const <PlaceSummary>[]
+            const <PlaceSummary>[]
         : const <PlaceSummary>[];
 
     return SafeArea(
@@ -161,18 +160,32 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    widget.existing == null
-                        ? widget.labels.sheetTitleAdd
-                        : widget.labels.sheetTitleEdit,
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: widget.labels.cancelLabel,
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          widget.existing == null
+                              ? widget.labels.addPlanItem
+                              : widget.labels.sheetTitleEdit,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   _PlanKindTileGrid(
                     labels: widget.labels,
                     selected: _kindChosen ? _kind : null,
-                    readOnly:
-                        widget.readOnly ||
+                    readOnly: widget.readOnly ||
                         widget.existing?.kind == PlanItemKind.activity,
                     onSelected: _chooseKind,
                   ),
@@ -191,15 +204,6 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     ),
                     const SizedBox(height: 8),
                   ],
-                  if (_kindChosen)
-                    TextField(
-                      controller: _notes,
-                      readOnly: widget.readOnly,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: widget.labels.fieldNotes,
-                      ),
-                    ),
                   if (_kindChosen && _isVisit) ...[
                     const SizedBox(height: 12),
                     _VisitDetailsSection(
@@ -220,6 +224,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       onPlaceSelected: _applyTripPlace,
                       onPoiSelected: _applyPoi,
                     ),
+                    const SizedBox(height: 8),
+                    _notesField(compact: true),
                   ],
                   if (_kindChosen && _isTransfer) ...[
                     const SizedBox(height: 12),
@@ -238,6 +244,10 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                         }
                       }),
                     ),
+                  ],
+                  if (_kindChosen && !_isVisit) ...[
+                    const SizedBox(height: 8),
+                    _notesField(compact: false),
                   ],
                   if (_kindChosen) ...[
                     const SizedBox(height: 8),
@@ -272,8 +282,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       child: Text(
                         _dateRangeError!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                       ),
                     ),
                   if (_isActivity &&
@@ -283,8 +293,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     Text(
                       widget.labels.eventRsvpSection,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     if (!eventView.counts.isEmpty)
@@ -296,8 +306,10 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                             eventView.counts.maybe,
                             eventView.counts.declined,
                           ),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.graphite),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: colors.onSurfaceMuted),
                         ),
                       ),
                     PlanEventRsvpChips(
@@ -311,8 +323,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     Text(
                       widget.labels.eventRsvpHint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.graphite,
-                      ),
+                            color: colors.onSurfaceMuted,
+                          ),
                     ),
                   ],
                   const SizedBox(height: 88),
@@ -329,7 +341,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.ink.withValues(alpha: 0.08),
+                        color: colors.onSurface.withValues(alpha: 0.08),
                         blurRadius: 16,
                         offset: const Offset(0, -6),
                       ),
@@ -339,8 +351,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     padding: const EdgeInsetsDirectional.only(top: 10),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.goLime,
-                        foregroundColor: AppColors.ink,
+                        backgroundColor: colors.action,
+                        foregroundColor: colors.onAction,
                       ),
                       onPressed: _canSubmit ? _save : null,
                       child: Text(_ctaLabel),
@@ -366,7 +378,46 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     if (_isVisit && _visitPlaceLabel.text.trim().isEmpty) {
       return widget.labels.ctaTapPlace;
     }
+    if (_isVisit && widget.existing == null) {
+      return widget.labels.addKindLabel(_kind);
+    }
     return widget.labels.save;
+  }
+
+  Widget _notesField({required bool compact}) {
+    return TextField(
+      controller: _notes,
+      readOnly: widget.readOnly,
+      maxLines: compact ? 1 : 3,
+      decoration: InputDecoration(
+        labelText: compact ? null : widget.labels.fieldNotes,
+        hintText: compact ? widget.labels.fieldNoteHint : null,
+        prefixIcon: compact ? const Icon(Icons.notes_outlined) : null,
+        filled: compact,
+        fillColor: compact
+            ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.25,
+                )
+            : null,
+        border: compact
+            ? OutlineInputBorder(borderRadius: BorderRadius.circular(14))
+            : null,
+        enabledBorder: compact
+            ? OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              )
+            : null,
+        focusedBorder: compact
+            ? OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _visitSearchAccent),
+              )
+            : null,
+      ),
+    );
   }
 
   void _chooseKind(PlanItemKind kind) {
@@ -549,9 +600,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       setState(() {
         _poiSuggestions = const <PoiSummary>[];
         _poiGateVisible = false;
-        _visitStatus = showErrors
-            ? widget.labels.visitDiscoverNeedsPlace
-            : null;
+        _visitStatus =
+            showErrors ? widget.labels.visitDiscoverNeedsPlace : null;
         _visitStatusIsError = showErrors;
       });
       return;
@@ -567,9 +617,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitStatusIsError = false;
     });
 
-    final result = await ref
-        .read(poiRepositoryProvider)
-        .searchForTrip(
+    final result = await ref.read(poiRepositoryProvider).searchForTrip(
           tripId: widget.tripId,
           query: query,
           sessionId: _visitSearchSessionId,
@@ -712,112 +760,76 @@ class _VisitDetailsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    const accent = _visitSearchAccent;
+    final hasQuery = placeLabelController.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          labels.visitSectionTitle,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (places.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            labels.visitFromTripPlaces,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final place in places.take(8))
-                ActionChip(
-                  avatar: const Icon(Icons.place_outlined, size: 16),
-                  label: Text(place.label),
-                  onPressed: readOnly ? null : () => onPlaceSelected(place),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                labels.visitPlaceLabel,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-            ],
-          ),
-        ],
-        const SizedBox(height: 8),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: placeFocusNode.hasFocus
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.primary.withValues(alpha: 0.22),
-              width: placeFocusNode.hasFocus ? 1.4 : 1,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(12, 2, 12, 4),
-            child: TextField(
-              controller: placeLabelController,
-              focusNode: placeFocusNode,
-              readOnly: readOnly,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                icon: Icon(
-                  Icons.search_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-                border: InputBorder.none,
-                labelText: labels.visitPlaceLabel,
-                helperText: labels.visitPlaceHelper,
               ),
             ),
-          ),
+            Text(
+              labels.kindVisit,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: addressController,
-          focusNode: addressFocusNode,
+          controller: placeLabelController,
+          focusNode: placeFocusNode,
           readOnly: readOnly,
+          textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.location_on_outlined),
-            labelText: labels.visitAddressLabel,
-            helperText: labels.visitAddressHelper,
+            prefixIcon: const Icon(Icons.search_outlined),
+            suffixIcon: hasQuery && !readOnly
+                ? IconButton(
+                    tooltip:
+                        MaterialLocalizations.of(context).deleteButtonTooltip,
+                    onPressed: () {
+                      placeLabelController.clear();
+                      placeFocusNode.requestFocus();
+                    },
+                    icon: const Icon(Icons.close),
+                  )
+                : null,
+            hintText: labels.visitPlaceHelper,
             filled: true,
-            fillColor: addressFocusNode.hasFocus
-                ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.35,
-                  ),
+            fillColor: accent.withValues(alpha: 0.04),
+            prefixIconColor: accent,
+            suffixIconColor: accent.withValues(alpha: 0.55),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: theme.colorScheme.primary),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: accent, width: 1.4),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: accent.withValues(alpha: 0.55)),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsetsDirectional.only(top: 4),
-          child: Text(
-            labels.visitDiscoverHelper,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        if (discoveringPois) ...[
+          const SizedBox(height: 8),
+          Text(
+            labels.visitDiscoverResolving,
+            style: theme.textTheme.bodySmall?.copyWith(color: accent),
           ),
-        ),
-        if (hasCoords && status == null)
-          Padding(
-            padding: const EdgeInsetsDirectional.only(top: 4),
-            child: Icon(
-              Icons.check_circle_outline,
-              size: 20,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
+        ],
         if (poiGateVisible) ...[
           const SizedBox(height: 8),
           _PoiGateRow(message: labels.visitDiscoverGated),
@@ -834,16 +846,68 @@ class _VisitDetailsSection extends StatelessWidget {
                 ),
             ],
           ),
+        ] else if (places.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            labels.visitFromTripPlaces,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Column(
+            children: [
+              for (final place in places.take(4))
+                _TripPlaceSuggestionTile(
+                  place: place,
+                  readOnly: readOnly,
+                  onTap: () => onPlaceSelected(place),
+                ),
+            ],
+          ),
         ],
+        const SizedBox(height: 8),
+        TextField(
+          controller: addressController,
+          focusNode: addressFocusNode,
+          readOnly: readOnly,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.location_on_outlined),
+            hintText: labels.visitAddressLabel,
+            suffixText: labels.visitAddressOptionalLabel,
+            filled: true,
+            fillColor: addressFocusNode.hasFocus
+                ? accent.withValues(alpha: 0.04)
+                : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.35,
+                  ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: accent),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+          ),
+        ),
+        if (hasCoords && status == null)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 4),
+            child: Icon(
+              Icons.check_circle_outline,
+              size: 20,
+              color: accent,
+            ),
+          ),
         if (status != null)
           Padding(
             padding: const EdgeInsetsDirectional.only(top: 4),
             child: Text(
               status!,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: statusIsError
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.primary,
+                color: statusIsError ? theme.colorScheme.error : accent,
               ),
             ),
           ),
@@ -915,17 +979,16 @@ class _PlanKindTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected ? AppColors.coralText : AppColors.graphite;
+    final visual = visualForPlanKind(kind);
+    final color = selected ? visual.accent : theme.colorScheme.onSurfaceVariant;
     return Material(
       color: selected
-          ? AppColors.coralText.withValues(alpha: 0.08)
+          ? visual.accent.withValues(alpha: 0.08)
           : theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: selected
-              ? AppColors.coralText
-              : theme.colorScheme.outlineVariant,
+          color: selected ? visual.accent : theme.colorScheme.outlineVariant,
           width: selected ? 1.4 : 1,
         ),
       ),
@@ -937,7 +1000,20 @@ class _PlanKindTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(kind.icon, color: color),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: selected ? visual.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    visual.icon,
+                    color: selected ? Colors.white : color,
+                    size: 22,
+                  ),
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -963,11 +1039,12 @@ class _PoiGateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.jadeTeal.withValues(alpha: 0.08),
+        color: colors.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.jadeTeal.withValues(alpha: 0.28)),
+        border: Border.all(color: colors.success.withValues(alpha: 0.28)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -997,25 +1074,24 @@ class _PoiSuggestionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final distance = poi.distanceM == null ? null : '${poi.distanceM} m';
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsetsDirectional.only(bottom: 6),
       child: Material(
-        color: theme.colorScheme.surface,
+        color: _visitSearchAccent.withValues(alpha: 0.06),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
+          side: BorderSide(color: _visitSearchAccent.withValues(alpha: 0.18)),
         ),
         clipBehavior: Clip.antiAlias,
         child: ListTile(
           dense: true,
           leading: CircleAvatar(
             radius: 17,
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
+            backgroundColor: _visitSearchAccent.withValues(alpha: 0.14),
             child: Icon(
               poi.category.icon,
               size: 18,
-              color: theme.colorScheme.primary,
+              color: _visitSearchAccent,
             ),
           ),
           title: Text(poi.name, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -1027,7 +1103,63 @@ class _PoiSuggestionTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(
+            Icons.check_circle_outline,
+            color: _visitSearchAccent,
+          ),
+          onTap: readOnly ? null : onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _TripPlaceSuggestionTile extends StatelessWidget {
+  const _TripPlaceSuggestionTile({
+    required this.place,
+    required this.readOnly,
+    required this.onTap,
+  });
+
+  final PlaceSummary place;
+  final bool readOnly;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = [
+      if (place.address != null) place.address!,
+      if (place.lat != null && place.lng != null) 'mapped',
+    ].join(' - ');
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 6),
+      child: Material(
+        color: _visitSearchAccent.withValues(alpha: 0.04),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: _visitSearchAccent.withValues(alpha: 0.14)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          leading: CircleAvatar(
+            radius: 17,
+            backgroundColor: _visitSearchAccent.withValues(alpha: 0.12),
+            child: const Icon(
+              Icons.place_outlined,
+              size: 18,
+              color: _visitSearchAccent,
+            ),
+          ),
+          title:
+              Text(place.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: detail.isEmpty
+              ? null
+              : Text(detail, maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: const Icon(
+            Icons.check_circle_outline,
+            color: _visitSearchAccent,
+          ),
           onTap: readOnly ? null : onTap,
         ),
       ),
@@ -1131,10 +1263,11 @@ class _PlanKindBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = visualForPlanKind(kind);
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Chip(
-        avatar: Icon(kind.icon, size: 18, color: AppColors.jadeTeal),
+        avatar: Icon(visual.icon, size: 18, color: visual.accent),
         label: Text(labels.kindLabel(kind)),
         visualDensity: VisualDensity.compact,
       ),

@@ -23,6 +23,7 @@ class PlanTabLabels {
     required this.fieldTitle,
     required this.fieldKind,
     required this.fieldNotes,
+    this.fieldNoteHint = 'Add a note',
     required this.fieldStart,
     required this.fieldEnd,
     required this.visitSectionTitle,
@@ -31,6 +32,7 @@ class PlanTabLabels {
     this.visitPlaceHelper =
         'Start typing a place, sight, restaurant, hotel, or station.',
     required this.visitAddressLabel,
+    this.visitAddressOptionalLabel = 'optional',
     this.visitAddressHelper = 'Optional, but helps Vamo find suggestions.',
     required this.visitFindCoordinates,
     required this.visitPlaceRequired,
@@ -102,6 +104,7 @@ class PlanTabLabels {
   final String fieldTitle;
   final String fieldKind;
   final String fieldNotes;
+  final String fieldNoteHint;
   final String fieldStart;
   final String fieldEnd;
   final String visitSectionTitle;
@@ -109,6 +112,7 @@ class PlanTabLabels {
   final String visitPlaceLabel;
   final String visitPlaceHelper;
   final String visitAddressLabel;
+  final String visitAddressOptionalLabel;
   final String visitAddressHelper;
   final String visitFindCoordinates;
   final String visitPlaceRequired;
@@ -156,20 +160,22 @@ class PlanTabLabels {
   final String cancelLabel;
 
   String kindLabel(PlanItemKind kind) => switch (kind) {
-    PlanItemKind.lodging => kindLodging,
-    PlanItemKind.flight => kindFlight,
-    PlanItemKind.train => kindTrain,
-    PlanItemKind.activity => kindActivity,
-    PlanItemKind.visit => kindVisit,
-    PlanItemKind.transfer => kindTransfer,
-    PlanItemKind.other => kindOther,
-  };
+        PlanItemKind.lodging => kindLodging,
+        PlanItemKind.flight => kindFlight,
+        PlanItemKind.train => kindTrain,
+        PlanItemKind.activity => kindActivity,
+        PlanItemKind.visit => kindVisit,
+        PlanItemKind.transfer => kindTransfer,
+        PlanItemKind.other => kindOther,
+      };
+
+  String addKindLabel(PlanItemKind kind) => 'Add ${kindLabel(kind)}';
 
   String transferSubtype(TransferSubtype subtype) => switch (subtype) {
-    TransferSubtype.carRental => transferSubtypeCarRental,
-    TransferSubtype.train => transferSubtypeTrain,
-    TransferSubtype.transit => transferSubtypeTransit,
-    TransferSubtype.drive => transferSubtypeDrive,
-    TransferSubtype.flight => transferSubtypeFlight,
-  };
+        TransferSubtype.carRental => transferSubtypeCarRental,
+        TransferSubtype.train => transferSubtypeTrain,
+        TransferSubtype.transit => transferSubtypeTransit,
+        TransferSubtype.drive => transferSubtypeDrive,
+        TransferSubtype.flight => transferSubtypeFlight,
+      };
 }

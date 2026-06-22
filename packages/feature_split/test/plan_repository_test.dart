@@ -114,7 +114,7 @@ void main() {
     expect(PlanItemKind.parse('visit'), PlanItemKind.visit);
     expect(fallback[PlanItemKind.activity]?.supportsRsvp, isTrue);
     expect(fallback[PlanItemKind.activity]?.suggestsPois, isTrue);
-    expect(fallback[PlanItemKind.visit]?.supportsRsvp, isFalse);
+    expect(fallback[PlanItemKind.visit]?.supportsRsvp, isTrue);
     expect(fallback[PlanItemKind.visit]?.suggestsPois, isTrue);
     expect(fallback[PlanItemKind.visit]?.hasDetailsForm, isTrue);
     expect(PlanItemKind.parse('transfer'), PlanItemKind.transfer);

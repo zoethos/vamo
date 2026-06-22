@@ -96,7 +96,7 @@ class PlanItemCapabilities {
   static PlanItemCapabilities fallbackFor(PlanItemKind kind) {
     return PlanItemCapabilities(
       kind: kind,
-      supportsRsvp: kind == PlanItemKind.activity,
+      supportsRsvp: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
       suggestsPois: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
       hasLiveStatus: kind == PlanItemKind.flight ||
           kind == PlanItemKind.train ||
@@ -163,6 +163,7 @@ class VisitPlaceMetadata {
     this.lat,
     this.lng,
     this.placeId,
+    this.photoUrl,
   });
 
   final String placeLabel;
@@ -170,6 +171,7 @@ class VisitPlaceMetadata {
   final double? lat;
   final double? lng;
   final String? placeId;
+  final String? photoUrl;
 
   bool get hasCoords => lat != null && lng != null;
 }
@@ -201,6 +203,9 @@ VisitPlaceMetadata? parseVisitPlaceMetadata(Object? raw) {
     lat: _doubleValue(metadata['lat']),
     lng: _doubleValue(metadata['lng']),
     placeId: _stringValue(metadata['place_id']),
+    photoUrl: _stringValue(metadata['photo_url']) ??
+        _stringValue(metadata['image_url']) ??
+        _stringValue(metadata['thumbnail_url']),
   );
 }
 
@@ -210,10 +215,12 @@ Map<String, Object?> buildVisitPlaceMetadata({
   double? lat,
   double? lng,
   String? placeId,
+  String? photoUrl,
 }) {
   final normalizedLabel = placeLabel.trim();
   final normalizedAddress = address?.trim();
   final normalizedPlaceId = placeId?.trim();
+  final normalizedPhotoUrl = photoUrl?.trim();
   return <String, Object?>{
     'place_label': normalizedLabel,
     if (normalizedAddress != null && normalizedAddress.isNotEmpty)
@@ -222,6 +229,8 @@ Map<String, Object?> buildVisitPlaceMetadata({
     if (lng != null) 'lng': lng,
     if (normalizedPlaceId != null && normalizedPlaceId.isNotEmpty)
       'place_id': normalizedPlaceId,
+    if (normalizedPhotoUrl != null && normalizedPhotoUrl.isNotEmpty)
+      'photo_url': normalizedPhotoUrl,
   };
 }
 
@@ -338,7 +347,8 @@ List<({String? dayKey, List<PlanItemSummary> items})> groupPlanItemsByDay(
       undated.add(item);
       continue;
     }
-    final day = DateTime.utc(start.year, start.month, start.day);
+    final local = start.toLocal();
+    final day = DateTime.utc(local.year, local.month, local.day);
     dated.putIfAbsent(day, () => []).add(item);
   }
 
@@ -347,13 +357,27 @@ List<({String? dayKey, List<PlanItemSummary> items})> groupPlanItemsByDay(
 
   final result = <({String? dayKey, List<PlanItemSummary> items})>[];
   for (final entry in sections) {
+    entry.value.sort(_comparePlanItemsForTimeline);
     final key = entry.key.toIso8601String().substring(0, 10);
     result.add((dayKey: key, items: entry.value));
   }
   if (undated.isNotEmpty) {
+    undated.sort(_comparePlanItemsForTimeline);
     result.add((dayKey: null, items: undated));
   }
   return result;
+}
+
+int _comparePlanItemsForTimeline(PlanItemSummary a, PlanItemSummary b) {
+  final aStart = a.startsAt;
+  final bStart = b.startsAt;
+  if (aStart == null && bStart != null) return 1;
+  if (aStart != null && bStart == null) return -1;
+  if (aStart != null && bStart != null) {
+    final time = aStart.compareTo(bStart);
+    if (time != 0) return time;
+  }
+  return a.position.compareTo(b.position);
 }
 
 Map<String, List<TripListItemSummary>> groupListItemsByName(

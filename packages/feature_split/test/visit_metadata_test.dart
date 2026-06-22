@@ -50,8 +50,8 @@ void main() {
       expect(caps.hasDetailsForm, isTrue);
     });
 
-    test('no RSVP or live status for a visit', () {
-      expect(caps.supportsRsvp, isFalse);
+    test('supports inline RSVP but no live status for a visit', () {
+      expect(caps.supportsRsvp, isTrue);
       expect(caps.hasLiveStatus, isFalse);
     });
   });
