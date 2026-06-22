@@ -16,16 +16,55 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45}
   header.page{background:var(--ink);color:#fff;padding:28px 32px}
   header.page h1{margin:0 0 6px;font-size:24px}
-  header.page p{margin:0;color:#b9c0cc;font-size:14px;max-width:780px}
+  header.page p{margin:0;color:#b9c0cc;font-size:14px;max-width:820px}
   .wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
   .intro{background:#fff;border:1px solid #dfe3ea;border-radius:12px;padding:16px 18px;margin:18px 0 28px;font-size:14px}
   .intro code{background:#f1f3f7;padding:1px 5px;border-radius:4px;font-size:13px}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+  .toc a{font-size:12px;font-weight:600;text-decoration:none;color:var(--plum);background:#f3edf6;border:1px solid #e6d9ee;padding:5px 11px;border-radius:20px}
+  .part{margin:34px 0 14px}
+  .part h2.partlabel{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#7a828f;margin:0 0 2px}
+  .part h3.parttitle{margin:0;font-size:21px}
+  .part .partdesc{margin:8px 0 0;font-size:14px;color:var(--graphite);max-width:860px}
+
+  /* tokens */
+  .tokgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:20px;margin-top:14px}
+  .tok{display:flex;align-items:center;gap:11px}
+  .sw{width:34px;height:34px;border-radius:9px;border:1px solid rgba(0,0,0,.12);flex:none}
+  .tok b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;display:block}
+  .tok small{color:#8a93a0;font-size:11px}
+  .typescale{background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:20px;margin-top:14px}
+  .typescale .ts{border-bottom:1px dashed #e6e9ee;padding:8px 0;display:flex;align-items:baseline;gap:14px}
+  .typescale .ts small{color:#8a93a0;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace;min-width:140px}
+  .note{background:#fff8e8;border:1px solid #f0e1bd;border-radius:10px;padding:11px 14px;font-size:13px;margin-top:14px}
+
+  /* component glossary */
+  .gloss{background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-top:14px}
+  .gloss table{width:100%;border-collapse:collapse;font-size:13px}
+  .gloss th,.gloss td{text-align:left;padding:8px 8px;border-bottom:1px solid #eef0f4;vertical-align:top}
+  .gloss th{color:#7a828f;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .gloss code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--plum);font-size:12px}
+  .file{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#5c6470}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:5px}
+
+  /* redesigned screen (screenshot + legend) */
+  .rscreen{background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-bottom:22px}
+  .rscreen h3{margin:0 0 3px;font-size:17px}
+  .rscreen h3 .badge{font-size:10px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:6px;vertical-align:middle;margin-left:8px}
+  .rscreen h3 small{color:#7a828f;font-weight:400;font-size:13px}
+  .shot{width:100%;display:block;border-radius:12px;border:1px solid #e3e6ec;margin:14px 0 16px;background:#e7e5df}
+  .rlegend{display:grid;grid-template-columns:1fr 1fr;gap:8px 28px;font-size:13px}
+  @media(max-width:760px){.rlegend{grid-template-columns:1fr}}
+  .rlegend div{padding:5px 0;border-bottom:1px dashed #eef0f4}
+  .rlegend b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--plum)}
+  .rlegend small{color:#8a93a0}
+
+  /* original schematic screens */
   .screen{display:grid;grid-template-columns:320px 1fr;gap:26px;align-items:start;
     background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-bottom:26px}
   @media(max-width:760px){.screen{grid-template-columns:1fr}}
   .screen h2{grid-column:1/-1;margin:0 0 2px;font-size:18px}
   .screen h2 small{color:#7a828f;font-weight:400;font-size:13px}
-  /* phone */
   .phone{width:300px;border:10px solid #11141c;border-radius:34px;overflow:hidden;
     background:var(--cream);position:relative;box-shadow:0 8px 28px rgba(0,0,0,.18)}
   .phone .status{height:22px;background:rgba(0,0,0,.04);display:flex;align-items:center;
@@ -34,12 +73,10 @@
   .blk{position:relative;margin:8px 10px;border-radius:10px}
   .cap{font-size:11px;color:#5c6470}
   .mut{color:#8a93a0}
-  /* numbered callout badge */
   .n{position:absolute;top:-7px;left:-7px;z-index:5;background:var(--tag);color:#fff;
     width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:700;
     display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff}
   .n.r{left:auto;right:-7px}
-  /* element styles */
   .appbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-weight:700}
   .ico{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid #fff;
     box-shadow:0 1px 3px rgba(0,0,0,.25);display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--teal)}
@@ -78,7 +115,6 @@
   .seg b{padding:3px 7px}.seg b.on{background:#d7f7ef;color:var(--teal)}
   .pill{font-size:9px;padding:3px 8px;border-radius:20px;background:#d7f7ef;color:var(--teal);font-weight:700;border:1px solid #fff}
   .donutBig{width:90px;height:90px;border-radius:50%;border:14px solid var(--jade);border-top-color:var(--coral);margin:8px auto}
-  /* legend */
   .legend{font-size:13px}
   .legend h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#7a828f}
   .legend ol{margin:0;padding-left:0;list-style:none;counter-reset:l}
@@ -87,30 +123,212 @@
     width:19px;height:19px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
   .legend b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--plum)}
   .legend small{color:#8a93a0}
-  .gloss{background:#fff;border:1px solid #dfe3ea;border-radius:16px;padding:22px;margin-top:10px}
-  .gloss table{width:100%;border-collapse:collapse;font-size:13px}
-  .gloss th,.gloss td{text-align:left;padding:7px 8px;border-bottom:1px solid #eef0f4;vertical-align:top}
-  .gloss th{color:#7a828f;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-  .gloss code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--plum);font-size:12px}
-  .file{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#5c6470}
+  .navmap{display:block;width:100%;border-radius:14px;border:1px solid #dfe3ea;margin-top:14px;background:#fff}
 </style>
 </head>
 <body>
 <header class="page">
   <h1>Vamo — UI Element Reference</h1>
-  <p>Annotated wireframes of each screen with a canonical name for every element. Use these names
-  (e.g. “hero-badge”, “participant-strip”, “total-spent-card”) to describe changes precisely.
-  Mockups are schematic, not pixel-accurate — they map names to elements, not exact styling.</p>
+  <p>Canonical names for every screen and UI element, with annotated wireframes, redesign screenshots, design tokens and a component glossary. Use these names (e.g. “context-fab”, “poi-search-field”, “split-control”, “plan-item-card”) to describe changes precisely.</p>
 </header>
 <div class="wrap">
   <div class="intro">
-    <b>How to use:</b> each screen shows numbered callouts ① ② ③ … on its elements; the legend beside it
-    gives the <b style="color:var(--plum);font-family:monospace">canonical-name</b> for each number.
-    The <b>Glossary</b> at the bottom maps every name to what it is and the code file it lives in.
-    <p style="margin:10px 0 0"><b>Updated 2026-06-09:</b> unified "+" actions — every view uses a single
-    <b>top-right app-bar "+"</b>; the bottom-nav center "+" and all section FABs were removed, bottom nav
-    is now 4 items. <b>Memories</b> is a quick-action tile (grid is scrollable). The <b>capture-carousel</b>
-    Background option now works (hero-background save fixed). Members' duplicate invite buttons removed.</p>
+    <b>How to use:</b> <b>Tokens</b> (colors + type) and the <b>Component glossary</b> define the building blocks. <b>Redesigned screens</b> show the 2026-06 UX pass with real screenshots and an element legend each. The <b>Schematic reference</b> keeps the original annotated wireframes (numbered callouts ① ② ③ → canonical names). The <b>Code glossary</b> maps names → Flutter files.
+    <div class="toc">
+      <a href="#tokens">Tokens</a>
+      <a href="#components">Component glossary</a>
+      <a href="#redesign">Redesigned screens</a>
+      <a href="#navmap">Navigation map</a>
+      <a href="#schematic">Schematic reference</a>
+      <a href="#codegloss">Code glossary</a>
+    </div>
+    <p style="margin:12px 0 0"><b>Updated 2026-06-22 — redesign pass.</b> This supersedes the 2026-06-09 “+ unification”. The core add action returns to a <b>5-slot bottom nav with a center lime context-fab</b> (per brand boards). New/changed elements: amount-first <b>add-expense</b> with inline <b>split-control</b>; <b>net-balance-donut</b> hero on Balances; <b>profile-header</b>; type-first <b>Add-to-Plan</b> with <b>poi-search-field</b>; the <b>Plan timeline</b> (plan-item-card, poi-thumbnail, distance-pill); plus roadmap surfaces <b>Trip Map</b> and <b>Trip Wrapped</b>. Screenshots live in <code>design/assets/ux-review-2026-06/</code>.</p>
+    <p class="cap" style="margin:8px 0 0">Screenshots referenced relatively — keep <code>design/assets/ux-review-2026-06/</code> and <code>design/nav-map/</code> alongside this file.</p>
+  </div>
+
+  <!-- ===================== TOKENS ===================== -->
+  <div class="part" id="tokens">
+    <h2 class="partlabel">Part A</h2>
+    <h3 class="parttitle">Design tokens — color &amp; type</h3>
+    <p class="partdesc">The locked palette. <b>Lime is reserved for the single primary action on a screen</b> (context-fab, Save expense, Settle up, Share Wrapped) — fill only, never lime text. Small accent text uses coral. Each plan-item type owns one accent (below).</p>
+  </div>
+  <div class="tokgrid">
+    <div class="tok"><span class="sw" style="background:#0C0E16"></span><div><b>--ink #0C0E16</b><small>primary text · dark surfaces</small></div></div>
+    <div class="tok"><span class="sw" style="background:#2A2E3A"></span><div><b>--graphite #2A2E3A</b><small>secondary text</small></div></div>
+    <div class="tok"><span class="sw" style="background:#FBFAF7;border-color:#ddd"></span><div><b>--cream #FBFAF7</b><small>app background</small></div></div>
+    <div class="tok"><span class="sw" style="background:#E9ECF2"></span><div><b>--mist #E9ECF2</b><small>chips · dividers · fills</small></div></div>
+    <div class="tok"><span class="sw" style="background:#C6FF00"></span><div><b>--lime #C6FF00</b><small>PRIMARY ACTION only (fill)</small></div></div>
+    <div class="tok"><span class="sw" style="background:#FF5B4D"></span><div><b>--coral #FF5B4D</b><small>Visit/place accent · coral-text</small></div></div>
+    <div class="tok"><span class="sw" style="background:#6A2D6F"></span><div><b>--plum #6A2D6F</b><small>brand · Lodging accent</small></div></div>
+    <div class="tok"><span class="sw" style="background:#00C2A8"></span><div><b>--jade #00C2A8</b><small>positive · Train accent</small></div></div>
+    <div class="tok"><span class="sw" style="background:#07595C"></span><div><b>--teal #07595C</b><small>deep brand</small></div></div>
+    <div class="tok"><span class="sw" style="background:#21B7D7"></span><div><b>--sky #21B7D7</b><small>Flight accent</small></div></div>
+    <div class="tok"><span class="sw" style="background:#FF8A3D"></span><div><b>--sunrise #FF8A3D</b><small>Transfer accent</small></div></div>
+    <div class="tok"><span class="sw" style="background:#FFD166"></span><div><b>--mango #FFD166</b><small>highlight · warning-soft</small></div></div>
+  </div>
+  <div class="note"><b>Type accents (plan items &amp; map):</b>
+    <span class="dot" style="background:#FF5B4D"></span>Visit · coral
+    &nbsp;<span class="dot" style="background:#00C2A8"></span>Train · jade
+    &nbsp;<span class="dot" style="background:#21B7D7"></span>Flight · sky
+    &nbsp;<span class="dot" style="background:#FF8A3D"></span>Transfer · sunrise
+    &nbsp;<span class="dot" style="background:#6A2D6F"></span>Lodging · plum
+    &nbsp;<span class="dot" style="background:#7a8090"></span>Other · gray
+  </div>
+  <div class="typescale">
+    <div class="ts"><small>screen-title / 800</small><span style="font-size:22px;font-weight:800">Amalfi Coast</span></div>
+    <div class="ts"><small>section-title / 700</small><span style="font-size:17px;font-weight:700">Add to plan</span></div>
+    <div class="ts"><small>amount-display / 800</small><span style="font-size:24px;font-weight:800">€64.20</span></div>
+    <div class="ts"><small>body / 600-700</small><span style="font-size:14px;font-weight:600">Villa Rufolo</span></div>
+    <div class="ts"><small>meta / 400</small><span style="font-size:12px;color:#6b7280">Garden · Ravello</span></div>
+    <div class="ts"><small>caption / 600</small><span style="font-size:11px;font-weight:600;color:#8a93a0">SUGGESTED PLACES</span></div>
+    <p class="cap" style="margin:10px 0 0">Font: system stack (<code>-apple-system, Roboto, Segoe UI…</code>). Min touch target 48dp; min body 13px.</p>
+  </div>
+
+  <!-- ===================== COMPONENT GLOSSARY ===================== -->
+  <div class="part" id="components">
+    <h2 class="partlabel">Part B</h2>
+    <h3 class="parttitle">Component glossary — generic UI elements</h3>
+    <p class="partdesc">The reusable element types and their variants/rules. Specific instances (e.g. <code>expense-row</code>) inherit these patterns.</p>
+  </div>
+  <div class="gloss">
+    <table>
+      <tr><th>Element</th><th>Variants &amp; rule</th><th>Used as</th></tr>
+      <tr><td><code>button</code></td><td><b>primary</b> = lime pill, <b>one per screen</b>, reserved for the screen's main action (fill only). <b>secondary</b> = ink pill (e.g. settings Save). <b>tertiary</b> = text/icon button.</td><td class="file">pinned-cta · settle-up-cta · pinned-save · share-wrapped-cta</td></tr>
+      <tr><td><code>context-fab</code></td><td>Center lime FAB in the 5-slot bottom-nav. <b>Context-aware:</b> “+expense” on the Expenses tab, “+trip” elsewhere. The app's signature action surface.</td><td class="file">main_shell.dart (proposed)</td></tr>
+      <tr><td><code>chip</code></td><td><b>filter-chip</b> (on/off, e.g. All/Upcoming); <b>choice-chip</b> (single-select, e.g. transfer mode); <b>rsvp-chip</b> (Going/Maybe — coral when active).</td><td class="file">filter-chips · rsvp-chips · day-pills</td></tr>
+      <tr><td><code>tile</code></td><td>Square tap target with icon + label. <b>type-tile</b> (Add-to-Plan, carries type-accent when selected); <b>quick-action-tile</b>; <b>icon-action-tile</b> (invite/QR/contacts).</td><td class="file">type-picker · quick-action-grid · add-members-row</td></tr>
+      <tr><td><code>search-field</code></td><td>Single pill: leading search-icon + full-width input + clear (×). <b>No nested boxes.</b> Focus ring in the context accent (coral for Visit).</td><td class="file">poi-search-field</td></tr>
+      <tr><td><code>list-row</code></td><td>Pattern: <b>leading</b> (icon/avatar/thumbnail) + <b>body</b> (title + meta) + <b>trailing</b> (amount/chevron/check). All rows inherit this.</td><td class="file">expense-row · settle-row · member-row · activity-row · settings-row · poi-suggestion-row</td></tr>
+      <tr><td><code>segmented</code></td><td>2–3 option toggle (ink selected). Used for the Equal/Custom split.</td><td class="file">split-segmented</td></tr>
+      <tr><td><code>sheet</code></td><td>Modal surface over a screen. Bottom-sheet (add-expense, add-to-plan, settle-up, invite) or elliptical flyout (capture-carousel).</td><td class="file">*_action_sheet.dart</td></tr>
+      <tr><td><code>nav-bar</code></td><td><b>bottom-nav (5-slot):</b> Trips · Activity · context-fab · Expenses · Profile. M3 NavigationBar + docked FAB.</td><td class="file">main_shell.dart</td></tr>
+      <tr><td><code>donut</code></td><td>Ring chart. <b>category-donut</b> (spend by category) / <b>net-balance-donut</b> (owed vs owe).</td><td class="file">category_donut.dart</td></tr>
+      <tr><td><code>avatar</code></td><td>Circular member icon (white ring). <b>avatar-stack</b> = overlapped set (participants / going).</td><td class="file">vamo_avatar.dart</td></tr>
+      <tr><td><code>pill / badge</code></td><td><b>status-pill</b> (e.g. “You're owed”); <b>wave-badge</b> (W2/W3 roadmap); <b>type-badge</b> (corner of a poi-thumbnail); <b>distance-pill</b>.</td><td class="file">various</td></tr>
+    </table>
+  </div>
+
+  <!-- ===================== REDESIGNED SCREENS ===================== -->
+  <div class="part" id="redesign">
+    <h2 class="partlabel">Part C</h2>
+    <h3 class="parttitle">Redesigned screens (2026-06)</h3>
+    <p class="partdesc">Each shows the current build vs. the proposed redesign (with a rationale panel), plus the canonical names for new elements. Frames are from the interactive mockups.</p>
+  </div>
+
+  <div class="rscreen">
+    <h3>Navigation &amp; the primary action <span class="badge" style="background:#d7f7ef;color:#07595C">CORE</span> <small>main_shell.dart</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/01-navigation-fab.png" alt="Navigation + FAB redesign">
+    <div class="rlegend">
+      <div><b>bottom-nav (5-slot)</b> <small>Trips · Activity · context-fab · Expenses · Profile</small></div>
+      <div><b>context-fab</b> <small>center lime “+”, context-aware (+expense / +trip)</small></div>
+      <div><b>owed-badge</b> <small>optional “You're owed €N” on featured-trip-card</small></div>
+      <div><b>featured-trip-card</b> <small>unchanged hero (see schematic §1)</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Add expense <span class="badge" style="background:#d7f7ef;color:#07595C">BUILT</span> <small>add_expense_screen.dart</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/02-add-expense.png" alt="Add expense redesign">
+    <div class="rlegend">
+      <div><b>amount-display</b> <small>large amount, first thing entered</small></div>
+      <div><b>currency-pill</b> <small>tap to change currency</small></div>
+      <div><b>payer-chip</b> / <b>category-chip</b> <small>essentials, one tap each</small></div>
+      <div><b>split-control</b> <small>= split-segmented (Equal/Custom) + split-share-row(s)</small></div>
+      <div><b>amount-keypad</b> <small>numeric entry</small></div>
+      <div><b>pinned-cta</b> <small>lime Save, always visible, shows running total</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Balances <span class="badge" style="background:#d7f7ef;color:#07595C">BUILT</span> <small>balances_tab.dart</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/03-balances.png" alt="Balances redesign">
+    <div class="rlegend">
+      <div><b>net-balance-donut</b> <small>owed vs owe ring + net-balance-amount</small></div>
+      <div><b>balance-status-pill</b> <small>“You're owed” / “You owe”</small></div>
+      <div><b>balance-legend</b> <small>owed-to-you · you-owe</small></div>
+      <div><b>settle-list</b> / <b>settle-row</b> <small>avatar + who-owes-whom + amount</small></div>
+      <div><b>settle-up-cta</b> <small>single lime button (replaces per-card buttons)</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Profile &amp; settings <span class="badge" style="background:#d7f7ef;color:#07595C">BUILT</span> <small>profile_screen.dart</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/06-profile.png" alt="Profile redesign">
+    <div class="rlegend">
+      <div><b>profile-header</b> <small>= profile-avatar + profile-name + relationship-line (“Si va? · N trips”)</small></div>
+      <div><b>settings-section</b> <small>grouped list with dividers</small></div>
+      <div><b>settings-row</b> <small>leading-icon + label + value / chevron</small></div>
+      <div><b>pinned-save</b> <small>ink (NOT lime — settings save isn't the signature action)</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Add to plan <span class="badge" style="background:#FFF1DC;color:#C77800">WAVE 2</span> <small>type-first sheet · search &amp; color cleanup</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/09-add-to-plan-refined.png" alt="Add to plan refined">
+    <div class="rlegend">
+      <div><b>type-picker</b> <small>= type-tile ×6 (Visit/Train/Flight/Transfer/Lodging/Other)</small></div>
+      <div><b>type-tile</b> <small>icon + label; carries the type-accent when selected</small></div>
+      <div><b>poi-search-field</b> <small>single pill: search-icon + input + clear (×) — replaces the nested double-box</small></div>
+      <div><b>poi-suggestion-list</b> / <b>poi-suggestion-row</b> <small>place-icon + name + meta + selected-check</small></div>
+      <div><b>address-field</b> <small>compact, marked optional</small></div>
+      <div><b>note-collapsed</b> <small>one-line “Add a note” (was a big empty block)</small></div>
+      <div><b>pinned-cta</b> <small>lime; label adapts → “Add Visit”</small></div>
+    </div>
+    <p class="cap" style="margin:12px 0 0"><b>Color rule applied:</b> one accent per type (Visit = coral on selected tile, search icon, focus ring, suggestion highlight). Purple + teal borders removed; lime reserved for Save.</p>
+  </div>
+
+  <div class="rscreen">
+    <h3>Plan view (itinerary) <span class="badge" style="background:#FFF1DC;color:#C77800">WAVE 2</span> <small>the timeline Add-to-Plan feeds into</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/10-plan-view.png" alt="Plan view timeline">
+    <div class="rlegend">
+      <div><b>day-pills</b> <small>date selector (scrolls trip dates)</small></div>
+      <div><b>day-heading</b> <small>e.g. “Wed, May 14 — Ravello”</small></div>
+      <div><b>plan-timeline</b> <small>= time-rail + type-dot (spine) + plan-item-card</small></div>
+      <div><b>plan-item-card</b> <small>leading (poi-thumbnail OR type-icon-tile) + title + meta + rsvp-chips</small></div>
+      <div><b>poi-thumbnail</b> <small>place photo + corner type-badge (Visit/Lodging only)</small></div>
+      <div><b>distance-pill</b> <small>“400 m · 6 min walk” between two located stops</small></div>
+      <div><b>rsvp-chips</b> + <b>going-avatars</b> <small>Going / Maybe inline</small></div>
+      <div><b>add-to-plan-cta</b> <small>lime “Add to plan” → opens the type-picker sheet</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Trip Map (journey replay) <span class="badge" style="background:#F1E8F8;color:#6A2D6F">WAVE 3</span> <small>a section inside a trip — see navigation map</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/04-trip-map.png" alt="Trip Map concept">
+    <div class="rlegend">
+      <div><b>member-trail</b> <small>per-member colored route, individually toggleable</small></div>
+      <div><b>trail-toggle</b> <small>chip per member (show/hide their trail)</small></div>
+      <div><b>map-pin</b> <small>avatar pin at a stop</small></div>
+      <div><b>moment-pin</b> <small>photo/expense pinned to the route</small></div>
+      <div><b>day-scrubber</b> + <b>replay-button</b> <small>drive the replay over trip days</small></div>
+      <div><small>Fed by Plan POIs + expense places + Memories → powers Trip Wrapped.</small></div>
+    </div>
+  </div>
+
+  <div class="rscreen">
+    <h3>Trip Wrapped (recap story) <span class="badge" style="background:#F1E8F8;color:#6A2D6F">WAVE 3</span> <small>share-the-story payoff at trip close</small></h3>
+    <img class="shot" src="design/assets/ux-review-2026-06/05-trip-wrapped.png" alt="Trip Wrapped concept">
+    <div class="rlegend">
+      <div><b>wrapped-story</b> <small>tap-to-advance story format</small></div>
+      <div><b>story-progress-segments</b> <small>top progress bars (lime)</small></div>
+      <div><b>wrapped-slide</b> <small>cover / stat / distance / superlatives</small></div>
+      <div><b>share-wrapped-cta</b> <small>lime “Share your Wrapped” (carries watermark)</small></div>
+    </div>
+  </div>
+
+  <!-- ===================== NAV MAP ===================== -->
+  <div class="part" id="navmap">
+    <h2 class="partlabel">Part D</h2>
+    <h3 class="parttitle">Navigation map</h3>
+    <p class="partdesc">Where every screen sits. <b>A</b> = global 5-tab shell. <b>B</b> = inside an opened trip, where the <b>Trip Map</b> lives (a section, peer of Plan/Expenses/Balances) — populated by Plan POIs, expense places and Memories, feeding Trip Wrapped.</p>
+  </div>
+  <img class="navmap" src="design/assets/ux-review-2026-06/Vamo-Navigation-Map.png" alt="Vamo app navigation map">
+
+  <!-- ===================== SCHEMATIC REFERENCE (ORIGINAL) ===================== -->
+  <div class="part" id="schematic">
+    <h2 class="partlabel">Part E</h2>
+    <h3 class="parttitle">Schematic element reference</h3>
+    <p class="partdesc">Original annotated wireframes — numbered callouts ① ② ③ map to canonical names. Schematic, not pixel-accurate. (Bottom-nav shown here as the legacy 4-item build; the redesign restores the 5-slot + context-fab above.)</p>
   </div>
 
   <!-- ============ MY TRIPS ============ -->
@@ -133,12 +351,12 @@
     </div>
     <div class="legend"><h3>Element names</h3><ol>
       <li><b>app-bar</b> — <small>app-logo + screen-title (“Your trips”)</small></li>
-      <li><b>notification-bell</b> + <b>add-trip-button</b> <small>(the “+”)</small></li>
+      <li><b>notification-bell</b> + <b>add-trip-button</b> <small>(the “+”; in the redesign, +trip is the context-fab)</small></li>
       <li><b>filter-chips</b> <small>(All / Upcoming / Past / Drafts)</small></li>
       <li><b>featured-trip-card</b> <small>= hero-backdrop + trip-title-overlay + trip-dates + participant-count + acceptance-bar</small></li>
       <li><b>section-header</b> <small>(“Upcoming” / “Past”)</small></li>
       <li><b>compact-trip-card</b> <small>= card-thumbnail + card-title + card-dates</small></li>
-      <li><b>bottom-nav</b> <small>(Trips · Activity · Expenses · Profile — 4 items, no center "+"; add a trip via the top-right "+")</small></li>
+      <li><b>bottom-nav</b> <small>(redesign: 5-slot with center context-fab — see Part C)</small></li>
     </ol></div>
   </section>
 
@@ -174,7 +392,7 @@
       <li><b>participant-strip</b> <small>= member-avatar(s) + add-member-button</small></li>
       <li><b>total-spent-card</b> <small>= total-spent-label + total-amount + per-person</small></li>
       <li><b>category-donut</b> <small>(spend by category color)</small></li>
-      <li><b>quick-action-grid</b> <small>= quick-action-tile ×5, horizontally scrollable (Expenses / Plans / Balances / Members / Memories)</small></li>
+      <li><b>quick-action-grid</b> <small>= quick-action-tile ×5 (Expenses / Plans / Balances / Members / Memories)</small></li>
       <li><b>recent-activity-section</b> <small>(section-header)</small></li>
       <li><b>activity-row</b> <small>= category-icon + activity-description + activity-amount + relative-time</small></li>
     </ol></div>
@@ -200,13 +418,13 @@
       <li><b>day-group-header</b></li>
       <li><b>expense-row</b> <small>= category-icon + expense-title + payer-label + avatar-stack + expense-amount</small></li>
       <li><b>total-footer</b></li>
-      <li><b>add-expense-button</b> <small>(top-right "+" in the app bar — no FAB)</small></li>
+      <li><b>add-expense-button</b> <small>(redesign: the context-fab → add-expense sheet)</small></li>
     </ol></div>
   </section>
 
-  <!-- ============ BALANCES ============ -->
+  <!-- ============ BALANCES (schematic) ============ -->
   <section class="screen">
-    <h2>4 · Balances section <small>(/trips/:id/balances)</small></h2>
+    <h2>4 · Balances section <small>(/trips/:id/balances — see Part C for the redesign)</small></h2>
     <div class="phone">
       <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
       <div class="scr">
@@ -248,13 +466,13 @@
       <li><b>add-members-header</b></li>
       <li><b>add-members-row</b> <small>= invite-link-tile + qr-tile + contacts-tile</small></li>
       <li><b>member-row</b> <small>= member-avatar + member-name + member-role + role-menu</small></li>
-      <li><b>invite-button</b> <small>(top-right "+" → invite flow; the two old lime buttons were removed)</small></li>
+      <li><b>invite-button</b> <small>(top-right "+" → invite flow)</small></li>
     </ol></div>
   </section>
 
-  <!-- ============ PLAN ============ -->
+  <!-- ============ PLAN (schematic) ============ -->
   <section class="screen">
-    <h2>6 · Plan section <small>(/trips/:id/plan)</small></h2>
+    <h2>6 · Plan section <small>(/trips/:id/plan — see Part C for the timeline redesign)</small></h2>
     <div class="phone">
       <div class="status"><span>9:41</span><span>▥ ▤ ▦</span></div>
       <div class="scr">
@@ -270,9 +488,9 @@
     </div>
     <div class="legend"><h3>Element names</h3><ol>
       <li><b>section-app-bar</b></li>
-      <li><b>add-plan-button</b> <small>(small “+” → add menu: event / checklist)</small></li>
-      <li><b>event-card</b> <small>= event-title + event-datetime + going-avatars</small></li>
-      <li><b>rsvp-state-icon</b> <small>(tap → shared rsvp-picker: Going/Maybe/Declined)</small></li>
+      <li><b>add-plan-button</b> <small>(redesign: opens type-first add-to-plan sheet — Part C)</small></li>
+      <li><b>event-card</b> <small>(redesign: plan-item-card on the plan-timeline)</small></li>
+      <li><b>rsvp-state-icon</b> <small>(redesign: rsvp-chips Going/Maybe inline)</small></li>
       <li><b>checklist-section</b> <small>(named list)</small></li>
       <li><b>checklist-item</b> <small>= checkbox + label (swipe-left to delete)</small></li>
     </ol></div>
@@ -308,29 +526,38 @@
     </div>
   </section>
 
-  <!-- ============ GLOSSARY ============ -->
-  <div class="gloss">
-    <h2 style="margin-top:0">Glossary — canonical names → code</h2>
+  <!-- ===================== CODE GLOSSARY ===================== -->
+  <div class="gloss" id="codegloss">
+    <h2 style="margin-top:0">Code glossary — canonical names → code</h2>
     <table>
       <tr><th>Name</th><th>What it is</th><th>Code file</th></tr>
+      <tr><td><code>bottom-nav</code> / <code>context-fab</code></td><td><b>Redesign:</b> 5-slot nav (Trips · Activity · context-fab · Expenses · Profile) with a center lime FAB; context-aware (+expense on Expenses, +trip elsewhere).</td><td class="file">main_shell.dart</td></tr>
+      <tr><td><code>amount-display</code> / <code>amount-keypad</code> / <code>pinned-cta</code></td><td>Amount-first add-expense: big amount, numeric keypad, always-visible lime Save with running total.</td><td class="file">add_expense_screen.dart</td></tr>
+      <tr><td><code>split-control</code></td><td>= <code>split-segmented</code> (Equal/Custom) + <code>split-share-row</code> per member. Inline &amp; editable (was read-only).</td><td class="file">add_expense_screen.dart</td></tr>
+      <tr><td><code>currency-pill</code> / <code>payer-chip</code> / <code>category-chip</code></td><td>Collapsed essentials on add-expense — one tap each.</td><td class="file">add_expense_screen.dart</td></tr>
+      <tr><td><code>net-balance-donut</code></td><td>Owed-vs-owe ring hero on Balances + net-balance-amount + balance-status-pill.</td><td class="file">balances_tab.dart · category_donut.dart</td></tr>
+      <tr><td><code>settle-row</code> / <code>settle-up-cta</code></td><td>Who-owes-whom row / single lime “Settle up” button.</td><td class="file">balances_tab.dart</td></tr>
+      <tr><td><code>profile-header</code> / <code>settings-section</code> / <code>settings-row</code> / <code>pinned-save</code></td><td>Profile identity header (avatar + name + relationship-line) + grouped M3 list + ink Save.</td><td class="file">profile_screen.dart</td></tr>
+      <tr><td><code>type-picker</code> / <code>type-tile</code></td><td>Add-to-Plan: 6 type tiles (Visit/Train/Flight/Transfer/Lodging/Other); selected tile carries the type-accent.</td><td class="file">add_plan_item · plan_tab.dart</td></tr>
+      <tr><td><code>poi-search-field</code> / <code>poi-suggestion-row</code></td><td>Single search pill (icon + input + clear) + resolved place rows (place-icon + name + meta + check). Replaces the nested double-box.</td><td class="file">add_plan_item</td></tr>
+      <tr><td><code>plan-timeline</code> / <code>plan-item-card</code></td><td>Day-grouped time-rail; each card = leading (poi-thumbnail OR type-icon-tile) + title + meta + rsvp-chips; type-dot on the spine.</td><td class="file">plan_tab.dart</td></tr>
+      <tr><td><code>poi-thumbnail</code> / <code>type-badge</code> / <code>distance-pill</code></td><td>Place photo + corner type-badge (Visit/Lodging); “400 m · 6 min walk” pill between located stops.</td><td class="file">plan_tab.dart</td></tr>
+      <tr><td><code>day-pills</code> / <code>rsvp-chips</code></td><td>Date selector / inline Going-Maybe chips (coral when active) + going-avatars.</td><td class="file">plan_tab.dart · rsvp_picker.dart</td></tr>
+      <tr><td><code>member-trail</code> / <code>map-pin</code> / <code>day-scrubber</code></td><td>Trip Map (W3): per-member toggleable route, avatar/moment pins, day scrubber + replay. Fed by POIs/expense-places/memories.</td><td class="file">trip_map (roadmap)</td></tr>
+      <tr><td><code>wrapped-story</code> / <code>wrapped-slide</code> / <code>share-wrapped-cta</code></td><td>Trip Wrapped (W3): tap-to-advance recap with progress segments; lime share with watermark.</td><td class="file">wrapped (roadmap)</td></tr>
       <tr><td><code>hero-badge</code> / <code>hero-backdrop</code></td><td>Full-bleed trip image/gradient at the top of the dashboard (and the featured-trip-card on My Trips).</td><td class="file">trip_dashboard_tab.dart · trip_visual_backdrop.dart</td></tr>
       <tr><td><code>participant-strip</code></td><td>Row of member-avatars + add-member-button over the hero.</td><td class="file">member_avatar_row.dart</td></tr>
       <tr><td><code>member-avatar</code> / <code>add-member-button</code></td><td>Circular member icon (white ring) / the “+” to invite.</td><td class="file">member_avatar_row.dart · vamo_avatar.dart</td></tr>
       <tr><td><code>total-spent-card</code></td><td>Card with total-spent-label, total-amount, per-person, category-donut.</td><td class="file">trip_dashboard_tab.dart (_TotalSpentCard)</td></tr>
-      <tr><td><code>category-donut</code> / <code>net-balance-donut</code></td><td>Ring chart: spend-by-category (dashboard) / owed-vs-owe (balances). Colors from the category catalog.</td><td class="file">category_donut.dart · category_catalog.dart</td></tr>
-      <tr><td><code>quick-action-grid</code> / <code>quick-action-tile</code></td><td>5 square buttons, horizontally scrollable: Expenses / Plans / Balances / Members / Memories.</td><td class="file">trip_dashboard_tab.dart (_QuickActionsRow)</td></tr>
-      <tr><td><code>add-button</code> (convention)</td><td><b>Every view's add action is a single top-right app-bar "+"</b> (add-trip, add-expense, add-plan-item, invite, capture). No FABs; no bottom-nav "+".</td><td class="file">all section screens</td></tr>
+      <tr><td><code>category-donut</code></td><td>Ring chart: spend-by-category. Colors from the category catalog.</td><td class="file">category_donut.dart · category_catalog.dart</td></tr>
+      <tr><td><code>quick-action-grid</code> / <code>quick-action-tile</code></td><td>Square buttons: Expenses / Plans / Balances / Members / Memories.</td><td class="file">trip_dashboard_tab.dart (_QuickActionsRow)</td></tr>
       <tr><td><code>activity-row</code></td><td>Recent-activity item: category-icon + description + amount + relative-time.</td><td class="file">dashboard_activity_row.dart</td></tr>
       <tr><td><code>featured-trip-card</code> / <code>compact-trip-card</code></td><td>My Trips: the large next-trip card / the smaller upcoming cards.</td><td class="file">featured_trip_card.dart · compact_trip_card.dart</td></tr>
       <tr><td><code>filter-chips</code></td><td>All / Upcoming / Past / Drafts (My Trips); All / Unsettled / My expenses (Expenses).</td><td class="file">trips_list_screen.dart · expenses</td></tr>
-      <tr><td><code>bottom-nav</code></td><td>App-level nav: Trips · Activity · Expenses · Profile (4 items; center "+" FAB removed).</td><td class="file">main_shell.dart</td></tr>
       <tr><td><code>expense-row</code></td><td>category-icon + expense-title + payer-label + avatar-stack + expense-amount.</td><td class="file">trip_expense_list_tile.dart</td></tr>
-      <tr><td><code>settle-row</code> / <code>settle-up-cta</code></td><td>Who-owes-whom row / the lime “Settle up” button.</td><td class="file">balances_tab.dart</td></tr>
-      <tr><td><code>add-members-row</code></td><td>invite-link-tile + qr-tile + contacts-tile.</td><td class="file">members_tab.dart · trip_icon_action_tile.dart</td></tr>
-      <tr><td><code>member-row</code></td><td>member-avatar + member-name + member-role + role-menu.</td><td class="file">members_tab.dart</td></tr>
-      <tr><td><code>event-card</code> / <code>rsvp-state-icon</code></td><td>Plan event + the per-card RSVP status (tap → rsvp-picker).</td><td class="file">plan_event_tile.dart</td></tr>
+      <tr><td><code>add-members-row</code> / <code>member-row</code></td><td>invite-link-tile + qr-tile + contacts-tile / member-avatar + name + role + role-menu.</td><td class="file">members_tab.dart · trip_icon_action_tile.dart</td></tr>
       <tr><td><code>checklist-section</code> / <code>checklist-item</code></td><td>Named collaborative list / a checkable line (swipe-left to delete).</td><td class="file">plan_tab.dart</td></tr>
-      <tr><td><code>capture-carousel</code> / <code>change-background-item</code></td><td>Vertical elliptical wheel flyout from the camera-button (Photo/Video/Note/Background; centered item magnified). Background sets the hero-badge background (not a capture). Slim pill; items use <code>VamoCircleIcon</code>.</td><td class="file">capture_action_sheet.dart</td></tr>
+      <tr><td><code>capture-carousel</code> / <code>change-background-item</code></td><td>Vertical elliptical wheel flyout from the camera-button (Photo/Video/Note/Background; centered item magnified). Background sets the hero-badge background. Slim pill; items use <code>VamoCircleIcon</code>.</td><td class="file">capture_action_sheet.dart</td></tr>
       <tr><td><code>camera-button</code></td><td>Hero capture/add entry (opens the capture-carousel).</td><td class="file">trip_dashboard_tab.dart</td></tr>
     </table>
   </div>
