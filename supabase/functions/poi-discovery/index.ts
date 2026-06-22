@@ -21,6 +21,7 @@ import {
 } from "./request.ts";
 
 const FOURSQUARE_SEARCH = "https://places-api.foursquare.com/places/search";
+const FOURSQUARE_API_VERSION = "2025-06-17";
 const SERVICE = "poi";
 const DEFAULT_LIMIT = 12;
 
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
     userId: user.id,
   });
 
-  if (!reservation.reserved || reservation.gated) {
+  if (reservation.gated) {
     const reason = reservation.reason ?? "quota_exceeded";
     await recordPremiumGateNotification(serviceClient, {
       userId: user.id,
@@ -98,6 +99,13 @@ Deno.serve(async (req) => {
     });
     return json({ gated: true, upsell: SERVICE, reason });
   }
+  if (!reservation.reserved) {
+    console.error("poi-discovery reservation unavailable", {
+      status: reservation.status ?? "unknown",
+      reason: reservation.reason ?? "unknown",
+    });
+    return json({ available: false, reason: "provider_unavailable" });
+  }
 
   if (reservation.provider !== "foursquare") {
     await releaseServiceUsageReservation(
@@ -105,11 +113,7 @@ Deno.serve(async (req) => {
       reservation.reservationId,
       "released",
     );
-    return json({
-      gated: true,
-      upsell: SERVICE,
-      reason: "provider_unavailable",
-    });
+    return json({ available: false, reason: "provider_unavailable" });
   }
 
   const apiKey = Deno.env.get("FOURSQUARE_API_KEY")?.trim();
@@ -221,6 +225,7 @@ async function fetchFoursquare(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       Accept: "application/json",
+      "X-Places-Api-Version": FOURSQUARE_API_VERSION,
     },
   });
   if (!response.ok) {

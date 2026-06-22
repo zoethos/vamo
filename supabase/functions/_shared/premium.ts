@@ -4,6 +4,7 @@ export interface UsageReservation {
   reserved: boolean;
   gated?: boolean;
   reason?: string;
+  status?: string;
   reservationId?: string;
   provider?: string;
   cacheTtlSeconds?: number;
@@ -15,6 +16,7 @@ interface ReservationPayload {
   reserved?: boolean;
   gated?: boolean;
   reason?: string;
+  status?: string;
   reservation_id?: string;
   provider?: string;
   cache_ttl_seconds?: number;
@@ -41,6 +43,7 @@ export async function reserveServiceUsage(
     reserved: payload.reserved === true,
     gated: payload.gated === true,
     reason: payload.reason,
+    status: payload.status,
     reservationId: payload.reservation_id,
     provider: payload.provider,
     cacheTtlSeconds: payload.cache_ttl_seconds,
