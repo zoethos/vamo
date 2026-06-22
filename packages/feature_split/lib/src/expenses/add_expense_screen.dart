@@ -21,7 +21,13 @@ import 'receipt_ocr.dart';
 import 'receipt_ocr_form_prefill.dart';
 import '../places/places_repository.dart';
 import 'add_expense_screen_labels.dart';
-import 'expense_category_picker.dart';
+
+const _ink = AppColors.ink;
+const _graphite = AppColors.graphite;
+const _mist = AppColors.mistGray;
+const _cream = AppColors.cream;
+const _jade = AppColors.jadeTeal;
+const _coral = AppColors.sunsetCoral;
 
 /// Slice 2 + 6 — log a cost with optional non-base currency and FX snapshot.
 class AddExpenseScreen extends ConsumerStatefulWidget {
@@ -72,6 +78,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   bool _ocrUsed = false;
   bool _currencyUserTouched = false;
   String? _amountError;
+  bool _categoryUserTouched = false;
+  bool _categorySyncedFromTrip = false;
   final Set<OcrSuggestionField> _ocrSuggested = {};
   final Map<OcrSuggestionField, String> _ocrOriginal = {};
 
@@ -192,12 +200,28 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             ),
           ),
           data: (memberList) {
+            final currentUserId = ref.watch(currentUserProvider)?.id;
             if (_payerId == null && memberList.isNotEmpty) {
-              _payerId = memberList.first.userId;
+              if (currentUserId != null &&
+                  memberList.any((m) => m.userId == currentUserId)) {
+                _payerId = currentUserId;
+              } else {
+                _payerId = memberList.first.userId;
+              }
+            }
+
+            final tripExpenses =
+                ref.watch(tripExpensesProvider(widget.tripId)).valueOrNull ??
+                    const <ExpenseSummary>[];
+            if (!_categoryUserTouched && !_categorySyncedFromTrip) {
+              _categorySyncedFromTrip = true;
+              final lastCategory = _lastExpenseCategory(tripExpenses);
+              if (lastCategory != null) {
+                _selectedCategoryKey = lastCategory;
+              }
             }
 
             final labels = widget.labels;
-            final splitLabel = labels.splitLabel(memberList.length);
             final isPropose = widget.mode == AddExpenseMode.proposed;
             final fxRows =
                 ref.watch(tripFxRatesProvider(widget.tripId)).valueOrNull ?? [];
@@ -237,10 +261,31 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 isPropose ? labels.proposeCostTitle : labels.addExpenseTitle;
             final saveLabel =
                 isPropose ? labels.saveProposal : labels.saveExpense;
+            final shareCents = _shareCentsPerMember(
+              tripBase: tripBase,
+              memberCount: memberList.length,
+            );
+            final sharePreview = shareCents == null
+                ? null
+                : formatMoneyFromCents(shareCents, tripBase);
+            final screenLabels = widget.screenLabels;
+            final categoryEntry = CategoryCatalog.resolve(_selectedCategoryKey);
 
             return Scaffold(
               appBar: AppBar(
-                title: Text(screenTitle),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(screenTitle),
+                    Text(
+                      detail.name,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: _graphite,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
                 leading: IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: _saving ? null : () => context.pop(),
@@ -249,9 +294,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               bottomNavigationBar: SafeArea(
                 minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 child: FilledButton(
+                  key: const Key('addExpensePinnedCta'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.goLime,
-                    foregroundColor: AppColors.ink,
+                    foregroundColor: _ink,
                     minimumSize: const Size.fromHeight(52),
                   ),
                   onPressed: (_saving || _ocrLoading)
@@ -267,259 +313,186 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
               body: Form(
                 key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      detail.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppColors.ink,
+                    Expanded(
+                      child: ListView(
+                        padding:
+                            const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 12),
+                        children: [
+                          _AmountDisplay(
+                            amountText: _amountController.text,
+                            currencySymbol:
+                                _currencySymbol(_expenseCurrency).trim(),
+                            errorText: _amountError,
                           ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      labels.tripBalancesIn(tripBase),
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: AppColors.graphite),
-                    ),
-                    const SizedBox(height: 16),
-                    _AmountEntryPanel(
-                      amountText: _amountController.text,
-                      currency: _expenseCurrency,
-                      currencySymbol: _currencySymbol(_expenseCurrency),
-                      errorText: _amountError,
-                      onDigit: (value) => _appendAmountToken(value, tripBase),
-                      onDecimal: () => _appendAmountToken('.', tripBase),
-                      onBackspace: () => _backspaceAmount(tripBase),
-                    ),
-                    if (_ocrSuggested.contains(OcrSuggestionField.amount) &&
-                        !isPropose)
-                      const Padding(
-                        padding: EdgeInsetsDirectional.only(top: 8),
-                        child: OcrSuggestionChip(),
-                      ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _expenseCurrency,
-                      decoration: const InputDecoration(
-                        labelText: 'Currency',
-                      ),
-                      items: availableCurrencies
-                          .map(
-                            (c) => DropdownMenuItem(
-                              value: c,
-                              child: Text(c),
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.amount) &&
+                              !isPropose)
+                            const Padding(
+                              padding: EdgeInsetsDirectional.only(top: 8),
+                              child: OcrSuggestionChip(),
                             ),
-                          )
-                          .toList(),
-                      onChanged: _saving
-                          ? null
-                          : (v) {
-                              if (v == null) return;
-                              setState(() {
-                                _expenseCurrency = v;
-                                _currencyUserTouched = true;
-                                _onUserEdited(OcrSuggestionField.currency);
-                              });
-                              _refreshFxPreview(tripBase);
-                            },
-                    ),
-                    if (_ocrSuggested.contains(OcrSuggestionField.currency) &&
-                        !isPropose)
-                      const OcrSuggestionChip(),
-                    const SizedBox(height: 16),
-                    if (inForeignCurrency) ...[
-                      if (_previewLoading)
-                        const LinearProgressIndicator(minHeight: 2)
-                      else if (_fxPreview != null)
-                        Text(
-                          _fxPreview!,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: AppColors.jadeTeal),
-                        ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _baseOverrideController,
-                        decoration: InputDecoration(
-                          labelText:
-                              widget.labels.convertedAmountLabel(tripBase),
-                          prefixText: _currencySymbol(tripBase),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[\d.,]'),
-                          ),
-                        ],
-                        onChanged: (_) {
-                          _baseOverrideUserTouched = true;
-                          _fxRateSource = 'manual';
-                        },
-                        validator: (v) {
-                          if (!inForeignCurrency) return null;
-                          if (parseAmountToCents(v ?? '') == null) {
-                            return 'Enter a valid converted amount';
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_fxRateSource == 'receipt')
-                        Text(
-                          widget.labels.fxSourceReceipt,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: AppColors.graphite),
-                        ),
-                      const SizedBox(height: 16),
-                    ],
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: const InputDecoration(
-                        labelText: 'Description',
-                        hintText: 'Dinner',
-                      ),
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (_) => _onUserEdited(OcrSuggestionField.title),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Add a short description';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_ocrSuggested.contains(OcrSuggestionField.title) &&
-                        !isPropose)
-                      const OcrSuggestionChip(),
-                    const SizedBox(height: 16),
-                    ExpenseCategoryPicker(
-                      selectedKey: _selectedCategoryKey,
-                      enabled: !_saving,
-                      onChanged: (key) =>
-                          setState(() => _selectedCategoryKey = key),
-                    ),
-                    if (!isPropose) ...[
-                      if (_placeLabel != null && _placeLabel!.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Place',
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.place_outlined,
-                                size: 18,
-                                color: AppColors.graphite,
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: _CurrencyPill(
+                              currency: _expenseCurrency,
+                              enabled: !_saving,
+                              onTap: () => _showCurrencySheet(
+                                tripBase: tripBase,
+                                currencies: availableCurrencies,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _placeLabel!,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(color: AppColors.graphite),
+                            ),
+                          ),
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.currency) &&
+                              !isPropose)
+                            const Padding(
+                              padding: EdgeInsetsDirectional.only(top: 8),
+                              child: OcrSuggestionChip(),
+                            ),
+                          if (inForeignCurrency) ...[
+                            const SizedBox(height: 10),
+                            _FxSummaryRow(
+                              preview: _fxPreview,
+                              loading: _previewLoading,
+                              tripBase: tripBase,
+                              baseOverrideController: _baseOverrideController,
+                              currencySymbol: _currencySymbol(tripBase).trim(),
+                              convertedAmountLabel:
+                                  widget.labels.convertedAmountLabel(tripBase),
+                              fxSourceReceipt: widget.labels.fxSourceReceipt,
+                              fxRateSource: _fxRateSource,
+                              enabled: !_saving,
+                              onTap: () => _showFxSheet(
+                                tripBase: tripBase,
+                                inForeignCurrency: inForeignCurrency,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _EssentialChip(
+                                key: const Key('addExpensePayerChip'),
+                                icon: Icons.person_outline,
+                                iconColor: _coral,
+                                label: _payerChipLabel(
+                                  memberList,
+                                  currentUserId: currentUserId,
                                 ),
+                                enabled: !_saving,
+                                onTap: () => _showPayerSheet(memberList),
+                              ),
+                              _EssentialChip(
+                                key: const Key('addExpenseCategoryChip'),
+                                icon: categoryEntry.icon,
+                                iconColor: categoryEntry.color,
+                                label: categoryEntry.label,
+                                enabled: !_saving,
+                                onTap: () => _showCategorySheet(),
+                              ),
+                              if (!isPropose)
+                                _EssentialChip(
+                                  icon: Icons.document_scanner_outlined,
+                                  iconColor: _graphite,
+                                  label: _receiptSourcePath == null
+                                      ? screenLabels.attachReceipt
+                                      : screenLabels.receiptAttached,
+                                  enabled: !_saving && !_ocrLoading,
+                                  onTap: _receiptSourcePath == null
+                                      ? _pickReceipt
+                                      : _showReceiptSheet,
+                                ),
+                              if (!isPropose &&
+                                  (_placeLabel != null &&
+                                      _placeLabel!.isNotEmpty))
+                                _EssentialChip(
+                                  icon: Icons.place_outlined,
+                                  iconColor: _graphite,
+                                  label: _placeLabel!,
+                                  enabled: !_saving,
+                                  onTap: _showPlaceSheet,
+                                )
+                              else if (!isPropose)
+                                _EssentialChip(
+                                  icon: Icons.place_outlined,
+                                  iconColor: _graphite,
+                                  label: screenLabels.addPlace,
+                                  enabled: !_saving,
+                                  onTap: _showPlaceSheet,
+                                ),
+                              _EssentialChip(
+                                icon: Icons.notes_outlined,
+                                iconColor: _graphite,
+                                label:
+                                    _descriptionController.text.trim().isEmpty
+                                        ? screenLabels.addNote
+                                        : _descriptionController.text.trim(),
+                                enabled: !_saving,
+                                onTap: _showDescriptionSheet,
                               ),
                             ],
                           ),
-                        ),
-                        if (_ocrSuggested
-                            .contains(OcrSuggestionField.placeLabel))
-                          const OcrSuggestionChip(),
-                      ],
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed:
-                            (_saving || _ocrLoading) ? null : _pickReceipt,
-                        icon: const Icon(Icons.document_scanner_outlined),
-                        label: Text(widget.screenLabels.scanReceipt),
-                      ),
-                      if (_ocrLoading) ...[
-                        const SizedBox(height: 12),
-                        const LinearProgressIndicator(minHeight: 2),
-                        Padding(
-                          padding: const EdgeInsetsDirectional.only(top: 8),
-                          child: Text(
-                            'Reading receipt…',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppColors.graphite),
-                          ),
-                        ),
-                      ],
-                      if (_receiptSourcePath != null) ...[
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                File(_receiptSourcePath!),
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.cover,
-                              ),
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.title) &&
+                              !isPropose)
+                            const Padding(
+                              padding: EdgeInsetsDirectional.only(top: 8),
+                              child: OcrSuggestionChip(),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
+                          if (_ocrSuggested
+                                  .contains(OcrSuggestionField.placeLabel) &&
+                              !isPropose)
+                            const Padding(
+                              padding: EdgeInsetsDirectional.only(top: 8),
+                              child: OcrSuggestionChip(),
+                            ),
+                          if (_ocrLoading) ...[
+                            const SizedBox(height: 12),
+                            const LinearProgressIndicator(minHeight: 2),
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(top: 8),
                               child: Text(
-                                'Receipt attached (optional evidence)',
+                                screenLabels.readingReceipt,
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(color: AppColors.graphite),
+                                    ?.copyWith(color: _graphite),
                               ),
                             ),
-                            IconButton(
-                              tooltip: 'Remove receipt',
-                              onPressed: (_saving || _ocrLoading)
-                                  ? null
-                                  : () => setState(() {
-                                        _receiptSourcePath = null;
-                                        _receiptMetadata = null;
-                                        _placeLabel = null;
-                                        _resolvedPlaceId = null;
-                                        _ocrSuggested.clear();
-                                        _ocrOriginal.clear();
-                                        _ocrUsed = false;
-                                      }),
-                              icon: const Icon(Icons.close),
-                            ),
                           ],
-                        ),
-                      ],
-                    ],
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _payerId,
-                      decoration: const InputDecoration(labelText: 'Who paid?'),
-                      items: memberList
-                          .map(
-                            (m) => DropdownMenuItem(
-                              value: m.userId,
-                              child: Text(m.displayName),
-                            ),
-                          )
-                          .toList(),
-                      onChanged:
-                          _saving ? null : (v) => setState(() => _payerId = v),
+                          const SizedBox(height: 18),
+                          _SplitControl(
+                            labels: screenLabels,
+                            governanceLabels: labels,
+                            members: memberList,
+                            sharePreview: sharePreview,
+                            memberCount: memberList.length,
+                            onCustomTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    screenLabels.customSplitComingSoon,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    _SplitPreviewCard(
-                      splitLabel: splitLabel,
-                      members: memberList.map((m) => m.displayName).toList(),
-                      amountPreview: _splitAmountPreview(
-                        tripBase: tripBase,
-                        memberCount: memberList.length,
+                    Padding(
+                      padding:
+                          const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 8),
+                      child: _AmountKeypad(
+                        onDigit: (value) => _appendAmountToken(value, tripBase),
+                        onDecimal: () => _appendAmountToken('.', tripBase),
+                        onBackspace: () => _backspaceAmount(tripBase),
                       ),
                     ),
                   ],
@@ -527,6 +500,432 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  String? _lastExpenseCategory(List<ExpenseSummary> expenses) {
+    if (expenses.isEmpty) return null;
+    final sorted = [...expenses]
+      ..sort((a, b) => b.spentAt.compareTo(a.spentAt));
+    for (final expense in sorted) {
+      final category = expense.category;
+      if (category != null && category.trim().isNotEmpty) {
+        return CategoryCatalog.resolve(category).key;
+      }
+    }
+    return null;
+  }
+
+  String _payerChipLabel(
+    List<TripMemberView> members, {
+    required String? currentUserId,
+  }) {
+    final payerId = _payerId;
+    if (payerId == null) return widget.screenLabels.choosePayer;
+    if (payerId == currentUserId) return widget.screenLabels.youPaid;
+    for (final member in members) {
+      if (member.userId == payerId) {
+        return widget.screenLabels.paidBy(member.displayName);
+      }
+    }
+    return widget.screenLabels.choosePayer;
+  }
+
+  String _effectiveDescription() {
+    final text = _descriptionController.text.trim();
+    if (text.isNotEmpty) return text;
+    return CategoryCatalog.resolve(_selectedCategoryKey).label;
+  }
+
+  void _showCurrencySheet({
+    required String tripBase,
+    required List<String> currencies,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    widget.screenLabels.currencySheetTitle,
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: _ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                  ),
+                ),
+              ),
+              for (final code in currencies)
+                ListTile(
+                  key: Key('addExpenseCurrencyOption_$code'),
+                  title: Text(code),
+                  trailing: _expenseCurrency == code
+                      ? const Icon(Icons.check, color: _ink)
+                      : null,
+                  onTap: _saving
+                      ? null
+                      : () {
+                          Navigator.of(sheetContext).pop();
+                          setState(() {
+                            _expenseCurrency = code;
+                            _currencyUserTouched = true;
+                            _onUserEdited(OcrSuggestionField.currency);
+                          });
+                          _refreshFxPreview(tripBase);
+                        },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPayerSheet(List<TripMemberView> members) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    widget.screenLabels.payerSheetTitle,
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: _ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                  ),
+                ),
+              ),
+              for (final member in members)
+                ListTile(
+                  key: Key('addExpensePayerOption_${member.userId}'),
+                  title: Text(member.displayName),
+                  trailing: _payerId == member.userId
+                      ? const Icon(Icons.check, color: _ink)
+                      : null,
+                  onTap: _saving
+                      ? null
+                      : () {
+                          Navigator.of(sheetContext).pop();
+                          setState(() => _payerId = member.userId);
+                        },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCategorySheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      widget.screenLabels.categorySheetTitle,
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                ),
+                for (final entry in CategoryCatalog.canonical)
+                  ListTile(
+                    key: Key('addExpenseCategoryOption_${entry.key}'),
+                    leading: Icon(entry.icon, color: entry.color),
+                    title: Text(entry.label),
+                    trailing: _selectedCategoryKey == entry.key
+                        ? const Icon(Icons.check, color: _ink)
+                        : null,
+                    onTap: _saving
+                        ? null
+                        : () {
+                            Navigator.of(sheetContext).pop();
+                            setState(() {
+                              _selectedCategoryKey = entry.key;
+                              _categoryUserTouched = true;
+                            });
+                          },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDescriptionSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsetsDirectional.only(
+            start: 20,
+            end: 20,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.screenLabels.addNote,
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      color: _ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('addExpenseDescriptionField'),
+                controller: _descriptionController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: widget.screenLabels.descriptionHint,
+                ),
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) {
+                  _onUserEdited(OcrSuggestionField.title);
+                  setState(() {});
+                },
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _ink,
+                  foregroundColor: _cream,
+                ),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: Text(widget.screenLabels.done),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPlaceSheet() {
+    final controller = TextEditingController(text: _placeLabel ?? '');
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsetsDirectional.only(
+            start: 20,
+            end: 20,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.screenLabels.addPlace,
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      color: _ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('addExpensePlaceField'),
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: widget.screenLabels.addPlace,
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _ink,
+                  foregroundColor: _cream,
+                ),
+                onPressed: () {
+                  final label = controller.text.trim();
+                  setState(() {
+                    _placeLabel = label.isEmpty ? null : label;
+                    _resolvedPlaceId = null;
+                    _onUserEdited(OcrSuggestionField.placeLabel);
+                  });
+                  Navigator.of(sheetContext).pop();
+                },
+                child: Text(widget.screenLabels.done),
+              ),
+            ],
+          ),
+        );
+      },
+    ).whenComplete(controller.dispose);
+  }
+
+  void _showFxSheet({
+    required String tripBase,
+    required bool inForeignCurrency,
+  }) {
+    if (!inForeignCurrency) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsetsDirectional.only(
+            start: 20,
+            end: 20,
+            top: 8,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.labels.convertedAmountLabel(tripBase),
+                style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                      color: _ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('addExpenseFxField'),
+                controller: _baseOverrideController,
+                decoration: InputDecoration(
+                  prefixText: _currencySymbol(tripBase),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                ],
+                onChanged: (_) {
+                  _baseOverrideUserTouched = true;
+                  _fxRateSource = 'manual';
+                },
+              ),
+              if (_fxRateSource == 'receipt')
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(top: 8),
+                  child: Text(
+                    widget.labels.fxSourceReceipt,
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: _graphite),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _ink,
+                  foregroundColor: _cream,
+                ),
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: Text(widget.screenLabels.done),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showReceiptSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_receiptSourcePath != null) ...[
+                Padding(
+                  padding: const EdgeInsetsDirectional.all(20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(_receiptSourcePath!),
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ],
+              ListTile(
+                leading: const Icon(Icons.document_scanner_outlined),
+                title: Text(widget.screenLabels.scanReceipt),
+                onTap: (_saving || _ocrLoading)
+                    ? null
+                    : () {
+                        Navigator.of(sheetContext).pop();
+                        _pickReceipt();
+                      },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: Text(widget.screenLabels.removeReceipt),
+                onTap: (_saving || _ocrLoading)
+                    ? null
+                    : () {
+                        Navigator.of(sheetContext).pop();
+                        setState(() {
+                          _receiptSourcePath = null;
+                          _receiptMetadata = null;
+                          _placeLabel = null;
+                          _resolvedPlaceId = null;
+                          _ocrSuggested.clear();
+                          _ocrOriginal.clear();
+                          _ocrUsed = false;
+                        });
+                      },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -568,14 +967,17 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
   String _ctaLabel(String saveLabel, String tripBase) {
     final cents = parseAmountToCents(_amountController.text);
-    if (cents == null || cents <= 0) return saveLabel;
+    final actionLabel = widget.mode == AddExpenseMode.proposed
+        ? saveLabel
+        : widget.screenLabels.title;
+    if (cents == null || cents <= 0) return actionLabel;
     final currency = _expenseCurrency.toUpperCase() == tripBase.toUpperCase()
         ? tripBase
         : _expenseCurrency;
-    return '$saveLabel · ${formatMoneyFromCents(cents, currency)}';
+    return '$actionLabel · ${formatMoneyFromCents(cents, currency)}';
   }
 
-  String? _splitAmountPreview({
+  int? _shareCentsPerMember({
     required String tripBase,
     required int memberCount,
   }) {
@@ -586,7 +988,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         ? cents
         : parseAmountToCents(_baseOverrideController.text) ?? _autoBaseCents;
     if (baseCents == null) return null;
-    return formatMoneyFromCents((baseCents / memberCount).round(), tripBase);
+    return (baseCents / memberCount).round();
   }
 
   Future<void> _pickReceipt() async {
@@ -757,6 +1159,18 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
   Future<void> _save({required String tripBaseCurrency}) async {
     if (_pendingOcr != null) await _pendingOcr;
+    final inForeignCurrency =
+        _expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase();
+    if (inForeignCurrency &&
+        parseAmountToCents(_baseOverrideController.text) == null &&
+        _autoBaseCents == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.labels.convertedAmountLabel(tripBaseCurrency)),
+        ),
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     final payerId = _payerId;
     if (payerId == null) {
@@ -772,8 +1186,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       return;
     }
 
-    final inForeignCurrency =
-        _expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase();
+    final description = _effectiveDescription();
     final manualBaseCents = inForeignCurrency
         ? parseAmountToCents(_baseOverrideController.text)
         : null;
@@ -811,7 +1224,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         await ref.read(expensesRepositoryProvider).proposeExpense(
               tripId: widget.tripId,
               payerId: payerId,
-              description: _descriptionController.text,
+              description: description,
               amountCents: cents,
               currency: _expenseCurrency,
               baseCents: baseCents,
@@ -825,7 +1238,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         await ref.read(expensesRepositoryProvider).addExpense(
               input: AddExpenseInput(
                 tripId: widget.tripId,
-                description: _descriptionController.text,
+                description: description,
                 amountCents: cents,
                 expenseCurrency: _expenseCurrency,
                 payerId: payerId,
@@ -885,88 +1298,436 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   }
 }
 
-class _AmountEntryPanel extends StatelessWidget {
-  const _AmountEntryPanel({
+class _AmountDisplay extends StatelessWidget {
+  const _AmountDisplay({
     required this.amountText,
-    required this.currency,
     required this.currencySymbol,
     required this.errorText,
-    required this.onDigit,
-    required this.onDecimal,
-    required this.onBackspace,
   });
 
   final String amountText;
-  final String currency;
   final String currencySymbol;
   final String? errorText;
-  final ValueChanged<String> onDigit;
-  final VoidCallback onDecimal;
-  final VoidCallback onBackspace;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final display = amountText.trim().isEmpty ? '0.00' : amountText;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.jadeTeal.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: errorText == null
-              ? AppColors.jadeTeal.withValues(alpha: 0.24)
-              : theme.colorScheme.error,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FittedBox(
+          alignment: AlignmentDirectional.centerStart,
+          fit: BoxFit.scaleDown,
+          child: Text(
+            key: const Key('addExpenseAmountDisplay'),
+            '$currencySymbol$display',
+            maxLines: 1,
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: _ink,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.fromSTEB(14, 14, 14, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: FittedBox(
-                    alignment: AlignmentDirectional.centerStart,
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      '$currencySymbol$display',
-                      maxLines: 1,
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  visualDensity: VisualDensity.compact,
-                  label: Text(currency),
-                ),
-              ],
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
             ),
-            if (errorText != null) ...[
-              const SizedBox(height: 6),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CurrencyPill extends StatelessWidget {
+  const _CurrencyPill({
+    required this.currency,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String currency;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = context.vamoShape;
+    return Material(
+      color: _mist,
+      borderRadius: shape.chipBorderRadius,
+      child: InkWell(
+        key: const Key('addExpenseCurrencyPill'),
+        onTap: enabled ? onTap : null,
+        borderRadius: shape.chipBorderRadius,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                errorText!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
+                currency,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: _ink,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
+              const SizedBox(width: 4),
+              const Icon(Icons.expand_more, size: 18, color: _graphite),
             ],
-            const SizedBox(height: 8),
-            _AmountKeypad(
-              onDigit: onDigit,
-              onDecimal: onDecimal,
-              onBackspace: onBackspace,
-            ),
-          ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _EssentialChip extends StatelessWidget {
+  const _EssentialChip({
+    super.key,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = context.vamoShape;
+    return Material(
+      color: _mist,
+      borderRadius: shape.chipBorderRadius,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: shape.chipBorderRadius,
+        child: Padding(
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: _ink,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FxSummaryRow extends StatelessWidget {
+  const _FxSummaryRow({
+    required this.preview,
+    required this.loading,
+    required this.tripBase,
+    required this.baseOverrideController,
+    required this.currencySymbol,
+    required this.convertedAmountLabel,
+    required this.fxSourceReceipt,
+    required this.fxRateSource,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String? preview;
+  final bool loading;
+  final String tripBase;
+  final TextEditingController baseOverrideController;
+  final String currencySymbol;
+  final String convertedAmountLabel;
+  final String fxSourceReceipt;
+  final String? fxRateSource;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final converted = baseOverrideController.text.trim();
+    final subtitle = loading
+        ? '…'
+        : preview ??
+            (converted.isEmpty
+                ? convertedAmountLabel
+                : '$currencySymbol$converted');
+
+    return Material(
+      color: _mist.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      convertedAmountLabel,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: _graphite,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: _jade,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (fxRateSource == 'receipt')
+                      Text(
+                        fxSourceReceipt,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _graphite,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: _graphite),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SplitControl extends StatelessWidget {
+  const _SplitControl({
+    required this.labels,
+    required this.governanceLabels,
+    required this.members,
+    required this.sharePreview,
+    required this.memberCount,
+    required this.onCustomTap,
+  });
+
+  final AddExpenseScreenLabels labels;
+  final ExpenseGovernanceLabels governanceLabels;
+  final List<TripMemberView> members;
+  final String? sharePreview;
+  final int memberCount;
+  final VoidCallback onCustomTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final summary = sharePreview == null
+        ? governanceLabels.splitLabel(memberCount)
+        : labels.splitEach(sharePreview!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(
+              labels.splitSection,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: _ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            _SplitSegmented(
+              equalLabel: labels.splitEqual,
+              customLabel: labels.splitCustom,
+              onCustomTap: onCustomTap,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          summary,
+          style: theme.textTheme.bodyMedium?.copyWith(color: _graphite),
+        ),
+        const SizedBox(height: 10),
+        for (final member in members)
+          _SplitShareRow(
+            name: member.displayName,
+            amount: sharePreview,
+          ),
+      ],
+    );
+  }
+}
+
+class _SplitSegmented extends StatelessWidget {
+  const _SplitSegmented({
+    required this.equalLabel,
+    required this.customLabel,
+    required this.onCustomTap,
+  });
+
+  final String equalLabel;
+  final String customLabel;
+  final VoidCallback onCustomTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _mist,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _mist),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SplitSegment(
+            key: const Key('addExpenseSplitEqual'),
+            label: equalLabel,
+            selected: true,
+            onTap: () {},
+          ),
+          _SplitSegment(
+            key: const Key('addExpenseSplitCustom'),
+            label: customLabel,
+            selected: false,
+            enabled: false,
+            onTap: onCustomTap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SplitSegment extends StatelessWidget {
+  const _SplitSegment({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? _ink : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Opacity(
+          opacity: enabled ? 1 : 0.55,
+          child: Padding(
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected ? _cream : _graphite,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SplitShareRow extends StatelessWidget {
+  const _SplitShareRow({
+    required this.name,
+    required this.amount,
+  });
+
+  final String name;
+  final String? amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 8),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: _mist,
+            child: Text(
+              _initial(name),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: _ink,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: _ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            amount ?? '—',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: _graphite,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _initial(String name) {
+    final trimmed = name.trim();
+    return trimmed.isEmpty
+        ? '?'
+        : String.fromCharCode(trimmed.runes.first).toUpperCase();
   }
 }
 
@@ -1034,7 +1795,7 @@ class _AmountKey extends StatelessWidget {
       child: TextButton(
         onPressed: onTap,
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.ink,
+          foregroundColor: _ink,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: isBackspace
@@ -1042,91 +1803,11 @@ class _AmountKey extends StatelessWidget {
             : Text(
                 value,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.ink,
+                      color: _ink,
                       fontWeight: FontWeight.w700,
                     ),
               ),
       ),
     );
-  }
-}
-
-class _SplitPreviewCard extends StatelessWidget {
-  const _SplitPreviewCard({
-    required this.splitLabel,
-    required this.members,
-    required this.amountPreview,
-  });
-
-  final String splitLabel;
-  final List<String> members;
-  final String? amountPreview;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.all(12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Split',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: AppColors.graphite,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: -4,
-                    children: [
-                      for (final name in members.take(5))
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor:
-                              AppColors.jadeTeal.withValues(alpha: 0.16),
-                          child: Text(
-                            _initial(name),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    amountPreview == null
-                        ? splitLabel
-                        : '$splitLabel · $amountPreview each',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.ink,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.lock_outline, color: AppColors.graphite, size: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _initial(String name) {
-    final trimmed = name.trim();
-    return trimmed.isEmpty
-        ? '?'
-        : String.fromCharCode(trimmed.runes.first).toUpperCase();
   }
 }
