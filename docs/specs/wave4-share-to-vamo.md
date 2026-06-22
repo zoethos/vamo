@@ -1,111 +1,370 @@
-# Wave 4 — Share to Vamo / smart import
+# Wave 4 - Trip Document Inflow
 
-_Evaluation + phased plan. Drafted 2026-06-21._
+_Evaluation + phased plan. Drafted 2026-06-21. Reframed 2026-06-23._
 
-**Vision.** Let users **share a ticket, receipt, or booking-confirmation into Vamo** from any app's
-share sheet (and, later, by forwarding a confirmation email), and have Vamo **parse it into structured
-trip data** — adding plan items / expenses to an existing trip, or **creating a whole trip from
-scratch** (dates, destination, flights, hotel) from a single Lufthansa / Booking.com / Airbnb
-confirmation. Frictionless, template-free import is a **moat**: it compounds (more imported bookings →
-richer trips → better Trip Map / Wrapped) and competitors with per-vendor parser farms can't match it
-cheaply.
+## Vision
 
-## Two problems, very different feasibility
-Keep these separate — they have different mechanisms, risks, and platforms.
+Treat trip documentation as a river flowing into Vamo.
 
-1. **Ingestion** — getting the raw content into Vamo (OS share sheet / share extension / inbound email).
-2. **Extraction** — turning heterogeneous content (PDF, image, email, text) into normalized trip data.
+Users should be able to send Vamo the messy material that already exists in real travel life - train
+tickets, boarding passes, bus confirmations, hotel bookings, restaurant receipts, museum tickets,
+PDF invoices, screenshots, forwarded emails - and Vamo turns it into useful trip structure:
 
-## Feasibility
+- create a trip if none exists yet;
+- add plan items for transport, lodging, visits, activities, and bookings;
+- add expenses from receipts;
+- attach source evidence privately when useful;
+- enrich the Plan, Trip Map, balances, and Wrapped without forcing the user to manually type the trip.
 
-### Ingestion
-| Path | Feasibility | Mechanism |
+The product promise is spontaneous handling: "Send the document to Vamo, review what it found, accept."
+
+This is not a parser farm. The moat is one shared import engine that accepts many inputs, extracts a
+normalized draft, and commits only after user review.
+
+## Product principle
+
+Every inflow follows the same safe lifecycle:
+
+```text
+document enters Vamo
+  -> normalize source
+  -> extract structured draft
+  -> match or propose trip
+  -> user preview + edits
+  -> user accepts
+  -> commit through existing trip / plan / expense guards
+```
+
+No silent trip creation. No silent trip mutation. No raw ticket/email retention by default.
+
+## Inflow channels
+
+| Channel | Priority | Difficulty | Effort | Feasibility | Why / notes |
+|---|---:|---:|---:|---|---|
+| Android share sheet: PDF, image, text, calendar | P0 | Medium | 5-8 dev days | High | Best first slice. Low provider risk, visible value, and validates the shared parser/preview engine. |
+| In-app capture/import: choose file/photo from Vamo | P0.5 | Low-medium | 2-4 dev days | High | Same engine as Android share, but avoids OS share edge cases. Good fallback and test surface. |
+| Forward-to-Vamo email | P1 | High | 8-15 dev days | Feasible | High-wow path for airline/hotel confirmations. Needs inbound email provider, sender/auth checks, spam controls, attachment handling, and async notification. |
+| iOS share extension | P1 | High | 8-12 dev days | Feasible | Native extension + app group. Reuses the shared engine; difficulty is Apple/native packaging. |
+| Auto-watch personal mailbox | P3 | Very high | 20+ dev days | Not now | OAuth, long-lived mailbox permissions, privacy burden, provider review, revocation, support load. Avoid until real demand. |
+
+## Extraction channels
+
+| Source type | Priority | Difficulty | Effort | Approach |
+|---|---:|---:|---:|---|
+| Images / screenshots | P0 | Medium | 3-5 dev days | Reuse on-device OCR first, then parse OCR text. No network OCR dependency. |
+| PDF text | P0 | Medium | 3-5 dev days | Extract text locally/server-side; send text to parser, not raw PDF when possible. |
+| Plain text / shared snippets | P0 | Low | 1-2 dev days | Direct parser input. |
+| `.ics` calendar files | P0.5 | Medium | 2-4 dev days | Deterministic parser for dates, location, organizer, title; LLM only for classification/enrichment. |
+| Email HTML/body + attachments | P1 | High | 5-10 dev days | Parse schema.org JSON-LD first, strip payment data, then LLM fallback. |
+| Boarding-pass barcode / wallet pass | P2 | High | 8-12 dev days | Useful but fragmented. Add after PDF/image/email import proves value. |
+
+## Existing Vamo leverage
+
+This is feasible because Vamo already has much of the downstream plumbing:
+
+- `create_trip` RPC creates a trip shell safely.
+- Plan items already support transport, lodging, visit/activity, transfer metadata, RSVP, and map surfaces.
+- Expenses and receipt OCR exist.
+- Drift + sync outbox support offline-first local writes.
+- Supabase Edge Functions are already the provider boundary.
+- Provider resilience and observability standards already exist.
+- Trip Map / Wrapped become natural consumers of imported structured data.
+
+New work is concentrated in:
+
+- intake adapters;
+- source normalization;
+- extraction engine;
+- import draft schema;
+- preview/commit UX;
+- inbound email auth and anti-spam for P1.
+
+## Shared architecture
+
+```text
+[Android share sheet] ------\
+[In-app file/photo import] ---\
+[iOS share extension] ---------+--> ShareImportController
+[Forward-to-Vamo email] -------/        |
+                                        v
+                             source normalizer
+                         text | pdf_text | ocr_text | ics | email
+                                        |
+                                        v
+                        parse-shared-content Edge Function
+                   1. deterministic extraction where possible
+                   2. payment/secret redaction
+                   3. LLM structured extraction fallback
+                   4. confidence + warnings
+                                        |
+                                        v
+                              SharedImport draft
+                    trip? | planItems[] | expenses[] | warnings[]
+                                        |
+                                        v
+                         Import preview screen
+                 edit fields | choose trip | create trip | reject
+                                        |
+                                        v
+                 commit through existing repositories/RPCs
+```
+
+Only intake is platform-specific. Extraction, schema, preview, and commit are shared.
+
+## Data contract
+
+The extraction engine returns a draft, never committed data:
+
+```jsonc
+{
+  "trip": {
+    "destination": "Rome",
+    "start_date": "2026-07-10",
+    "end_date": "2026-07-16",
+    "confidence": 0.92
+  },
+  "planItems": [
+    {
+      "kind": "transfer",
+      "subtype": "flight",
+      "title": "LH 232 MUC -> FCO",
+      "starts_at": "2026-07-10T08:30:00Z",
+      "ends_at": "2026-07-10T10:00:00Z",
+      "metadata": {
+        "operator": "Lufthansa",
+        "reference": "ABC123",
+        "origin": "MUC",
+        "destination": "FCO"
+      },
+      "confidence": 0.89
+    }
+  ],
+  "expenses": [
+    {
+      "description": "Train ticket",
+      "amount_cents": 4820,
+      "currency": "EUR",
+      "spent_at": "2026-07-10T06:30:00Z",
+      "confidence": 0.81
+    }
+  ],
+  "warnings": ["Low confidence on passenger name; not stored."]
+}
+```
+
+Mapping:
+
+- Flights, trains, buses, ferries, taxis, transfers -> `trip_plan_items.kind = transfer` with subtype metadata.
+- Lodging -> `lodging` with address, check-in/out, reservation reference.
+- Visits, tours, events -> `visit` or `activity`.
+- Receipts -> `expenses`.
+- Whole-trip confirmations -> draft trip shell plus plan items.
+
+## Trip matching and creation
+
+Trip matching must be conservative:
+
+1. Match an existing trip only when date range and destination strongly overlap.
+2. If multiple trips match, show the chooser.
+3. If no trip matches and the draft has enough trip data, propose "Create trip".
+4. If no trip matches and the draft is only a receipt, ask the user to choose a trip.
+5. Never add an item outside the selected trip's date range. Existing server/date guards remain source of truth.
+
+## Email inflow design
+
+Email is a strong P1 because it matches the natural booking-confirmation workflow, but it is not "easy
+peasy" operationally. It is feasible if treated as an authenticated async import channel, not as an
+open mailbox.
+
+### Recommended authentication model
+
+Use layered acceptance:
+
+1. Give each user a per-user inbound alias, for example `u_<short_token>@in.vamo.world`.
+2. Require the visible sender address to match a registered/verified account email, unless the user
+   explicitly links another sender address.
+3. Require provider-level authentication results where available: SPF/DKIM/DMARC pass or equivalent
+   parsed headers.
+4. Create a pending import draft, then ask for user confirmation in-app.
+5. For first-time email sender/device, require OTP or magic-link confirmation before parsing/committing.
+
+Why not sender match alone: email `From` can be spoofed. Sender match is useful, but not sufficient by
+itself. The safer pattern is alias + sender match + mail-auth pass + in-app/OTP confirmation.
+
+### Spam and abuse controls
+
+- Reject unknown aliases before LLM extraction.
+- Reject or quarantine oversized messages and dangerous attachments.
+- Rate-limit by alias, sender, IP/provider metadata, and user.
+- Do not call paid LLM extraction for untrusted or unauthenticated email.
+- Store only a small pending-import envelope until accepted; expire automatically.
+- Emit provider usage telemetry before paid calls.
+
+### Provider feasibility
+
+Inbound email is best handled by a provider/webhook rather than polling IMAP.
+
+| Provider path | Fit | Notes |
 |---|---|---|
-| **Android share sheet** (PDF, image, text, `.ics`) | **High** | `ACTION_SEND` / `ACTION_SEND_MULTIPLE` intent-filters + `receive_sharing_intent`. The app already handles incoming intents (App Links `/j`), so it's incremental. |
-| **iOS share extension** | **Feasible, heavier** | A separate **share-extension target** + an **app group** to hand data to the main app. Same `receive_sharing_intent` package supports it; the cost is native config, not Dart. |
-| **Email confirmations** | **⚠️ via forwarding, not the share sheet** | Email apps share inconsistently (subject snippet / sometimes a PDF / rarely the full body). The proven pattern is **forward-to-an-address** (TripIt's `plans@tripit.com`) → inbound-email webhook → the same engine. This is **backend infra, not app share registration.** |
+| Postmark inbound | Strong P1 candidate | Parses inbound mail into JSON and POSTs to a webhook; good fit for confirmations and attachments. |
+| SendGrid Inbound Parse | Feasible | Established inbound parse webhook; heavier account/config surface. |
+| Cloudflare Email Routing + Workers | Feasible, lower-cost/control-heavy | Programmatic email handler; may need more parsing work in our code. Attractive if Vamo moves DNS/email deeper into Cloudflare. |
+| Mailgun Routes | Feasible | Strong routing model, but plan/cost should be checked before choosing. |
 
-### Extraction (the hard part — and the differentiator)
-- **Do not template-parse per vendor** (TripIt maintains hundreds of brittle parsers — a permanent tax).
-- **Primary: LLM extraction (Claude) in an edge function** with **structured output** → normalized
-  `{ trip?, planItems[], expenses[] }` mapped to Vamo's existing taxonomy. Handles the long tail
-  (any airline / OTA / hotel / receipt) with **no per-vendor code.** This is Vamo's **first LLM
-  dependency** (the app makes zero LLM calls today).
-- **Reliability boosters:**
-  - Parse **schema.org JSON-LD** first when present (`FlightReservation` / `LodgingReservation` is
-    embedded in many confirmation emails; Google/Apple rely on it) — deterministic + cheap; LLM fallback.
-  - Feed image shares through the **existing on-device OCR** (`receipt_ocr_*`) before extraction.
+Decision for P1: pick one provider, document limits/pricing in `docs/architecture/DEPENDENCIES.md`, and
+put all inbound mail behind `inbound-email-import` so the provider remains swappable.
 
-### Privacy & security (material — privacy-by-default)
-Tickets/emails are heavy PII (names, PNRs, addresses, payment fragments). The content transits the
-backend + the LLM. Non-negotiables:
-- Explicit user action (they chose to share); **confirm-before-commit** always (never silently create
-  or modify a trip).
-- **Strip payment data** before extraction; **ephemeral processing** — do not persist raw email/ticket
-  past the parse; store only the structured result the user accepts.
-- Use a **no-train** LLM endpoint; document retention.
-- **Email path auth:** verify the inbound sender maps to a registered Vamo user (or use a per-user
-  secret inbound address) so strangers can't inject plans.
+## LLM extraction decision
 
-### Verdict
-Feasible and differentiating, built largely on **reusable pieces** (OCR, the transfer/visit/stay
-taxonomy + `metadata` jsonb, expenses, the edge-function pattern, the deep-link intake precedent). The
-new surface area is: share-sheet/extension intake, the LLM extraction engine, and (for email) inbound
-infra. Biggest risks: email-share unreliability (→ use forwarding), extraction accuracy (→ JSON-LD +
-confirm-before-commit), PII handling, and iOS extension setup.
+The core strategic decision is adopting a server-side LLM extractor. Deterministic parsing handles the
+cheap/high-confidence pieces; the LLM handles the long tail.
 
-## Architecture — one engine, many mouths
-```
-[Android share sheet] ─┐
-[iOS share extension] ─┼─► normalize to text/asset ─► parse-shared-content (edge fn)
-[Forward-to-Vamo email]┘        (OCR / PDF / raw)         │  1. JSON-LD parse (if present)
-                                                          │  2. strip payment PII
-                                                          │  3. Claude structured output
-                                                          ▼
-                                          { trip?, planItems[], expenses[] }  (Vamo schema)
-                                                          ▼
-                                   Import-preview screen (shared Dart, platform-agnostic)
-                                   edit · choose "Add to <trip>" or "Create new trip"
-                                                          ▼
-                            commit via existing repos (plan_repository / expenses_repository / create-trip RPC)
-```
+Requirements:
 
-**Cross-platform design principle (so iOS is cheap):** only the **intake** is platform-specific
-(Android intent-filters now; iOS share extension later). The **edge function, the structured schema,
-the import-preview screen, and the commit path are all shared Dart/backend** — both platforms (and the
-email path) reuse them verbatim. Build W4.1 with this seam from day one.
+- server-side only; no client LLM key;
+- no-train / low-retention provider setting;
+- schema-constrained output;
+- confidence scoring and warnings;
+- token/cost cap per import;
+- per-user daily/monthly quota;
+- full provider telemetry;
+- graceful degradation when the provider is down or quota is exhausted.
 
-## Mapping to the existing model
-- **Flights / trains / transfers** → `trip_plan_items` kind `transfer` (or legacy `flight`/`train`) with
-  `metadata.subtype` + operator / PNR / from→to / times (the S53 transfer schema).
-- **Hotels / stays** → kind `lodging`/`stay` with address + check-in/out in `metadata`.
-- **Activities / tours / visits** → kind `activity` / `visit`.
-- **Receipts** → `expenses` (reuse OCR + the FX/amount path).
-- **Trip shell** (when "create from scratch") → `create_trip` RPC: destination + start/end dates derived
-  from the dominant booking; then attach the parsed items.
+Do not build vendor-specific parser farms unless a deterministic parser is cheap and broadly useful
+(`.ics`, JSON-LD, obvious receipt totals).
 
-## Phased roadmap
-- **W4.1 — Android share → files/images/text** (P0; highest ROI, lowest risk). Ships the engine + the
-  preview/commit flow. See `docs/slices/W4_1_SHARE_IMPORT_PROMPT.md`.
-- **W4.2 — iOS share extension.** Native extension target + app group; reuses the engine + preview/commit
-  unchanged. The only platform work.
-- **W4.3 — Forward-to-Vamo email** (the Lufthansa-email "wow"). Inbound email (Postmark/SendGrid inbound
-  or Cloudflare Email Routing) → webhook → same engine → notification "Found a flight to Rome — add it?".
-  Per-user secret address / verified-sender.
+## Privacy and retention
 
-**Why this order:** W4.1 proves the engine at lowest risk; W4.2 and W4.3 reuse it. Email is the
-highest-wow but riskiest (ingestion reliability + inbound infra + sender-auth), so it lands once the
-engine is trusted — not first.
+Tickets and confirmation emails contain high-risk PII: passenger names, PNRs, addresses, emails,
+payment fragments, loyalty numbers, seat numbers, and sometimes passport hints.
 
-## The one decision to greenlight
-Adopting an **LLM extraction backend** — Claude API in an edge function: cost-per-parse, an
-`ANTHROPIC_API_KEY` secret, and the PII policy above. Everything else is conventional mobile + backend
-work. This is the strategic commitment that turns the feature into a moat instead of a fragile parser
-farm.
+Rules:
 
-## Open questions
-1. LLM cost ceiling per import + a daily/user cap to bound spend?
-2. Confidence threshold — auto-fill vs. flag low-confidence fields for the user in the preview?
-3. Email: per-user secret address (`u_<id>@in.vamo.world`) vs. sender-matching against verified profile emails?
-4. Retention: keep the structured result only, or also a redacted source snippet for "view original"?
-5. Which inbound-email provider (Postmark / SendGrid / Cloudflare Email Routing) for W4.3?
+- Explicit user action only.
+- Confirm-before-commit always.
+- Strip card numbers, CVV-like values, and payment fragments before LLM calls.
+- Do not persist raw source by default.
+- If evidence retention is later needed, store a redacted artifact with clear user consent.
+- Never store passenger names unless needed for group assignment and accepted by the user.
+- Log structured errors and provider usage, never raw source content.
+
+## Prioritized roadmap
+
+### W4.0 - Design and safety gate
+
+- Priority: P0
+- Difficulty: Low
+- Effort: 1-2 days
+- Output: final data contract, source-retention policy, LLM provider decision, cost ceilings, inbound email provider shortlist.
+- Done when: product and privacy rules are clear enough for implementation.
+
+### W4.1 - Android share + import preview
+
+- Priority: P0
+- Difficulty: Medium
+- Effort: 8-12 days
+- Scope:
+  - Android `ACTION_SEND` / `ACTION_SEND_MULTIPLE` for PDF, image, text, calendar.
+  - Shared `ShareImportController`.
+  - Source normalization for text, image OCR, PDF text.
+  - `parse-shared-content` Edge Function with mocked LLM in tests.
+  - `SharedImport` Dart model.
+  - Import preview screen.
+  - Commit to existing trip or create trip.
+- Excludes: inbound email, iOS extension, raw source retention.
+- Value: proves the engine and the UX with the lowest operational risk.
+
+### W4.1b - In-app import fallback
+
+- Priority: P0.5
+- Difficulty: Low-medium
+- Effort: 2-4 days
+- Scope:
+  - "Import document" action inside trip Plan/Expenses.
+  - Pick file/photo and reuse the exact W4.1 pipeline.
+- Value: makes the feature discoverable and testable even when OS share behavior varies.
+
+### W4.2 - Parser hardening pack
+
+- Priority: P0.5
+- Difficulty: Medium
+- Effort: 5-8 days
+- Scope:
+  - Deterministic JSON-LD extraction.
+  - `.ics` parser.
+  - confidence thresholds.
+  - duplicate detection for already-imported tickets/receipts.
+  - provider-cost telemetry dashboard fields.
+- Value: reduces LLM spend and improves trust before email volume arrives.
+
+### W4.3 - Forward-to-Vamo email
+
+- Priority: P1
+- Difficulty: High
+- Effort: 10-18 days
+- Scope:
+  - inbound email provider setup on a subdomain such as `in.vamo.world`;
+  - per-user alias generation;
+  - sender match + SPF/DKIM/DMARC/auth result checks;
+  - pending import table with expiry;
+  - OTP/magic-link confirmation for first-time email inflow;
+  - attachment normalization;
+  - notification "Vamo found a trip document - review it";
+  - same preview/commit flow as W4.1.
+- Value: highest "wow" moment, especially for airline/hotel confirmations.
+- Main risk: spam/cost/PII. Do not call LLM until the email is trusted.
+
+### W4.4 - iOS share extension
+
+- Priority: P1
+- Difficulty: High
+- Effort: 8-12 days
+- Scope:
+  - iOS share extension target;
+  - app group handoff;
+  - pass normalized payload to shared controller;
+  - reuse preview/commit.
+- Value: platform parity.
+
+### W4.5 - Advanced travel artifacts
+
+- Priority: P2
+- Difficulty: High
+- Effort: 10-20 days
+- Scope:
+  - wallet passes;
+  - boarding-pass barcode parsing;
+  - richer route/seat/gate metadata;
+  - post-import change detection.
+- Value: polish after the main inflow works.
+
+## Testing and CI guardrails
+
+- Unit tests for `SharedImport` parsing, confidence handling, and unknown-field tolerance.
+- Edge tests for JSON-LD, `.ics`, payment redaction, malformed LLM output, and provider timeouts.
+- Widget tests for preview/edit/commit.
+- RLS smoke for commit paths, not hundreds of paid provider calls.
+- Provider tests must mock LLM and inbound email by default.
+- Any live provider smoke requires explicit human approval and must use one bounded fixture.
+- CI guard: no test may call the paid LLM or inbound provider unless an explicit live-smoke flag is set.
+
+## Difficulty summary
+
+| Area | Difficulty | Why |
+|---|---|---|
+| Android intake | Medium | Native manifest and app lifecycle edge cases, but known pattern. |
+| Extraction engine | High | PII, schema quality, hallucination control, cost caps. |
+| Preview UX | Medium | Many object types but uses existing Plan/Expense models. |
+| Commit path | Medium | Must preserve existing RLS/RPC/outbox rules. |
+| Email inflow | High | Spam, sender spoofing, attachments, async UX, provider config. |
+| iOS extension | High | Native packaging and app group handoff. |
+
+## Recommended next move
+
+Do W4.0 and W4.1 first. Add W4.1b if share-sheet testing feels brittle. Pull email into the architecture
+now, but keep it as W4.3 so the engine is already real before exposing an inbound address to the world.
+
+The refined product line:
+
+> Vamo is the inbox for your trip documents. Share or forward the ticket, receipt, or booking; Vamo
+> turns it into a trip draft you can trust, edit, and accept.

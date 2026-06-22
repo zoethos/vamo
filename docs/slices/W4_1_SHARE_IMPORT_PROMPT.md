@@ -1,13 +1,15 @@
-# W4.1 — Share to Vamo: Android intake + smart import (P0)
+# W4.1 - Trip document inflow: Android share + smart import (P0)
 
-**Why.** First slice of Wave 4 (`docs/specs/wave4-share-to-vamo.md`). Lets a user share a ticket /
-receipt / booking PDF / image / text into Vamo from the Android share sheet; Vamo extracts structured
-data and lets them **add it to a trip or create a trip from scratch**. Builds the **shared extraction
-engine + import-preview flow** that iOS (W4.2) and email (W4.3) reuse unchanged.
+**Why.** First build slice of Wave 4 (`docs/specs/wave4-share-to-vamo.md`). Wave 4 is the **trip
+document inflow** system: tickets, receipts, bookings, screenshots, calendar files, and later
+forwarded emails become structured trip drafts. This slice lets a user share a ticket / receipt /
+booking PDF / image / text into Vamo from the Android share sheet; Vamo extracts structured data and
+lets them **add it to a trip or create a trip from scratch**. Builds the **shared extraction engine +
+import-preview flow** that in-app import (W4.1b), email (W4.3), and iOS (W4.4) reuse unchanged.
 
-**Scope = P0.** Android intake (files/images/text) → `parse-shared-content` edge function → import-
-preview → commit. **No email, no iOS** here. **Confirm-before-commit always** — never silently create
-or modify a trip.
+**Scope = P0.** Android intake (files/images/text) -> `parse-shared-content` edge function -> import
+preview -> commit. **No email, no iOS** here. **Confirm-before-commit always** - never silently create
+or modify a trip. Email is designed now as W4.3, but no inbound address is exposed in this slice.
 
 **Cross-platform seam (mandatory).** Only **A** below is Android-specific. **B/C/D (engine, schema,
 preview, commit) are platform-agnostic Dart/backend** so W4.2 iOS only adds a share extension. Keep
@@ -69,6 +71,8 @@ Mirror this as a Dart model (`SharedImport`); unknown fields ignored; `confidenc
 - On Import: commit via existing repos — `create_trip` RPC (if new) → `plan_repository` for plan items
   (transfer/lodging/etc., S53 metadata) → `expenses_repository` for receipts. Reuse the propose/insert
   paths; don't bypass their RPC/guards.
+- Trip matching is conservative: suggest a trip only when date/destination overlap is strong; otherwise
+  make the user choose. Never import an item outside the selected trip date range.
 
 ## E. Tests
 - **Dart:** `SharedImport` parse (incl. `trip:null`, empty arrays, unknown fields); the intake handler
@@ -93,5 +97,7 @@ Mirror this as a Dart model (`SharedImport`); unknown fields ignored; `confidenc
 
 ## Notes
 - **Branch base:** off `main`; own worktree.
-- W4.2 (iOS share extension) and W4.3 (forward-to-Vamo email) are separate slices that reuse B/C/D.
-- Don't pull email forward into P0 — share-sheet email content is unreliable (see the spec).
+- W4.1b (in-app import), W4.3 (forward-to-Vamo email), and W4.4 (iOS share extension) are separate
+  slices that reuse B/C/D.
+- Don't pull email forward into P0. Email is high-value but needs alias/sender auth, OTP/magic-link
+  confirmation for first-time senders, spam controls, and paid-provider guardrails (see the spec).
