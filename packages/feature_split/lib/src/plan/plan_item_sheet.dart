@@ -11,6 +11,7 @@ import 'plan_event_rsvp_chips.dart';
 import 'plan_labels.dart';
 import 'plan_models.dart';
 import 'plan_providers.dart';
+import 'plan_type_visuals.dart';
 
 const _visitCoral = AppColors.sunsetCoral;
 const _visitCoralText = AppColors.coralText;
@@ -785,12 +786,14 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
     final theme = Theme.of(context);
     final shape = context.vamoShape;
     final query = widget.placeLabelController.text.trim();
-    final showEmptyState = !widget.discoveringPois &&
+    final showEmptyState =
+        !widget.discoveringPois &&
         !widget.poiGateVisible &&
         query.length >= 3 &&
         widget.poiSuggestions.isEmpty &&
         widget.status == widget.labels.visitDiscoverEmpty;
-    final showErrorStatus = widget.status != null &&
+    final showErrorStatus =
+        widget.status != null &&
         widget.statusIsError &&
         widget.status != widget.labels.visitDiscoverResolving;
 
@@ -857,8 +860,9 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
                   side: widget.selectedPlaceId == place.id
                       ? BorderSide(color: _visitCoral)
                       : null,
-                  onPressed:
-                      widget.readOnly ? null : () => widget.onPlaceSelected(place),
+                  onPressed: widget.readOnly
+                      ? null
+                      : () => widget.onPlaceSelected(place),
                 ),
             ],
           ),
@@ -872,12 +876,9 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: widget.labels.visitPlaceHelper,
-            prefixIcon: const Icon(
-              Icons.search,
-              color: _visitCoral,
-            ),
-            suffixIcon: widget.placeLabelController.text.isNotEmpty &&
-                    !widget.readOnly
+            prefixIcon: const Icon(Icons.search, color: _visitCoral),
+            suffixIcon:
+                widget.placeLabelController.text.isNotEmpty && !widget.readOnly
                 ? IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     color: AppColors.graphite,
@@ -898,10 +899,7 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(999),
-              borderSide: const BorderSide(
-                color: _visitCoral,
-                width: 1.5,
-              ),
+              borderSide: const BorderSide(color: _visitCoral, width: 1.5),
             ),
           ),
         ),
@@ -935,7 +933,11 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
             ),
             child: Column(
               children: [
-                for (var i = 0; i < widget.poiSuggestions.take(5).length; i++) ...[
+                for (
+                  var i = 0;
+                  i < widget.poiSuggestions.take(5).length;
+                  i++
+                ) ...[
                   if (i > 0)
                     Divider(
                       height: 1,
@@ -944,7 +946,8 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
                     ),
                   _VisitPoiSuggestionRow(
                     poi: widget.poiSuggestions[i],
-                    selected: widget.selectedPlaceId != null &&
+                    selected:
+                        widget.selectedPlaceId != null &&
                         widget.selectedPlaceId ==
                             widget.poiSuggestions[i].providerPlaceId,
                     readOnly: widget.readOnly,
@@ -1098,11 +1101,7 @@ class _VisitPoiSuggestionRow extends StatelessWidget {
             children: [
               const Padding(
                 padding: EdgeInsetsDirectional.only(top: 2),
-                child: Icon(
-                  Icons.place_outlined,
-                  size: 20,
-                  color: _visitCoral,
-                ),
+                child: Icon(Icons.place_outlined, size: 20, color: _visitCoral),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1131,11 +1130,7 @@ class _VisitPoiSuggestionRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(
-                  Icons.check_circle,
-                  size: 20,
-                  color: _visitCoral,
-                ),
+                const Icon(Icons.check_circle, size: 20, color: _visitCoral),
             ],
           ),
         ),
@@ -1219,17 +1214,16 @@ class _PlanKindTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = selected ? AppColors.coralText : AppColors.graphite;
+    final visual = visualForPlanKind(kind);
+    final color = selected ? visual.accent : AppColors.graphite;
     return Material(
       color: selected
-          ? AppColors.coralText.withValues(alpha: 0.08)
+          ? visual.accent.withValues(alpha: 0.1)
           : theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: selected
-              ? AppColors.coralText
-              : theme.colorScheme.outlineVariant,
+          color: selected ? visual.accent : theme.colorScheme.outlineVariant,
           width: selected ? 1.4 : 1,
         ),
       ),
@@ -1241,7 +1235,7 @@ class _PlanKindTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(kind.icon, color: color),
+              Icon(visual.icon, color: color),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -1277,18 +1271,14 @@ class _PoiGateRow extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         child: Row(
           children: [
-            const Icon(
-              Icons.lock_open_outlined,
-              size: 18,
-              color: _visitCoral,
-            ),
+            const Icon(Icons.lock_open_outlined, size: 18, color: _visitCoral),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 message,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.graphite,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.graphite),
               ),
             ),
           ],
@@ -1394,10 +1384,11 @@ class _PlanKindBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visual = visualForPlanKind(kind);
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Chip(
-        avatar: Icon(kind.icon, size: 18, color: AppColors.jadeTeal),
+        avatar: Icon(visual.icon, size: 18, color: visual.accent),
         label: Text(labels.kindLabel(kind)),
         visualDensity: VisualDensity.compact,
       ),

@@ -58,20 +58,11 @@ void main() {
     expect(parsePlanMetadata(''), isEmpty);
     expect(parsePlanMetadata('not json'), isEmpty);
     expect(parsePlanMetadata('[1,2]'), isEmpty);
-    expect(
-      parsePlanMetadata('{"gate":"A12","nested":{"z":1}}'),
-      {
-        'gate': 'A12',
-        'nested': {'z': 1}
-      },
-    );
-    expect(
-      encodePlanMetadata({
-        'z': 1,
-        'a': true,
-      }),
-      '{"a":true,"z":1}',
-    );
+    expect(parsePlanMetadata('{"gate":"A12","nested":{"z":1}}'), {
+      'gate': 'A12',
+      'nested': {'z': 1},
+    });
+    expect(encodePlanMetadata({'z': 1, 'a': true}), '{"a":true,"z":1}');
   });
 
   test('visit metadata helpers normalize place fields', () {
@@ -114,7 +105,7 @@ void main() {
     expect(PlanItemKind.parse('visit'), PlanItemKind.visit);
     expect(fallback[PlanItemKind.activity]?.supportsRsvp, isTrue);
     expect(fallback[PlanItemKind.activity]?.suggestsPois, isTrue);
-    expect(fallback[PlanItemKind.visit]?.supportsRsvp, isFalse);
+    expect(fallback[PlanItemKind.visit]?.supportsRsvp, isTrue);
     expect(fallback[PlanItemKind.visit]?.suggestsPois, isTrue);
     expect(fallback[PlanItemKind.visit]?.hasDetailsForm, isTrue);
     expect(PlanItemKind.parse('transfer'), PlanItemKind.transfer);
@@ -201,56 +192,60 @@ void main() {
     expect(payload['metadata'], {'flight_number': 'AZ123'});
   });
 
-  test('addPlanItem preserves transfer metadata locally and in outbox',
-      () async {
-    const tripId = 'trip-plan';
-    final client = SupabaseClient(
-      'http://localhost',
-      'anon-key',
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
-    );
-    final queue = SyncQueue(db);
-    final worker = SyncWorker(
-      queue: queue,
-      client: client,
-      analytics: DebugAnalytics(),
-    );
-    final repo = PlanRepository(
-      db: db,
-      client: client,
-      analytics: DebugAnalytics(),
-      syncQueue: queue,
-      syncWorker: worker,
-      currentUserIdOverride: 'user-1',
-    );
-    final metadata = buildTransferMetadata(
-      subtype: TransferSubtype.train,
-      origin: 'Roma Termini',
-      destination: 'Napoli Centrale',
-      provider: 'Italo',
-      reference: '8921',
-    );
+  test(
+    'addPlanItem preserves transfer metadata locally and in outbox',
+    () async {
+      const tripId = 'trip-plan';
+      final client = SupabaseClient(
+        'http://localhost',
+        'anon-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+      );
+      final queue = SyncQueue(db);
+      final worker = SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+      );
+      final repo = PlanRepository(
+        db: db,
+        client: client,
+        analytics: DebugAnalytics(),
+        syncQueue: queue,
+        syncWorker: worker,
+        currentUserIdOverride: 'user-1',
+      );
+      final metadata = buildTransferMetadata(
+        subtype: TransferSubtype.train,
+        origin: 'Roma Termini',
+        destination: 'Napoli Centrale',
+        provider: 'Italo',
+        reference: '8921',
+      );
 
-    await repo.addPlanItem(
-      PlanItemInput(
-        tripId: tripId,
-        kind: PlanItemKind.transfer,
-        title: 'Train to Naples',
-        metadata: metadata,
-      ),
-    );
+      await repo.addPlanItem(
+        PlanItemInput(
+          tripId: tripId,
+          kind: PlanItemKind.transfer,
+          title: 'Train to Naples',
+          metadata: metadata,
+        ),
+      );
 
-    final rows = await repo.watchPlanItems(tripId).first;
-    expect(rows.single.kind, PlanItemKind.transfer);
-    expect(rows.single.metadata, metadata);
-    expect(parseTransferMetadata(rows.single.metadata)?.subtype,
-        TransferSubtype.train);
+      final rows = await repo.watchPlanItems(tripId).first;
+      expect(rows.single.kind, PlanItemKind.transfer);
+      expect(rows.single.metadata, metadata);
+      expect(
+        parseTransferMetadata(rows.single.metadata)?.subtype,
+        TransferSubtype.train,
+      );
 
-    final pending = await queue.pending();
-    final payload = decodePayload(pending.single.payload);
-    expect(payload['kind'], 'transfer');
-    expect(payload['metadata'], metadata);
-  });
+      final pending = await queue.pending();
+      final payload = decodePayload(pending.single.payload);
+      expect(payload['kind'], 'transfer');
+      expect(payload['metadata'], metadata);
+    },
+  );
 
   test('plan item reorder swaps positions in drift', () async {
     const tripId = 'trip-plan';
@@ -282,16 +277,10 @@ void main() {
     );
 
     await db.upsertPlanItem(
-      const LocalPlanItemsCompanion(
-        id: Value('a'),
-        position: Value(1),
-      ),
+      const LocalPlanItemsCompanion(id: Value('a'), position: Value(1)),
     );
     await db.upsertPlanItem(
-      const LocalPlanItemsCompanion(
-        id: Value('b'),
-        position: Value(0),
-      ),
+      const LocalPlanItemsCompanion(id: Value('b'), position: Value(0)),
     );
 
     final rows = await db.watchTripPlanItems(tripId).first;
@@ -443,56 +432,55 @@ void main() {
       status: EventRsvpStatus.going,
     );
 
-    expect(calls, [
-      'flush:plan_item_upsert',
-      'rpc:set_event_rsvp:$planItemId',
-    ]);
+    expect(calls, ['flush:plan_item_upsert', 'rpc:set_event_rsvp:$planItemId']);
   });
 
-  test('setEventRsvp fails before RPC when target plan item stays pending',
-      () async {
-    final calls = <String>[];
-    const planItemId = 'event-1';
-    final client = SupabaseClient(
-      'http://localhost',
-      'anon-key',
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
-    );
-    final queue = SyncQueue(db);
-    await queue.enqueue(
-      kind: SyncKind.planItemUpsert,
-      payload: {'id': planItemId},
-    );
-    final worker = SyncWorker(
-      queue: queue,
-      client: client,
-      analytics: DebugAnalytics(),
-      flushWithoutSession: true,
-      testExecute: (op) async {
-        calls.add('flush:${op.kind}');
-        throw StateError('still offline');
-      },
-    );
-    final repo = PlanRepository(
-      db: db,
-      client: client,
-      analytics: DebugAnalytics(),
-      syncQueue: queue,
-      syncWorker: worker,
-      currentUserIdOverride: 'user-1',
-      rpcOverride: (functionName, params) async {
-        calls.add('rpc:$functionName');
-      },
-    );
+  test(
+    'setEventRsvp fails before RPC when target plan item stays pending',
+    () async {
+      final calls = <String>[];
+      const planItemId = 'event-1';
+      final client = SupabaseClient(
+        'http://localhost',
+        'anon-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+      );
+      final queue = SyncQueue(db);
+      await queue.enqueue(
+        kind: SyncKind.planItemUpsert,
+        payload: {'id': planItemId},
+      );
+      final worker = SyncWorker(
+        queue: queue,
+        client: client,
+        analytics: DebugAnalytics(),
+        flushWithoutSession: true,
+        testExecute: (op) async {
+          calls.add('flush:${op.kind}');
+          throw StateError('still offline');
+        },
+      );
+      final repo = PlanRepository(
+        db: db,
+        client: client,
+        analytics: DebugAnalytics(),
+        syncQueue: queue,
+        syncWorker: worker,
+        currentUserIdOverride: 'user-1',
+        rpcOverride: (functionName, params) async {
+          calls.add('rpc:$functionName');
+        },
+      );
 
-    await expectLater(
-      repo.setEventRsvp(
-        planItemId: planItemId,
-        status: EventRsvpStatus.going,
-      ),
-      throwsA(isA<StateError>()),
-    );
+      await expectLater(
+        repo.setEventRsvp(
+          planItemId: planItemId,
+          status: EventRsvpStatus.going,
+        ),
+        throwsA(isA<StateError>()),
+      );
 
-    expect(calls, ['flush:plan_item_upsert']);
-  });
+      expect(calls, ['flush:plan_item_upsert']);
+    },
+  );
 }

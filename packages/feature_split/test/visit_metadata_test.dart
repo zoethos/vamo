@@ -50,8 +50,8 @@ void main() {
       expect(caps.hasDetailsForm, isTrue);
     });
 
-    test('no RSVP or live status for a visit', () {
-      expect(caps.supportsRsvp, isFalse);
+    test('supports inline RSVP but no live status for a visit', () {
+      expect(caps.supportsRsvp, isTrue);
       expect(caps.hasLiveStatus, isFalse);
     });
   });
@@ -92,7 +92,9 @@ void main() {
 
     test('returns null without a place_label', () {
       expect(
-          parseVisitPlaceMetadata(<String, Object?>{'address': 'x'}), isNull);
+        parseVisitPlaceMetadata(<String, Object?>{'address': 'x'}),
+        isNull,
+      );
       expect(parseVisitPlaceMetadata(null), isNull);
     });
 
@@ -144,10 +146,14 @@ void main() {
 
     test('requires subtype and maps legacy kinds', () {
       expect(parseTransferMetadata(<String, Object?>{'origin': 'x'}), isNull);
-      expect(legacyTransferSubtypeForKind(PlanItemKind.flight),
-          TransferSubtype.flight);
-      expect(legacyTransferSubtypeForKind(PlanItemKind.train),
-          TransferSubtype.train);
+      expect(
+        legacyTransferSubtypeForKind(PlanItemKind.flight),
+        TransferSubtype.flight,
+      );
+      expect(
+        legacyTransferSubtypeForKind(PlanItemKind.train),
+        TransferSubtype.train,
+      );
       expect(legacyTransferSubtypeForKind(PlanItemKind.visit), isNull);
     });
   });

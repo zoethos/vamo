@@ -11,8 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('visit manual fields stay editable without POI API calls',
-      (tester) async {
+  testWidgets('visit manual fields stay editable without POI API calls', (
+    tester,
+  ) async {
     PlanItemInput? saved;
     final fakePoiRepository = _FakePoiRepository();
 
@@ -43,13 +44,17 @@ void main() {
     );
 
     expect(
-        find.widgetWithText(FilledButton, _labels.ctaTapType), findsOneWidget);
+      find.widgetWithText(FilledButton, _labels.ctaTapType),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text(_labels.kindVisit));
     await tester.pumpAndSettle();
 
     expect(
-        find.widgetWithText(FilledButton, _labels.ctaTapPlace), findsOneWidget);
+      find.widgetWithText(FilledButton, _labels.ctaTapPlace),
+      findsOneWidget,
+    );
     expect(find.text(_labels.visitFindCoordinates), findsNothing);
     expect(find.text(_labels.visitDiscoverNearby), findsNothing);
     expect(find.byKey(const Key('visitPlaceSearchField')), findsOneWidget);
@@ -82,8 +87,9 @@ void main() {
     expect(saved?.metadata['lng'], isNull);
   });
 
-  testWidgets('visit search debounces and maps selected POI to metadata',
-      (tester) async {
+  testWidgets('visit search debounces and maps selected POI to metadata', (
+    tester,
+  ) async {
     PlanItemInput? saved;
     final fakePoiRepository = _FakePoiRepository(
       result: const PoiDiscoveryResult.available([
