@@ -52,6 +52,7 @@ class PlanItemSummary {
   const PlanItemSummary({
     required this.id,
     required this.tripId,
+    this.subtripId,
     required this.kind,
     required this.title,
     this.notes,
@@ -63,6 +64,7 @@ class PlanItemSummary {
 
   final String id;
   final String tripId;
+  final String? subtripId;
   final PlanItemKind kind;
   final String title;
   final String? notes;
@@ -136,9 +138,28 @@ class TripListItemSummary {
   bool get isChecked => checkedBy != null;
 }
 
+class SubtripSummary {
+  const SubtripSummary({
+    required this.id,
+    required this.tripId,
+    required this.name,
+    required this.createdBy,
+    required this.createdAt,
+    this.memberIds = const <String>[],
+  });
+
+  final String id;
+  final String tripId;
+  final String name;
+  final String createdBy;
+  final DateTime createdAt;
+  final List<String> memberIds;
+}
+
 class PlanItemInput {
   const PlanItemInput({
     required this.tripId,
+    this.subtripId,
     required this.kind,
     required this.title,
     this.notes,
@@ -148,6 +169,7 @@ class PlanItemInput {
   });
 
   final String tripId;
+  final String? subtripId;
   final PlanItemKind kind;
   final String title;
   final String? notes;
@@ -352,6 +374,41 @@ List<({String? dayKey, List<PlanItemSummary> items})> groupPlanItemsByDay(
   }
   if (undated.isNotEmpty) {
     result.add((dayKey: null, items: undated));
+  }
+  return result;
+}
+
+List<
+    ({
+      SubtripSummary? subtrip,
+      List<({String? dayKey, List<PlanItemSummary> items})> daySections,
+    })> groupPlanItemsBySubtrip({
+  required List<PlanItemSummary> items,
+  required List<SubtripSummary> subtrips,
+}) {
+  final subtripsById = {for (final subtrip in subtrips) subtrip.id: subtrip};
+  final mainItems = <PlanItemSummary>[];
+  final itemsBySubtrip = <String, List<PlanItemSummary>>{};
+
+  for (final item in items) {
+    final subtripId = item.subtripId;
+    if (subtripId == null || !subtripsById.containsKey(subtripId)) {
+      mainItems.add(item);
+      continue;
+    }
+    itemsBySubtrip.putIfAbsent(subtripId, () => []).add(item);
+  }
+
+  final result = <({
+    SubtripSummary? subtrip,
+    List<({String? dayKey, List<PlanItemSummary> items})> daySections,
+  })>[];
+  result.add((subtrip: null, daySections: groupPlanItemsByDay(mainItems)));
+  for (final subtrip in subtrips) {
+    result.add((
+      subtrip: subtrip,
+      daySections: groupPlanItemsByDay(itemsBySubtrip[subtrip.id] ?? const []),
+    ));
   }
   return result;
 }

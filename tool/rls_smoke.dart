@@ -165,6 +165,7 @@ Future<void> main() async {
     final userA = clientA.auth.currentUser!.id;
     clientB = await _signIn(checkedUrl, checkedAnon, bEmail!, bPass!);
     final clientC = await _signIn(checkedUrl, checkedAnon, cEmail!, cPass!);
+    final userC = clientC.auth.currentUser!.id;
     final serviceKey = Platform.environment['RLS_SERVICE_ROLE_KEY'];
     serviceClient = serviceKey != null && serviceKey.isNotEmpty
         ? SupabaseClient(checkedUrl, serviceKey)
@@ -1748,6 +1749,147 @@ Future<void> main() async {
           (rsvpsAfterPlanDelete as List).isEmpty,
     ));
 
+    // --- M-P0 subtrips — peer-scoped plan lanes ---
+    var createSubtripDisabledBlocked = false;
+    try {
+      await clientA.rpc('create_subtrip', params: {
+        'p_trip_id': tripId,
+        'p_name': 'Tokyo crew',
+        'p_member_ids': [userA, userB],
+      });
+    } catch (_) {
+      createSubtripDisabledBlocked = true;
+    }
+    results.add(_Check(
+      'M-P0 create_subtrip blocked when disabled',
+      createSubtripDisabledBlocked,
+    ));
+
+    await clientA
+        .from('trips')
+        .update({'subtrips_enabled': true}).eq('id', tripId);
+    final subtripsEnabledRow = await clientB
+        .from('trips')
+        .select('subtrips_enabled')
+        .eq('id', tripId)
+        .single();
+    results.add(_Check(
+      'M-P0 subtrips toggle readable by member',
+      subtripsEnabledRow['subtrips_enabled'] == true,
+    ));
+
+    final subtripRow = _rpcRow(await clientA.rpc('create_subtrip', params: {
+      'p_trip_id': tripId,
+      'p_name': 'Tokyo crew',
+      'p_member_ids': [userB],
+    }));
+    final subtripId = subtripRow['id'] as String;
+    final subtripSeenByB = await clientB
+        .from('subtrips')
+        .select('id, name')
+        .eq('id', subtripId)
+        .maybeSingle();
+    results.add(_Check(
+      'M-P0 B reads trip subtrip',
+      subtripSeenByB?['name'] == 'Tokyo crew',
+    ));
+
+    var createSubtripWithOutsiderBlocked = false;
+    try {
+      await clientA.rpc('create_subtrip', params: {
+        'p_trip_id': tripId,
+        'p_name': 'Invalid crew',
+        'p_member_ids': [userC],
+      });
+    } catch (_) {
+      createSubtripWithOutsiderBlocked = true;
+    }
+    results.add(_Check(
+      'M-P0 create_subtrip rejects non-trip member',
+      createSubtripWithOutsiderBlocked,
+    ));
+
+    await clientA.rpc('set_member_role', params: {
+      'p_trip_id': tripId,
+      'p_user_id': userB,
+      'p_role': 'member',
+    });
+
+    var memberMainPlanBlocked = false;
+    try {
+      await clientB.from('trip_plan_items').insert({
+        'id': _uuid(),
+        'trip_id': tripId,
+        'kind': 'other',
+        'title': 'Main lane blocked',
+        'created_by': userB,
+      });
+    } catch (_) {
+      memberMainPlanBlocked = true;
+    }
+    results.add(_Check(
+      'M-P0 regular member cannot write main plan lane',
+      memberMainPlanBlocked,
+    ));
+
+    var memberMainMoveBlocked = false;
+    try {
+      await clientB.from('trip_plan_items').update({
+        'subtrip_id': subtripId,
+        'title': 'Moved into subtrip',
+      }).eq('id', planItemId);
+    } catch (_) {
+      memberMainMoveBlocked = true;
+    }
+    final mainPlanAfterScopeAttempt = await clientA
+        .from('trip_plan_items')
+        .select('subtrip_id, title')
+        .eq('id', planItemId)
+        .single();
+    results.add(_Check(
+      'M-P0 regular member cannot move main plan item into subtrip',
+      (memberMainMoveBlocked ||
+              mainPlanAfterScopeAttempt['subtrip_id'] == null) &&
+          mainPlanAfterScopeAttempt['title'] != 'Moved into subtrip',
+    ));
+
+    final subtripPlanItemId = _uuid();
+    await clientB.from('trip_plan_items').insert({
+      'id': subtripPlanItemId,
+      'trip_id': tripId,
+      'subtrip_id': subtripId,
+      'kind': 'visit',
+      'title': 'Ghibli Museum',
+      'created_by': userB,
+    });
+    final subtripPlanSeenByA = await clientA
+        .from('trip_plan_items')
+        .select('id, subtrip_id')
+        .eq('id', subtripPlanItemId)
+        .maybeSingle();
+    results.add(_Check(
+      'M-P0 subtrip member writes scoped plan item',
+      subtripPlanSeenByA?['subtrip_id'] == subtripId,
+    ));
+
+    var outsiderSubtripPlanBlocked = false;
+    try {
+      await clientC.from('trip_plan_items').insert({
+        'id': _uuid(),
+        'trip_id': tripId,
+        'subtrip_id': subtripId,
+        'kind': 'visit',
+        'title': 'Outsider blocked',
+        'created_by': userC,
+      });
+    } catch (_) {
+      outsiderSubtripPlanBlocked = true;
+    }
+    results.add(_Check(
+      'M-P0 outsider cannot write subtrip plan item',
+      outsiderSubtripPlanBlocked,
+    ));
+
     final cascadeTripId = _uuid();
     await clientA.rpc('create_trip', params: {
       'p_id': cascadeTripId,
@@ -3024,6 +3166,14 @@ String _encodeGeohash(double lat, double lng, int precision) {
     }
   }
   return geohash;
+}
+
+Map<String, dynamic> _rpcRow(Object? result) {
+  if (result is Map) return Map<String, dynamic>.from(result);
+  if (result is List && result.isNotEmpty && result.first is Map) {
+    return Map<String, dynamic>.from(result.first as Map);
+  }
+  throw StateError('Unexpected RPC row result');
 }
 
 class _Check {

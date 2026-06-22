@@ -69,6 +69,52 @@ class PlanRepository {
         );
   }
 
+  Stream<List<SubtripSummary>> watchSubtrips(String tripId) {
+    return Stream.multi((controller) {
+      var subtrips = <LocalSubtrip>[];
+      var members = <LocalSubtripMember>[];
+
+      void emit() {
+        final memberIdsBySubtrip = <String, List<String>>{};
+        for (final member in members) {
+          memberIdsBySubtrip
+              .putIfAbsent(member.subtripId, () => <String>[])
+              .add(member.userId);
+        }
+        controller.add(
+          subtrips
+              .map(
+                (row) => SubtripSummary(
+                  id: row.id,
+                  tripId: row.tripId,
+                  name: row.name,
+                  createdBy: row.createdBy,
+                  createdAt: row.createdAt,
+                  memberIds: memberIdsBySubtrip[row.id] ?? const <String>[],
+                ),
+              )
+              .toList(),
+        );
+      }
+
+      final subs = [
+        _db.watchTripSubtrips(tripId).listen((rows) {
+          subtrips = rows;
+          emit();
+        }),
+        _db.watchTripSubtripMembers(tripId).listen((rows) {
+          members = rows;
+          emit();
+        }),
+      ];
+      controller.onCancel = () async {
+        for (final sub in subs) {
+          await sub.cancel();
+        }
+      };
+    });
+  }
+
   Stream<List<TripListItemSummary>> watchListItems(String tripId) {
     return _db.watchTripListItems(tripId).map(
           (rows) => rows.map(_toListSummary).toList(),
@@ -94,6 +140,7 @@ class PlanRepository {
   PlanItemSummary _toPlanSummary(LocalPlanItem row) => PlanItemSummary(
         id: row.id,
         tripId: row.tripId,
+        subtripId: row.subtripId,
         kind: PlanItemKind.parse(row.kind),
         title: row.title,
         notes: row.notes,
@@ -144,6 +191,7 @@ class PlanRepository {
     final payload = {
       'id': id,
       'trip_id': input.tripId,
+      'subtrip_id': input.subtripId,
       'kind': input.kind.name,
       'title': input.title.trim(),
       'notes': input.notes?.trim(),
@@ -160,6 +208,7 @@ class PlanRepository {
       LocalPlanItemsCompanion(
         id: Value(id),
         tripId: Value(input.tripId),
+        subtripId: Value(input.subtripId),
         kind: Value(input.kind.name),
         title: Value(input.title.trim()),
         notes: Value(input.notes?.trim()),
@@ -223,6 +272,7 @@ class PlanRepository {
     final payload = {
       'id': id,
       'trip_id': existing.tripId,
+      'subtrip_id': existing.subtripId,
       'kind': kind.name,
       'title': title.trim(),
       'notes': notes?.trim(),
@@ -303,6 +353,7 @@ class PlanRepository {
         payload: {
           'id': row.id,
           'trip_id': row.tripId,
+          'subtrip_id': row.subtripId,
           'kind': row.kind,
           'title': row.title,
           'notes': row.notes,
@@ -432,6 +483,37 @@ class PlanRepository {
     unawaited(_syncWorker.flush());
   }
 
+  Future<String> createSubtrip({
+    required String tripId,
+    required String name,
+    required List<String> memberIds,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) throw StateError('Must be signed in');
+
+    final result = await _client.rpc(
+      'create_subtrip',
+      params: {
+        'p_trip_id': tripId,
+        'p_name': name.trim(),
+        'p_member_ids': memberIds,
+      },
+    );
+    final row = _rpcRow(result);
+
+    await _db.upsertSubtrip(
+      LocalSubtripsCompanion(
+        id: Value(row['id'] as String),
+        tripId: Value(row['trip_id'] as String),
+        name: Value(row['name'] as String),
+        createdBy: Value(row['created_by'] as String),
+        createdAt: Value(DateTime.parse(row['created_at'] as String)),
+      ),
+    );
+    await syncPlanForTrips([tripId]);
+    return row['id'] as String;
+  }
+
   Future<void> setEventRsvp({
     required String planItemId,
     required EventRsvpStatus status,
@@ -531,15 +613,52 @@ class PlanRepository {
         .from('trip_plan_items')
         .select(
           'id, trip_id, kind, title, notes, starts_at, ends_at, external_ref, '
-          'attachment_path, metadata, position, created_by, updated_by, created_at, updated_at',
+          'attachment_path, metadata, subtrip_id, position, created_by, updated_by, created_at, updated_at',
         )
         .inFilter('trip_id', ids);
+
+    final subtripRows = await _client
+        .from('subtrips')
+        .select('id, trip_id, name, created_by, created_at')
+        .inFilter('trip_id', ids);
+    for (final row in (subtripRows as List).cast<Map<String, dynamic>>()) {
+      await _db.upsertSubtrip(
+        LocalSubtripsCompanion(
+          id: Value(row['id'] as String),
+          tripId: Value(row['trip_id'] as String),
+          name: Value(row['name'] as String),
+          createdBy: Value(row['created_by'] as String),
+          createdAt: Value(DateTime.parse(row['created_at'] as String)),
+        ),
+      );
+    }
+
+    final subtripIds = subtripRows
+        .cast<Map<String, dynamic>>()
+        .map((r) => r['id'] as String)
+        .toList();
+    var subtripMemberRows = <dynamic>[];
+    if (subtripIds.isNotEmpty) {
+      subtripMemberRows = await _client
+          .from('subtrip_members')
+          .select('subtrip_id, user_id')
+          .inFilter('subtrip_id', subtripIds);
+      for (final row in subtripMemberRows.cast<Map<String, dynamic>>()) {
+        await _db.upsertSubtripMember(
+          LocalSubtripMembersCompanion(
+            subtripId: Value(row['subtrip_id'] as String),
+            userId: Value(row['user_id'] as String),
+          ),
+        );
+      }
+    }
 
     for (final row in (planRows as List).cast<Map<String, dynamic>>()) {
       await _db.upsertPlanItem(
         LocalPlanItemsCompanion(
           id: Value(row['id'] as String),
           tripId: Value(row['trip_id'] as String),
+          subtripId: Value(row['subtrip_id'] as String?),
           kind: Value(row['kind'] as String),
           title: Value(row['title'] as String),
           notes: Value(row['notes'] as String?),
@@ -617,6 +736,16 @@ class PlanRepository {
           .where((r) => r['trip_id'] == tripId)
           .map((r) => r['id'] as String)
           .toSet();
+      final remoteSubtripIds = (subtripRows)
+          .cast<Map<String, dynamic>>()
+          .where((r) => r['trip_id'] == tripId)
+          .map((r) => r['id'] as String)
+          .toSet();
+      final remoteSubtripMemberKeys = subtripMemberRows
+          .cast<Map<String, dynamic>>()
+          .where((r) => remoteSubtripIds.contains(r['subtrip_id'] as String))
+          .map((r) => '${r['subtrip_id']}:${r['user_id']}')
+          .toSet();
       final remoteRsvpIds = planIds.isEmpty
           ? <String>{}
           : rsvpRows
@@ -636,6 +765,8 @@ class PlanRepository {
         remoteListIds,
         excludeIds: excludeListIds,
       );
+      await _db.pruneSubtripMembersForTrip(tripId, remoteSubtripMemberKeys);
+      await _db.pruneSubtripsForTrip(tripId, remoteSubtripIds);
       await _db.prunePlanItemRsvpsForTrip(tripId, remoteRsvpIds);
     }
   }
@@ -644,6 +775,14 @@ class PlanRepository {
     if (value == null) return null;
     if (value is DateTime) return value.toUtc();
     return DateTime.tryParse(value as String)?.toUtc();
+  }
+
+  Map<String, dynamic> _rpcRow(Object? result) {
+    if (result is Map) return Map<String, dynamic>.from(result);
+    if (result is List && result.isNotEmpty && result.first is Map) {
+      return Map<String, dynamic>.from(result.first as Map);
+    }
+    throw StateError('Unexpected RPC row result');
   }
 
   Future<void> _flushPendingPlanItem(String planItemId) async {

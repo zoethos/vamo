@@ -10,6 +10,7 @@ class TripSummary {
     this.lifecycle = 'active',
     this.budgetMode = 'none',
     this.budgetCents,
+    this.subtripsEnabled = false,
     this.backgroundStoragePath,
     this.backgroundLocalPath,
   });
@@ -23,6 +24,7 @@ class TripSummary {
   final String lifecycle;
   final String budgetMode;
   final int? budgetCents;
+  final bool subtripsEnabled;
   final String? backgroundStoragePath;
   final String? backgroundLocalPath;
 }
@@ -41,6 +43,7 @@ class TripDetail {
     this.closeRequestedAt,
     this.budgetMode = 'none',
     this.budgetCents,
+    this.subtripsEnabled = false,
     this.backgroundStoragePath,
     this.backgroundLocalPath,
   });
@@ -56,6 +59,7 @@ class TripDetail {
   final DateTime? closeRequestedAt;
   final String budgetMode;
   final int? budgetCents;
+  final bool subtripsEnabled;
   final String? backgroundStoragePath;
   final String? backgroundLocalPath;
 }

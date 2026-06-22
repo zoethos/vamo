@@ -19,6 +19,8 @@ part 'app_database.g.dart';
   LocalTripVideos,
   LocalPlaces,
   LocalPlanItems,
+  LocalSubtrips,
+  LocalSubtripMembers,
   LocalTripListItems,
   LocalTripFxRates,
   LocalPlanItemRsvps,
@@ -32,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -171,6 +173,12 @@ class AppDatabase extends _$AppDatabase {
               localTripMembers,
               localTripMembers.avatarInitials,
             );
+          }
+          if (from < 23 && to >= 23) {
+            await m.addColumn(localTrips, localTrips.subtripsEnabled);
+            await m.addColumn(localPlanItems, localPlanItems.subtripId);
+            await m.createTable(localSubtrips);
+            await m.createTable(localSubtripMembers);
           }
         },
       );
@@ -457,6 +465,25 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<LocalSubtrip>> watchTripSubtrips(String tripId) {
+    return (select(localSubtrips)
+          ..where((s) => s.tripId.equals(tripId))
+          ..orderBy([(s) => OrderingTerm.asc(s.createdAt)]))
+        .watch();
+  }
+
+  Stream<List<LocalSubtripMember>> watchTripSubtripMembers(String tripId) {
+    return (select(localSubtripMembers)
+          ..where(
+            (m) => m.subtripId.isInQuery(
+              selectOnly(localSubtrips)
+                ..addColumns([localSubtrips.id])
+                ..where(localSubtrips.tripId.equals(tripId)),
+            ),
+          ))
+        .watch();
+  }
+
   Stream<List<LocalTripListItem>> watchTripListItems(String tripId) {
     return (select(localTripListItems)
           ..where((l) => l.tripId.equals(tripId))
@@ -476,6 +503,14 @@ class AppDatabase extends _$AppDatabase {
     if (updated == 0) {
       await into(localPlanItems).insertOnConflictUpdate(row);
     }
+  }
+
+  Future<void> upsertSubtrip(LocalSubtripsCompanion row) {
+    return into(localSubtrips).insertOnConflictUpdate(row);
+  }
+
+  Future<void> upsertSubtripMember(LocalSubtripMembersCompanion row) {
+    return into(localSubtripMembers).insertOnConflictUpdate(row);
   }
 
   Future<void> upsertListItem(LocalTripListItemsCompanion row) async {
@@ -600,6 +635,45 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  Future<void> pruneSubtripsForTrip(
+      String tripId, Set<String> remoteIds) async {
+    final local = await (select(localSubtrips)
+          ..where((s) => s.tripId.equals(tripId)))
+        .get();
+    for (final row in local) {
+      if (!remoteIds.contains(row.id)) {
+        await (delete(localSubtripMembers)
+              ..where((m) => m.subtripId.equals(row.id)))
+            .go();
+        await (delete(localSubtrips)..where((s) => s.id.equals(row.id))).go();
+      }
+    }
+  }
+
+  Future<void> pruneSubtripMembersForTrip(
+    String tripId,
+    Set<String> remoteKeys,
+  ) async {
+    final local = await (select(localSubtripMembers)
+          ..where(
+            (m) => m.subtripId.isInQuery(
+              selectOnly(localSubtrips)
+                ..addColumns([localSubtrips.id])
+                ..where(localSubtrips.tripId.equals(tripId)),
+            ),
+          ))
+        .get();
+    for (final row in local) {
+      final key = '${row.subtripId}:${row.userId}';
+      if (!remoteKeys.contains(key)) {
+        await (delete(localSubtripMembers)
+              ..where((m) => m.subtripId.equals(row.subtripId))
+              ..where((m) => m.userId.equals(row.userId)))
+            .go();
+      }
+    }
+  }
+
   Future<void> pruneListItemsForTrip(
     String tripId,
     Set<String> remoteIds, {
@@ -643,7 +717,6 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localTripVideos)..where((v) => v.tripId.equals(tripId))).go();
     await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
-    await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItemRsvps)
           ..where(
             (r) => r.planItemId.isInQuery(
@@ -653,6 +726,17 @@ class AppDatabase extends _$AppDatabase {
             ),
           ))
         .go();
+    await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localSubtripMembers)
+          ..where(
+            (m) => m.subtripId.isInQuery(
+              selectOnly(localSubtrips)
+                ..addColumns([localSubtrips.id])
+                ..where(localSubtrips.tripId.equals(tripId)),
+            ),
+          ))
+        .go();
+    await (delete(localSubtrips)..where((s) => s.tripId.equals(tripId))).go();
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
     await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId)))

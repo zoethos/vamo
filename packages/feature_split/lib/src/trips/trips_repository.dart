@@ -57,19 +57,19 @@ class TripsRepository {
     required SyncWorker syncWorker,
     required NotificationsRepository notifications,
     TripBackgroundCacheLoader? cacheBackgroundFromStorage,
-  }) : _db = db,
-       _client = client,
-       _analytics = analytics,
-       _expenses = expenses,
-       _settlements = settlements,
-       _capture = capture,
-       _places = places,
-       _plan = plan,
-       _syncQueue = syncQueue,
-       _syncWorker = syncWorker,
-       _notifications = notifications,
-       _cacheBackgroundFromStorage =
-           cacheBackgroundFromStorage ?? TripBackgroundStorage.cacheFromStorage;
+  })  : _db = db,
+        _client = client,
+        _analytics = analytics,
+        _expenses = expenses,
+        _settlements = settlements,
+        _capture = capture,
+        _places = places,
+        _plan = plan,
+        _syncQueue = syncQueue,
+        _syncWorker = syncWorker,
+        _notifications = notifications,
+        _cacheBackgroundFromStorage = cacheBackgroundFromStorage ??
+            TripBackgroundStorage.cacheFromStorage;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -87,24 +87,25 @@ class TripsRepository {
 
   Stream<List<TripSummary>> watchTripSummaries() {
     return _db.watchAllTrips().map(
-      (rows) => rows
-          .map(
-            (r) => TripSummary(
-              id: r.id,
-              name: r.name,
-              destination: r.destination,
-              startDate: r.startDate,
-              endDate: r.endDate,
-              baseCurrency: r.baseCurrency,
-              lifecycle: r.lifecycle,
-              budgetMode: r.budgetMode,
-              budgetCents: r.budgetCents,
-              backgroundStoragePath: r.backgroundPath,
-              backgroundLocalPath: r.backgroundLocalPath,
-            ),
-          )
-          .toList(),
-    );
+          (rows) => rows
+              .map(
+                (r) => TripSummary(
+                  id: r.id,
+                  name: r.name,
+                  destination: r.destination,
+                  startDate: r.startDate,
+                  endDate: r.endDate,
+                  baseCurrency: r.baseCurrency,
+                  lifecycle: r.lifecycle,
+                  budgetMode: r.budgetMode,
+                  budgetCents: r.budgetCents,
+                  subtripsEnabled: r.subtripsEnabled,
+                  backgroundStoragePath: r.backgroundPath,
+                  backgroundLocalPath: r.backgroundLocalPath,
+                ),
+              )
+              .toList(),
+        );
   }
 
   Stream<TripDetail?> watchTrip(String id) {
@@ -122,6 +123,7 @@ class TripsRepository {
         closeRequestedAt: row.closeRequestedAt,
         budgetMode: row.budgetMode,
         budgetCents: row.budgetCents,
+        subtripsEnabled: row.subtripsEnabled,
         backgroundStoragePath: row.backgroundPath,
         backgroundLocalPath: row.backgroundLocalPath,
       );
@@ -129,9 +131,7 @@ class TripsRepository {
   }
 
   Stream<List<TripFxRateRow>> watchTripFxRates(String tripId) {
-    return _db
-        .watchTripFxRates(tripId)
-        .map(
+    return _db.watchTripFxRates(tripId).map(
           (rows) => rows
               .map(
                 (r) => TripFxRateRow(
@@ -176,6 +176,8 @@ class TripsRepository {
     await _db.delete(_db.localExpenses).go();
     await _db.delete(_db.localTripMembers).go();
     await _db.delete(_db.localPlaces).go();
+    await _db.delete(_db.localSubtripMembers).go();
+    await _db.delete(_db.localSubtrips).go();
     await _db.delete(_db.localPlanItems).go();
     await _db.delete(_db.localTripListItems).go();
     await _db.delete(_db.localTripFxRates).go();
@@ -256,17 +258,15 @@ class TripsRepository {
   }) async {
     final tripRows = onlyTripId == null
         ? await _client
-              .from('trips')
-              .select(_tripSelectFields)
-              .order('created_at', ascending: false)
+            .from('trips')
+            .select(_tripSelectFields)
+            .order('created_at', ascending: false)
         : await _client
-              .from('trips')
-              .select(_tripSelectFields)
-              .eq('id', onlyTripId);
+            .from('trips')
+            .select(_tripSelectFields)
+            .eq('id', onlyTripId);
 
-    final memberQuery = _client
-        .from('trip_members')
-        .select(
+    final memberQuery = _client.from('trip_members').select(
           'trip_id, user_id, role, status, completed_at, close_accepted_at, '
           'close_objected_at, close_objection_reason, close_notified_at, '
           'close_reminded_at, settle_nudged_at, '
@@ -294,6 +294,7 @@ class TripsRepository {
           closeRequestedAt: Value(_timestamp(row['close_requested_at'])),
           budgetMode: Value((row['budget_mode'] as String?) ?? 'none'),
           budgetCents: Value(row['budget_cents'] as int?),
+          subtripsEnabled: Value(row['subtrips_enabled'] == true),
           backgroundPath: Value(row['background_path'] as String?),
           createdAt: Value(created),
           updatedAt: Value(now),
@@ -387,7 +388,8 @@ class TripsRepository {
       await (_db.delete(_db.localTrips)..where((t) => t.id.equals(id))).go();
       await (_db.delete(
         _db.localTripMembers,
-      )..where((m) => m.tripId.equals(id))).go();
+      )..where((m) => m.tripId.equals(id)))
+          .go();
       rethrow;
     }
 
@@ -532,6 +534,23 @@ class TripsRepository {
     await syncTripFromRemote(tripId);
   }
 
+  Future<void> setSubtripsEnabled({
+    required String tripId,
+    required bool enabled,
+  }) async {
+    await _client
+        .from('trips')
+        .update({'subtrips_enabled': enabled}).eq('id', tripId);
+    await _db.updateTripFields(
+      tripId,
+      LocalTripsCompanion(
+        subtripsEnabled: Value(enabled),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+    await syncTripFromRemote(tripId);
+  }
+
   Future<void> captureFxRate({
     required String tripId,
     required String currency,
@@ -582,7 +601,7 @@ class TripsRepository {
   static const _tripSelectFields =
       'id, name, destination, start_date, end_date, owner_id, base_currency, '
       'lifecycle, close_requested_at, budget_mode, budget_cents, background_path, '
-      'created_at';
+      'subtrips_enabled, created_at';
 
   /// Caches the hero background locally when only the remote path is known.
   Future<String?> ensureTripBackgroundCached({
@@ -780,9 +799,7 @@ class TripsRepository {
       tripId: tripId,
       localPath: localPath,
     );
-    await _client.storage
-        .from(StoragePaths.tripBackgroundsBucket)
-        .uploadBinary(
+    await _client.storage.from(StoragePaths.tripBackgroundsBucket).uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(
