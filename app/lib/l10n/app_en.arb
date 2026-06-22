@@ -301,6 +301,39 @@
   "addExpenseTakePhoto": "Take photo",
   "addExpenseChooseGallery": "Choose from gallery",
   "addExpenseChoosePayer": "Choose who paid.",
+  "addExpenseYouPaid": "You paid",
+  "addExpensePaidBy": "{name} paid",
+  "@addExpensePaidBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addExpenseSplitSection": "Split",
+  "addExpenseSplitEqual": "Equal",
+  "addExpenseSplitCustom": "Custom",
+  "addExpenseCustomSplitComingSoon": "Custom split — coming soon",
+  "addExpenseSplitEach": "Equally · {amount} each",
+  "@addExpenseSplitEach": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "addExpenseAttachReceipt": "Receipt",
+  "addExpenseAddPlace": "Place",
+  "addExpenseAddNote": "Add note",
+  "addExpenseDescriptionHint": "Dinner",
+  "addExpenseCurrencySheetTitle": "Currency",
+  "addExpenseCategorySheetTitle": "Category",
+  "addExpensePayerSheetTitle": "Who paid?",
+  "addExpenseDone": "Done",
+  "addExpenseDescriptionRequired": "Add a short description",
+  "addExpenseReadingReceipt": "Reading receipt…",
+  "addExpenseReceiptAttached": "Receipt attached",
+  "addExpenseRemoveReceipt": "Remove receipt",
   "profileTitle": "Profile",
   "profileAbout": "About",
   "profileVersion": "Version",
