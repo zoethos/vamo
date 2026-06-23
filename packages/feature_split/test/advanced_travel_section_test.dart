@@ -39,6 +39,16 @@ const _labels = AdvancedTravelLabels(
   modeTrain: 'Train',
   modeFlight: 'Flight',
   modeBus: 'Bus',
+  reviewTitle: 'Route draft',
+  reviewSubtitle: 'Pick the stops to add.',
+  reviewWarningsTitle: 'Heads up',
+  reviewQuestionsTitle: 'Open questions',
+  reviewAddToPlan: 'Add to plan',
+  reviewSkip: 'Not now',
+  reviewCommitting: 'Adding…',
+  reviewEmpty: 'No stops were drafted.',
+  draftGatedMessage: 'Out of free drafts.',
+  draftFailedMessage: 'Could not draft.',
 );
 
 const _datePickerLabels = VamoDatePickerLabels(
