@@ -36,6 +36,16 @@ class AdvancedTravelLabels {
     required this.modeTrain,
     required this.modeFlight,
     required this.modeBus,
+    required this.reviewTitle,
+    required this.reviewSubtitle,
+    required this.reviewWarningsTitle,
+    required this.reviewQuestionsTitle,
+    required this.reviewAddToPlan,
+    required this.reviewSkip,
+    required this.reviewCommitting,
+    required this.reviewEmpty,
+    required this.draftGatedMessage,
+    required this.draftFailedMessage,
   });
 
   final String toggleTitle;
@@ -71,6 +81,18 @@ class AdvancedTravelLabels {
   final String modeTrain;
   final String modeFlight;
   final String modeBus;
+
+  // Draft-route review (Slice 3).
+  final String reviewTitle;
+  final String reviewSubtitle;
+  final String reviewWarningsTitle;
+  final String reviewQuestionsTitle;
+  final String reviewAddToPlan;
+  final String reviewSkip;
+  final String reviewCommitting;
+  final String reviewEmpty;
+  final String draftGatedMessage;
+  final String draftFailedMessage;
 
   String modeLabel(TravelMode mode) => switch (mode) {
         TravelMode.car => modeCar,

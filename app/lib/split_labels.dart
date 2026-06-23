@@ -554,6 +554,16 @@ class SplitLabels {
         modeTrain: l10n.travelModeTrain,
         modeFlight: l10n.travelModeFlight,
         modeBus: l10n.travelModeBus,
+        reviewTitle: l10n.travelReviewTitle,
+        reviewSubtitle: l10n.travelReviewSubtitle,
+        reviewWarningsTitle: l10n.travelReviewWarningsTitle,
+        reviewQuestionsTitle: l10n.travelReviewQuestionsTitle,
+        reviewAddToPlan: l10n.travelReviewAddToPlan,
+        reviewSkip: l10n.travelReviewSkip,
+        reviewCommitting: l10n.travelReviewCommitting,
+        reviewEmpty: l10n.travelReviewEmpty,
+        draftGatedMessage: l10n.travelDraftGatedMessage,
+        draftFailedMessage: l10n.travelDraftFailedMessage,
       );
 
   static AddExpenseScreenLabels addExpense(AppLocalizations l10n) =>

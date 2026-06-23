@@ -9,7 +9,9 @@ import 'package:intl/intl.dart';
 import '../snapshot/theme_resolver_repository.dart';
 import '../travel/advanced_travel_labels.dart';
 import '../travel/advanced_travel_section.dart';
+import '../travel/route_draft_review_screen.dart';
 import '../travel/travel_leg.dart';
+import '../travel/trip_route_repository.dart';
 import 'create_trip_labels.dart';
 import 'trips_models.dart';
 import 'trips_repository.dart';
@@ -214,15 +216,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
     if (!_advanced) return [saveButton];
 
-    // "Draft route with AI" is the headline CTA but is wired in a later slice;
-    // for now it announces itself and the manual path sits right beside it.
+    // "Draft route with AI" is the headline CTA; the manual path sits beside it.
     return [
       FilledButton.icon(
-        onPressed: _saving
-            ? null
-            : () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(labels.advanced.draftComingSoon)),
-                ),
+        onPressed: _saving ? null : _draftWithAi,
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.goLime,
           foregroundColor: AppColors.ink,
@@ -310,15 +307,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+  /// Validates the form and creates the trip; returns its id, or null if
+  /// validation failed or creation errored (error surfaced to the user).
+  Future<String?> _createTrip() async {
+    if (!_formKey.currentState!.validate()) return null;
     _validateDateRange();
     if (_dateRangeError != null) {
       setState(() {});
-      return;
+      return null;
     }
-
-    setState(() => _saving = true);
     final destination = _destinationController.text.trim();
     try {
       final id = await ref.read(tripsRepositoryProvider).createTrip(
@@ -336,21 +333,79 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               destination: destination,
             ),
       );
-      if (!mounted) return;
+      return id;
+    } catch (e) {
+      if (mounted) {
+        showActionError(
+          context,
+          ref,
+          screen: 'create_trip',
+          action: 'create_trip',
+          error: e,
+        );
+      }
+      return null;
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final id = await _createTrip();
+      if (id == null || !mounted) return;
       _flowTracker.complete();
       context.go(AppRoutes.trip(id));
-    } catch (e) {
-      if (!mounted) return;
-      showActionError(
-        context,
-        ref,
-        screen: 'create_trip',
-        action: 'create_trip',
-        error: e,
-      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Creates the trip, then asks the AI to draft a route and opens the review
+  /// screen. Gating/failure degrade to the trip home — the trip still exists.
+  Future<void> _draftWithAi() async {
+    setState(() => _saving = true);
+    try {
+      final id = await _createTrip();
+      if (id == null || !mounted) return;
+      final destination = _destinationController.text.trim();
+      final result =
+          await ref.read(tripRouteRepositoryProvider).draftRoute(
+                tripId: id,
+                destination: destination,
+                tripStart: _isoDate(_startDate),
+                tripEnd: _isoDate(_endDate),
+                legs: _legs,
+              );
+      if (!mounted) return;
+      _flowTracker.complete();
+      final advanced = widget.labels.advanced;
+      switch (result) {
+        case RouteDraftSuccess(:final draft):
+          await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => RouteDraftReviewScreen(
+                tripId: id,
+                draft: draft,
+                labels: advanced,
+              ),
+            ),
+          );
+          if (mounted) context.go(AppRoutes.trip(id));
+        case RouteDraftGated():
+          _toast(advanced.draftGatedMessage);
+          context.go(AppRoutes.trip(id));
+        case RouteDraftUnavailable():
+          _toast(advanced.draftFailedMessage);
+          context.go(AppRoutes.trip(id));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   String? _isoDate(DateTime? d) =>
