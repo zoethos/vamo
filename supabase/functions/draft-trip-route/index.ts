@@ -2,11 +2,11 @@
 // Deploy: supabase functions deploy draft-trip-route
 //
 // Secrets/config:
-//   ROUTE_AI_PROVIDER=openai            (or azure-openai)
-//   ROUTE_AI_MODEL=gpt-4.1-mini
-//   ROUTE_AI_API_KEY=...
-//   ROUTE_AI_BASE_URL=optional (Azure .../openai/v1/)
-//   ROUTE_AI_DEPLOYMENT=optional Azure deployment/model override
+//   DRAFT_TRIP_ROUTE_AI_PROVIDER=openai            (or azure-openai)
+//   DRAFT_TRIP_ROUTE_AI_MODEL=gpt-4.1-mini
+//   DRAFT_TRIP_ROUTE_AI_API_KEY=...
+//   DRAFT_TRIP_ROUTE_AI_BASE_URL=optional (Azure .../openai/v1/)
+//   DRAFT_TRIP_ROUTE_AI_DEPLOYMENT=optional Azure deployment/model override
 //
 // Requires Authorization: Bearer <user JWT>. Sends only the constraint envelope
 // (destination, dates, modes, reach) — never trip names, members, or money.
@@ -371,15 +371,16 @@ function loadSupabaseEnv() {
 }
 
 function loadAiConfig(): AiConfig {
-  const provider = (Deno.env.get("ROUTE_AI_PROVIDER") ?? "openai")
+  const provider = (Deno.env.get("DRAFT_TRIP_ROUTE_AI_PROVIDER") ?? "openai")
     .trim().toLowerCase();
-  const deployment = Deno.env.get("ROUTE_AI_DEPLOYMENT")?.trim();
-  const model = deployment || Deno.env.get("ROUTE_AI_MODEL")?.trim() ||
+  const deployment = Deno.env.get("DRAFT_TRIP_ROUTE_AI_DEPLOYMENT")?.trim();
+  const model = deployment ||
+    Deno.env.get("DRAFT_TRIP_ROUTE_AI_MODEL")?.trim() ||
     "gpt-4.1-mini";
-  const apiKey = Deno.env.get("ROUTE_AI_API_KEY")?.trim() ||
+  const apiKey = Deno.env.get("DRAFT_TRIP_ROUTE_AI_API_KEY")?.trim() ||
     Deno.env.get("OPENAI_API_KEY")?.trim() || "";
   const baseUrl = ensureTrailingSlash(
-    Deno.env.get("ROUTE_AI_BASE_URL")?.trim() ||
+    Deno.env.get("DRAFT_TRIP_ROUTE_AI_BASE_URL")?.trim() ||
       (provider === "azure-openai" ? "" : "https://api.openai.com/v1/"),
   );
   return {
