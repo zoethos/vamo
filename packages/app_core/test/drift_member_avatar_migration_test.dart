@@ -4,12 +4,12 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('schema v22 includes local trip member avatar preference columns',
+  test('schema v23 includes local trip member avatar and joined columns',
       () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 22);
+    expect(db.schemaVersion, 23);
 
     final now = DateTime.utc(2026, 6, 19);
     await db.upsertMember(
@@ -31,6 +31,7 @@ void main() {
     expect(rows.first.avatarUrl, 'user-1/profile.jpg');
     expect(rows.first.avatarDisplayMode, 'initials');
     expect(rows.first.avatarInitials, 'AT');
+    expect(rows.first.joinedAt, null);
   });
 
   test('v18 to v19 migration adds local trip member avatar_url column',
@@ -117,5 +118,52 @@ CREATE TABLE local_trip_members (
     expect(rows, hasLength(1));
     expect(rows.first.avatarDisplayMode, 'initials');
     expect(rows.first.avatarInitials, 'TT');
+  });
+
+  test('v22 to v23 migration adds member joined_at column', () async {
+    final executor = NativeDatabase.memory();
+    final db = AppDatabase.forTesting(executor);
+    addTearDown(db.close);
+
+    await db.customStatement('DROP TABLE IF EXISTS local_trip_members');
+    await db.customStatement('''
+CREATE TABLE local_trip_members (
+  trip_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL,
+  display_name TEXT NULL,
+  avatar_url TEXT NULL,
+  avatar_display_mode TEXT NOT NULL DEFAULT 'photo',
+  avatar_initials TEXT NULL,
+  completed_at INTEGER NULL,
+  close_accepted_at INTEGER NULL,
+  close_objected_at INTEGER NULL,
+  close_objection_reason TEXT NULL,
+  close_notified_at INTEGER NULL,
+  close_reminded_at INTEGER NULL,
+  settle_nudged_at INTEGER NULL,
+  PRIMARY KEY (trip_id, user_id)
+)
+''');
+    await db.customStatement('PRAGMA user_version = 22');
+
+    final migrator = db.createMigrator();
+    await db.migration.onUpgrade(migrator, 22, 23);
+
+    final joinedAt = DateTime.utc(2026, 6, 23, 8);
+    await db.upsertMember(
+      LocalTripMembersCompanion(
+        tripId: const Value('trip-1'),
+        userId: const Value('user-4'),
+        role: const Value('member'),
+        status: const Value('active'),
+        joinedAt: Value(joinedAt),
+      ),
+    );
+
+    final rows = await db.watchActiveMembers('trip-1').first;
+    expect(rows, hasLength(1));
+    expect(rows.first.joinedAt, joinedAt.toLocal());
   });
 }

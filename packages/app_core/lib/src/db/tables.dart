@@ -33,6 +33,7 @@ class LocalTripMembers extends Table {
   TextColumn get avatarDisplayMode =>
       text().withDefault(const Constant('photo'))();
   TextColumn get avatarInitials => text().nullable()();
+  DateTimeColumn get joinedAt => dateTime().nullable()();
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get closeAcceptedAt => dateTime().nullable()();
   DateTimeColumn get closeObjectedAt => dateTime().nullable()();
