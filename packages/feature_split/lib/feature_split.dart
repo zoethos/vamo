@@ -53,6 +53,7 @@ export 'src/plan/plan_models.dart';
 export 'src/plan/plan_providers.dart';
 export 'src/plan/plan_repository.dart';
 export 'src/plan/plan_tab.dart';
+export 'src/travel/travel_leg.dart';
 export 'src/map/trip_map_labels.dart';
 export 'src/map/trip_map_moments.dart';
 export 'src/map/trip_map_screen.dart';
