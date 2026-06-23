@@ -114,7 +114,11 @@ export async function generateRouteDraft(
               "respects the leg covering those dates and never exceeds its reach. " +
               "Map legs to plan items: train->train, flight->flight, car/bike/bus/" +
               "motorbike->transfer (set transfer_subtype). Add visit/activity/" +
-              "lodging stops as helpful. Use only the destination and dates given. " +
+              "lodging stops as helpful. For every transport hop (transfer/train/" +
+              "flight) set `from` and `to` to the approximate {lat,lng} of its " +
+              "start and end so feasibility can be checked; keep each leg's total " +
+              "hop distance within its km reach cap. Leave from/to null for " +
+              "non-moving stops. Use only the destination and dates given. " +
               "Never include people, emails, money, or private data. If something " +
               "can't be resolved, add an unresolved_question instead of guessing. " +
               "Return JSON only.",

@@ -4,6 +4,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   type DraftInput,
+  haversineKm,
   parseDraftInput,
   validateRouteDraft,
 } from "./draft.ts";
@@ -152,4 +153,81 @@ Deno.test("validateRouteDraft warns (not fails) on soft mismatches", () => {
   assert(result.ok);
   assertEquals(result.draft.plan_items[0].transfer_subtype, null);
   assert(result.draft.warnings.length >= 2); // model note + leg-window warning
+});
+
+Deno.test("haversineKm: zero distance and one degree of latitude", () => {
+  assertEquals(haversineKm({ lat: 0, lng: 0 }, { lat: 0, lng: 0 }), 0);
+  const oneDegree = haversineKm({ lat: 0, lng: 0 }, { lat: 1, lng: 0 });
+  assert(Math.abs(oneDegree - 111.19) < 1);
+});
+
+Deno.test("feasibility flags a leg over its straight-line distance cap", () => {
+  // Leg 0 is car, capped at 600 km. Rome -> Paris is ~1100 km straight-line.
+  const result = validateRouteDraft({
+    plan_items: [
+      {
+        kind: "transfer",
+        title: "Long drive",
+        transfer_subtype: "drive",
+        starts_at: null,
+        ends_at: null,
+        notes: null,
+        leg_index: 0,
+        from: { lat: 41.9, lng: 12.5 },
+        to: { lat: 48.85, lng: 2.35 },
+      },
+    ],
+    warnings: [],
+    unresolved_questions: [],
+  }, INPUT);
+  assert(result.ok);
+  assert(
+    result.draft.warnings.some((w) => w.includes("exceeds your 600 km cap")),
+  );
+});
+
+Deno.test("feasibility leaves a within-cap leg unflagged", () => {
+  // Rome -> Naples is ~190 km, well within the 600 km car cap.
+  const result = validateRouteDraft({
+    plan_items: [
+      {
+        kind: "transfer",
+        title: "Short drive",
+        transfer_subtype: "drive",
+        starts_at: null,
+        ends_at: null,
+        notes: null,
+        leg_index: 0,
+        from: { lat: 41.9, lng: 12.5 },
+        to: { lat: 40.85, lng: 14.25 },
+      },
+    ],
+    warnings: [],
+    unresolved_questions: [],
+  }, INPUT);
+  assert(result.ok);
+  assert(!result.draft.warnings.some((w) => w.includes("km cap")));
+});
+
+Deno.test("feasibility ignores time-capped legs", () => {
+  // Leg 1 is a time-capped train; far coords must NOT raise a distance flag.
+  const result = validateRouteDraft({
+    plan_items: [
+      {
+        kind: "train",
+        title: "Train",
+        transfer_subtype: null,
+        starts_at: null,
+        ends_at: null,
+        notes: null,
+        leg_index: 1,
+        from: { lat: 41.9, lng: 12.5 },
+        to: { lat: 48.85, lng: 2.35 },
+      },
+    ],
+    warnings: [],
+    unresolved_questions: [],
+  }, INPUT);
+  assert(result.ok);
+  assert(!result.draft.warnings.some((w) => w.includes("km cap")));
 });
