@@ -9,6 +9,7 @@ import '../expenses/expense_governance.dart';
 import '../expenses/expense_governance_labels.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/trip_expense_list_tile.dart';
+import '../expenses/trip_expenses_balances_link.dart';
 import '../expenses/trip_expenses_propose_action.dart';
 import 'trip_budget_labels.dart';
 
@@ -21,6 +22,7 @@ class TripExpensesTab extends ConsumerWidget {
     required this.readOnly,
     required this.governanceLabels,
     required this.budgetLabels,
+    required this.balancesLabel,
   });
 
   final String tripId;
@@ -28,6 +30,7 @@ class TripExpensesTab extends ConsumerWidget {
   final bool readOnly;
   final ExpenseGovernanceLabels governanceLabels;
   final TripBudgetLabels budgetLabels;
+  final String balancesLabel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,6 +43,11 @@ class TripExpensesTab extends ConsumerWidget {
     );
     final canManageProposals =
         !readOnly && role != null && canEditTripProposals(role);
+
+    // Group trips only: solo trips have no balances. Hidden while members are
+    // still loading (valueOrNull == null) so the link never flickers in.
+    final memberCount = members.valueOrNull?.length ?? 0;
+    final showBalancesLink = memberCount > 1;
 
     return expenses.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -69,6 +77,11 @@ class TripExpensesTab extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              TripExpensesBalancesLink(
+                tripId: tripId,
+                label: balancesLabel,
+                visible: showBalancesLink,
+              ),
               TripExpensesProposeAction(
                 visible: canManageProposals,
                 labels: governanceLabels,
@@ -90,6 +103,11 @@ class TripExpensesTab extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            TripExpensesBalancesLink(
+              tripId: tripId,
+              label: balancesLabel,
+              visible: showBalancesLink,
+            ),
             TripExpensesProposeAction(
               visible: canManageProposals,
               labels: governanceLabels,

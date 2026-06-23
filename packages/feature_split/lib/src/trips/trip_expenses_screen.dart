@@ -82,6 +82,7 @@ class TripExpensesScreen extends ConsumerWidget {
             readOnly: readOnly,
             governanceLabels: governanceLabels,
             budgetLabels: budgetLabels,
+            balancesLabel: tripHomeLabels.tabBalances,
           ),
         );
       },
