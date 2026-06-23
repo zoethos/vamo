@@ -62,6 +62,16 @@ export function cacheKeyForPoiInput(
   };
 }
 
+export function reservationKeyForSearchSession(
+  service: string,
+  userId: string,
+  sessionId: string | null,
+): string | null {
+  const sessionKey = sessionId == null ? "" : slugKey(sessionId);
+  if (sessionKey.length === 0) return null;
+  return `${service}:search:${userId}:${sessionKey}`;
+}
+
 export function normalizeCategory(raw: string | null): string {
   const value = raw?.trim().toLowerCase() ?? "";
   return [

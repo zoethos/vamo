@@ -18,6 +18,7 @@ import {
   normalizeQuery,
   type PoiInput,
   readPoiInputFromBody,
+  reservationKeyForSearchSession,
 } from "./request.ts";
 
 const FOURSQUARE_SEARCH = "https://places-api.foursquare.com/places/search";
@@ -118,9 +119,10 @@ Deno.serve(async (req) => {
 
   let reservation;
   try {
-    const idempotencyKey = input.mode === "search" && input.sessionId
-      ? `poi:search:${user.id}:${input.sessionId}:${await hashText(cacheKey)}`
-      : crypto.randomUUID();
+    const searchSessionKey = input.mode === "search"
+      ? reservationKeyForSearchSession(SERVICE, user.id, input.sessionId)
+      : null;
+    const idempotencyKey = searchSessionKey ?? crypto.randomUUID();
     reservation = await reserveServiceUsage(serviceClient, {
       idempotencyKey,
       service: SERVICE,
