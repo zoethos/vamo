@@ -1,4 +1,8 @@
-import { cacheKeyForPoiInput, readPoiInputFromBody } from "./request.ts";
+import {
+  cacheKeyForPoiInput,
+  readPoiInputFromBody,
+  reservationKeyForSearchSession,
+} from "./request.ts";
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 Deno.test("readPoiInputFromBody accepts search without caller coordinates", () => {
@@ -59,4 +63,25 @@ Deno.test("cacheKeyForPoiInput separates search sessions from nearby lookups", (
     "poi:foursquare:search:near:munich-germany:attraction:marienplatz",
   );
   assertEquals(nearbyKey.cacheKey, "poi:foursquare:nearby:u281z7:all:any");
+});
+
+Deno.test("reservationKeyForSearchSession meters one search session once", () => {
+  const userId = "9ada6512-b35e-4c54-ba86-493cf9fcbe87";
+  const sessionId = "1782163965486578-29125152";
+
+  const firstKey = reservationKeyForSearchSession("poi", userId, sessionId);
+  const secondKey = reservationKeyForSearchSession("poi", userId, sessionId);
+  const otherKey = reservationKeyForSearchSession(
+    "poi",
+    userId,
+    "1782163965486578-29125153",
+  );
+
+  assertEquals(
+    firstKey,
+    "poi:search:9ada6512-b35e-4c54-ba86-493cf9fcbe87:1782163965486578-29125152",
+  );
+  assertEquals(secondKey, firstKey);
+  assertEquals(otherKey === firstKey, false);
+  assertEquals(reservationKeyForSearchSession("poi", userId, null), null);
 });
