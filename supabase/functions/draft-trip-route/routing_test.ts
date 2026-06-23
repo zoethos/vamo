@@ -75,3 +75,31 @@ Deno.test("loadRoutingConfig fails closed for non-ORS providers", () => {
   assertEquals(cfg.baseUrl, "https://example.test/");
   assertEquals(cfg.timeoutMs, 5000);
 });
+
+Deno.test("loadRoutingConfig accepts environment-scoped ORS secrets", () => {
+  const previousShared = Deno.env.get("VAMO_OPENROUTESERVICE_API_KEY");
+  const previousProd = Deno.env.get("VAMO_OPENROUTESERVICE_PROD_API_KEY");
+  const previousStaging = Deno.env.get("VAMO_OPENROUTESERVICE_STAGING_API_KEY");
+  Deno.env.delete("VAMO_OPENROUTESERVICE_API_KEY");
+  Deno.env.delete("VAMO_OPENROUTESERVICE_PROD_API_KEY");
+  Deno.env.set("VAMO_OPENROUTESERVICE_STAGING_API_KEY", "ors-staging-key");
+  try {
+    const cfg = loadRoutingConfig({
+      provider: "openrouteservice",
+      config: {},
+    });
+    assertEquals(cfg.apiKey, "ors-staging-key");
+  } finally {
+    restoreEnv("VAMO_OPENROUTESERVICE_API_KEY", previousShared);
+    restoreEnv("VAMO_OPENROUTESERVICE_PROD_API_KEY", previousProd);
+    restoreEnv("VAMO_OPENROUTESERVICE_STAGING_API_KEY", previousStaging);
+  }
+});
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    Deno.env.delete(name);
+  } else {
+    Deno.env.set(name, value);
+  }
+}

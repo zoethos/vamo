@@ -4,7 +4,10 @@
 -- keyed by coordinate-pair + routing profile. The draft-trip-route function
 -- calls ORS as a best-effort enhancement over the straight-line haversine check;
 -- it degrades to straight-line when ORS is unconfigured, gated, or fails.
--- Secret (per environment): VAMO_OPENROUTESERVICE_API_KEY.
+-- Secrets:
+--   VAMO_OPENROUTESERVICE_STAGING_API_KEY=...   (staging project)
+--   VAMO_OPENROUTESERVICE_PROD_API_KEY=...      (production project)
+--   VAMO_OPENROUTESERVICE_API_KEY=...           (optional shared alias)
 
 insert into public.provider_config (
   service,

@@ -59,7 +59,11 @@ export function loadRoutingConfig(args: {
   return {
     provider,
     adapter: "ors-matrix",
-    apiKey: Deno.env.get("VAMO_OPENROUTESERVICE_API_KEY")?.trim() ?? "",
+    apiKey: firstEnvValue([
+      "VAMO_OPENROUTESERVICE_API_KEY",
+      "VAMO_OPENROUTESERVICE_PROD_API_KEY",
+      "VAMO_OPENROUTESERVICE_STAGING_API_KEY",
+    ]),
     baseUrl: ensureTrailingSlash(
       stringFromConfig(config, "base_url") ??
         "https://api.openrouteservice.org/",
@@ -169,4 +173,12 @@ function numberFromConfig(
 function ensureTrailingSlash(value: string): string {
   if (!value) return "";
   return value.endsWith("/") ? value : `${value}/`;
+}
+
+function firstEnvValue(names: string[]): string {
+  for (const name of names) {
+    const value = Deno.env.get(name)?.trim();
+    if (value) return value;
+  }
+  return "";
 }
