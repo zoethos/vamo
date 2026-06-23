@@ -47,14 +47,22 @@ class MainShell extends ConsumerWidget {
 
   void _onNavSelected(BuildContext context, WidgetRef ref, int navIndex) {
     if (navIndex == addNavIndex) {
-      _openPrimaryAction(context, ref);
+      if (_hasPrimaryAction(navigationShell.currentIndex)) {
+        _openPrimaryAction(context, ref);
+      }
       return;
     }
     final branch = _navIndexToBranch(navIndex);
     if (branch != null) _onTab(branch);
   }
 
+  bool _hasPrimaryAction(int branchIndex) => branchIndex != activityBranch;
+
+  String _primaryActionTooltip(int branchIndex) =>
+      branchIndex == expensesBranch ? labels.addExpense : labels.createTrip;
+
   void _openPrimaryAction(BuildContext context, WidgetRef ref) {
+    if (!_hasPrimaryAction(navigationShell.currentIndex)) return;
     if (navigationShell.currentIndex == expensesBranch) {
       openAddExpenseFromShell(
         context: context,
@@ -76,17 +84,18 @@ class MainShell extends ConsumerWidget {
       extendBody: true,
       body: navigationShell,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'main_shell_primary_action',
-        tooltip:
-            index == expensesBranch ? labels.addExpense : labels.createTrip,
-        backgroundColor: AppColors.goLime,
-        foregroundColor: AppColors.ink,
-        elevation: 1,
-        shape: const CircleBorder(),
-        onPressed: () => _openPrimaryAction(context, ref),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _hasPrimaryAction(index)
+          ? FloatingActionButton(
+              heroTag: 'main_shell_primary_action',
+              tooltip: _primaryActionTooltip(index),
+              backgroundColor: AppColors.goLime,
+              foregroundColor: AppColors.ink,
+              elevation: 1,
+              shape: const CircleBorder(),
+              onPressed: () => _openPrimaryAction(context, ref),
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         height: 68,
         selectedIndex: _branchToNavIndex(index),

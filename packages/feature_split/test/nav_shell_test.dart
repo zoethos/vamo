@@ -8,70 +8,7 @@ import 'package:go_router/go_router.dart';
 void main() {
   testWidgets('main shell has five nav slots and a centered FAB',
       (tester) async {
-    final router = GoRouter(
-      routes: [
-        StatefulShellRoute.indexedStack(
-          builder: (context, state, shell) => MainShell(
-            navigationShell: shell,
-            labels: const MainShellLabels(
-              trips: 'Trips',
-              activity: 'Activity',
-              add: 'Add',
-              expenses: 'Expenses',
-              profile: 'Profile',
-              createTrip: 'Create trip',
-              addExpense: 'Add expense',
-              addExpensePickerTitle: 'Choose trip',
-              addExpenseLastUsed: 'Last used',
-            ),
-          ),
-          branches: [
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/',
-                  builder: (_, __) => const Scaffold(body: Text('trips')),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/activity',
-                  builder: (_, __) => const Scaffold(body: Text('activity')),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/expenses',
-                  builder: (_, __) => const Scaffold(body: Text('expenses')),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(
-                  path: '/profile',
-                  builder: (_, __) => const Scaffold(body: Text('profile')),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-
-    await tester.pumpWidget(
-      ProviderScope(
-        child: MaterialApp.router(
-          theme: AppTheme.light,
-          routerConfig: router,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpShell(tester);
 
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.text('Trips'), findsOneWidget);
@@ -81,4 +18,91 @@ void main() {
     expect(find.text('Profile'), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
   });
+
+  testWidgets('activity tab has no create-trip primary action', (tester) async {
+    await _pumpShell(tester);
+
+    await tester.tap(find.text('Activity'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('activity'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
+
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('activity'), findsOneWidget);
+    expect(find.text('create trip page'), findsNothing);
+  });
+}
+
+Future<void> _pumpShell(WidgetTester tester) async {
+  final router = GoRouter(
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => MainShell(
+          navigationShell: shell,
+          labels: const MainShellLabels(
+            trips: 'Trips',
+            activity: 'Activity',
+            add: 'Add',
+            expenses: 'Expenses',
+            profile: 'Profile',
+            createTrip: 'Create trip',
+            addExpense: 'Add expense',
+            addExpensePickerTitle: 'Choose trip',
+            addExpenseLastUsed: 'Last used',
+          ),
+        ),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (_, __) => const Scaffold(body: Text('trips')),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/activity',
+                builder: (_, __) => const Scaffold(body: Text('activity')),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/expenses',
+                builder: (_, __) => const Scaffold(body: Text('expenses')),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (_, __) => const Scaffold(body: Text('profile')),
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.tripCreate,
+        builder: (_, __) => const Scaffold(body: Text('create trip page')),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      child: MaterialApp.router(
+        theme: AppTheme.light,
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
