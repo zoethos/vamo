@@ -42,12 +42,12 @@ class PoiSummary {
     required this.providerPlaceId,
     this.address,
     this.distanceM,
-    this.description,
+    this.about,
     this.website,
     this.phone,
     this.hours,
     this.rating,
-    this.price,
+    this.priceLevel,
     this.photoUrl,
   });
 
@@ -60,21 +60,21 @@ class PoiSummary {
   final String providerPlaceId;
   final String? address;
   final int? distanceM;
-  final String? description;
+  final String? about;
   final String? website;
   final String? phone;
   final String? hours;
   final double? rating;
-  final int? price;
+  final int? priceLevel;
   final String? photoUrl;
 
   bool get hasInfo =>
-      description != null ||
+      about != null ||
       website != null ||
       phone != null ||
       hours != null ||
       rating != null ||
-      price != null ||
+      priceLevel != null ||
       photoUrl != null ||
       address != null;
 
@@ -105,12 +105,12 @@ class PoiSummary {
       providerPlaceId: providerPlaceId,
       address: _stringValue(map['address']),
       distanceM: _intValue(map['distanceM']),
-      description: _stringValue(map['description']),
+      about: _stringValue(map['about']) ?? _stringValue(map['description']),
       website: _stringValue(map['website']),
       phone: _stringValue(map['phone']),
       hours: _stringValue(map['hours']),
       rating: _doubleValue(map['rating']),
-      price: _intValue(map['price']),
+      priceLevel: _intValue(map['priceLevel']) ?? _intValue(map['price']),
       photoUrl: _stringValue(map['photoUrl']),
     );
   }

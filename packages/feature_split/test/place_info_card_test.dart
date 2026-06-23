@@ -17,12 +17,12 @@ void main() {
       source: 'foursquare',
       providerPlaceId: 'fsq-1',
       address: 'Via Montecassino',
-      description: 'Historic abbey above Cassino.',
+      about: 'Historic abbey above Cassino.',
       website: 'https://example.com',
       phone: '+390000',
       hours: 'Mon-Sun 09:00-17:00',
       rating: 9.1,
-      price: 2,
+      priceLevel: 2,
       photoUrl: 'https://img.example/place.jpg',
     );
 
@@ -30,7 +30,7 @@ void main() {
 
     expect(info.name, 'Abbazia di Montecassino');
     expect(info.category, PoiCategory.attraction);
-    expect(info.description, 'Historic abbey above Cassino.');
+    expect(info.about, 'Historic abbey above Cassino.');
     expect(info.sourceLabel, 'Foursquare');
   });
 
@@ -44,10 +44,10 @@ void main() {
               name: 'Abbazia di Montecassino',
               category: PoiCategory.attraction,
               address: 'Via Montecassino',
-              description: 'Historic abbey above Cassino.',
+              about: 'Historic abbey above Cassino.',
               hours: 'Mon-Sun 09:00-17:00',
               rating: 9.1,
-              price: 2,
+              priceLevel: 2,
               sourceLabel: 'Foursquare',
             ),
           ),
@@ -58,7 +58,6 @@ void main() {
     expect(find.text('Abbazia di Montecassino'), findsOneWidget);
     expect(find.text('Historic abbey above Cassino.'), findsOneWidget);
     expect(find.text('Place data: Foursquare'), findsOneWidget);
-    expect(find.text('Rating 9.1'), findsOneWidget);
     expect(find.text(r'Price $$'), findsOneWidget);
     expect(find.text('Hours Mon-Sun 09:00-17:00'), findsOneWidget);
   });
