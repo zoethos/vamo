@@ -323,7 +323,22 @@ async function fetchFoursquare(
   url.searchParams.set("limit", `${DEFAULT_LIMIT}`);
   url.searchParams.set(
     "fields",
-    "fsq_place_id,name,categories,latitude,longitude,location,distance",
+    [
+      "fsq_place_id",
+      "name",
+      "categories",
+      "latitude",
+      "longitude",
+      "location",
+      "distance",
+      "description",
+      "tel",
+      "website",
+      "hours",
+      "rating",
+      "price",
+      "photos",
+    ].join(","),
   );
   const query = queryForCategory(input.category);
   const searchQuery = input.query?.trim() || query;

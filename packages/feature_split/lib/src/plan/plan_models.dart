@@ -279,6 +279,14 @@ class VisitPlaceMetadata {
     this.lng,
     this.placeId,
     this.photoUrl,
+    this.category,
+    this.rating,
+    this.price,
+    this.website,
+    this.phone,
+    this.hours,
+    this.about,
+    this.aboutSource,
   });
 
   final String placeLabel;
@@ -287,6 +295,14 @@ class VisitPlaceMetadata {
   final double? lng;
   final String? placeId;
   final String? photoUrl;
+  final String? category;
+  final double? rating;
+  final int? price;
+  final String? website;
+  final String? phone;
+  final String? hours;
+  final String? about;
+  final String? aboutSource;
 
   bool get hasCoords => lat != null && lng != null;
 }
@@ -321,6 +337,14 @@ VisitPlaceMetadata? parseVisitPlaceMetadata(Object? raw) {
     photoUrl: _stringValue(metadata['photo_url']) ??
         _stringValue(metadata['image_url']) ??
         _stringValue(metadata['thumbnail_url']),
+    category: _stringValue(metadata['category']),
+    rating: _doubleValue(metadata['rating']),
+    price: _intValue(metadata['price']),
+    website: _stringValue(metadata['website']),
+    phone: _stringValue(metadata['phone']),
+    hours: _stringValue(metadata['hours']),
+    about: _stringValue(metadata['about']),
+    aboutSource: _stringValue(metadata['about_source']),
   );
 }
 
@@ -331,11 +355,25 @@ Map<String, Object?> buildVisitPlaceMetadata({
   double? lng,
   String? placeId,
   String? photoUrl,
+  String? category,
+  double? rating,
+  int? price,
+  String? website,
+  String? phone,
+  String? hours,
+  String? about,
+  String? aboutSource,
 }) {
   final normalizedLabel = placeLabel.trim();
   final normalizedAddress = address?.trim();
   final normalizedPlaceId = placeId?.trim();
   final normalizedPhotoUrl = photoUrl?.trim();
+  final normalizedCategory = category?.trim();
+  final normalizedWebsite = website?.trim();
+  final normalizedPhone = phone?.trim();
+  final normalizedHours = hours?.trim();
+  final normalizedAbout = about?.trim();
+  final normalizedAboutSource = aboutSource?.trim();
   return <String, Object?>{
     'place_label': normalizedLabel,
     if (normalizedAddress != null && normalizedAddress.isNotEmpty)
@@ -346,6 +384,20 @@ Map<String, Object?> buildVisitPlaceMetadata({
       'place_id': normalizedPlaceId,
     if (normalizedPhotoUrl != null && normalizedPhotoUrl.isNotEmpty)
       'photo_url': normalizedPhotoUrl,
+    if (normalizedCategory != null && normalizedCategory.isNotEmpty)
+      'category': normalizedCategory,
+    if (rating != null) 'rating': rating,
+    if (price != null) 'price': price,
+    if (normalizedWebsite != null && normalizedWebsite.isNotEmpty)
+      'website': normalizedWebsite,
+    if (normalizedPhone != null && normalizedPhone.isNotEmpty)
+      'phone': normalizedPhone,
+    if (normalizedHours != null && normalizedHours.isNotEmpty)
+      'hours': normalizedHours,
+    if (normalizedAbout != null && normalizedAbout.isNotEmpty)
+      'about': normalizedAbout,
+    if (normalizedAboutSource != null && normalizedAboutSource.isNotEmpty)
+      'about_source': normalizedAboutSource,
   };
 }
 
@@ -424,6 +476,14 @@ double? _doubleValue(Object? value) {
   if (value == null) return null;
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value);
+  return null;
+}
+
+int? _intValue(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.round();
+  if (value is String) return int.tryParse(value);
   return null;
 }
 

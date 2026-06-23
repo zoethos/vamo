@@ -102,6 +102,13 @@ void main() {
           source: 'foursquare',
           providerPlaceId: 'fsq:123',
           address: 'Marienplatz 1, Munich',
+          description: 'Central square in Munich.',
+          website: 'https://example.com',
+          phone: '+491234',
+          hours: 'Open now',
+          rating: 8.7,
+          price: 2,
+          photoUrl: 'https://img.example/place.jpg',
         ),
       ]),
     );
@@ -169,6 +176,15 @@ void main() {
     expect(saved?.metadata['lat'], 48.1374);
     expect(saved?.metadata['lng'], 11.5755);
     expect(saved?.metadata['place_id'], 'fsq:123');
+    expect(saved?.metadata['category'], 'attraction');
+    expect(saved?.metadata['about'], 'Central square in Munich.');
+    expect(saved?.metadata['about_source'], 'foursquare');
+    expect(saved?.metadata['website'], 'https://example.com');
+    expect(saved?.metadata['phone'], '+491234');
+    expect(saved?.metadata['hours'], 'Open now');
+    expect(saved?.metadata['rating'], 8.7);
+    expect(saved?.metadata['price'], 2);
+    expect(saved?.metadata['photo_url'], 'https://img.example/place.jpg');
   });
 }
 
