@@ -33,6 +33,9 @@ verify_jwt = false           # plain GET from FxRatesClient (no JWT); self-guard
 [functions.resolve-theme]
 verify_jwt = true            # user-facing: caller's JWT bearer, re-checked in code
 
+[functions.draft-trip-route]
+verify_jwt = true            # user-facing: caller's JWT bearer, re-checked in code
+
 [functions.scheduled-heartbeat]
 verify_jwt = false           # cron-invoked; gated by CRON_SECRET
 
