@@ -5,6 +5,9 @@
 //   VAMO_OPENAI_STAGING_API_KEY=...               (staging project)
 //   VAMO_OPENAI_PROD_API_KEY=...                  (production project)
 //   VAMO_OPENAI_API_KEY=...                       (optional shared alias)
+//   VAMO_OPENROUTESERVICE_STAGING_API_KEY=...     (staging project)
+//   VAMO_OPENROUTESERVICE_PROD_API_KEY=...        (production project)
+//   VAMO_OPENROUTESERVICE_API_KEY=...             (optional shared alias)
 //   VAMO_ROUTE_DRAFT_AZURE_OPENAI_API_KEY=...     (optional, when enabled)
 // Provider/model/base URL/routing live in provider_config, not in app clients.
 //
