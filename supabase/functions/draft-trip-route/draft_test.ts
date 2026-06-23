@@ -4,6 +4,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   type DraftInput,
+  extractRoadHops,
   haversineKm,
   parseDraftInput,
   validateRouteDraft,
@@ -230,4 +231,66 @@ Deno.test("feasibility ignores time-capped legs", () => {
   }, INPUT);
   assert(result.ok);
   assert(!result.draft.warnings.some((w) => w.includes("km cap")));
+});
+
+Deno.test("extractRoadHops: distance-capped road legs with coords only", () => {
+  const hops = extractRoadHops({
+    plan_items: [
+      {
+        kind: "transfer",
+        title: "Drive",
+        leg_index: 0,
+        from: { lat: 41.9, lng: 12.5 },
+        to: { lat: 40.85, lng: 14.25 },
+      },
+      // Leg 1 is time-capped → excluded even with coords.
+      {
+        kind: "train",
+        title: "Train",
+        leg_index: 1,
+        from: { lat: 1, lng: 2 },
+        to: { lat: 3, lng: 4 },
+      },
+      // No coords → excluded.
+      { kind: "visit", title: "Walk", leg_index: 0 },
+    ],
+    warnings: [],
+    unresolved_questions: [],
+  }, INPUT);
+  assertEquals(hops.length, 1);
+  assertEquals(hops[0].legIndex, 0);
+  assertEquals(hops[0].mode, "car");
+});
+
+Deno.test("validateRouteDraft prefers provided road km (labelled 'road')", () => {
+  // Rome->Naples straight-line ~190 km (well within 600), but road km says 700.
+  const result = validateRouteDraft(
+    {
+      plan_items: [
+        {
+          kind: "transfer",
+          title: "Scenic detour",
+          transfer_subtype: "drive",
+          starts_at: null,
+          ends_at: null,
+          notes: null,
+          leg_index: 0,
+          from: { lat: 41.9, lng: 12.5 },
+          to: { lat: 40.85, lng: 14.25 },
+        },
+      ],
+      warnings: [],
+      unresolved_questions: [],
+    },
+    INPUT,
+    { legRoadKm: new Map([[0, 700]]) },
+  );
+  assert(result.ok);
+  assert(
+    result.draft.warnings.some(
+      (w) =>
+        w.includes("estimated road") && w.includes("exceeds your 600 km cap"),
+    ),
+    JSON.stringify(result.draft.warnings),
+  );
 });

@@ -20,7 +20,9 @@ import {
   reserveServiceUsage,
 } from "../_shared/premium.ts";
 import {
+  type Coord,
   type DraftInput,
+  extractRoadHops,
   parseDraftInput,
   validateRouteDraft,
 } from "./draft.ts";
@@ -31,6 +33,15 @@ import {
   providerErrorMetadata,
   type RouteAiProviderConfig,
 } from "./providers.ts";
+import {
+  indexCoords,
+  loadRoutingConfig,
+  orsMatrixMeters,
+  orsProfileForMode,
+  pairCacheKey,
+} from "./routing.ts";
+
+const ROUTE_DISTANCE_SERVICE = "route-distance";
 
 type JsonRecord = Record<string, unknown>;
 type SupabaseClientLike = ReturnType<typeof createClient<any, "public", any>>;
@@ -215,7 +226,17 @@ Deno.serve(async (req) => {
     return fallback(errorKind);
   }
 
-  const validation = validateRouteDraft(modelOutput.raw, input);
+  // Best-effort: real road distance (ORS) sharpens feasibility. Any failure —
+  // unconfigured, gated, timeout — leaves legRoadKm undefined and the validator
+  // falls back to the straight-line haversine check.
+  const legRoadKm = await roadDistanceByLeg(
+    serviceClient,
+    modelOutput.raw,
+    input,
+    userId,
+  ).catch(() => undefined);
+
+  const validation = validateRouteDraft(modelOutput.raw, input, { legRoadKm });
   if (!validation.ok) {
     await releaseServiceUsageReservation(
       serviceClient,
@@ -346,15 +367,17 @@ interface UsageEvent {
   latencyMs?: number;
   errorKind?: string;
   metadata?: JsonRecord;
+  feature?: string;
+  operation?: string;
 }
 
 async function recordUsage(client: SupabaseClientLike, event: UsageEvent) {
   try {
     await client.from("provider_usage_events").insert({
-      feature: SERVICE,
+      feature: event.feature ?? SERVICE,
       provider: event.provider,
       model: event.model ?? null,
-      operation: "generate-route",
+      operation: event.operation ?? "generate-route",
       status: event.status,
       cached: event.cached,
       input_units: event.inputUnits ?? null,
@@ -367,6 +390,171 @@ async function recordUsage(client: SupabaseClientLike, event: UsageEvent) {
   } catch (e) {
     console.error("provider_usage_events insert failed", e);
   }
+}
+
+interface RoadPair {
+  legIndex: number;
+  from: Coord;
+  to: Coord;
+  profile: string;
+  key: string;
+}
+
+/**
+ * Real road km per distance-capped leg via ORS (cache-first, metered). Returns
+ * a leg→km map only for legs whose every hop resolved; otherwise that leg is
+ * omitted so the validator falls back to straight-line. Undefined = no road
+ * data at all. Never throws (caller wraps in .catch).
+ */
+async function roadDistanceByLeg(
+  client: SupabaseClientLike,
+  raw: unknown,
+  input: DraftInput,
+  userId: string,
+): Promise<Map<number, number> | undefined> {
+  const hops: RoadPair[] = [];
+  for (const h of extractRoadHops(raw, input)) {
+    const profile = orsProfileForMode(h.mode);
+    if (!profile) continue; // train/flight aren't road-routable
+    hops.push({
+      legIndex: h.legIndex,
+      from: h.from,
+      to: h.to,
+      profile,
+      key: pairCacheKey(h.from, h.to, profile),
+    });
+  }
+  if (hops.length === 0) return undefined;
+
+  const distByKey = new Map<string, number>();
+  const keys = [...new Set(hops.map((h) => h.key))];
+  const { data: cached } = await client
+    .from("route_distance_cache")
+    .select("cache_key, distance_m, expires_at")
+    .in("cache_key", keys);
+  const now = Date.now();
+  for (const row of (cached ?? []) as JsonRecord[]) {
+    if (Date.parse(row.expires_at as string) > now) {
+      distByKey.set(row.cache_key as string, row.distance_m as number);
+    }
+  }
+
+  const missing = hops.filter((h) => !distByKey.has(h.key));
+  if (missing.length > 0) {
+    await fetchAndCacheRoad(client, missing, distByKey, userId);
+  }
+
+  const legKm = new Map<number, number>();
+  const legComplete = new Map<number, boolean>();
+  for (const h of hops) {
+    const meters = distByKey.get(h.key);
+    if (meters === undefined) {
+      legComplete.set(h.legIndex, false);
+      continue;
+    }
+    if (!legComplete.has(h.legIndex)) legComplete.set(h.legIndex, true);
+    legKm.set(h.legIndex, (legKm.get(h.legIndex) ?? 0) + meters / 1000);
+  }
+  const result = new Map<number, number>();
+  for (const [leg, km] of legKm) {
+    if (legComplete.get(leg)) result.set(leg, km);
+  }
+  return result.size > 0 ? result : undefined;
+}
+
+async function fetchAndCacheRoad(
+  client: SupabaseClientLike,
+  missing: RoadPair[],
+  distByKey: Map<string, number>,
+  userId: string,
+): Promise<void> {
+  let reservation;
+  try {
+    reservation = await reserveServiceUsage(client, {
+      idempotencyKey: crypto.randomUUID(),
+      service: ROUTE_DISTANCE_SERVICE,
+      userId,
+    });
+  } catch {
+    return;
+  }
+  if (reservation.gated || !reservation.reserved) return; // → haversine fallback
+
+  let routingConfig;
+  try {
+    routingConfig = loadRoutingConfig({
+      provider: reservation.provider,
+      config: reservation.config,
+    });
+  } catch {
+    await releaseServiceUsageReservation(client, reservation.reservationId)
+      .catch(() => {});
+    return;
+  }
+  if (!routingConfig.apiKey) {
+    await releaseServiceUsageReservation(client, reservation.reservationId)
+      .catch(() => {});
+    return;
+  }
+
+  const byProfile = new Map<string, RoadPair[]>();
+  for (const p of missing) {
+    const group = byProfile.get(p.profile) ?? [];
+    group.push(p);
+    byProfile.set(p.profile, group);
+  }
+
+  const started = Date.now();
+  let fresh = 0;
+  let errorKind: string | undefined;
+  try {
+    const ttl = reservation.cacheTtlSeconds ?? 0;
+    for (const [profile, group] of byProfile) {
+      const { unique, indexOf } = indexCoords(
+        group.flatMap((p) => [p.from, p.to]),
+      );
+      const matrix = await orsMatrixMeters(routingConfig, profile, unique);
+      for (const p of group) {
+        const meters = matrix[indexOf(p.from)]?.[indexOf(p.to)];
+        if (typeof meters === "number") {
+          distByKey.set(p.key, meters);
+          fresh++;
+          await writeRoadCache(client, p.key, profile, meters, ttl);
+        }
+      }
+    }
+  } catch (e) {
+    errorKind = e instanceof Error ? e.message : "routing_error";
+  }
+  await completeServiceUsageReservation(client, reservation.reservationId)
+    .catch(() => {});
+  await recordUsage(client, {
+    feature: ROUTE_DISTANCE_SERVICE,
+    operation: "matrix",
+    provider: routingConfig.provider,
+    status: errorKind ? "error" : "success",
+    cached: false,
+    latencyMs: Date.now() - started,
+    errorKind,
+    metadata: { pairs: missing.length, fresh },
+  });
+}
+
+async function writeRoadCache(
+  client: SupabaseClientLike,
+  cacheKey: string,
+  profile: string,
+  distanceM: number,
+  ttlSeconds: number,
+): Promise<void> {
+  if (ttlSeconds <= 0) return;
+  await client.from("route_distance_cache").upsert({
+    cache_key: cacheKey,
+    profile,
+    distance_m: Math.round(distanceM),
+    fetched_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+  }, { onConflict: "cache_key" });
 }
 
 function envelopeFingerprint(input: DraftInput): string {
