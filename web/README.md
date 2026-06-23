@@ -11,7 +11,7 @@ one migration chain) and shared invite URL shapes (`InviteUrls` in `app_core`).
 cd web
 npm install
 npx turbo run build    # all apps
-npx turbo run dev      # local dev (site on :3000)
+npx turbo run dev      # local dev (site on :4373)
 ```
 
 ## Apps
