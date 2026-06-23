@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../snapshot/theme_resolver_repository.dart';
+import '../travel/advanced_travel_labels.dart';
+import '../travel/advanced_travel_section.dart';
+import '../travel/travel_leg.dart';
 import 'create_trip_labels.dart';
 import 'trips_models.dart';
 import 'trips_repository.dart';
@@ -33,6 +36,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   DateTime? _endDate;
   bool _saving = false;
   String? _dateRangeError;
+  bool _advanced = false;
+  List<TravelLeg> _legs = const [];
 
   static const _currencies = kProfileCurrencies;
 
@@ -160,24 +165,84 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     ),
               ),
             ],
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text(labels.submit),
+            const SizedBox(height: 24),
+            _AdvancedToggle(
+              labels: labels.advanced,
+              value: _advanced,
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _advanced = v),
             ),
+            if (_advanced) ...[
+              const SizedBox(height: 20),
+              AdvancedTravelSection(
+                labels: labels.advanced,
+                legs: _legs,
+                onChanged: (legs) => setState(() => _legs = legs),
+                unit: ref.watch(distanceUnitProvider),
+                datePickerLabels: VamoDatePickerLabels(
+                  cancel: labels.datePickerCancel,
+                  skip: labels.datePickerSkip,
+                  select: labels.datePickerSelect,
+                ),
+                tripStart: _startDate,
+                tripEnd: _endDate,
+              ),
+            ],
+            const SizedBox(height: 32),
+            ..._buildCtas(labels),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildCtas(CreateTripLabels labels) {
+    final saveButton = FilledButton(
+      onPressed: _saving ? null : _save,
+      child: _saving
+          ? const SizedBox(
+              height: 22,
+              width: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : Text(_advanced ? labels.advanced.planItMyself : labels.submit),
+    );
+
+    if (!_advanced) return [saveButton];
+
+    // "Draft route with AI" is the headline CTA but is wired in a later slice;
+    // for now it announces itself and the manual path sits right beside it.
+    return [
+      FilledButton.icon(
+        onPressed: _saving
+            ? null
+            : () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(labels.advanced.draftComingSoon)),
+                ),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.goLime,
+          foregroundColor: AppColors.ink,
+          minimumSize: const Size.fromHeight(52),
+        ),
+        icon: const Icon(Icons.auto_awesome),
+        label: Text(labels.advanced.draftWithAi),
+      ),
+      const SizedBox(height: 12),
+      saveButton,
+      const SizedBox(height: 12),
+      Text(
+        labels.advanced.aiFootnote,
+        textAlign: TextAlign.center,
+        style: Theme.of(context)
+            .textTheme
+            .bodySmall
+            ?.copyWith(color: AppColors.neutralMid),
+      ),
+    ];
   }
 
   void _validateDateRange() {
@@ -290,6 +355,88 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   String? _isoDate(DateTime? d) =>
       d == null ? null : DateFormat('yyyy-MM-dd').format(d);
+}
+
+class _AdvancedToggle extends StatelessWidget {
+  const _AdvancedToggle({
+    required this.labels,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final AdvancedTravelLabels labels;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.deepPlum.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.deepPlum.withValues(alpha: 0.4)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Row(
+        children: [
+          const Icon(Icons.tune, color: AppColors.deepPlum),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        labels.toggleTitle,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.deepPlum.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        labels.toggleBadge.toUpperCase(),
+                        style: textTheme.labelSmall?.copyWith(
+                          color: AppColors.deepPlum,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  labels.toggleSubtitle,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.graphite,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: AppColors.deepPlum,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DateRow extends StatelessWidget {
