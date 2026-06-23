@@ -44,7 +44,11 @@ export function loadRouteAiProviderConfig(args: {
         provider,
         adapter,
         model: stringFromConfig(config, "model") ?? DEFAULT_OPENAI_MODEL,
-        apiKey: Deno.env.get("VAMO_ROUTE_DRAFT_OPENAI_API_KEY")?.trim() ?? "",
+        apiKey: firstEnvValue([
+          "VAMO_OPENAI_API_KEY",
+          "VAMO_OPENAI_PROD_API_KEY",
+          "VAMO_OPENAI_STAGING_API_KEY",
+        ]),
         baseUrl: ensureTrailingSlash(
           stringFromConfig(config, "base_url") ?? DEFAULT_OPENAI_BASE_URL,
         ),
@@ -214,4 +218,12 @@ function stringFromConfig(
 function ensureTrailingSlash(value: string): string {
   if (!value) return "";
   return value.endsWith("/") ? value : `${value}/`;
+}
+
+function firstEnvValue(names: string[]): string {
+  for (const name of names) {
+    const value = Deno.env.get(name)?.trim();
+    if (value) return value;
+  }
+  return "";
 }
