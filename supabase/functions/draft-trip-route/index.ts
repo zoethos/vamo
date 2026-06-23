@@ -12,7 +12,7 @@
 // (destination, dates, modes, reach) — never trip names, members, or money.
 // Proposes a draft only: NO Plan writes here (commit is Slice 3).
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   completeServiceUsageReservation,
   recordPremiumGateNotification,
