@@ -14,12 +14,12 @@ void main() {
         'providerPlaceId': 'fsq-1',
         'address': 'Marienplatz',
         'distanceM': 121.6,
-        'description': 'Central square in Munich.',
+        'about': 'Central square in Munich.',
         'website': 'https://example.com',
         'phone': '+491234',
         'hours': 'Open now',
         'rating': '8.7',
-        'price': 2,
+        'priceLevel': 2,
         'photoUrl': 'https://img.example/place.jpg',
       });
 
@@ -29,14 +29,31 @@ void main() {
       expect(poi?.lat, 48.137);
       expect(poi?.lng, 11.575);
       expect(poi?.distanceM, 122);
-      expect(poi?.description, 'Central square in Munich.');
+      expect(poi?.about, 'Central square in Munich.');
       expect(poi?.website, 'https://example.com');
       expect(poi?.phone, '+491234');
       expect(poi?.hours, 'Open now');
       expect(poi?.rating, 8.7);
-      expect(poi?.price, 2);
+      expect(poi?.priceLevel, 2);
       expect(poi?.photoUrl, 'https://img.example/place.jpg');
       expect(poi?.hasInfo, isTrue);
+    });
+
+    test('parses legacy normalized info keys for cached payloads', () {
+      final poi = PoiSummary.fromJson({
+        'id': 'fsq-1',
+        'name': 'Cafe Roma',
+        'category': 'food',
+        'lat': 48.137,
+        'lng': 11.575,
+        'source': 'foursquare',
+        'providerPlaceId': 'fsq-1',
+        'description': 'Legacy description.',
+        'price': 3,
+      });
+
+      expect(poi?.about, 'Legacy description.');
+      expect(poi?.priceLevel, 3);
     });
 
     test('rejects rows missing trusted identity or coordinates', () {

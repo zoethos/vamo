@@ -464,12 +464,12 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
         photoUrl: _selectedPoi?.photoUrl,
         category: _selectedPoi?.category.name,
         rating: _selectedPoi?.rating,
-        price: _selectedPoi?.price,
+        price: _selectedPoi?.priceLevel,
         website: _selectedPoi?.website,
         phone: _selectedPoi?.phone,
         hours: _selectedPoi?.hours,
-        about: _selectedPoi?.description,
-        aboutSource: _selectedPoi?.description == null ? null : 'foursquare',
+        about: _selectedPoi?.about,
+        aboutSource: _selectedPoi?.about == null ? null : 'foursquare',
       );
     }
 
