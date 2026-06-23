@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import {
   providerDashboardGuardrails,
@@ -23,6 +24,19 @@ const statusLabels = {
 export default function ProviderDashboardPage() {
   return (
     <main className="provider-dashboard">
+      <nav className="provider-masthead" aria-label="Provider dashboard">
+        <Link className="provider-brand" href="/">
+          <Image
+            src="/brand/mark_white.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+          />
+          <span>Vamo</span>
+        </Link>
+        <span className="provider-product-label">Provider Control Plane</span>
+      </nav>
       <section className="provider-hero">
         <div>
           <p className="provider-eyebrow">Founder dashboard · P0</p>
@@ -34,6 +48,14 @@ export default function ProviderDashboardPage() {
           </p>
         </div>
         <div className="provider-hero-card">
+          <div className="provider-card-mark">
+            <Image
+              src="/brand/mark_white.png"
+              alt=""
+              width={52}
+              height={52}
+            />
+          </div>
           <span>Next unlock</span>
           <strong>Live usage after admin auth</strong>
           <p>
