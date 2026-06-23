@@ -64,6 +64,15 @@ void main() {
         lat: 41.8881,
         lng: 12.4762,
         placeId: 'place-123',
+        photoUrl: ' https://img.example/place.jpg ',
+        category: ' food ',
+        rating: 8.7,
+        price: 2,
+        website: ' https://example.com ',
+        phone: ' +391234 ',
+        hours: ' Open now ',
+        about: ' A Roman classic. ',
+        aboutSource: ' foursquare ',
       );
       expect(map['place_label'], 'Trattoria da Enzo');
       expect(map['address'], 'Via dei Vascellari 29');
@@ -75,6 +84,15 @@ void main() {
       expect(parsed.lat, closeTo(41.8881, 1e-9));
       expect(parsed.lng, closeTo(12.4762, 1e-9));
       expect(parsed.placeId, 'place-123');
+      expect(parsed.photoUrl, 'https://img.example/place.jpg');
+      expect(parsed.category, 'food');
+      expect(parsed.rating, 8.7);
+      expect(parsed.price, 2);
+      expect(parsed.website, 'https://example.com');
+      expect(parsed.phone, '+391234');
+      expect(parsed.hours, 'Open now');
+      expect(parsed.about, 'A Roman classic.');
+      expect(parsed.aboutSource, 'foursquare');
       expect(parsed.hasCoords, isTrue);
     });
 

@@ -17,6 +17,13 @@ export interface Poi {
   lng: number;
   address?: string;
   distanceM?: number;
+  description?: string;
+  website?: string;
+  phone?: string;
+  hours?: string;
+  rating?: number;
+  price?: number;
+  photoUrl?: string;
   source: "foursquare";
   providerPlaceId: string;
 }
@@ -42,17 +49,34 @@ function normalizeFoursquarePlace(raw: unknown): Poi | null {
   const lng = numberValue(row.longitude);
   if (!id || !name || lat == null || lng == null) return null;
 
-  return {
+  const poi: Poi = {
     id: id,
     providerPlaceId: id,
     name,
     category: bucketForCategories(row.categories, row.fsq_category_labels),
     lat,
     lng,
-    address: addressFromLocation(row.location),
-    distanceM: roundOrUndefined(numberValue(row.distance)),
     source: "foursquare",
   };
+  const address = addressFromLocation(row.location);
+  const distanceM = roundOrUndefined(numberValue(row.distance));
+  const description = stringValue(row.description);
+  const website = stringValue(row.website);
+  const phone = stringValue(row.tel);
+  const hours = hoursLabel(row.hours);
+  const rating = numberValue(row.rating);
+  const price = roundOrUndefined(numberValue(row.price));
+  const photoUrl = photoUrlFromPhotos(row.photos);
+  if (address) poi.address = address;
+  if (distanceM != null) poi.distanceM = distanceM;
+  if (description) poi.description = description;
+  if (website) poi.website = website;
+  if (phone) poi.phone = phone;
+  if (hours) poi.hours = hours;
+  if (rating != null) poi.rating = rating;
+  if (price != null) poi.price = price;
+  if (photoUrl) poi.photoUrl = photoUrl;
+  return poi;
 }
 
 export function queryForCategory(category: string | null): string | null {
@@ -133,6 +157,30 @@ function addressFromLocation(raw: unknown): string | undefined {
   return stringValue(location.formatted_address) ??
     stringValue(location.address) ??
     (joined.length > 0 ? joined : undefined);
+}
+
+function hoursLabel(raw: unknown): string | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const hours = raw as Record<string, unknown>;
+  const display = stringValue(hours.display) ?? stringValue(hours.status);
+  if (display) return display;
+  if (hours.open_now === true) return "Open now";
+  if (hours.open_now === false) return "Closed now";
+  return undefined;
+}
+
+function photoUrlFromPhotos(raw: unknown): string | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  for (const entry of raw) {
+    if (entry == null || typeof entry !== "object") continue;
+    const photo = entry as Record<string, unknown>;
+    const directUrl = stringValue(photo.url);
+    if (directUrl) return directUrl;
+    const prefix = stringValue(photo.prefix);
+    const suffix = stringValue(photo.suffix);
+    if (prefix && suffix) return `${prefix}300x300${suffix}`;
+  }
+  return undefined;
 }
 
 function stringValue(raw: unknown): string | undefined {

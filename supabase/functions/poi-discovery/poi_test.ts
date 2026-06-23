@@ -51,6 +51,46 @@ Deno.test("normalizeFoursquarePlaces drops malformed rows and maps unknown categ
   assertEquals(pois[0].address, "Street");
 });
 
+Deno.test("normalizeFoursquarePlaces maps optional place info fields", () => {
+  const pois = normalizeFoursquarePlaces({
+    results: [
+      {
+        fsq_place_id: "fsq-info",
+        name: "Abbazia di Montecassino",
+        latitude: 41.49,
+        longitude: 13.81,
+        categories: [{ name: "Historic Site" }],
+        location: { formatted_address: "Via Montecassino" },
+        description: "Historic abbey above Cassino.",
+        tel: "+390000",
+        website: "https://example.com",
+        hours: { display: "Mon-Sun 09:00-17:00" },
+        rating: 9.1,
+        price: 2,
+        photos: [{ prefix: "https://img.example/", suffix: ".jpg" }],
+      },
+    ],
+  });
+
+  assertEquals(pois[0], {
+    id: "fsq-info",
+    providerPlaceId: "fsq-info",
+    name: "Abbazia di Montecassino",
+    category: "attraction",
+    lat: 41.49,
+    lng: 13.81,
+    address: "Via Montecassino",
+    description: "Historic abbey above Cassino.",
+    website: "https://example.com",
+    phone: "+390000",
+    hours: "Mon-Sun 09:00-17:00",
+    rating: 9.1,
+    price: 2,
+    photoUrl: "https://img.example/300x300.jpg",
+    source: "foursquare",
+  });
+});
+
 Deno.test("queryForCategory only maps Vamo buckets", () => {
   assertEquals(queryForCategory("food"), "restaurant");
   assertEquals(queryForCategory("transport"), "station");

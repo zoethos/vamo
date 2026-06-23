@@ -7,22 +7,26 @@ class VamoSlidableRow extends StatelessWidget {
   const VamoSlidableRow({
     super.key,
     required this.child,
-    required this.editLabel,
-    required this.deleteLabel,
-    required this.deleteConfirmTitle,
-    required this.deleteConfirmAction,
-    required this.cancelLabel,
+    this.infoLabel = 'Info',
+    this.editLabel = 'Edit',
+    this.deleteLabel = 'Delete',
+    this.deleteConfirmTitle = 'Delete?',
+    this.deleteConfirmAction = 'Delete',
+    this.cancelLabel = 'Cancel',
+    this.onInfo,
     this.onEdit,
     this.onDelete,
     this.startActions,
   });
 
   final Widget child;
+  final String infoLabel;
   final String editLabel;
   final String deleteLabel;
   final String deleteConfirmTitle;
   final String deleteConfirmAction;
   final String cancelLabel;
+  final VoidCallback? onInfo;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -64,6 +68,9 @@ class VamoSlidableRow extends StatelessWidget {
     if (onEdit != null) {
       actions.add((label: editLabel, action: onEdit));
     }
+    if (onInfo != null) {
+      actions.add((label: infoLabel, action: onInfo));
+    }
     if (onDelete != null) {
       actions.add((
         label: deleteLabel,
@@ -98,34 +105,46 @@ class VamoSlidableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.vamoColors;
+    final hasInfo = onInfo != null;
     final hasDelete = onDelete != null;
     final hasEdit = onEdit != null;
     final hasStart = startActions != null && startActions!.isNotEmpty;
-    if (!hasDelete && !hasEdit && !hasStart) return child;
+    if (!hasInfo && !hasDelete && !hasEdit && !hasStart) return child;
 
     return Semantics(
       button: true,
-      label: editLabel,
+      label: hasInfo && !hasEdit ? infoLabel : editLabel,
       child: Slidable(
         key: ValueKey(Object.hash(editLabel, deleteLabel, child.key)),
         groupTag: 'vamo-slidable',
-        endActionPane: hasDelete
-            ? ActionPane(
-                motion: const DrawerMotion(),
-                extentRatio: 0.28,
-                children: [
-                  SlidableAction(
-                    onPressed: (_) async {
-                      if (await _confirmDelete(context)) onDelete!();
-                    },
-                    backgroundColor: colors.error,
-                    foregroundColor: colors.onPrimary,
-                    icon: Icons.delete_outline,
-                    label: deleteLabel,
-                  ),
-                ],
-              )
-            : null,
+        endActionPane: () {
+          final actions = <SlidableAction>[
+            if (hasInfo)
+              SlidableAction(
+                onPressed: (_) => onInfo!(),
+                backgroundColor: colors.secondary,
+                foregroundColor: colors.onSecondary,
+                icon: Icons.travel_explore,
+                label: infoLabel,
+              ),
+            if (hasDelete)
+              SlidableAction(
+                onPressed: (_) async {
+                  if (await _confirmDelete(context)) onDelete!();
+                },
+                backgroundColor: colors.error,
+                foregroundColor: colors.onPrimary,
+                icon: Icons.delete_outline,
+                label: deleteLabel,
+              ),
+          ];
+          if (actions.isEmpty) return null;
+          return ActionPane(
+            motion: const DrawerMotion(),
+            extentRatio: 0.28 + (actions.length - 1) * 0.18,
+            children: actions,
+          );
+        }(),
         startActionPane: () {
           final actions = <SlidableAction>[
             if (startActions != null) ...startActions!,

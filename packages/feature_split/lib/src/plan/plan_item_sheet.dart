@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../places/place_models.dart';
+import '../poi/place_info_card.dart';
 import '../poi/poi_models.dart';
 import '../poi/poi_providers.dart';
+import '../shared/vamo_slidable_row.dart';
 import 'plan_event_rsvp_chips.dart';
 import 'plan_labels.dart';
 import 'plan_models.dart';
@@ -58,6 +60,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
   double? _visitLat;
   double? _visitLng;
   String? _visitPlaceId;
+  PoiSummary? _selectedPoi;
   String? _visitStatus;
   bool _visitStatusIsError = false;
   bool _geocoding = false;
@@ -383,6 +386,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitPlaceId = null;
       _visitLat = null;
       _visitLng = null;
+      _selectedPoi = null;
       _visitStatus = null;
       _visitStatusIsError = false;
       _discoveringPois = false;
@@ -457,6 +461,15 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
         lat: _visitLat,
         lng: _visitLng,
         placeId: _visitPlaceId,
+        photoUrl: _selectedPoi?.photoUrl,
+        category: _selectedPoi?.category.name,
+        rating: _selectedPoi?.rating,
+        price: _selectedPoi?.price,
+        website: _selectedPoi?.website,
+        phone: _selectedPoi?.phone,
+        hours: _selectedPoi?.hours,
+        about: _selectedPoi?.description,
+        aboutSource: _selectedPoi?.description == null ? null : 'foursquare',
       );
     }
 
@@ -490,6 +503,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitLat = place.lat;
       _visitLng = place.lng;
       _visitPlaceId = place.id;
+      _selectedPoi = null;
       _visitStatus = place.lat != null && place.lng != null
           ? widget.labels.visitCoordinatesSaved
           : null;
@@ -513,6 +527,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitLat = poi.lat;
       _visitLng = poi.lng;
       _visitPlaceId = poi.providerPlaceId;
+      _selectedPoi = poi;
       _visitStatus = widget.labels.visitCoordinatesSaved;
       _visitStatusIsError = false;
       _poiSuggestions = const <PoiSummary>[];
@@ -537,6 +552,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitPlaceId = null;
       _visitLat = null;
       _visitLng = null;
+      _selectedPoi = null;
       _poiGateVisible = false;
       _visitStatus = null;
       _visitStatusIsError = false;
@@ -597,6 +613,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _discoveringPois = false;
       _geocoding = false;
       _visitPlaceId = null;
+      _selectedPoi = null;
       if (result == null) {
         _poiSuggestions = const <PoiSummary>[];
         _visitStatus = showErrors ? widget.labels.visitDiscoverLoadError : null;
@@ -1098,7 +1115,7 @@ class _VisitPoiSuggestionRow extends StatelessWidget {
       if (poi.distanceM case final distance?) '${distance} m',
     ];
 
-    return Material(
+    final row = Material(
       color:
           selected ? _visitCoral.withValues(alpha: 0.10) : Colors.transparent,
       child: InkWell(
@@ -1144,6 +1161,14 @@ class _VisitPoiSuggestionRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+    return VamoSlidableRow(
+      infoLabel: 'Info',
+      onInfo: () => showPlaceInfoCard(
+        context,
+        info: PlaceInfo.fromPoi(poi),
+      ),
+      child: row,
     );
   }
 
