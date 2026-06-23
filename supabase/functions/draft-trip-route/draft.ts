@@ -214,6 +214,7 @@ export interface ValidationResult {
 export function validateRouteDraft(
   raw: unknown,
   input: DraftInput,
+  opts: { legRoadKm?: Map<number, number> } = {},
 ): ValidationResult {
   const empty: RouteDraft = {
     plan_items: [],
@@ -323,22 +324,26 @@ export function validateRouteDraft(
     });
   }
 
-  // Deterministic, code-owned feasibility: straight-line distance is a lower
-  // bound on real travel, so if it already exceeds a distance-capped leg's
-  // reach, the leg is definitely over. Conservative — we only flag certain
-  // violations, and label them "estimated straight-line" to avoid overclaiming.
-  for (const [i, coveredKm] of legCoveredKm) {
+  // Deterministic, code-owned feasibility. Prefer real road km per leg
+  // (ORS, Slice 4.1) when provided; otherwise fall back to straight-line
+  // haversine — a lower bound on real travel, so an over-cap straight-line
+  // distance is a certain violation. Conservative + labelled either way.
+  const legs = new Set<number>([
+    ...legCoveredKm.keys(),
+    ...(opts.legRoadKm?.keys() ?? []),
+  ]);
+  for (const i of legs) {
     const leg = input.legs[i];
-    if (
-      leg.reachType === "distance" &&
-      leg.reachValueKm !== null &&
-      coveredKm > leg.reachValueKm
-    ) {
+    if (leg.reachType !== "distance" || leg.reachValueKm === null) continue;
+    const roadKm = opts.legRoadKm?.get(i);
+    const km = roadKm ?? legCoveredKm.get(i) ?? 0;
+    const label = roadKm !== undefined ? "road" : "straight-line";
+    if (km > leg.reachValueKm) {
       warnings.push(
-        `Leg ${i + 1} (${leg.mode}): estimated straight-line ~` +
-          `${
-            Math.round(coveredKm)
-          } km exceeds your ${leg.reachValueKm} km cap.`,
+        `Leg ${i + 1} (${leg.mode}): estimated ${label} ~${
+          Math.round(km)
+        } km ` +
+          `exceeds your ${leg.reachValueKm} km cap.`,
       );
     }
   }
@@ -354,9 +359,43 @@ export function validateRouteDraft(
   };
 }
 
-interface Coord {
+export interface Coord {
   lat: number;
   lng: number;
+}
+
+/** A road hop on a distance-capped leg, for road-distance feasibility (§4.1). */
+export interface RoadHop {
+  legIndex: number;
+  mode: TravelMode;
+  from: Coord;
+  to: Coord;
+}
+
+/**
+ * Pull the model's hops (with coords) on distance-capped legs, so the function
+ * can look up real road distance. Pure — the network/ORS lives in routing.ts.
+ */
+export function extractRoadHops(raw: unknown, input: DraftInput): RoadHop[] {
+  const out: RoadHop[] = [];
+  if (!raw || typeof raw !== "object") return out;
+  const items = (raw as Record<string, unknown>).plan_items;
+  if (!Array.isArray(items)) return out;
+  for (const ri of items) {
+    if (!ri || typeof ri !== "object") continue;
+    const it = ri as Record<string, unknown>;
+    const li = it.leg_index;
+    if (
+      typeof li !== "number" || !Number.isInteger(li) ||
+      li < 0 || li >= input.legs.length
+    ) continue;
+    const leg = input.legs[li];
+    if (leg.reachType !== "distance" || leg.reachValueKm === null) continue;
+    const from = parseCoord(it.from);
+    const to = parseCoord(it.to);
+    if (from && to) out.push({ legIndex: li, mode: leg.mode, from, to });
+  }
+  return out;
 }
 
 function parseCoord(raw: unknown): Coord | null {
