@@ -25,6 +25,14 @@ jobs:
             deno check index.ts
             popd
           done
+          # draft-trip-route uses explicit jsr: imports (no lockfile); type-check directly.
+          deno check supabase/functions/draft-trip-route/index.ts
+
+      - name: Test Supabase Edge Functions
+        shell: bash
+        # CI-safe: no --allow-net, so no live/paid provider calls. Locks the
+        # deterministic draft + feasibility + eval fixtures (Slices 4–5).
+        run: deno test --allow-env --allow-read supabase/functions
 
       - uses: subosito/flutter-action@v2
         with:
