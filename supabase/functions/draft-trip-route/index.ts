@@ -2,11 +2,9 @@
 // Deploy: supabase functions deploy draft-trip-route
 //
 // Secrets/config:
-//   DRAFT_TRIP_ROUTE_AI_PROVIDER=openai            (or azure-openai)
-//   DRAFT_TRIP_ROUTE_AI_MODEL=gpt-4.1-mini
-//   DRAFT_TRIP_ROUTE_AI_API_KEY=...
-//   DRAFT_TRIP_ROUTE_AI_BASE_URL=optional (Azure .../openai/v1/)
-//   DRAFT_TRIP_ROUTE_AI_DEPLOYMENT=optional Azure deployment/model override
+//   VAMO_ROUTE_DRAFT_OPENAI_API_KEY=...
+//   VAMO_ROUTE_DRAFT_AZURE_OPENAI_API_KEY=...     (optional, when enabled)
+// Provider/model/base URL/routing live in provider_config, not in app clients.
 //
 // Requires Authorization: Bearer <user JWT>. Sends only the constraint envelope
 // (destination, dates, modes, reach) — never trip names, members, or money.
@@ -22,9 +20,15 @@ import {
 import {
   type DraftInput,
   parseDraftInput,
-  ROUTE_JSON_SCHEMA,
   validateRouteDraft,
 } from "./draft.ts";
+import {
+  generateRouteDraft,
+  loadRouteAiProviderConfig,
+  ProviderError,
+  providerErrorMetadata,
+  type RouteAiProviderConfig,
+} from "./providers.ts";
 
 type JsonRecord = Record<string, unknown>;
 type SupabaseClientLike = ReturnType<typeof createClient<any, "public", any>>;
@@ -32,24 +36,6 @@ type SupabaseClientLike = ReturnType<typeof createClient<any, "public", any>>;
 const SERVICE = "draft-trip-route";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_MAX_TOKENS = 1400;
-
-interface AiConfig {
-  provider: string;
-  model: string;
-  apiKey: string;
-  baseUrl: string;
-  authHeader: "bearer" | "api-key";
-}
-
-class ProviderError extends Error {
-  constructor(kind: string, detail: JsonRecord = {}) {
-    super(kind);
-    this.kind = kind;
-    this.detail = detail;
-  }
-  kind: string;
-  detail: JsonRecord;
-}
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -104,15 +90,14 @@ Deno.serve(async (req) => {
   );
   if (!isMember) return json({ ok: false, error: "forbidden" }, 403);
 
-  const config = loadAiConfig();
   const cacheKey = await sha256Hex(envelopeFingerprint(input));
 
   // Cache first — a reusable draft for an identical envelope is free.
   const cached = await readCache(serviceClient, cacheKey);
   if (cached) {
     await recordUsage(serviceClient, {
-      provider: config.provider,
-      model: cached.model,
+      provider: cached.provider ?? "cache",
+      model: cached.model ?? undefined,
       status: "success",
       cached: true,
       metadata: { cache_key: cacheKey },
@@ -143,8 +128,7 @@ Deno.serve(async (req) => {
       reason: reservation.reason ?? "quota_exceeded",
     }).catch(() => {});
     await recordUsage(serviceClient, {
-      provider: config.provider,
-      model: config.model,
+      provider: reservation.provider ?? "unreserved",
       status: "throttled",
       cached: false,
       errorKind: reservation.reason ?? "gated",
@@ -156,6 +140,29 @@ Deno.serve(async (req) => {
       gated: true,
       reason: reservation.reason ?? "quota_exceeded",
     });
+  }
+
+  let config: RouteAiProviderConfig;
+  try {
+    config = loadRouteAiProviderConfig({
+      provider: reservation.provider,
+      config: reservation.config,
+    });
+  } catch (e) {
+    const errorKind = classifyProviderError(e);
+    await releaseServiceUsageReservation(
+      serviceClient,
+      reservation.reservationId,
+    )
+      .catch(() => {});
+    await recordUsage(serviceClient, {
+      provider: reservation.provider ?? "unsupported",
+      status: "fallback",
+      cached: false,
+      errorKind,
+      metadata: { cache_key: cacheKey, ...providerErrorMetadata(e) },
+    });
+    return fallback(errorKind);
   }
 
   if (!config.apiKey) {
@@ -183,7 +190,10 @@ Deno.serve(async (req) => {
   const started = Date.now();
   let modelOutput: { raw: unknown; inputUnits?: number; outputUnits?: number };
   try {
-    modelOutput = await generateRoute(config, input, { timeoutMs, maxTokens });
+    modelOutput = await generateRouteDraft(config, input, {
+      timeoutMs,
+      maxTokens,
+    });
   } catch (e) {
     const errorKind = classifyProviderError(e);
     await releaseServiceUsageReservation(
@@ -261,105 +271,6 @@ Deno.serve(async (req) => {
   return json({ ok: true, status: "success", cached: false, draft });
 });
 
-async function generateRoute(
-  config: AiConfig,
-  input: DraftInput,
-  opts: { timeoutMs: number; maxTokens: number },
-): Promise<{ raw: unknown; inputUnits?: number; outputUnits?: number }> {
-  if (!config.baseUrl) throw new ProviderError("missing_base_url");
-  const endpoint = new URL("chat/completions", config.baseUrl).toString();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (config.authHeader === "api-key") {
-    headers["api-key"] = config.apiKey;
-  } else {
-    headers.Authorization = `Bearer ${config.apiKey}`;
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.4,
-        max_tokens: opts.maxTokens,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You plan a valid travel itinerary INSIDE the user's constraints. " +
-              "Each leg gives a transport mode, an optional date window, and a " +
-              "reach cap (max km, or max hours/day). Sequence stops so each hop " +
-              "respects the leg covering those dates and never exceeds its reach. " +
-              "Map legs to plan items: train→train, flight→flight, car/bike/bus/" +
-              "motorbike→transfer (set transfer_subtype). Add visit/activity/" +
-              "lodging stops as helpful. Use only the destination and dates given. " +
-              "Never include people, emails, money, or private data. If something " +
-              "can't be resolved, add an unresolved_question instead of guessing. " +
-              "Return JSON only.",
-          },
-          { role: "user", content: promptForInput(input) },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "vamo_route_draft",
-            strict: true,
-            schema: ROUTE_JSON_SCHEMA,
-          },
-        },
-      }),
-    });
-    if (!response.ok) throw await providerHttpError(response);
-    const payload = await response.json() as JsonRecord;
-    const choices = Array.isArray(payload.choices) ? payload.choices : [];
-    const message = (choices[0] as JsonRecord | undefined)?.message as
-      | JsonRecord
-      | undefined;
-    const content = typeof message?.content === "string" ? message.content : "";
-    if (!content) throw new Error("empty_provider_content");
-    const usage = payload.usage as JsonRecord | undefined;
-    return {
-      raw: JSON.parse(content),
-      inputUnits: numberOrUndefined(usage?.prompt_tokens),
-      outputUnits: numberOrUndefined(usage?.completion_tokens),
-    };
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") {
-      throw new ProviderError("timeout");
-    }
-    throw e;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function promptForInput(input: DraftInput): string {
-  const window = input.tripStart && input.tripEnd
-    ? `${input.tripStart} to ${input.tripEnd}`
-    : "dates open";
-  const legs = input.legs.map((leg, i) => {
-    const w = leg.windowStart && leg.windowEnd
-      ? `${leg.windowStart}..${leg.windowEnd}`
-      : "any dates";
-    const reach = leg.reachValueKm === null
-      ? "no reach cap"
-      : leg.reachType === "distance"
-      ? `<= ${leg.reachValueKm} km`
-      : `<= ${leg.reachValueKm} h/day`;
-    return `  ${i}. ${leg.mode} · ${w} · ${reach}`;
-  }).join("\n");
-  return `Destination: ${input.destination}\nTrip window: ${window}\n` +
-    `Legs (in order):\n${legs}\n` +
-    `Reference each plan item to its leg via leg_index. Keep every item inside ` +
-    `the trip window and its leg's window.`;
-}
-
 function loadSupabaseEnv() {
   const url = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ??
@@ -368,28 +279,6 @@ function loadSupabaseEnv() {
     Deno.env.get("SUPABASE_SECRET_KEY") ?? "";
   if (!url || !anonKey || !serviceKey) return null;
   return { url, anonKey, serviceKey };
-}
-
-function loadAiConfig(): AiConfig {
-  const provider = (Deno.env.get("DRAFT_TRIP_ROUTE_AI_PROVIDER") ?? "openai")
-    .trim().toLowerCase();
-  const deployment = Deno.env.get("DRAFT_TRIP_ROUTE_AI_DEPLOYMENT")?.trim();
-  const model = deployment ||
-    Deno.env.get("DRAFT_TRIP_ROUTE_AI_MODEL")?.trim() ||
-    "gpt-4.1-mini";
-  const apiKey = Deno.env.get("DRAFT_TRIP_ROUTE_AI_API_KEY")?.trim() ||
-    Deno.env.get("OPENAI_API_KEY")?.trim() || "";
-  const baseUrl = ensureTrailingSlash(
-    Deno.env.get("DRAFT_TRIP_ROUTE_AI_BASE_URL")?.trim() ||
-      (provider === "azure-openai" ? "" : "https://api.openai.com/v1/"),
-  );
-  return {
-    provider,
-    model,
-    apiKey,
-    baseUrl,
-    authHeader: provider === "azure-openai" ? "api-key" : "bearer",
-  };
 }
 
 async function verifyActiveMember(
@@ -410,15 +299,18 @@ async function verifyActiveMember(
 async function readCache(
   client: SupabaseClientLike,
   cacheKey: string,
-): Promise<{ model: string | null; draft: JsonRecord } | null> {
+): Promise<
+  { provider: string | null; model: string | null; draft: JsonRecord } | null
+> {
   const { data, error } = await client
     .from("trip_route_cache")
-    .select("model, draft, expires_at")
+    .select("provider, model, draft, expires_at")
     .eq("cache_key", cacheKey)
     .maybeSingle();
   if (error || !data) return null;
   if (Date.parse(data.expires_at as string) <= Date.now()) return null;
   return {
+    provider: data.provider as string | null,
     model: data.model as string | null,
     draft: data.draft as JsonRecord,
   };
@@ -427,7 +319,7 @@ async function readCache(
 async function writeCache(
   client: SupabaseClientLike,
   cacheKey: string,
-  config: AiConfig,
+  config: RouteAiProviderConfig,
   draft: JsonRecord,
   ttlSeconds: number,
 ): Promise<void> {
@@ -500,29 +392,6 @@ function classifyProviderError(error: unknown): string {
   return "provider_error";
 }
 
-async function providerHttpError(response: Response): Promise<ProviderError> {
-  const detail: JsonRecord = { provider_status: response.status };
-  try {
-    const body = await response.json() as JsonRecord;
-    const error = body.error as JsonRecord | undefined;
-    if (typeof error?.type === "string") {
-      detail.provider_error_type = error.type;
-    }
-    if (typeof error?.code === "string") {
-      detail.provider_error_code = error.code;
-    }
-  } catch {
-    // status alone is enough to classify.
-  }
-  if (response.status === 429) return new ProviderError("throttled", detail);
-  if (response.status >= 500) return new ProviderError("provider_5xx", detail);
-  return new ProviderError("provider_4xx", detail);
-}
-
-function providerErrorMetadata(error: unknown): JsonRecord {
-  return error instanceof ProviderError ? error.detail : {};
-}
-
 function isThrottle(kind: string): boolean {
   return kind === "throttled" || kind === "insufficient_quota";
 }
@@ -533,17 +402,6 @@ function numberFromConfig(
 ): number | undefined {
   const v = config?.[key];
   return typeof v === "number" && Number.isFinite(v) ? v : undefined;
-}
-
-function numberOrUndefined(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
-function ensureTrailingSlash(value: string): string {
-  if (!value) return "";
-  return value.endsWith("/") ? value : `${value}/`;
 }
 
 function fallback(reason: string) {
