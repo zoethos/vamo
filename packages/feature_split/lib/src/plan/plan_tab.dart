@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../places/place_resolve.dart';
+import '../poi/place_info_card.dart';
 import '../shared/vamo_slidable_row.dart';
 import 'event_rsvp_models.dart';
 import 'plan_event_rsvp_picker.dart';
@@ -708,18 +709,42 @@ class _PlanTimelineRow extends StatelessWidget {
       ],
     );
 
-    if (readOnly) return row;
+    final placeInfo = _placeInfo;
+    final onInfo = placeInfo == null
+        ? null
+        : () => showPlaceInfoCard(
+              context,
+              info: PlaceInfo.fromVisitMetadata(placeInfo),
+            );
+
+    if (readOnly) {
+      if (onInfo == null) return row;
+      return VamoSlidableRow(
+        infoLabel: 'Info',
+        onInfo: onInfo,
+        child: row,
+      );
+    }
 
     return VamoSlidableRow(
+      infoLabel: 'Info',
       editLabel: labels.editItem,
       deleteLabel: labels.deleteItem,
       deleteConfirmTitle: labels.deleteConfirmTitle,
       deleteConfirmAction: labels.deleteItem,
       cancelLabel: labels.cancelLabel,
+      onInfo: onInfo,
       onEdit: onEdit,
       onDelete: onDelete,
       child: row,
     );
+  }
+
+  VisitPlaceMetadata? get _placeInfo {
+    if (item.kind != PlanItemKind.visit && item.kind != PlanItemKind.lodging) {
+      return null;
+    }
+    return parseVisitPlaceMetadata(item.metadata);
   }
 
   String? get _distanceToNextStop {

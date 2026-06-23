@@ -2,6 +2,7 @@ import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../plan/plan_models.dart';
 import 'poi_models.dart';
 
 /// Neutral place-info value object used by live POI suggestions now and saved
@@ -34,6 +35,28 @@ class PlaceInfo {
       priceLevel: poi.priceLevel,
       photoUrl: poi.photoUrl,
       sourceLabel: poi.source == 'foursquare' ? 'Foursquare' : poi.source,
+    );
+  }
+
+  factory PlaceInfo.fromVisitMetadata(VisitPlaceMetadata metadata) {
+    final category = metadata.category;
+    final source = metadata.aboutSource;
+    return PlaceInfo(
+      name: metadata.placeLabel,
+      category: category == null ? null : PoiCategory.parse(category),
+      address: metadata.address,
+      about: metadata.about,
+      website: metadata.website,
+      phone: metadata.phone,
+      hours: metadata.hours,
+      rating: metadata.rating,
+      priceLevel: metadata.price,
+      photoUrl: metadata.photoUrl,
+      sourceLabel: source == null
+          ? null
+          : source == 'foursquare'
+              ? 'Foursquare'
+              : source,
     );
   }
 

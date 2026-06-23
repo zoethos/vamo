@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../capture/capture_providers.dart';
 import '../expenses/expenses_providers.dart';
 import '../places/place_geocode.dart';
+import '../poi/place_info_card.dart';
 import '../plan/plan_providers.dart';
 import '../sync/trip_realtime_binding.dart';
 import '../trips/trip_home_labels.dart';
@@ -269,6 +270,14 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   }
 
   void _showMomentDetail(MapMoment moment, _MomentVisual visual) {
+    final place = moment.place;
+    if (moment.kind == MapMomentKind.visit && place != null) {
+      showPlaceInfoCard(
+        context,
+        info: PlaceInfo.fromVisitMetadata(place),
+      );
+      return;
+    }
     final theme = Theme.of(context);
     final colors = context.vamoColors;
     showModalBottomSheet<void>(

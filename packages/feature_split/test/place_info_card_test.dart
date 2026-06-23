@@ -1,6 +1,7 @@
 import 'package:app_core/app_core.dart';
 import 'package:feature_split/src/poi/place_info_card.dart';
 import 'package:feature_split/src/poi/poi_models.dart';
+import 'package:feature_split/src/plan/plan_models.dart';
 import 'package:feature_split/src/shared/vamo_slidable_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -31,6 +32,36 @@ void main() {
     expect(info.name, 'Abbazia di Montecassino');
     expect(info.category, PoiCategory.attraction);
     expect(info.about, 'Historic abbey above Cassino.');
+    expect(info.sourceLabel, 'Foursquare');
+  });
+
+  test('PlaceInfo.fromVisitMetadata carries saved visit details', () {
+    const metadata = VisitPlaceMetadata(
+      placeLabel: 'Villa Rufolo',
+      address: 'Piazza Duomo, Ravello',
+      category: 'attraction',
+      about: 'Historic garden above the Amalfi Coast.',
+      website: 'https://villarufolo.com',
+      phone: '+390000',
+      hours: 'Open now',
+      rating: 8.8,
+      price: 2,
+      photoUrl: 'https://img.example/villa.jpg',
+      aboutSource: 'foursquare',
+    );
+
+    final info = PlaceInfo.fromVisitMetadata(metadata);
+
+    expect(info.name, 'Villa Rufolo');
+    expect(info.category, PoiCategory.attraction);
+    expect(info.address, 'Piazza Duomo, Ravello');
+    expect(info.about, 'Historic garden above the Amalfi Coast.');
+    expect(info.website, 'https://villarufolo.com');
+    expect(info.phone, '+390000');
+    expect(info.hours, 'Open now');
+    expect(info.rating, 8.8);
+    expect(info.priceLevel, 2);
+    expect(info.photoUrl, 'https://img.example/villa.jpg');
     expect(info.sourceLabel, 'Foursquare');
   });
 

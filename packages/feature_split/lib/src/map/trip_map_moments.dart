@@ -21,6 +21,7 @@ class MapMoment {
     required this.title,
     this.at,
     this.thumbnailPath,
+    this.place,
   });
 
   final String id;
@@ -36,6 +37,9 @@ class MapMoment {
 
   /// Local file path to a thumbnail (memories only), if cached.
   final String? thumbnailPath;
+
+  /// Saved place snapshot for Visit markers, used by the shared place info card.
+  final VisitPlaceMetadata? place;
 }
 
 /// Aggregates the three trip-scoped sources into ordered [MapMoment]s,
@@ -68,6 +72,7 @@ List<MapMoment> buildTripMapMoments({
         lng: meta.lng!,
         title: meta.placeLabel.isNotEmpty ? meta.placeLabel : item.title,
         at: item.startsAt,
+        place: meta,
       ),
     );
   }

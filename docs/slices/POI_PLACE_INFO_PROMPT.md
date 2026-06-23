@@ -19,6 +19,15 @@ per keystroke.
 - Use right-to-left swipe on Add-to-Plan POI suggestion rows to open the info
   card. Long-press keeps the accessible action-menu fallback.
 
+## Phase 2 - saved surfaces
+
+- Reuse `PlaceInfoCard` from saved Visit/Lodging timeline rows by adapting the
+  existing `VisitPlaceMetadata` snapshot.
+- Reuse `PlaceInfoCard` from Trip Map Visit markers. Expense and memory markers
+  keep their lightweight marker sheets.
+- No new provider call: saved surfaces render only from metadata already stored
+  when the Visit was selected.
+
 ## Constraints
 
 - No new provider call on typing beyond the existing debounced search.
@@ -30,8 +39,6 @@ per keystroke.
 
 ## Later
 
-- Phase 2: reuse `PlaceInfoCard` on saved Visit timeline rows and Trip Map
-  marker sheets from the Visit metadata snapshot.
 - Phase 3: add a `placeinfo` enrichment gateway for free Wikipedia/Wikivoyage or
   OpenTripMap summaries, with optional LLM traveler notes behind the existing
   metered control-plane pattern.

@@ -12,6 +12,8 @@ PlanItemSummary _visit({
   double? lat,
   double? lng,
   DateTime? startsAt,
+  String? address,
+  String? about,
 }) {
   return PlanItemSummary(
     id: id,
@@ -19,7 +21,13 @@ PlanItemSummary _visit({
     kind: PlanItemKind.visit,
     title: label,
     startsAt: startsAt,
-    metadata: buildVisitPlaceMetadata(placeLabel: label, lat: lat, lng: lng),
+    metadata: buildVisitPlaceMetadata(
+      placeLabel: label,
+      address: address,
+      lat: lat,
+      lng: lng,
+      about: about,
+    ),
     position: 0,
   );
 }
@@ -111,6 +119,27 @@ void main() {
       expect(visit.kind, MapMomentKind.visit);
       expect(visit.lat, 41.9);
       expect(visit.title, 'Pantheon');
+      expect(visit.place?.placeLabel, 'Pantheon');
+    });
+
+    test('preserves saved visit place info for marker detail cards', () {
+      final moments = buildTripMapMoments(
+        planItems: [
+          _visit(
+            id: 'v1',
+            label: 'Villa Rufolo',
+            address: 'Piazza Duomo, Ravello',
+            about: 'Historic garden above the Amalfi Coast.',
+            lat: 40.65,
+            lng: 14.61,
+          ),
+        ],
+      );
+
+      final visit = moments.single;
+      expect(visit.place?.placeLabel, 'Villa Rufolo');
+      expect(visit.place?.address, 'Piazza Duomo, Ravello');
+      expect(visit.place?.about, 'Historic garden above the Amalfi Coast.');
     });
 
     test('orders timed moments chronologically, untimed last', () {
