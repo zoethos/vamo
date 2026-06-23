@@ -283,12 +283,14 @@ class _DayHeader extends StatelessWidget {
     final colors = context.vamoColors;
     final type = context.vamoType;
     return Padding(
-      padding: const EdgeInsetsDirectional.only(top: 14, bottom: 10),
+      padding: const EdgeInsetsDirectional.only(top: 14, bottom: 8),
       child: Text(
-        _dayLabel(day),
-        style: type.labelLarge.copyWith(
+        _dayLabel(day).toUpperCase(),
+        style: type.labelSmall.copyWith(
           color: colors.onSurfaceMuted,
-          fontWeight: FontWeight.w800,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
         ),
       ),
     );
@@ -325,31 +327,26 @@ class _ActivityRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: () => context.push(item.route),
           child: Padding(
-            padding: const EdgeInsetsDirectional.symmetric(vertical: 10),
+            padding: const EdgeInsetsDirectional.symmetric(vertical: 8),
             child: Row(
               children: [
                 _TripThumbnail(item: item, accent: accent),
-                const SizedBox(width: 16),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: type.titleMedium.copyWith(
-                          color: colors.onSurface,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
+                      _ActivityTitleText(item: item),
+                      const SizedBox(height: 1),
                       Text(
                         '${item.tripName} · ${_relativeTime(item.occurredAt)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: type.bodySmall.copyWith(
+                        style: type.labelSmall.copyWith(
                           color: colors.onSurfaceMuted,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.25,
                         ),
                       ),
                     ],
@@ -363,7 +360,7 @@ class _ActivityRow extends StatelessWidget {
                 Icon(
                   Icons.chevron_right,
                   color: colors.divider,
-                  size: 24,
+                  size: 20,
                 ),
               ],
             ),
@@ -394,6 +391,43 @@ class _ActivityRow extends StatelessWidget {
   }
 }
 
+class _ActivityTitleText extends StatelessWidget {
+  const _ActivityTitleText({required this.item});
+
+  final ActivityItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final title = item.title;
+    final actor = item.actorName;
+    final hasActorPrefix = title == actor || title.startsWith('$actor ');
+    final rest = hasActorPrefix ? title.substring(actor.length) : title;
+    final baseStyle = type.bodyMedium.copyWith(
+      color: colors.onSurface,
+      fontSize: 13,
+      fontWeight: FontWeight.w400,
+      height: 1.25,
+    );
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          if (hasActorPrefix)
+            TextSpan(
+              text: actor,
+              style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+            ),
+          TextSpan(text: rest),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
 class _TripThumbnail extends StatelessWidget {
   const _TripThumbnail({required this.item, required this.accent});
 
@@ -404,30 +438,30 @@ class _TripThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final imagePath = item.tripImagePath;
     return SizedBox(
-      width: 60,
-      height: 60,
+      width: 34,
+      height: 34,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(10),
               child: _TripImage(path: imagePath, accent: accent),
             ),
           ),
           PositionedDirectional(
-            end: -3,
-            bottom: -3,
+            end: -2,
+            bottom: -2,
             child: Container(
-              width: 30,
-              height: 30,
+              width: 18,
+              height: 18,
               decoration: BoxDecoration(
                 color: accent,
                 shape: BoxShape.circle,
                 border:
-                    Border.all(color: context.vamoColors.background, width: 3),
+                    Border.all(color: context.vamoColors.background, width: 2),
               ),
-              child: Icon(_iconFor(item), color: Colors.white, size: 16),
+              child: Icon(_iconFor(item), color: Colors.white, size: 11),
             ),
           ),
         ],
@@ -500,7 +534,7 @@ class _AmountText extends StatelessWidget {
     final currency = item.currency!;
     final prefix = switch (item.amountTone) {
       ActivityAmountTone.positive => '+',
-      ActivityAmountTone.negative => 'you owe ',
+      ActivityAmountTone.negative => 'owe ',
       ActivityAmountTone.neutral => '',
     };
     final text = '$prefix${formatMoneyFromCents(cents, currency)}';
@@ -516,9 +550,11 @@ class _AmountText extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.end,
-        style: type.labelLarge.copyWith(
+        style: type.labelMedium.copyWith(
           color: color,
-          fontWeight: FontWeight.w800,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          height: 1.25,
         ),
       ),
     );

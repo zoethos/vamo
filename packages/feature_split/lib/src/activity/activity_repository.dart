@@ -91,7 +91,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.memberJoined,
         filter: ActivityFilter.members,
-        title: '${actor.name} joined the trip',
+        title: '${actor.name} joined',
         occurredAt: joinedAt,
         route: AppRoutes.tripMembers(member.tripId),
         actorName: actor.name,
@@ -125,7 +125,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.expenseAdded,
         filter: ActivityFilter.money,
-        title: '${actor.name} added ${e.description}',
+        title: '${actor.name} ${e.description}',
         occurredAt: e.createdAt,
         route: AppRoutes.tripExpenses(e.tripId),
         actorName: actor.name,
@@ -154,6 +154,12 @@ Future<List<ActivityItem>> _buildFeed(
         : s.fromUser == currentUserId
             ? ActivityAmountTone.negative
             : ActivityAmountTone.neutral;
+    final target = _actorFor(
+      tripId: s.tripId,
+      userId: s.toUser,
+      currentUserId: currentUserId,
+      memberByTripUser: memberByTripUser,
+    );
     items.add(
       ActivityItem(
         id: 'settlement_${s.id}',
@@ -162,7 +168,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.settlement,
         filter: ActivityFilter.money,
-        title: '${actor.name} settled up',
+        title: '${actor.name} → ${_targetName(target)}',
         occurredAt: s.createdAt,
         route: AppRoutes.tripBalances(s.tripId),
         actorName: actor.name,
@@ -195,8 +201,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.planItemAdded,
         filter: ActivityFilter.plan,
-        title:
-            '${actor.name} added ${_planKindArticle(kind)} ${_planKindLabel(kind)} · ${p.title}',
+        title: '${actor.name} ${p.title}',
         occurredAt: p.createdAt,
         route: AppRoutes.tripPlan(p.tripId),
         actorName: actor.name,
@@ -219,8 +224,6 @@ Future<List<ActivityItem>> _buildFeed(
       currentUserId: currentUserId,
       memberByTripUser: memberByTripUser,
     );
-    final verb = actor.isCurrentUser ? 'are' : 'is';
-    final status = _rsvpStatusLabel(r.status);
     items.add(
       ActivityItem(
         id: 'plan_rsvp_${r.id}_${r.respondedAt.millisecondsSinceEpoch}',
@@ -229,7 +232,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.planRsvp,
         filter: ActivityFilter.plan,
-        title: '${actor.name} $verb $status to ${plan.title}',
+        title: '${actor.name} ${plan.title}',
         occurredAt: r.respondedAt,
         route: AppRoutes.tripPlan(plan.tripId),
         actorName: actor.name,
@@ -259,8 +262,7 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.noteAdded,
         filter: ActivityFilter.media,
-        title:
-            '${actor.name} added ${note.title.isEmpty ? 'a note' : note.title}',
+        title: '${actor.name} ${note.title.isEmpty ? 'note' : note.title}',
         occurredAt: note.createdAt,
         route: AppRoutes.tripMemories(note.tripId),
         actorName: actor.name,
@@ -288,8 +290,8 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.photosAdded,
         filter: ActivityFilter.media,
-        title:
-            '${actor.name} added ${group.count} ${group.count == 1 ? 'photo' : 'photos'}',
+        title: '${actor.name} ${group.count} '
+            '${group.count == 1 ? 'photo' : 'photos'}',
         occurredAt: group.occurredAt,
         route: AppRoutes.tripMemories(group.tripId),
         actorName: actor.name,
@@ -317,8 +319,8 @@ Future<List<ActivityItem>> _buildFeed(
         tripImagePath: _tripImagePath(trip),
         kind: ActivityKind.videosAdded,
         filter: ActivityFilter.media,
-        title:
-            '${actor.name} added ${group.count} ${group.count == 1 ? 'video' : 'videos'}',
+        title: '${actor.name} ${group.count} '
+            '${group.count == 1 ? 'video' : 'videos'}',
         occurredAt: group.occurredAt,
         route: AppRoutes.tripMemories(group.tripId),
         actorName: actor.name,
@@ -345,7 +347,7 @@ Future<List<ActivityItem>> _buildFeed(
           tripImagePath: _tripImagePath(trip),
           kind: ActivityKind.lifecycle,
           filter: ActivityFilter.members,
-          title: '${actor.name} started closing ${trip.name}',
+          title: '${actor.name} closing ${trip.name}',
           occurredAt: trip.closeRequestedAt!,
           route: AppRoutes.tripCloseReport(trip.id),
           actorName: actor.name,
@@ -455,35 +457,7 @@ _ActivityAmount? _expenseAmountForCurrentUser({
   return null;
 }
 
-String _planKindArticle(PlanItemKind kind) {
-  return switch (kind) {
-    PlanItemKind.activity => 'an',
-    _ => 'a',
-  };
-}
-
-String _planKindLabel(PlanItemKind kind) {
-  return switch (kind) {
-    PlanItemKind.visit => 'Visit',
-    PlanItemKind.train => 'Train',
-    PlanItemKind.flight => 'Flight',
-    PlanItemKind.transfer => 'Transfer',
-    PlanItemKind.lodging => 'Lodging',
-    PlanItemKind.activity => 'Activity',
-    PlanItemKind.other => 'Plan item',
-  };
-}
-
-String _rsvpStatusLabel(String status) {
-  return switch (status) {
-    'going' => 'Going',
-    'maybe' => 'Maybe',
-    'declined' => 'Not going',
-    _ => status.isEmpty
-        ? 'RSVPed'
-        : '${status[0].toUpperCase()}${status.substring(1)}',
-  };
-}
+String _targetName(_Actor actor) => actor.isCurrentUser ? 'you' : actor.name;
 
 Iterable<_MediaGroup> _groupPhotos(List<LocalTripPhoto> photos) {
   final groups = <String, _MediaGroup>{};
