@@ -319,7 +319,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                     Expanded(
                       child: ListView(
                         padding:
-                            const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 12),
+                            const EdgeInsetsDirectional.fromSTEB(20, 2, 20, 12),
                         children: [
                           _AmountDisplay(
                             amountText: _amountController.text,
@@ -334,9 +334,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               padding: EdgeInsetsDirectional.only(top: 8),
                               child: OcrSuggestionChip(),
                             ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
                           Align(
-                            alignment: AlignmentDirectional.centerStart,
+                            alignment: AlignmentDirectional.center,
                             child: _CurrencyPill(
                               currency: _expenseCurrency,
                               enabled: !_saving,
@@ -372,30 +372,58 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _EssentialChip(
+                                  key: const Key('addExpensePayerChip'),
+                                  icon: Icons.person_outline,
+                                  iconColor: _coral,
+                                  label: _payerChipLabel(
+                                    memberList,
+                                    currentUserId: currentUserId,
+                                  ),
+                                  enabled: !_saving,
+                                  onTap: () => _showPayerSheet(memberList),
+                                ),
+                                _EssentialChip(
+                                  key: const Key('addExpenseCategoryChip'),
+                                  icon: categoryEntry.icon,
+                                  iconColor: categoryEntry.color,
+                                  label: categoryEntry.label,
+                                  enabled: !_saving,
+                                  onTap: () => _showCategorySheet(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _SplitControl(
+                            labels: screenLabels,
+                            governanceLabels: labels,
+                            members: memberList,
+                            sharePreview: sharePreview,
+                            memberCount: memberList.length,
+                            onCustomTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    screenLabels.customSplitComingSoon,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
                           Wrap(
+                            alignment: WrapAlignment.center,
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _EssentialChip(
-                                key: const Key('addExpensePayerChip'),
-                                icon: Icons.person_outline,
-                                iconColor: _coral,
-                                label: _payerChipLabel(
-                                  memberList,
-                                  currentUserId: currentUserId,
-                                ),
-                                enabled: !_saving,
-                                onTap: () => _showPayerSheet(memberList),
-                              ),
-                              _EssentialChip(
-                                key: const Key('addExpenseCategoryChip'),
-                                icon: categoryEntry.icon,
-                                iconColor: categoryEntry.color,
-                                label: categoryEntry.label,
-                                enabled: !_saving,
-                                onTap: () => _showCategorySheet(),
-                              ),
                               if (!isPropose)
                                 _EssentialChip(
                                   icon: Icons.document_scanner_outlined,
@@ -466,23 +494,6 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ),
                             ),
                           ],
-                          const SizedBox(height: 18),
-                          _SplitControl(
-                            labels: screenLabels,
-                            governanceLabels: labels,
-                            members: memberList,
-                            sharePreview: sharePreview,
-                            memberCount: memberList.length,
-                            onCustomTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    screenLabels.customSplitComingSoon,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ),
@@ -1315,10 +1326,10 @@ class _AmountDisplay extends StatelessWidget {
     final display = amountText.trim().isEmpty ? '0.00' : amountText;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         FittedBox(
-          alignment: AlignmentDirectional.centerStart,
+          alignment: AlignmentDirectional.center,
           fit: BoxFit.scaleDown,
           child: Text(
             key: const Key('addExpenseAmountDisplay'),
@@ -1334,6 +1345,7 @@ class _AmountDisplay extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             errorText!,
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.error,
             ),
@@ -1367,8 +1379,8 @@ class _CurrencyPill extends StatelessWidget {
         borderRadius: shape.chipBorderRadius,
         child: Padding(
           padding: const EdgeInsetsDirectional.symmetric(
-            horizontal: 12,
-            vertical: 8,
+            horizontal: 10,
+            vertical: 6,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1410,7 +1422,7 @@ class _EssentialChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final shape = context.vamoShape;
     return Material(
-      color: _mist,
+      color: _mist.withValues(alpha: 0.72),
       borderRadius: shape.chipBorderRadius,
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -1418,22 +1430,24 @@ class _EssentialChip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsetsDirectional.symmetric(
             horizontal: 10,
-            vertical: 8,
+            vertical: 7,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: iconColor),
+              Icon(icon, size: 16, color: iconColor),
               const SizedBox(width: 6),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: _ink,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
               ),
+              const SizedBox(width: 2),
+              const Icon(Icons.expand_more, size: 16, color: _graphite),
             ],
           ),
         ),
@@ -1552,38 +1566,55 @@ class _SplitControl extends StatelessWidget {
         ? governanceLabels.splitLabel(memberCount)
         : labels.splitEach(sharePreview!);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _cream,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _mist),
+      ),
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              labels.splitSection,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: _ink,
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Text(
+                  labels.splitSection,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: _ink,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const Spacer(),
+                _SplitSegmented(
+                  equalLabel: labels.splitEqual,
+                  customLabel: labels.splitCustom,
+                  onCustomTap: onCustomTap,
+                ),
+              ],
             ),
-            const Spacer(),
-            _SplitSegmented(
-              equalLabel: labels.splitEqual,
-              customLabel: labels.splitCustom,
-              onCustomTap: onCustomTap,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _SplitAvatarStack(members: members),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    summary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: _graphite,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Text(
-          summary,
-          style: theme.textTheme.bodyMedium?.copyWith(color: _graphite),
-        ),
-        const SizedBox(height: 10),
-        for (final member in members)
-          _SplitShareRow(
-            name: member.displayName,
-            amount: sharePreview,
-          ),
-      ],
+      ),
     );
   }
 }
@@ -1672,62 +1703,74 @@ class _SplitSegment extends StatelessWidget {
   }
 }
 
-class _SplitShareRow extends StatelessWidget {
-  const _SplitShareRow({
-    required this.name,
-    required this.amount,
-  });
+String _splitInitial(String name) {
+  final trimmed = name.trim();
+  return trimmed.isEmpty
+      ? '?'
+      : String.fromCharCode(trimmed.runes.first).toUpperCase();
+}
 
-  final String name;
-  final String? amount;
+class _SplitAvatarStack extends StatelessWidget {
+  const _SplitAvatarStack({required this.members});
+
+  final List<TripMemberView> members;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsetsDirectional.only(bottom: 8),
-      child: Row(
+    final visible = members.take(4).toList();
+    if (visible.isEmpty) {
+      return const SizedBox(width: 0, height: 28);
+    }
+    return SizedBox(
+      width: 20.0 + ((visible.length - 1) * 18.0),
+      height: 28,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: _mist,
-            child: Text(
-              _initial(name),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: _ink,
-                fontWeight: FontWeight.w800,
-              ),
+          for (var i = 0; i < visible.length; i++)
+            PositionedDirectional(
+              start: i * 18.0,
+              child: _SplitAvatar(member: visible[i], index: i),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: _ink,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Text(
-            amount ?? '—',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: _graphite,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ],
       ),
     );
   }
+}
 
-  static String _initial(String name) {
-    final trimmed = name.trim();
-    return trimmed.isEmpty
-        ? '?'
-        : String.fromCharCode(trimmed.runes.first).toUpperCase();
+class _SplitAvatar extends StatelessWidget {
+  const _SplitAvatar({required this.member, required this.index});
+
+  final TripMemberView member;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = [
+      AppColors.sunsetCoral,
+      AppColors.jadeTeal,
+      VamoPlanTypeColors.lodging,
+      VamoPlanTypeColors.transfer,
+    ];
+    final initials = member.avatarInitials?.trim().isNotEmpty == true
+        ? member.avatarInitials!.trim()
+        : _splitInitial(member.displayName);
+    return CircleAvatar(
+      radius: 11,
+      backgroundColor: context.vamoColors.background,
+      child: CircleAvatar(
+        radius: 10,
+        backgroundColor: colors[index % colors.length],
+        child: Text(
+          _splitInitial(initials),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 9,
+              ),
+        ),
+      ),
+    );
   }
 }
 

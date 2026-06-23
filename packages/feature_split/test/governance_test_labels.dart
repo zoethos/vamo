@@ -17,7 +17,7 @@ const governanceTestLabels = ExpenseGovernanceLabels(
   cancel: 'Cancel',
   submit: 'Submit',
   proposeCostAction: 'Propose a cost',
-  addExpenseTitle: 'Add expense',
+  addExpenseTitle: 'New expense',
   proposeCostTitle: 'Propose a cost',
   saveExpense: 'Save expense',
   saveProposal: 'Save proposal',
