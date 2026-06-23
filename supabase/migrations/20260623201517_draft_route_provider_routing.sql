@@ -1,8 +1,10 @@
 -- Route drafting provider routing fix.
 --
 -- The dashboard owns provider/model/base-url routing through provider_config.
--- Edge Function secrets stay provider-specific and hidden, for example:
---   VAMO_ROUTE_DRAFT_OPENAI_API_KEY
+-- Edge Function secrets stay environment-scoped and hidden, for example:
+--   VAMO_OPENAI_STAGING_API_KEY
+--   VAMO_OPENAI_PROD_API_KEY
+--   VAMO_OPENAI_API_KEY
 --   VAMO_ROUTE_DRAFT_AZURE_OPENAI_API_KEY
 --
 -- Keep this additive because the original Slice 2 migration may already be live.
