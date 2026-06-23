@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 22);
+    expect(db.schemaVersion, 23);
 
     final now = DateTime.utc(2026, 6, 11);
     await db.upsertTripVideo(
