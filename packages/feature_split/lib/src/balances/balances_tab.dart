@@ -44,9 +44,9 @@ class BalancesTab extends ConsumerWidget {
     final payerAwaiting = ref.watch(tripPayerAwaitingConfirmProvider(tripId));
     final members = ref.watch(tripMembersForExpenseProvider(tripId));
     final currentUserId = ref.watch(currentUserProvider)?.id;
-    final currency =
-        ref.watch(tripNetBalancesProvider(tripId)).valueOrNull?.currency ??
-            'EUR';
+    final netBalances = ref.watch(tripNetBalancesProvider(tripId));
+    final currency = netBalances.valueOrNull?.currency ?? 'EUR';
+    final rawNets = netBalances.valueOrNull?.nets ?? const <String, int>{};
     final consentFlags = ref.watch(tripShareConsentFlagsProvider(tripId));
 
     return settlements.when(
@@ -77,9 +77,6 @@ class BalancesTab extends ConsumerWidget {
 
         final hasMyAction = pending.isNotEmpty || payerAwaiting.isNotEmpty;
         final isEmpty = lines.isEmpty && !hasMyAction && consentLabels.isEmpty;
-        final rawNets =
-            ref.watch(tripNetBalancesProvider(tripId)).valueOrNull?.nets ??
-                const <String, int>{};
         final myNet = currentUserId == null ? 0 : rawNets[currentUserId] ?? 0;
         final myPayableLines = currentUserId == null
             ? const <SettlementDisplay>[]
@@ -250,7 +247,7 @@ class BalancesTab extends ConsumerWidget {
               const SizedBox(height: 24),
             ],
             _FinalBalancesSection(
-              tripId: tripId,
+              rawNets: rawNets,
               nameById: nameById,
               memberById: memberById,
               currency: currency,
@@ -913,26 +910,23 @@ class _SettlementRow extends StatelessWidget {
   }
 }
 
-class _FinalBalancesSection extends ConsumerWidget {
+class _FinalBalancesSection extends StatelessWidget {
   const _FinalBalancesSection({
-    required this.tripId,
+    required this.rawNets,
     required this.nameById,
     required this.memberById,
     required this.currency,
     required this.labels,
   });
 
-  final String tripId;
+  final Map<String, int> rawNets;
   final Map<String, String> nameById;
   final Map<String, TripMemberView> memberById;
   final String currency;
   final BalancesTabLabels labels;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rawNets =
-        ref.watch(tripNetBalancesProvider(tripId)).valueOrNull?.nets;
-    if (rawNets == null) return const SizedBox.shrink();
+  Widget build(BuildContext context) {
     final nonZero = rawNets.entries.where((e) => e.value != 0).toList();
     if (nonZero.isEmpty) return const SizedBox.shrink();
 
