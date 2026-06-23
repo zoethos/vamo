@@ -258,7 +258,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
             final inForeignCurrency = _expenseCurrency != tripBase;
             final screenTitle =
-                isPropose ? labels.proposeCostTitle : labels.addExpenseTitle;
+                isPropose ? labels.proposeExpenseTitle : labels.addExpenseTitle;
             final saveLabel =
                 isPropose ? labels.saveProposal : labels.saveExpense;
             final shareCents = _shareCentsPerMember(

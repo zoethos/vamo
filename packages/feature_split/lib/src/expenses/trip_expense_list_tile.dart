@@ -11,6 +11,28 @@ import 'expenses_repository.dart';
 import 'expense_display.dart';
 import '../trips/locale_format.dart';
 
+/// Derives a short, human row title from a raw expense [description] (§A).
+///
+/// Takes the first segment before a `·` separator (the long legal name —
+/// e.g. "BORRI BOOKS · SOC, TBRERIA TERMINI SRL" — lives in the detail sheet),
+/// caps it at three words, and Title-Cases SHOUTING all-caps names so the row
+/// reads "Borri Books", not the full registry name. Non-caps input is kept
+/// verbatim ("Ferry tickets" stays as-is).
+String shortMerchantName(String description) {
+  final firstSegment = description.split('·').first.trim();
+  final words =
+      firstSegment.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  final base = words.isEmpty ? description.trim() : words.take(3).join(' ');
+  final hasLetters = base.toLowerCase() != base.toUpperCase();
+  final isShouting = hasLetters && base == base.toUpperCase();
+  if (!isShouting) return base;
+  return base
+      .split(' ')
+      .map((w) =>
+          w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+      .join(' ');
+}
+
 /// Single expense row — shared by trip home and RTL golden tests (T13.4).
 class TripExpenseListTile extends ConsumerWidget {
   const TripExpenseListTile({
@@ -80,9 +102,14 @@ class TripExpenseListTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final when = formatShortDate(spentAt, locale: locale);
-    var detailLine = (placeLabel != null && placeLabel!.isNotEmpty)
-        ? '$placeLabel · $payer · $when'
-        : '$payer · $when';
+    // Meta reads payer · place · date (§A) — the merchant lives in the title,
+    // not repeated here.
+    final metaParts = <String>[
+      payer,
+      if (placeLabel != null && placeLabel!.isNotEmpty) placeLabel!,
+      when,
+    ];
+    var detailLine = metaParts.join(' · ');
     if (consentLabel != null && consentLabel!.isNotEmpty) {
       detailLine = '$detailLine · $consentLabel';
     }
@@ -122,7 +149,9 @@ class TripExpenseListTile extends ConsumerWidget {
       child: ListTile(
         leading: leading,
         title: Text(
-          description,
+          shortMerchantName(description),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: status == ExpenseStatus.proposed
               ? Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: AppColors.graphite,

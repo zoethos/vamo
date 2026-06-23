@@ -517,11 +517,38 @@
   "expenseDisputeReasonHint": "Reason",
   "expenseGovernanceCancel": "Cancel",
   "expenseGovernanceSubmit": "Submit",
-  "expenseProposeCostAction": "Propose a cost",
+  "expenseAddExpenseAction": "Add expense",
+  "@expenseAddExpenseAction": {
+    "description": "Action FAB label on the Expenses screen when the expense is saved directly (committed path)."
+  },
+  "expenseProposeExpenseAction": "Propose expense",
+  "@expenseProposeExpenseAction": {
+    "description": "Action FAB label on the Expenses screen in proposal/consent mode."
+  },
   "expenseAddTitle": "New expense",
-  "expenseProposeCostTitle": "Propose a cost",
+  "expenseProposeExpenseTitle": "Propose expense",
   "expenseSaveExpense": "Save expense",
   "expenseSaveProposal": "Save proposal",
+  "expenseTotalSpent": "Total spent",
+  "@expenseTotalSpent": {
+    "description": "Spend-led summary header label for the trip's total committed spend."
+  },
+  "expenseFilterAll": "All",
+  "@expenseFilterAll": {
+    "description": "Expenses list filter chip: show all expenses."
+  },
+  "expenseFilterUnsettled": "Unsettled",
+  "@expenseFilterUnsettled": {
+    "description": "Expenses list filter chip: show only not-fully-settled expenses."
+  },
+  "expenseFilterMine": "Mine",
+  "@expenseFilterMine": {
+    "description": "Expenses list filter chip: show only expenses the current user paid or shares."
+  },
+  "expenseTodayLabel": "Today",
+  "@expenseTodayLabel": {
+    "description": "Day-group header token for the current day in the Expenses list."
+  },
   "expenseTripBalancesIn": "Trip balances in {currency}",
   "@expenseTripBalancesIn": {
     "placeholders": {

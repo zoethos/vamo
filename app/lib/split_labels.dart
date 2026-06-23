@@ -203,9 +203,10 @@ class SplitLabels {
         disputeReasonHint: l10n.expenseDisputeReasonHint,
         cancel: l10n.expenseGovernanceCancel,
         submit: l10n.expenseGovernanceSubmit,
-        proposeCostAction: l10n.expenseProposeCostAction,
+        addExpenseAction: l10n.expenseAddExpenseAction,
+        proposeExpenseAction: l10n.expenseProposeExpenseAction,
         addExpenseTitle: l10n.expenseAddTitle,
-        proposeCostTitle: l10n.expenseProposeCostTitle,
+        proposeExpenseTitle: l10n.expenseProposeExpenseTitle,
         saveExpense: l10n.expenseSaveExpense,
         saveProposal: l10n.expenseSaveProposal,
         tripBalancesIn: l10n.expenseTripBalancesIn,
@@ -215,6 +216,11 @@ class SplitLabels {
         fxConversionLocked: l10n.expenseFxConversionLocked,
         saveConversion: l10n.expenseSaveConversion,
         fxSourceReceipt: l10n.expenseFxSourceReceipt,
+        totalSpent: l10n.expenseTotalSpent,
+        filterAll: l10n.expenseFilterAll,
+        filterUnsettled: l10n.expenseFilterUnsettled,
+        filterMine: l10n.expenseFilterMine,
+        todayLabel: l10n.expenseTodayLabel,
       );
 
   static TripBudgetLabels budget(AppLocalizations l10n) => TripBudgetLabels(

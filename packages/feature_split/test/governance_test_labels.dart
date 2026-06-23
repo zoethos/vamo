@@ -16,9 +16,10 @@ const governanceTestLabels = ExpenseGovernanceLabels(
   disputeReasonHint: 'Reason',
   cancel: 'Cancel',
   submit: 'Submit',
-  proposeCostAction: 'Propose a cost',
+  addExpenseAction: 'Add expense',
+  proposeExpenseAction: 'Propose expense',
   addExpenseTitle: 'New expense',
-  proposeCostTitle: 'Propose a cost',
+  proposeExpenseTitle: 'Propose expense',
   saveExpense: 'Save expense',
   saveProposal: 'Save proposal',
   tripBalancesIn: _mockTripBalancesIn,
@@ -28,6 +29,11 @@ const governanceTestLabels = ExpenseGovernanceLabels(
   fxConversionLocked: 'Conversion locked',
   saveConversion: 'Save conversion',
   fxSourceReceipt: 'Receipt total',
+  totalSpent: 'Total spent',
+  filterAll: 'All',
+  filterUnsettled: 'Unsettled',
+  filterMine: 'Mine',
+  todayLabel: 'Today',
 );
 
 const governanceTestLabelsAr = ExpenseGovernanceLabels(
@@ -46,9 +52,10 @@ const governanceTestLabelsAr = ExpenseGovernanceLabels(
   disputeReasonHint: 'السبب',
   cancel: 'إلغاء',
   submit: 'إرسال',
-  proposeCostAction: 'اقتراح تكلفة',
+  addExpenseAction: 'إضافة مصروف',
+  proposeExpenseAction: 'اقتراح مصروف',
   addExpenseTitle: 'إضافة مصروف',
-  proposeCostTitle: 'اقتراح تكلفة',
+  proposeExpenseTitle: 'اقتراح مصروف',
   saveExpense: 'حفظ المصروف',
   saveProposal: 'حفظ الاقتراح',
   tripBalancesIn: _mockTripBalancesInAr,
@@ -58,6 +65,11 @@ const governanceTestLabelsAr = ExpenseGovernanceLabels(
   fxConversionLocked: 'محول مقفل',
   saveConversion: 'حفظ التحويل',
   fxSourceReceipt: 'إجمالي الإيصال',
+  totalSpent: 'إجمالي المصروف',
+  filterAll: 'الكل',
+  filterUnsettled: 'غير مسوّى',
+  filterMine: 'لي',
+  todayLabel: 'اليوم',
 );
 
 String _mockDisputedBy(String name) => 'included — disputed by $name';

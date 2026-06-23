@@ -18,9 +18,10 @@ class ExpenseGovernanceLabels {
     required this.disputeReasonHint,
     required this.cancel,
     required this.submit,
-    required this.proposeCostAction,
+    required this.addExpenseAction,
+    required this.proposeExpenseAction,
     required this.addExpenseTitle,
-    required this.proposeCostTitle,
+    required this.proposeExpenseTitle,
     required this.saveExpense,
     required this.saveProposal,
     required this.tripBalancesIn,
@@ -30,6 +31,11 @@ class ExpenseGovernanceLabels {
     required this.fxConversionLocked,
     required this.saveConversion,
     required this.fxSourceReceipt,
+    required this.totalSpent,
+    required this.filterAll,
+    required this.filterUnsettled,
+    required this.filterMine,
+    required this.todayLabel,
   });
 
   final String Function(String memberName) includedDisputedBy;
@@ -47,9 +53,15 @@ class ExpenseGovernanceLabels {
   final String disputeReasonHint;
   final String cancel;
   final String submit;
-  final String proposeCostAction;
+
+  /// Committed-path CTA ("Add expense"). The expense saves directly.
+  final String addExpenseAction;
+
+  /// Proposal-path CTA ("Propose expense"). Only in [AddExpenseMode.proposed],
+  /// where the flow enters the consent path.
+  final String proposeExpenseAction;
   final String addExpenseTitle;
-  final String proposeCostTitle;
+  final String proposeExpenseTitle;
   final String saveExpense;
   final String saveProposal;
   final String Function(String currency) tripBalancesIn;
@@ -59,6 +71,22 @@ class ExpenseGovernanceLabels {
   final String fxConversionLocked;
   final String saveConversion;
   final String fxSourceReceipt;
+
+  /// Spend-led summary header (§B) — "Total spent". "Your share" reuses
+  /// [yourShare].
+  final String totalSpent;
+
+  /// Day-grouped list filter chips (§C).
+  final String filterAll;
+  final String filterUnsettled;
+  final String filterMine;
+
+  /// Day-group header token for the current day ("Today").
+  final String todayLabel;
+
+  /// CTA label for the action FAB, chosen by [mode] (§0 verb decision).
+  String actionLabel(AddExpenseMode mode) =>
+      mode == AddExpenseMode.proposed ? proposeExpenseAction : addExpenseAction;
 
   String consentDisplayLabel({
     required String memberName,
