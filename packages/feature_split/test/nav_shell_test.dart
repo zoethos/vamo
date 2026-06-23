@@ -26,12 +26,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('activity'), findsOneWidget);
+    // On the Activity tab the primary action is suppressed: no centre FAB and
+    // no "Add" nav slot, so there's no way to reach create-trip from here.
     expect(find.byType(FloatingActionButton), findsNothing);
-
-    await tester.tap(find.text('Add'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('activity'), findsOneWidget);
+    expect(find.text('Add'), findsNothing);
     expect(find.text('create trip page'), findsNothing);
   });
 }
