@@ -6,6 +6,9 @@
 //   RLS_USER_C_EMAIL / RLS_USER_C_PASSWORD — outsider (never joins)
 //   RLS_SERVICE_ROLE_KEY — lifecycle job + deterministic service-role writers
 //     for tests that must not hit external providers repeatedly
+//     (POI/Foursquare smoke temporarily sets the provider cap to zero, seeds
+//     cache rows, and restores the cap so cache-key regressions cannot burn
+//     live paid calls.)
 //
 // Also required:
 //   SUPABASE_URL, SUPABASE_ANON_KEY
@@ -159,6 +162,7 @@ Future<void> main() async {
   SupabaseClient? clientA;
   SupabaseClient? clientB;
   SupabaseClient? serviceClient;
+  int? poiOriginalMonthlyFreeCap;
 
   try {
     clientA = await _signIn(checkedUrl, checkedAnon, aEmail!, aPass!);
@@ -404,188 +408,208 @@ Future<void> main() async {
     poiCacheKeys.addAll([poiNearbyCacheKey, poiSearchCacheKey]);
 
     if (serviceClient != null) {
-      final now = DateTime.now().toUtc();
-      final expiresAt = now.add(const Duration(hours: 1)).toIso8601String();
-      await clientA.from('trips').update({'destination': 'Munich'}).eq(
-        'id',
-        tripId,
-      );
-      await serviceClient.from('poi_cache').upsert([
-        {
-          'cache_key': poiNearbyCacheKey,
-          'provider': 'foursquare',
-          'geohash': poiGeohash,
-          'category': 'all',
-          'results': [
-            {
-              'id': 'fsq-rls-smoke',
-              'name': 'Marienplatz',
-              'category': 'attraction',
+      try {
+        poiOriginalMonthlyFreeCap =
+            await _suppressPoiPaidProviderCalls(serviceClient);
+        results.add(_Check('D-P1 poi paid provider calls suppressed', true));
+      } catch (e) {
+        results.add(_Check(
+          'D-P1 poi paid provider calls suppressed',
+          false,
+          detail: '$e',
+        ));
+      }
+
+      if (poiOriginalMonthlyFreeCap != null) {
+        final now = DateTime.now().toUtc();
+        final expiresAt = now.add(const Duration(hours: 1)).toIso8601String();
+        await clientA.from('trips').update({'destination': 'Munich'}).eq(
+          'id',
+          tripId,
+        );
+        await serviceClient.from('poi_cache').upsert([
+          {
+            'cache_key': poiNearbyCacheKey,
+            'provider': 'foursquare',
+            'geohash': poiGeohash,
+            'category': 'all',
+            'results': [
+              {
+                'id': 'fsq-rls-smoke',
+                'name': 'Marienplatz',
+                'category': 'attraction',
+                'lat': poiLat,
+                'lng': poiLng,
+                'address': 'Marienplatz, Munich',
+                'distanceM': 12,
+                'source': 'foursquare',
+                'providerPlaceId': 'fsq-rls-smoke',
+              }
+            ],
+            'fetched_at': now.toIso8601String(),
+            'expires_at': expiresAt,
+          },
+          {
+            'cache_key': poiSearchCacheKey,
+            'provider': 'foursquare',
+            'geohash': poiSearchRegion,
+            'category': 'all',
+            'results': [
+              {
+                'id': 'fsq-rls-smoke-search',
+                'name': 'Marienplatz',
+                'category': 'attraction',
+                'lat': poiLat,
+                'lng': poiLng,
+                'address': 'Marienplatz, Munich',
+                'distanceM': 12,
+                'source': 'foursquare',
+                'providerPlaceId': 'fsq-rls-smoke-search',
+              }
+            ],
+            'fetched_at': now.toIso8601String(),
+            'expires_at': expiresAt,
+          },
+        ], onConflict: 'cache_key');
+
+        var memberPoiAvailable = false;
+        Object? memberPoiDetail;
+        try {
+          final response = await clientA.functions.invoke(
+            'poi-discovery',
+            body: {
+              'trip_id': tripId,
               'lat': poiLat,
               'lng': poiLng,
-              'address': 'Marienplatz, Munich',
-              'distanceM': 12,
-              'source': 'foursquare',
-              'providerPlaceId': 'fsq-rls-smoke',
+            },
+          );
+          if (response.status == 200 && response.data is Map) {
+            final map = Map<String, dynamic>.from(response.data as Map);
+            final pois = map['pois'];
+            memberPoiAvailable = map['available'] == true &&
+                map['cached'] == true &&
+                pois is List &&
+                pois.any((row) =>
+                    row is Map && row['providerPlaceId'] == 'fsq-rls-smoke');
+            if (!memberPoiAvailable) {
+              memberPoiDetail = map;
             }
-          ],
-          'fetched_at': now.toIso8601String(),
-          'expires_at': expiresAt,
-        },
-        {
-          'cache_key': poiSearchCacheKey,
-          'provider': 'foursquare',
-          'geohash': poiSearchRegion,
-          'category': 'all',
-          'results': [
-            {
-              'id': 'fsq-rls-smoke-search',
-              'name': 'Marienplatz',
-              'category': 'attraction',
+          } else {
+            memberPoiDetail = 'status=${response.status}';
+          }
+        } catch (error) {
+          memberPoiDetail = error;
+        }
+        results.add(_Check(
+          'D-P1 member poi-discovery cache available',
+          memberPoiAvailable,
+          detail: memberPoiDetail?.toString(),
+        ));
+
+        var memberPoiSearchAvailable = false;
+        Object? memberPoiSearchDetail;
+        try {
+          final response = await clientA.functions.invoke(
+            'poi-discovery',
+            body: {
+              'trip_id': tripId,
+              'mode': 'search',
+              'query': 'Marienplatz',
+              'session_id': 'rls-smoke-search',
+            },
+          );
+          if (response.status == 200 && response.data is Map) {
+            final map = Map<String, dynamic>.from(response.data as Map);
+            final pois = map['pois'];
+            memberPoiSearchAvailable = map['available'] == true &&
+                map['cached'] == true &&
+                pois is List &&
+                pois.any((row) =>
+                    row is Map &&
+                    row['providerPlaceId'] == 'fsq-rls-smoke-search');
+            if (!memberPoiSearchAvailable) {
+              memberPoiSearchDetail = map;
+            }
+          } else {
+            memberPoiSearchDetail = 'status=${response.status}';
+          }
+        } catch (error) {
+          memberPoiSearchDetail = error;
+        }
+        results.add(_Check(
+          'D-P1 member poi-discovery search cache available',
+          memberPoiSearchAvailable,
+          detail: memberPoiSearchDetail?.toString(),
+        ));
+
+        var outsiderPoiBlocked = false;
+        Object? outsiderPoiDetail;
+        try {
+          final response = await clientC.functions.invoke(
+            'poi-discovery',
+            body: {
+              'trip_id': tripId,
               'lat': poiLat,
               'lng': poiLng,
-              'address': 'Marienplatz, Munich',
-              'distanceM': 12,
-              'source': 'foursquare',
-              'providerPlaceId': 'fsq-rls-smoke-search',
+            },
+          );
+          if (response.data is Map) {
+            final map = Map<String, dynamic>.from(response.data as Map);
+            outsiderPoiBlocked =
+                response.status == 404 && map['error'] == 'trip_not_found';
+            if (!outsiderPoiBlocked) {
+              outsiderPoiDetail = 'status=${response.status} body=$map';
             }
-          ],
-          'fetched_at': now.toIso8601String(),
-          'expires_at': expiresAt,
-        },
-      ], onConflict: 'cache_key');
-
-      var memberPoiAvailable = false;
-      Object? memberPoiDetail;
-      try {
-        final response = await clientA.functions.invoke(
-          'poi-discovery',
-          body: {
-            'trip_id': tripId,
-            'lat': poiLat,
-            'lng': poiLng,
-          },
-        );
-        if (response.status == 200 && response.data is Map) {
-          final map = Map<String, dynamic>.from(response.data as Map);
-          final pois = map['pois'];
-          memberPoiAvailable = map['available'] == true &&
-              map['cached'] == true &&
-              pois is List &&
-              pois.any((row) =>
-                  row is Map && row['providerPlaceId'] == 'fsq-rls-smoke');
-          if (!memberPoiAvailable) {
-            memberPoiDetail = map;
+          } else {
+            outsiderPoiDetail = 'status=${response.status}';
           }
-        } else {
-          memberPoiDetail = 'status=${response.status}';
+        } catch (error) {
+          outsiderPoiBlocked = true;
+          outsiderPoiDetail = error;
         }
-      } catch (error) {
-        memberPoiDetail = error;
-      }
-      results.add(_Check(
-        'D-P1 member poi-discovery cache available',
-        memberPoiAvailable,
-        detail: memberPoiDetail?.toString(),
-      ));
+        results.add(_Check(
+          'D-P1 outsider poi-discovery trip_not_found',
+          outsiderPoiBlocked,
+          detail: outsiderPoiDetail?.toString(),
+        ));
 
-      var memberPoiSearchAvailable = false;
-      Object? memberPoiSearchDetail;
-      try {
-        final response = await clientA.functions.invoke(
-          'poi-discovery',
-          body: {
-            'trip_id': tripId,
-            'mode': 'search',
-            'query': 'Marienplatz',
-            'session_id': 'rls-smoke-search',
-          },
-        );
-        if (response.status == 200 && response.data is Map) {
-          final map = Map<String, dynamic>.from(response.data as Map);
-          final pois = map['pois'];
-          memberPoiSearchAvailable = map['available'] == true &&
-              map['cached'] == true &&
-              pois is List &&
-              pois.any((row) =>
-                  row is Map &&
-                  row['providerPlaceId'] == 'fsq-rls-smoke-search');
-          if (!memberPoiSearchAvailable) {
-            memberPoiSearchDetail = map;
+        var outsiderPoiSearchBlocked = false;
+        Object? outsiderPoiSearchDetail;
+        try {
+          final response = await clientC.functions.invoke(
+            'poi-discovery',
+            body: {
+              'trip_id': tripId,
+              'mode': 'search',
+              'query': 'Marienplatz',
+            },
+          );
+          if (response.data is Map) {
+            final map = Map<String, dynamic>.from(response.data as Map);
+            outsiderPoiSearchBlocked =
+                response.status == 404 && map['error'] == 'trip_not_found';
+            if (!outsiderPoiSearchBlocked) {
+              outsiderPoiSearchDetail = 'status=${response.status} body=$map';
+            }
+          } else {
+            outsiderPoiSearchDetail = 'status=${response.status}';
           }
-        } else {
-          memberPoiSearchDetail = 'status=${response.status}';
+        } catch (error) {
+          outsiderPoiSearchBlocked = true;
+          outsiderPoiSearchDetail = error;
         }
-      } catch (error) {
-        memberPoiSearchDetail = error;
+        results.add(_Check(
+          'D-P1 outsider poi-discovery search trip_not_found',
+          outsiderPoiSearchBlocked,
+          detail: outsiderPoiSearchDetail?.toString(),
+        ));
+      } else {
+        results.add(_Check(
+          'D-P1 poi-discovery cache smoke skipped',
+          false,
+          detail: 'paid-provider suppression failed; live calls were not made',
+        ));
       }
-      results.add(_Check(
-        'D-P1 member poi-discovery search cache available',
-        memberPoiSearchAvailable,
-        detail: memberPoiSearchDetail?.toString(),
-      ));
-
-      var outsiderPoiBlocked = false;
-      Object? outsiderPoiDetail;
-      try {
-        final response = await clientC.functions.invoke(
-          'poi-discovery',
-          body: {
-            'trip_id': tripId,
-            'lat': poiLat,
-            'lng': poiLng,
-          },
-        );
-        if (response.data is Map) {
-          final map = Map<String, dynamic>.from(response.data as Map);
-          outsiderPoiBlocked =
-              response.status == 404 && map['error'] == 'trip_not_found';
-          if (!outsiderPoiBlocked) {
-            outsiderPoiDetail = 'status=${response.status} body=$map';
-          }
-        } else {
-          outsiderPoiDetail = 'status=${response.status}';
-        }
-      } catch (error) {
-        outsiderPoiBlocked = true;
-        outsiderPoiDetail = error;
-      }
-      results.add(_Check(
-        'D-P1 outsider poi-discovery trip_not_found',
-        outsiderPoiBlocked,
-        detail: outsiderPoiDetail?.toString(),
-      ));
-
-      var outsiderPoiSearchBlocked = false;
-      Object? outsiderPoiSearchDetail;
-      try {
-        final response = await clientC.functions.invoke(
-          'poi-discovery',
-          body: {
-            'trip_id': tripId,
-            'mode': 'search',
-            'query': 'Marienplatz',
-          },
-        );
-        if (response.data is Map) {
-          final map = Map<String, dynamic>.from(response.data as Map);
-          outsiderPoiSearchBlocked =
-              response.status == 404 && map['error'] == 'trip_not_found';
-          if (!outsiderPoiSearchBlocked) {
-            outsiderPoiSearchDetail = 'status=${response.status} body=$map';
-          }
-        } else {
-          outsiderPoiSearchDetail = 'status=${response.status}';
-        }
-      } catch (error) {
-        outsiderPoiSearchBlocked = true;
-        outsiderPoiSearchDetail = error;
-      }
-      results.add(_Check(
-        'D-P1 outsider poi-discovery search trip_not_found',
-        outsiderPoiSearchBlocked,
-        detail: outsiderPoiSearchDetail?.toString(),
-      ));
     } else {
       results.add(_Check(
         'D-P1 poi-discovery cache smoke skipped',
@@ -1427,7 +1451,7 @@ Future<void> main() async {
     ));
     results.add(_Check(
       'S51 visit capability exposed',
-      visitCapability?['supports_rsvp'] == false &&
+      visitCapability?['supports_rsvp'] == true &&
           visitCapability?['suggests_pois'] == true &&
           visitCapability?['has_details_form'] == true,
     ));
@@ -2836,6 +2860,21 @@ Future<void> main() async {
         }
       }
     }
+    if (serviceClient != null && poiOriginalMonthlyFreeCap != null) {
+      try {
+        await _restorePoiPaidProviderCalls(
+          serviceClient,
+          poiOriginalMonthlyFreeCap,
+        );
+        results.add(_Check('cleanup restore D-P1 poi provider cap', true));
+      } catch (e) {
+        results.add(_Check(
+          'cleanup restore D-P1 poi provider cap',
+          false,
+          detail: '$e',
+        ));
+      }
+    }
     if (clientA != null && tripId != null) {
       try {
         await clientA.from('trips').delete().eq('id', tripId);
@@ -2863,6 +2902,39 @@ Future<void> main() async {
   }
   stdout.writeln('\n${results.length - failed}/${results.length} passed');
   exit(failed == 0 ? 0 : 1);
+}
+
+Future<int> _suppressPoiPaidProviderCalls(SupabaseClient serviceClient) async {
+  final row = await serviceClient
+      .from('provider_config')
+      .select('monthly_free_cap')
+      .eq('service', 'poi')
+      .eq('provider', 'foursquare')
+      .maybeSingle();
+  if (row == null) {
+    throw StateError('missing provider_config row for poi/foursquare');
+  }
+  final original = row['monthly_free_cap'];
+  if (original is! int) {
+    throw StateError('invalid poi/foursquare monthly_free_cap: $original');
+  }
+  await serviceClient
+      .from('provider_config')
+      .update({'monthly_free_cap': 0})
+      .eq('service', 'poi')
+      .eq('provider', 'foursquare');
+  return original;
+}
+
+Future<void> _restorePoiPaidProviderCalls(
+  SupabaseClient serviceClient,
+  int monthlyFreeCap,
+) {
+  return serviceClient
+      .from('provider_config')
+      .update({'monthly_free_cap': monthlyFreeCap})
+      .eq('service', 'poi')
+      .eq('provider', 'foursquare');
 }
 
 Future<SupabaseClient> _signIn(

@@ -18,6 +18,8 @@ The script creates a throwaway trip, verifies member vs outsider access (includi
 
 `tool/rls_smoke.dart` refuses the known production project ref. For another intentional non-production project, set `RLS_ALLOW_NON_STAGING=true`; do not run this smoke against production.
 
+Paid provider calls are not part of the default RLS smoke. The POI/Foursquare checks seed `poi_cache`, temporarily set the `poi/foursquare` provider cap to zero, assert cached responses, and restore the cap during cleanup. Do not add live pay-per-call provider checks to this script. If a concrete feature needs a real provider smoke, run it as a separate manual step after explicit human approval.
+
 Use this as the primary storage + RLS gate; manual steps below remain as an appendix.
 
 ## Realtime / offline propagation

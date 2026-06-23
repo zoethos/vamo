@@ -215,13 +215,15 @@ class PlanTabState extends ConsumerState<PlanTab> {
         labels: widget.labels,
         existing: existing,
         readOnly: widget.readOnly,
+        tripDateBounds: TripPlanDateBounds.fromIso(
+          startDateIso: widget.tripStartDateIso,
+          endDateIso: widget.tripEndDateIso,
+        ),
         onSave: (input) async {
           if (existing == null) {
             await ref.read(planRepositoryProvider).addPlanItem(input);
           } else {
-            await ref
-                .read(planRepositoryProvider)
-                .updatePlanItem(
+            await ref.read(planRepositoryProvider).updatePlanItem(
                   id: existing.id,
                   kind: input.kind,
                   title: input.title,
@@ -281,15 +283,18 @@ class _PlanTabContent extends StatelessWidget {
     final colors = context.vamoColors;
     final type = context.vamoType;
     final space = context.vamoSpace;
-    final grouped = groupPlanItemsByDay(planItems);
-    final days = _timelineDays(planItems, tripStartDateIso, tripEndDateIso);
+    final bounds = TripPlanDateBounds.fromIso(
+      startDateIso: tripStartDateIso,
+      endDateIso: tripEndDateIso,
+    );
+    final grouped = groupPlanItemsByDay(planItems, bounds: bounds);
+    final days = _timelineDays(planItems, bounds);
     final effectiveSelectedDay = _selectedDayFor(
       days: days,
       selectedDay: selectedDay,
     );
-    final selectedKey = effectiveSelectedDay == null
-        ? null
-        : _dayKey(effectiveSelectedDay);
+    final selectedKey =
+        effectiveSelectedDay == null ? null : _dayKey(effectiveSelectedDay);
     final visibleSections = selectedKey == null
         ? grouped
         : grouped.where((section) => section.dayKey == selectedKey).toList();
@@ -444,12 +449,11 @@ class _PlanTabContent extends StatelessWidget {
 
   static List<DateTime> _timelineDays(
     List<PlanItemSummary> items,
-    String? startIso,
-    String? endIso,
+    TripPlanDateBounds bounds,
   ) {
-    final start = _parseIsoDay(startIso);
-    final end = _parseIsoDay(endIso) ?? start;
     final days = <DateTime>{};
+    final start = bounds.startDay;
+    final end = bounds.endDay;
     if (start != null && end != null && !end.isBefore(start)) {
       final count = end.difference(start).inDays + 1;
       if (count <= 45) {
@@ -458,21 +462,17 @@ class _PlanTabContent extends StatelessWidget {
         }
       }
     }
+    final hasTripDays = days.isNotEmpty;
     for (final item in items) {
       final startAt = item.startsAt?.toLocal();
       if (startAt != null) {
-        days.add(DateTime(startAt.year, startAt.month, startAt.day));
+        final day = DateTime(startAt.year, startAt.month, startAt.day);
+        if (!hasTripDays || bounds.containsDay(day)) {
+          days.add(day);
+        }
       }
     }
     return days.toList()..sort();
-  }
-
-  static DateTime? _parseIsoDay(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    final parsed = DateTime.tryParse(raw.trim());
-    if (parsed == null) return null;
-    final local = parsed.toLocal();
-    return DateTime(local.year, local.month, local.day);
   }
 }
 

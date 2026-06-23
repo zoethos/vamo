@@ -72,11 +72,17 @@ void main() {
       expect(result?.pois, isEmpty);
     });
 
-    test('returns null for unavailable payloads', () {
-      expect(
-        PoiDiscoveryResult.fromFunctionPayload({'available': false}),
-        isNull,
-      );
+    test('preserves unavailable reasons', () {
+      final result = PoiDiscoveryResult.fromFunctionPayload({
+        'available': false,
+        'reason': 'provider_auth',
+      });
+
+      expect(result, isNotNull);
+      expect(result?.gated, isFalse);
+      expect(result?.unavailable, isTrue);
+      expect(result?.reason, 'provider_auth');
+      expect(result?.pois, isEmpty);
     });
   });
 }

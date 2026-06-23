@@ -15,7 +15,7 @@ Use the **current Foursquare Places API only**. Do not use legacy V3 endpoints.
 ## A. Control-plane foundation (shared — build here, reused later)
 - Tables:
   - `provider_config` (seed `poi`: `routing_order=['foursquare']`, Foursquare
-    `monthly_free_cap=8000`, `enabled=true`, `default_free_quota=5`,
+    `monthly_free_cap=500`, `enabled=true`, `default_free_quota=5`,
     `cache_ttl_seconds=604800`, `can_cache_content=true`, `can_store_photos=false`).
   - `service_usage` (per-provider monthly + per-user monthly counters).
   - `service_usage_reservations` (idempotent fresh-call reservations; unique idempotency key; status
@@ -80,8 +80,8 @@ Use the **current Foursquare Places API only**. Do not use legacy V3 endpoints.
 - New edge fn + migrations to **staging** (`sfwziwcuyctxvidivnsh`, not prod) + `rls_smoke` green;
   `melos run ci` green; goldens on **Linux** if the Visit surface changes; watch the `AppColors` ratchet.
 - **Greenlight before build:** Foursquare account + key. Seed numbers are locked for P0:
-  per-user free quota `5` fresh lookups/month, Foursquare cap `8000` fresh calls/month, cache TTL `7`
-  days, geohash precision `6`.
+  per-user free quota `5` fresh lookups/month, Foursquare cap `500` fresh calls/month, cache TTL `7`
+  days, geohash precision `6`. Raise the provider cap only after checking current Foursquare billing.
 
 ## Notes
 - Branch base off `main`; own worktree.

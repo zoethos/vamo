@@ -19,14 +19,14 @@ enum PlanItemKind {
   }
 
   IconData get icon => switch (this) {
-    PlanItemKind.lodging => Icons.hotel_outlined,
-    PlanItemKind.flight => Icons.flight_outlined,
-    PlanItemKind.train => Icons.train_outlined,
-    PlanItemKind.activity => Icons.local_activity_outlined,
-    PlanItemKind.visit => Icons.place_outlined,
-    PlanItemKind.transfer => Icons.sync_alt_outlined,
-    PlanItemKind.other => Icons.event_note_outlined,
-  };
+        PlanItemKind.lodging => Icons.hotel_outlined,
+        PlanItemKind.flight => Icons.flight_outlined,
+        PlanItemKind.train => Icons.train_outlined,
+        PlanItemKind.activity => Icons.local_activity_outlined,
+        PlanItemKind.visit => Icons.place_outlined,
+        PlanItemKind.transfer => Icons.sync_alt_outlined,
+        PlanItemKind.other => Icons.event_note_outlined,
+      };
 }
 
 enum TransferSubtype {
@@ -70,6 +70,25 @@ class PlanItemSummary {
   final DateTime? endsAt;
   final Map<String, Object?> metadata;
   final int position;
+
+  PlanItemSummary copyWith({
+    DateTime? startsAt,
+    DateTime? endsAt,
+    bool clearStartsAt = false,
+    bool clearEndsAt = false,
+  }) {
+    return PlanItemSummary(
+      id: id,
+      tripId: tripId,
+      kind: kind,
+      title: title,
+      notes: notes,
+      startsAt: clearStartsAt ? null : startsAt ?? this.startsAt,
+      endsAt: clearEndsAt ? null : endsAt ?? this.endsAt,
+      metadata: metadata,
+      position: position,
+    );
+  }
 }
 
 class PlanItemCapabilities {
@@ -98,8 +117,7 @@ class PlanItemCapabilities {
       kind: kind,
       supportsRsvp: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
       suggestsPois: kind == PlanItemKind.activity || kind == PlanItemKind.visit,
-      hasLiveStatus:
-          kind == PlanItemKind.flight ||
+      hasLiveStatus: kind == PlanItemKind.flight ||
           kind == PlanItemKind.train ||
           kind == PlanItemKind.transfer,
       hasCheckTimes: kind == PlanItemKind.transfer,
@@ -155,6 +173,104 @@ class PlanItemInput {
   final Map<String, Object?> metadata;
 }
 
+class TripPlanDateBounds {
+  const TripPlanDateBounds({this.startDay, this.endDay});
+
+  factory TripPlanDateBounds.fromIso({
+    String? startDateIso,
+    String? endDateIso,
+  }) {
+    final start = parsePlanIsoDay(startDateIso);
+    final end = parsePlanIsoDay(endDateIso) ?? start;
+    if (start != null && end != null && end.isBefore(start)) {
+      return TripPlanDateBounds(startDay: start);
+    }
+    return TripPlanDateBounds(startDay: start, endDay: end);
+  }
+
+  final DateTime? startDay;
+  final DateTime? endDay;
+
+  bool get hasBounds => startDay != null || endDay != null;
+
+  bool containsDateTime(DateTime? value) {
+    if (value == null) return true;
+    return containsDay(planDayForDateTime(value));
+  }
+
+  bool containsDay(DateTime day) {
+    final normalized = DateTime(day.year, day.month, day.day);
+    final start = startDay;
+    final end = endDay;
+    if (start != null && normalized.isBefore(start)) return false;
+    if (end != null && normalized.isAfter(end)) return false;
+    return true;
+  }
+}
+
+enum PlanDateValidationFailure { endBeforeStart, outsideTripRange }
+
+DateTime? parsePlanIsoDay(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final parsed = DateTime.tryParse(raw.trim());
+  if (parsed == null) return null;
+  return DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+DateTime planDayForDateTime(DateTime value) {
+  final local = value.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+PlanDateValidationFailure? validatePlanItemDates({
+  required DateTime? startsAt,
+  required DateTime? endsAt,
+  required TripPlanDateBounds bounds,
+}) {
+  if (startsAt != null && endsAt != null && endsAt.isBefore(startsAt)) {
+    return PlanDateValidationFailure.endBeforeStart;
+  }
+  if (!bounds.containsDateTime(startsAt) || !bounds.containsDateTime(endsAt)) {
+    return PlanDateValidationFailure.outsideTripRange;
+  }
+  return null;
+}
+
+({DateTime? startsAt, DateTime? endsAt}) normalizePlanItemDatesForTripRange({
+  required DateTime? startsAt,
+  required DateTime? endsAt,
+  required TripPlanDateBounds bounds,
+}) {
+  final startValid = bounds.containsDateTime(startsAt);
+  final endValid = bounds.containsDateTime(endsAt);
+  if (!startValid) return (startsAt: null, endsAt: null);
+  if (!endValid ||
+      (startsAt != null && endsAt != null && endsAt.isBefore(startsAt))) {
+    return (startsAt: startsAt, endsAt: null);
+  }
+  return (startsAt: startsAt, endsAt: endsAt);
+}
+
+PlanItemSummary normalizePlanItemSummaryForTripRange(
+  PlanItemSummary item,
+  TripPlanDateBounds bounds,
+) {
+  final dates = normalizePlanItemDatesForTripRange(
+    startsAt: item.startsAt,
+    endsAt: item.endsAt,
+    bounds: bounds,
+  );
+  if (dates.startsAt == item.startsAt && dates.endsAt == item.endsAt) {
+    return item;
+  }
+  return item.copyWith(
+    startsAt: dates.startsAt,
+    endsAt: dates.endsAt,
+    clearStartsAt: dates.startsAt == null,
+    clearEndsAt: dates.endsAt == null,
+  );
+}
+
 class VisitPlaceMetadata {
   const VisitPlaceMetadata({
     required this.placeLabel,
@@ -202,8 +318,7 @@ VisitPlaceMetadata? parseVisitPlaceMetadata(Object? raw) {
     lat: _doubleValue(metadata['lat']),
     lng: _doubleValue(metadata['lng']),
     placeId: _stringValue(metadata['place_id']),
-    photoUrl:
-        _stringValue(metadata['photo_url']) ??
+    photoUrl: _stringValue(metadata['photo_url']) ??
         _stringValue(metadata['image_url']) ??
         _stringValue(metadata['thumbnail_url']),
   );
@@ -336,12 +451,13 @@ Object? _normalizeJsonValue(Object? value) {
 
 /// Groups plan board rows by calendar day; undated items last.
 List<({String? dayKey, List<PlanItemSummary> items})> groupPlanItemsByDay(
-  List<PlanItemSummary> items,
-) {
+    List<PlanItemSummary> items,
+    {TripPlanDateBounds bounds = const TripPlanDateBounds()}) {
   final dated = <DateTime, List<PlanItemSummary>>{};
   final undated = <PlanItemSummary>[];
 
-  for (final item in items) {
+  for (final rawItem in items) {
+    final item = normalizePlanItemSummaryForTripRange(rawItem, bounds);
     final start = item.startsAt;
     if (start == null) {
       undated.add(item);

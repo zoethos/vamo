@@ -23,6 +23,7 @@ class PlanItemSheet extends ConsumerStatefulWidget {
     required this.labels,
     required this.existing,
     required this.readOnly,
+    this.tripDateBounds = const TripPlanDateBounds(),
     required this.onSave,
   });
 
@@ -30,6 +31,7 @@ class PlanItemSheet extends ConsumerStatefulWidget {
   final PlanTabLabels labels;
   final PlanItemSummary? existing;
   final bool readOnly;
+  final TripPlanDateBounds tripDateBounds;
   final Future<void> Function(PlanItemInput input) onSave;
 
   @override
@@ -78,8 +80,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _notes = TextEditingController(text: widget.existing?.notes ?? '');
     final visit = parseVisitPlaceMetadata(widget.existing?.metadata);
     _visitPlaceLabel = TextEditingController(
-      text:
-          visit?.placeLabel ??
+      text: visit?.placeLabel ??
           (widget.existing?.kind == PlanItemKind.visit
               ? widget.existing?.title ?? ''
               : ''),
@@ -95,8 +96,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     _visitLng = visit?.lng;
     _visitPlaceId = visit?.placeId;
     final transfer = parseTransferMetadata(widget.existing?.metadata);
-    _transferSubtype =
-        transfer?.subtype ??
+    _transferSubtype = transfer?.subtype ??
         legacyTransferSubtypeForKind(
           widget.existing?.kind ?? PlanItemKind.other,
         ) ??
@@ -137,18 +137,15 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     final eventViews = _isActivity && widget.existing != null
         ? ref.watch(tripPlanEventViewsProvider(widget.tripId))
         : null;
-    final eventView = widget.existing == null
-        ? null
-        : eventViews?[widget.existing!.id];
-    final capabilities =
-        ref.watch(planItemCapabilitiesProvider).valueOrNull ??
+    final eventView =
+        widget.existing == null ? null : eventViews?[widget.existing!.id];
+    final capabilities = ref.watch(planItemCapabilitiesProvider).valueOrNull ??
         PlanItemCapabilities.fallbackByKind();
-    final visitCapabilities =
-        capabilities[PlanItemKind.visit] ??
+    final visitCapabilities = capabilities[PlanItemKind.visit] ??
         PlanItemCapabilities.fallbackFor(PlanItemKind.visit);
     final tripPlaces = _isVisit && visitCapabilities.suggestsPois
         ? ref.watch(tripResolvedPlacesProvider(widget.tripId)).valueOrNull ??
-              const <PlaceSummary>[]
+            const <PlaceSummary>[]
         : const <PlaceSummary>[];
 
     return SafeArea(
@@ -175,8 +172,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                   _PlanKindTileGrid(
                     labels: widget.labels,
                     selected: _kindChosen ? _kind : null,
-                    readOnly:
-                        widget.readOnly ||
+                    readOnly: widget.readOnly ||
                         widget.existing?.kind == PlanItemKind.activity,
                     onSelected: _chooseKind,
                   ),
@@ -279,8 +275,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                       child: Text(
                         _dateRangeError!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                       ),
                     ),
                   if (_isActivity &&
@@ -290,8 +286,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     Text(
                       widget.labels.eventRsvpSection,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                     const SizedBox(height: 8),
                     if (!eventView.counts.isEmpty)
@@ -303,7 +299,9 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                             eventView.counts.maybe,
                             eventView.counts.declined,
                           ),
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(color: AppColors.graphite),
                         ),
                       ),
@@ -318,8 +316,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
                     Text(
                       widget.labels.eventRsvpHint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.graphite,
-                      ),
+                            color: AppColors.graphite,
+                          ),
                     ),
                   ],
                   const SizedBox(height: 88),
@@ -571,9 +569,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       setState(() {
         _poiSuggestions = const <PoiSummary>[];
         _poiGateVisible = false;
-        _visitStatus = showErrors
-            ? widget.labels.visitDiscoverNeedsPlace
-            : null;
+        _visitStatus =
+            showErrors ? widget.labels.visitDiscoverNeedsPlace : null;
         _visitStatusIsError = showErrors;
       });
       return;
@@ -589,9 +586,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       _visitStatusIsError = false;
     });
 
-    final result = await ref
-        .read(poiRepositoryProvider)
-        .searchForTrip(
+    final result = await ref.read(poiRepositoryProvider).searchForTrip(
           tripId: widget.tripId,
           query: query,
           sessionId: _visitSearchSessionId,
@@ -625,15 +620,25 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       '${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(this)}';
 
   void _validateDateRange() {
-    if (_startsAt != null && _endsAt != null && _endsAt!.isBefore(_startsAt!)) {
-      _dateRangeError = widget.labels.endBeforeStart;
-    } else {
-      _dateRangeError = null;
-    }
+    _dateRangeError = switch (validatePlanItemDates(
+      startsAt: _startsAt,
+      endsAt: _endsAt,
+      bounds: widget.tripDateBounds,
+    )) {
+      PlanDateValidationFailure.endBeforeStart => widget.labels.endBeforeStart,
+      PlanDateValidationFailure.outsideTripRange =>
+        widget.labels.dateOutsideTripRange,
+      null => null,
+    };
   }
 
   Future<void> _pickDate({required bool isStart}) async {
-    final initial = (isStart ? _startsAt : _endsAt) ?? DateTime.now();
+    final first = _firstSelectableDate(isStart: isStart);
+    final last = widget.tripDateBounds.endDay ?? DateTime(2100);
+    final selectedDate = (isStart ? _startsAt : _endsAt) ?? DateTime.now();
+    var initial = planDayForDateTime(selectedDate);
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
     final result = await showVamoDatePicker(
       context: context,
       labels: VamoDatePickerLabels(
@@ -642,7 +647,8 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
         select: widget.labels.datePickerSelect,
       ),
       initialDate: initial,
-      firstDate: isStart ? DateTime(2020) : (_startsAt ?? DateTime(2020)),
+      firstDate: first.isAfter(last) ? last : first,
+      lastDate: last,
     );
     if (!mounted) return;
     if (result.outcome == VamoDatePickOutcome.cancelled) return;
@@ -663,7 +669,7 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
     if (!context.mounted) return;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
+      initialTime: TimeOfDay.fromDateTime(selectedDate),
     );
     if (time == null || !mounted) {
       setState(() {
@@ -691,6 +697,15 @@ class _PlanItemSheetState extends ConsumerState<PlanItemSheet> {
       }
       _validateDateRange();
     });
+  }
+
+  DateTime _firstSelectableDate({required bool isStart}) {
+    var first = widget.tripDateBounds.startDay ?? DateTime(2020);
+    if (!isStart && _startsAt != null) {
+      final startDay = planDayForDateTime(_startsAt!);
+      if (startDay.isAfter(first)) first = startDay;
+    }
+    return first;
   }
 }
 
@@ -786,14 +801,12 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
     final theme = Theme.of(context);
     final shape = context.vamoShape;
     final query = widget.placeLabelController.text.trim();
-    final showEmptyState =
-        !widget.discoveringPois &&
+    final showEmptyState = !widget.discoveringPois &&
         !widget.poiGateVisible &&
         query.length >= 3 &&
         widget.poiSuggestions.isEmpty &&
         widget.status == widget.labels.visitDiscoverEmpty;
-    final showErrorStatus =
-        widget.status != null &&
+    final showErrorStatus = widget.status != null &&
         widget.statusIsError &&
         widget.status != widget.labels.visitDiscoverResolving;
 
@@ -879,12 +892,12 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
             prefixIcon: const Icon(Icons.search, color: _visitCoral),
             suffixIcon:
                 widget.placeLabelController.text.isNotEmpty && !widget.readOnly
-                ? IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    color: AppColors.graphite,
-                    onPressed: _clearSearch,
-                  )
-                : null,
+                    ? IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        color: AppColors.graphite,
+                        onPressed: _clearSearch,
+                      )
+                    : null,
             filled: true,
             fillColor: context.vamoColors.surface,
             contentPadding: const EdgeInsetsDirectional.symmetric(
@@ -933,11 +946,9 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
             ),
             child: Column(
               children: [
-                for (
-                  var i = 0;
-                  i < widget.poiSuggestions.take(5).length;
-                  i++
-                ) ...[
+                for (var i = 0;
+                    i < widget.poiSuggestions.take(5).length;
+                    i++) ...[
                   if (i > 0)
                     Divider(
                       height: 1,
@@ -946,8 +957,7 @@ class _VisitDetailsSectionState extends State<_VisitDetailsSection> {
                     ),
                   _VisitPoiSuggestionRow(
                     poi: widget.poiSuggestions[i],
-                    selected:
-                        widget.selectedPlaceId != null &&
+                    selected: widget.selectedPlaceId != null &&
                         widget.selectedPlaceId ==
                             widget.poiSuggestions[i].providerPlaceId,
                     readOnly: widget.readOnly,
@@ -1089,9 +1099,8 @@ class _VisitPoiSuggestionRow extends StatelessWidget {
     ];
 
     return Material(
-      color: selected
-          ? _visitCoral.withValues(alpha: 0.10)
-          : Colors.transparent,
+      color:
+          selected ? _visitCoral.withValues(alpha: 0.10) : Colors.transparent,
       child: InkWell(
         onTap: readOnly ? null : onTap,
         child: Padding(
