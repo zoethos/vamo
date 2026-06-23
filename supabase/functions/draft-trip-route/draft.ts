@@ -133,6 +133,18 @@ export function parseDraftInput(
   };
 }
 
+// Nullable approximate lat/lng the model anchors a hop with, so code can
+// compute straight-line feasibility. Null for non-moving stops (e.g. visits).
+const COORD_SCHEMA = {
+  type: ["object", "null"],
+  additionalProperties: false,
+  required: ["lat", "lng"],
+  properties: {
+    lat: { type: "number", minimum: -90, maximum: 90 },
+    lng: { type: "number", minimum: -180, maximum: 180 },
+  },
+};
+
 /** Strict JSON schema the model must satisfy (OpenAI structured outputs). */
 export const ROUTE_JSON_SCHEMA = {
   type: "object",
@@ -153,6 +165,8 @@ export const ROUTE_JSON_SCHEMA = {
           "transfer_subtype",
           "leg_index",
           "notes",
+          "from",
+          "to",
         ],
         properties: {
           kind: { type: "string", enum: [...PLAN_KINDS] },
@@ -168,6 +182,8 @@ export const ROUTE_JSON_SCHEMA = {
           },
           leg_index: { type: ["integer", "null"] },
           notes: { type: ["string", "null"], maxLength: 200 },
+          from: COORD_SCHEMA,
+          to: COORD_SCHEMA,
         },
       },
     },
@@ -220,6 +236,8 @@ export function validateRouteDraft(
 
   const warnings = stringArray(r.warnings);
   const items: PlanItemDraft[] = [];
+  // Straight-line km the draft covers per leg, from the model's hop coords.
+  const legCoveredKm = new Map<number, number>();
 
   for (const rawItem of r.plan_items) {
     if (!rawItem || typeof rawItem !== "object") {
@@ -270,6 +288,15 @@ export function validateRouteDraft(
       if (endsAt && leg.windowEnd && endsAt > leg.windowEnd) {
         warnings.push(`Item "${title}" ends after its leg window.`);
       }
+      // Accumulate the hop's straight-line distance for feasibility (§4).
+      const from = parseCoord(it.from);
+      const to = parseCoord(it.to);
+      if (from && to) {
+        legCoveredKm.set(
+          legIndex,
+          (legCoveredKm.get(legIndex) ?? 0) + haversineKm(from, to),
+        );
+      }
     }
 
     let subtype = typeof it.transfer_subtype === "string"
@@ -296,6 +323,26 @@ export function validateRouteDraft(
     });
   }
 
+  // Deterministic, code-owned feasibility: straight-line distance is a lower
+  // bound on real travel, so if it already exceeds a distance-capped leg's
+  // reach, the leg is definitely over. Conservative — we only flag certain
+  // violations, and label them "estimated straight-line" to avoid overclaiming.
+  for (const [i, coveredKm] of legCoveredKm) {
+    const leg = input.legs[i];
+    if (
+      leg.reachType === "distance" &&
+      leg.reachValueKm !== null &&
+      coveredKm > leg.reachValueKm
+    ) {
+      warnings.push(
+        `Leg ${i + 1} (${leg.mode}): estimated straight-line ~` +
+          `${
+            Math.round(coveredKm)
+          } km exceeds your ${leg.reachValueKm} km cap.`,
+      );
+    }
+  }
+
   return {
     ok: true,
     hardError: null,
@@ -305,6 +352,35 @@ export function validateRouteDraft(
       unresolved_questions: stringArray(r.unresolved_questions),
     },
   };
+}
+
+interface Coord {
+  lat: number;
+  lng: number;
+}
+
+function parseCoord(raw: unknown): Coord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const lat = o.lat;
+  const lng = o.lng;
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+/** Great-circle distance in kilometres. */
+export function haversineKm(a: Coord, b: Coord): number {
+  const radius = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
 function stringArray(value: unknown): string[] {
