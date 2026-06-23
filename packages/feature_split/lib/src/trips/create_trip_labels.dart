@@ -1,3 +1,5 @@
+import '../travel/advanced_travel_labels.dart';
+
 /// Localized copy for create-trip flow (S27).
 class CreateTripLabels {
   const CreateTripLabels({
@@ -18,6 +20,7 @@ class CreateTripLabels {
     required this.datePickerCancel,
     required this.datePickerSkip,
     required this.datePickerSelect,
+    required this.advanced,
   });
 
   final String title;
@@ -37,4 +40,5 @@ class CreateTripLabels {
   final String datePickerCancel;
   final String datePickerSkip;
   final String datePickerSelect;
+  final AdvancedTravelLabels advanced;
 }

@@ -310,6 +310,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final headerPhotoUrl =
         _avatarPhotoUrl ?? (p.avatarUrl == null ? oauthPreview : null);
     final themePreference = ref.watch(themePreferenceProvider);
+    final distanceUnit = ref.watch(distanceUnitProvider);
     final displayName = _effectiveDisplayName(p);
 
     return Column(
@@ -361,6 +362,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           trailingText: _themePreferenceLabel(themePreference),
                           showChevron: true,
                           onTap: _showThemePickerSheet,
+                        ),
+                        _SettingsRow(
+                          key: const Key('profileRowDistanceUnit'),
+                          icon: Icons.straighten_outlined,
+                          label: 'Distance',
+                          trailingText: _distanceUnitLabel(distanceUnit),
+                          showChevron: true,
+                          onTap: _showDistanceUnitPickerSheet,
                         ),
                         _SettingsRow(
                           key: const Key('profileRowLocationTag'),
@@ -507,6 +516,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       VamoThemePreference.dark => widget.labels.appearanceDark,
       VamoThemePreference.system => widget.labels.appearanceSystem,
     };
+  }
+
+  String _distanceUnitLabel(DistanceUnit unit) => switch (unit) {
+        DistanceUnit.km => 'Kilometres',
+        DistanceUnit.miles => 'Miles',
+      };
+
+  void _showDistanceUnitPickerSheet() {
+    final current = ref.read(distanceUnitProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    'Distance',
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                  ),
+                ),
+              ),
+              for (final unit in DistanceUnit.values)
+                ListTile(
+                  key: Key('profileDistanceUnitOption_${unit.name}'),
+                  title: Text(_distanceUnitLabel(unit)),
+                  trailing: unit == current
+                      ? const Icon(Icons.check, color: AppColors.jadeTeal)
+                      : null,
+                  onTap: () {
+                    ref.read(distanceUnitProvider.notifier).setUnit(unit);
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showDisplayNameSheet() {
