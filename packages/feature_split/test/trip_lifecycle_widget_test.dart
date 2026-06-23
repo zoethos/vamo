@@ -197,9 +197,10 @@ const _governanceLabels = ExpenseGovernanceLabels(
   disputeReasonHint: 'Hint',
   cancel: 'Cancel',
   submit: 'Submit',
-  proposeCostAction: 'Propose',
+  addExpenseAction: 'Add expense',
+  proposeExpenseAction: 'Propose expense',
   addExpenseTitle: 'Add expense',
-  proposeCostTitle: 'Propose cost',
+  proposeExpenseTitle: 'Propose expense',
   saveExpense: 'Save',
   saveProposal: 'Save proposal',
   tripBalancesIn: _mockBalancesIn,
@@ -209,6 +210,11 @@ const _governanceLabels = ExpenseGovernanceLabels(
   fxConversionLocked: 'Conversion locked',
   saveConversion: 'Save conversion',
   fxSourceReceipt: 'Receipt total',
+  totalSpent: 'Total spent',
+  filterAll: 'All',
+  filterUnsettled: 'Unsettled',
+  filterMine: 'Mine',
+  todayLabel: 'Today',
 );
 
 String _mockDisputedBy(String name) => 'Disputed by $name';

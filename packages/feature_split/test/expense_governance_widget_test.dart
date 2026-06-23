@@ -228,8 +228,11 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text(governanceTestLabels.proposeCostAction), findsNothing);
-    expect(find.byType(TextButton), findsNothing);
+    expect(
+      find.text(governanceTestLabels.proposeExpenseAction),
+      findsNothing,
+    );
+    expect(find.byType(FloatingActionButton), findsNothing);
   });
 
   testWidgets('TripExpensesProposeAction present for trip admin', (
@@ -249,7 +252,12 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text(governanceTestLabels.proposeCostAction), findsOneWidget);
+    // Proposal-path FAB reads "Propose expense" and is the reserved-lime CTA.
+    expect(
+      find.text(governanceTestLabels.proposeExpenseAction),
+      findsOneWidget,
+    );
+    expect(find.byType(FloatingActionButton), findsOneWidget);
   });
 
   testWidgets('proposed expense tile uses ghost styling', (tester) async {
