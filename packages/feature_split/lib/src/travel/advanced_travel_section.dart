@@ -55,6 +55,7 @@ class AdvancedTravelSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -65,14 +66,15 @@ class AdvancedTravelSection extends StatelessWidget {
               child: Text(
                 labels.legsSectionTitle.toUpperCase(),
                 style: textTheme.labelMedium?.copyWith(
-                  color: AppColors.neutralMid,
+                  color: colors.onSurfaceMuted,
                   letterSpacing: 0.6,
                 ),
               ),
             ),
             Text(
               labels.legsInOrder,
-              style: textTheme.bodySmall?.copyWith(color: AppColors.neutralMid),
+              style:
+                  textTheme.bodySmall?.copyWith(color: colors.onSurfaceMuted),
             ),
           ],
         ),
@@ -82,7 +84,7 @@ class AdvancedTravelSection extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               labels.noLegs,
-              style: textTheme.bodyMedium?.copyWith(color: AppColors.graphite),
+              style: textTheme.bodyMedium?.copyWith(color: colors.onSurfaceMuted),
             ),
           )
         else
@@ -123,7 +125,9 @@ String legWindowSummary(TravelLeg leg, String anyTime) {
   final end = leg.windowEnd;
   if (start == null && end == null) return anyTime;
   final fmt = DateFormat('MMM d');
-  if (start != null && end != null) return '${fmt.format(start)} – ${fmt.format(end)}';
+  if (start != null && end != null) {
+    return '${fmt.format(start)} – ${fmt.format(end)}';
+  }
   return fmt.format((start ?? end)!);
 }
 
@@ -159,10 +163,11 @@ class _LegTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final color = travelModeColor(leg.mode);
     final textTheme = Theme.of(context).textTheme;
     return Material(
-      color: AppColors.surface,
+      color: colors.surface,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -188,7 +193,7 @@ class _LegTile extends StatelessWidget {
                     Text(
                       labels.modeLabel(leg.mode),
                       style: textTheme.titleMedium?.copyWith(
-                        color: AppColors.ink,
+                        color: colors.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -197,13 +202,13 @@ class _LegTile extends StatelessWidget {
                       '${legWindowSummary(leg, labels.windowAnyTime)} · '
                       '${legReachSummary(leg, unit, labels)}',
                       style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.graphite,
+                        color: colors.onSurfaceMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.neutralMid),
+              Icon(Icons.chevron_right, color: colors.onSurfaceMuted),
             ],
           ),
         ),
@@ -379,6 +384,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
     final l = widget.labels;
     final textTheme = Theme.of(context).textTheme;
     final presets = _reachType == ReachType.distance
@@ -411,7 +417,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                   child: Text(
                     l.legEditorTitle,
                     style: textTheme.titleLarge?.copyWith(
-                      color: AppColors.ink,
+                      color: colors.onSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -421,7 +427,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                     onPressed: () => Navigator.of(context)
                         .pop(const TravelLegEditResult.removed()),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.sunsetCoral,
+                      foregroundColor: colors.error,
                     ),
                     child: Text(l.removeLeg),
                   ),
@@ -440,7 +446,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                       size: 18,
                       color: _mode == mode
                           ? travelModeColor(mode)
-                          : AppColors.graphite,
+                          : colors.onSurfaceMuted,
                     ),
                     label: Text(l.modeLabel(mode)),
                     selected: _mode == mode,
@@ -454,7 +460,8 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
               onPressed: _pickWindow,
               style: OutlinedButton.styleFrom(
                 alignment: AlignmentDirectional.centerStart,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               ),
               icon: const Icon(Icons.calendar_today_outlined, size: 18),
               label: Text(
@@ -471,7 +478,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
             const SizedBox(height: 6),
             Text(
               l.windowOptionalHint,
-              style: textTheme.bodySmall?.copyWith(color: AppColors.jadeTeal),
+              style: textTheme.bodySmall?.copyWith(color: colors.success),
             ),
             const SizedBox(height: 20),
             Row(
@@ -502,7 +509,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                 Text(
                   _bigValue,
                   style: textTheme.displaySmall?.copyWith(
-                    color: AppColors.ink,
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -511,7 +518,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                   Text(
                     _bigUnit,
                     style: textTheme.titleMedium
-                        ?.copyWith(color: AppColors.graphite),
+                        ?.copyWith(color: colors.onSurfaceMuted),
                   ),
                 ],
               ],
@@ -521,7 +528,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
               _reachType == ReachType.distance
                   ? l.reachDistanceCaption
                   : l.reachTimeCaption,
-              style: textTheme.bodySmall?.copyWith(color: AppColors.neutralMid),
+              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceMuted),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -547,14 +554,14 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
             const SizedBox(height: 10),
             Text(
               l.unitsFootnote,
-              style: textTheme.bodySmall?.copyWith(color: AppColors.neutralMid),
+              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceMuted),
             ),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: _save,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.goLime,
-                foregroundColor: AppColors.ink,
+                backgroundColor: colors.action,
+                foregroundColor: colors.onAction,
                 minimumSize: const Size.fromHeight(52),
               ),
               child: Text(l.saveLeg),
@@ -577,7 +584,7 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         text.toUpperCase(),
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.neutralMid,
+              color: context.vamoColors.onSurfaceMuted,
               letterSpacing: 0.6,
             ),
       ),
