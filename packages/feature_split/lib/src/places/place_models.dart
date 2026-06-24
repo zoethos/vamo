@@ -50,6 +50,19 @@ class GeocodeCoords {
   final double lng;
 }
 
+/// A pre-trip destination resolved by the platform geocoder.
+class ResolvedDestination {
+  const ResolvedDestination({
+    required this.label,
+    this.subtitle,
+    required this.coords,
+  });
+
+  final String label;
+  final String? subtitle;
+  final GeocodeCoords coords;
+}
+
 String placeConfidenceBucket(double confidence) {
   if (confidence >= 0.8) return 'high';
   if (confidence >= 0.5) return 'medium';
