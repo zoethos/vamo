@@ -39,6 +39,10 @@ class SplitLabels {
         notificationsTooltip: l10n.tripsNotificationsTooltip,
         notificationsUnreadBadge: l10n.notificationsUnreadBadge,
         createTripTooltip: l10n.tripsCreateTripTooltip,
+        deleteTrip: l10n.tripsDeleteTrip,
+        deleteTripConfirmTitle: l10n.tripsDeleteTripConfirmTitle,
+        deleteTripConfirmAction: l10n.tripsDeleteTripConfirmAction,
+        cancel: l10n.commonCancel,
         weather: weather(l10n),
       );
 

@@ -520,6 +520,15 @@ class TripsRepository {
     );
   }
 
+  Future<void> deleteTrip(String tripId) async {
+    await _client.rpc('delete_trip', params: {'p_trip_id': tripId});
+    await _db.deleteTripCascade(tripId);
+    _analytics.capture(
+      VamoEvent.tripCancelled,
+      properties: {'trip_id': tripId, 'mode': 'delete'},
+    );
+  }
+
   Future<void> discardNewTripAfterDraftFailure(String tripId) async {
     try {
       await _client.rpc('cancel_trip', params: {'p_trip_id': tripId});

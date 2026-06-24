@@ -22,5 +22,9 @@ final testTripsListLabels = TripsListScreenLabels(
   notificationsTooltip: 'Notifications',
   notificationsUnreadBadge: (count) => '$count unread',
   createTripTooltip: 'Create trip',
+  deleteTrip: 'Delete',
+  deleteTripConfirmTitle: 'Delete this trip?',
+  deleteTripConfirmAction: 'Delete trip',
+  cancel: 'Cancel',
   weather: testWeatherBadgeLabels,
 );

@@ -1,4 +1,5 @@
 import 'package:feature_split/src/trips/trips_models.dart';
+import 'package:feature_split/src/shared/vamo_slidable_row.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -43,7 +44,8 @@ void main() {
     expect(find.text('Amalfi Coast'), findsOneWidget);
   });
 
-  testWidgets('each filter keeps filter row and returns to All', (tester) async {
+  testWidgets('each filter keeps filter row and returns to All',
+      (tester) async {
     final pastTrip = TripSummary(
       id: 'past-1',
       name: 'Rome weekend',
@@ -69,6 +71,20 @@ void main() {
       expect(find.text('Amalfi Coast'), findsOneWidget);
       expect(find.text('Rome weekend'), findsOneWidget);
     }
+  });
+
+  testWidgets('trip cards expose swipe delete action', (tester) async {
+    await tester.pumpWidget(
+      pumpTripsListScreen(trips: upcomingOnly),
+    );
+    await tester.pumpAndSettle();
+
+    final row = tester.widget<VamoSlidableRow>(
+      find.byType(VamoSlidableRow).first,
+    );
+    expect(row.deleteLabel, testTripsListLabels.deleteTrip);
+    expect(row.deleteConfirmTitle, testTripsListLabels.deleteTripConfirmTitle);
+    expect(row.onDelete, isNotNull);
   });
 
   group('trips list empty filter goldens', () {

@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 
 import '../invites/invite_flow.dart';
 import '../notifications/notifications_providers.dart';
+import '../shared/vamo_slidable_row.dart';
 import '../weather/weather_labels.dart';
 import 'compact_trip_card.dart';
 import 'featured_trip_card.dart';
 import 'trip_format.dart';
 import 'trip_list_layout.dart';
+import 'trips_repository.dart';
 import 'trips_models.dart';
 import 'trips_providers.dart';
 
@@ -36,6 +38,10 @@ class TripsListScreenLabels {
     required this.notificationsTooltip,
     required this.notificationsUnreadBadge,
     required this.createTripTooltip,
+    required this.deleteTrip,
+    required this.deleteTripConfirmTitle,
+    required this.deleteTripConfirmAction,
+    required this.cancel,
     required this.weather,
   });
 
@@ -58,6 +64,10 @@ class TripsListScreenLabels {
   final String notificationsTooltip;
   final String Function(int count) notificationsUnreadBadge;
   final String createTripTooltip;
+  final String deleteTrip;
+  final String deleteTripConfirmTitle;
+  final String deleteTripConfirmAction;
+  final String cancel;
   final WeatherBadgeLabels weather;
 }
 
@@ -140,10 +150,14 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
           SizedBox(height: space.x3),
         ],
         if (showHierarchy && layout.hasFeatured) ...[
-          FeaturedTripCard(
+          _DeletableTripCard(
             trip: layout.featured!,
-            participantsLabel: widget.labels.participants,
-            weatherLabels: widget.labels.weather,
+            labels: widget.labels,
+            child: FeaturedTripCard(
+              trip: layout.featured!,
+              participantsLabel: widget.labels.participants,
+              weatherLabels: widget.labels.weather,
+            ),
           ),
           if (layout.upcoming.isNotEmpty) ...[
             SizedBox(height: space.x4),
@@ -159,10 +173,14 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
         ],
         if (showHierarchy) ...[
           for (final trip in layout.upcoming) ...[
-            CompactTripCard(
+            _DeletableTripCard(
               trip: trip,
-              participantsLabel: widget.labels.participants,
-              weatherLabels: widget.labels.weather,
+              labels: widget.labels,
+              child: CompactTripCard(
+                trip: trip,
+                participantsLabel: widget.labels.participants,
+                weatherLabels: widget.labels.weather,
+              ),
             ),
             SizedBox(height: space.x2),
           ],
@@ -177,28 +195,35 @@ class _TripsListScreenState extends ConsumerState<TripsListScreen> {
             ),
             SizedBox(height: space.x2),
             for (final trip in layout.past) ...[
-              CompactTripCard(
+              _DeletableTripCard(
                 trip: trip,
-                participantsLabel: widget.labels.participants,
-                weatherLabels: widget.labels.weather,
+                labels: widget.labels,
+                child: CompactTripCard(
+                  trip: trip,
+                  participantsLabel: widget.labels.participants,
+                  weatherLabels: widget.labels.weather,
+                ),
               ),
               SizedBox(height: space.x2),
             ],
           ],
           if (_filter == TripListFilter.all && layout.other.isNotEmpty)
             for (final trip in layout.other) ...[
-              CompactTripCard(
+              _DeletableTripCard(
                 trip: trip,
-                participantsLabel: widget.labels.participants,
-                weatherLabels: widget.labels.weather,
+                labels: widget.labels,
+                child: CompactTripCard(
+                  trip: trip,
+                  participantsLabel: widget.labels.participants,
+                  weatherLabels: widget.labels.weather,
+                ),
               ),
               SizedBox(height: space.x2),
             ],
         ] else
           _FlatCompactList(
             trips: filtered,
-            participantsLabel: widget.labels.participants,
-            weatherLabels: widget.labels.weather,
+            labels: widget.labels,
           ),
       ],
     );
@@ -361,13 +386,11 @@ class _FilterRow extends StatelessWidget {
 class _FlatCompactList extends StatelessWidget {
   const _FlatCompactList({
     required this.trips,
-    required this.participantsLabel,
-    required this.weatherLabels,
+    required this.labels,
   });
 
   final List<TripSummary> trips;
-  final String Function(int count) participantsLabel;
-  final WeatherBadgeLabels weatherLabels;
+  final TripsListScreenLabels labels;
 
   @override
   Widget build(BuildContext context) {
@@ -375,14 +398,57 @@ class _FlatCompactList extends StatelessWidget {
     return Column(
       children: [
         for (final trip in trips) ...[
-          CompactTripCard(
+          _DeletableTripCard(
             trip: trip,
-            participantsLabel: participantsLabel,
-            weatherLabels: weatherLabels,
+            labels: labels,
+            child: CompactTripCard(
+              trip: trip,
+              participantsLabel: labels.participants,
+              weatherLabels: labels.weather,
+            ),
           ),
           SizedBox(height: space.x2),
         ],
       ],
+    );
+  }
+}
+
+class _DeletableTripCard extends ConsumerWidget {
+  const _DeletableTripCard({
+    required this.trip,
+    required this.labels,
+    required this.child,
+  });
+
+  final TripSummary trip;
+  final TripsListScreenLabels labels;
+  final Widget child;
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(tripsRepositoryProvider).deleteTrip(trip.id);
+    } catch (error) {
+      if (!context.mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'trips_list',
+        action: 'delete_trip',
+        error: error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return VamoSlidableRow(
+      deleteLabel: labels.deleteTrip,
+      deleteConfirmTitle: labels.deleteTripConfirmTitle,
+      deleteConfirmAction: labels.deleteTripConfirmAction,
+      cancelLabel: labels.cancel,
+      onDelete: () => _delete(context, ref),
+      child: child,
     );
   }
 }
@@ -451,9 +517,7 @@ class _NotificationsBell extends ConsumerWidget {
     final colors = context.vamoColors;
     final type = context.vamoType;
     final unread = ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
-    final badgeLabel = unread > 0
-        ? (unread > 9 ? '9+' : '$unread')
-        : null;
+    final badgeLabel = unread > 0 ? (unread > 9 ? '9+' : '$unread') : null;
 
     return Semantics(
       button: true,
