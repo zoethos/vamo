@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../places/place_geocode.dart';
 import '../snapshot/theme_resolver_repository.dart';
 import '../travel/advanced_travel_labels.dart';
 import '../travel/advanced_travel_section.dart';
@@ -42,6 +43,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   bool _advanced = false;
   Set<TravelMode> _modes = const {TravelMode.car, TravelMode.train};
   List<TravelLeg> _legs = const [];
+  bool _destinationResolving = false;
+  String? _destinationResolveMessage;
+  bool _destinationResolveIsError = false;
+  _DestinationSuggestion? _resolvedDestination;
 
   static const _currencies = kProfileCurrencies;
 
@@ -86,6 +91,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   void _onDestinationEdited() {
+    final query = _destinationController.text.trim();
+    final resolved = _resolvedDestination;
+    if (resolved != null && query != resolved.name) {
+      _resolvedDestination = null;
+      _destinationResolveMessage = null;
+      _destinationResolveIsError = false;
+    }
     if (mounted) setState(() {});
   }
 
@@ -136,6 +148,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       hintText: labels.destinationHint,
                       suggestions: _destinationSuggestions(),
                       showSuggestions: _showDestinationSuggestions,
+                      resolving: _destinationResolving,
+                      resolveMessage: _destinationResolveMessage,
+                      resolveMessageIsError: _destinationResolveIsError,
+                      onResolve:
+                          _destinationResolving ? null : _resolveDestination,
                       onSuggestionTap: _selectDestinationSuggestion,
                       onClear: _destinationController.text.trim().isEmpty
                           ? null
@@ -234,51 +251,71 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   List<_DestinationSuggestion> _destinationSuggestions() {
-    final raw = _destinationController.text.trim();
-    final query = raw.isEmpty ? 'amalfi' : raw;
-    if (query.toLowerCase().contains('amalfi')) {
-      return const [
-        _DestinationSuggestion(
-          name: 'Amalfi',
-          meta: 'Town · Salerno, Italy',
-          swatch: _DestinationSwatch.seaGold,
-        ),
-        _DestinationSuggestion(
-          name: 'Amalfi Coast',
-          meta: 'Region · Campania, Italy',
-          swatch: _DestinationSwatch.sunset,
-        ),
-        _DestinationSuggestion(
-          name: 'Amalfi (Positano area)',
-          meta: 'Area · 16 km west',
-          swatch: _DestinationSwatch.coast,
-        ),
-      ];
-    }
-    final title = _titleCase(query);
-    return [
-      _DestinationSuggestion(
-        name: title,
-        meta: 'Destination',
-        swatch: _DestinationSwatch.seaGold,
-      ),
-      _DestinationSuggestion(
-        name: '$title Coast',
-        meta: 'Region suggestion',
-        swatch: _DestinationSwatch.sunset,
-      ),
-      _DestinationSuggestion(
-        name: '$title area',
-        meta: 'Area suggestion',
-        swatch: _DestinationSwatch.coast,
-      ),
-    ];
+    final suggestion = _resolvedDestination;
+    return suggestion == null ? const [] : [suggestion];
   }
 
   void _selectDestinationSuggestion(_DestinationSuggestion suggestion) {
     _destinationController.text = suggestion.name;
     _destinationController.selection = TextSelection.collapsed(
       offset: _destinationController.text.length,
+    );
+    _destinationFocusNode.unfocus();
+  }
+
+  Future<void> _resolveDestination() async {
+    final query = _destinationController.text.trim();
+    if (query.length < 3) {
+      setState(() {
+        _destinationResolveMessage = 'Type at least 3 characters to resolve.';
+        _destinationResolveIsError = true;
+      });
+      _destinationFocusNode.requestFocus();
+      return;
+    }
+
+    setState(() {
+      _destinationResolving = true;
+      _destinationResolveMessage = null;
+      _destinationResolveIsError = false;
+      _resolvedDestination = null;
+    });
+
+    final resolved = await resolveDestination(query);
+    if (!mounted) return;
+
+    if (_destinationController.text.trim() != query) {
+      setState(() => _destinationResolving = false);
+      return;
+    }
+
+    if (resolved == null) {
+      setState(() {
+        _destinationResolving = false;
+        _destinationResolveMessage = placeGeocodeSupported
+            ? 'No destination match found. Check the spelling or add country.'
+            : 'Destination resolve is available on iOS and Android.';
+        _destinationResolveIsError = true;
+      });
+      return;
+    }
+
+    final suggestion = _DestinationSuggestion(
+      name: resolved.label,
+      meta: resolved.subtitle ??
+          '${resolved.coords.lat.toStringAsFixed(4)}, '
+              '${resolved.coords.lng.toStringAsFixed(4)}',
+      swatch: _DestinationSwatch.seaGold,
+    );
+    setState(() {
+      _destinationResolving = false;
+      _destinationResolveMessage = null;
+      _destinationResolveIsError = false;
+      _resolvedDestination = suggestion;
+    });
+    _destinationController.text = suggestion.name;
+    _destinationController.selection = TextSelection.collapsed(
+      offset: suggestion.name.length,
     );
     _destinationFocusNode.unfocus();
   }
@@ -402,6 +439,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             MaterialPageRoute(
               builder: (_) => RouteDraftReviewScreen(
                 tripId: id,
+                title: _proposalTitle(),
+                subtitle: _proposalSubtitle(destination),
                 draft: draft,
                 labels: advanced,
               ),
@@ -427,15 +466,36 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   String? _isoDate(DateTime? d) =>
       d == null ? null : DateFormat('yyyy-MM-dd').format(d);
-}
 
-String _titleCase(String value) {
-  return value
-      .trim()
-      .split(RegExp(r'\s+'))
-      .where((part) => part.isNotEmpty)
-      .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
-      .join(' ');
+  String _proposalTitle() {
+    final name = _nameController.text.trim();
+    return name.isEmpty ? widget.labels.title : name;
+  }
+
+  String _proposalSubtitle(String destination) {
+    final destinationText = _resolvedDestination?.name ??
+        (destination.isEmpty ? widget.labels.destinationLabel : destination);
+    final parts = <String>[destinationText];
+    final date = _proposalDateRangeLabel();
+    if (date != null) parts.add(date);
+    final duration = _dateDurationLabel();
+    if (duration.isNotEmpty) parts.add(duration);
+    return parts.join(' · ');
+  }
+
+  String? _proposalDateRangeLabel() {
+    final start = _startDate;
+    final end = _endDate;
+    final fmt = DateFormat('MMM d');
+    if (start == null && end == null) return null;
+    if (start != null && end != null) {
+      final sameMonth = start.month == end.month && start.year == end.year;
+      return sameMonth
+          ? '${fmt.format(start)}–${end.day}'
+          : '${fmt.format(start)}–${fmt.format(end)}';
+    }
+    return fmt.format((start ?? end)!);
+  }
 }
 
 enum _DestinationSwatch { seaGold, sunset, coast }
@@ -848,6 +908,10 @@ class _DestinationHeroField extends StatelessWidget {
     required this.hintText,
     required this.suggestions,
     required this.showSuggestions,
+    required this.resolving,
+    required this.resolveMessage,
+    required this.resolveMessageIsError,
+    required this.onResolve,
     required this.onSuggestionTap,
     required this.onClear,
   });
@@ -858,6 +922,10 @@ class _DestinationHeroField extends StatelessWidget {
   final String hintText;
   final List<_DestinationSuggestion> suggestions;
   final bool showSuggestions;
+  final bool resolving;
+  final String? resolveMessage;
+  final bool resolveMessageIsError;
+  final VoidCallback? onResolve;
   final ValueChanged<_DestinationSuggestion> onSuggestionTap;
   final VoidCallback? onClear;
 
@@ -870,7 +938,10 @@ class _DestinationHeroField extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _FormLabel(label)),
-            const _AiResolvePill(),
+            _AiResolvePill(
+              resolving: resolving,
+              onTap: onResolve,
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -927,23 +998,103 @@ class _DestinationHeroField extends StatelessWidget {
         AnimatedSize(
           duration: const Duration(milliseconds: 160),
           alignment: Alignment.topCenter,
-          child: showSuggestions
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Column(
-                    children: [
-                      for (final suggestion in suggestions)
-                        _DestinationSuggestionRow(
-                          suggestion: suggestion,
-                          selected: selectedName == suggestion.name,
-                          onTap: () => onSuggestionTap(suggestion),
-                        ),
-                    ],
+          child: resolving
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: _DestinationResolveMessage(
+                    message: 'Resolving destination...',
+                    isError: false,
+                    loading: true,
                   ),
                 )
-              : const SizedBox.shrink(),
+              : showSuggestions && suggestions.isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        children: [
+                          for (final suggestion in suggestions)
+                            _DestinationSuggestionRow(
+                              suggestion: suggestion,
+                              selected: selectedName == suggestion.name,
+                              onTap: () => onSuggestionTap(suggestion),
+                            ),
+                        ],
+                      ),
+                    )
+                  : resolveMessage != null
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: _DestinationResolveMessage(
+                            message: resolveMessage!,
+                            isError: resolveMessageIsError,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
         ),
       ],
+    );
+  }
+}
+
+class _DestinationResolveMessage extends StatelessWidget {
+  const _DestinationResolveMessage({
+    required this.message,
+    required this.isError,
+    this.loading = false,
+  });
+
+  final String message;
+  final bool isError;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        isError ? VamoTravelTokens.destructive : VamoTravelTokens.mute;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isError
+            ? VamoTravelTokens.destructive.withValues(alpha: 0.08)
+            : VamoTravelTokens.surface.withValues(alpha: 0.64),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isError
+              ? VamoTravelTokens.destructive.withValues(alpha: 0.25)
+              : VamoTravelTokens.hairline,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (loading)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: color,
+              ),
+            )
+          else
+            Icon(
+              isError ? Icons.info_outline : Icons.check_circle_outline,
+              size: 17,
+              color: color,
+            ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1179,33 +1330,64 @@ class _CurrencyDisclosureRow extends StatelessWidget {
 }
 
 class _AiResolvePill extends StatelessWidget {
-  const _AiResolvePill();
+  const _AiResolvePill({
+    required this.resolving,
+    required this.onTap,
+  });
+
+  final bool resolving;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF3E9FA), Color(0xFFFBEEF3)],
-        ),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: VamoTravelTokens.advancedPillBorder),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.auto_awesome, size: 14, color: VamoTravelTokens.plum),
-          SizedBox(width: 5),
-          Text(
-            'AI resolve',
-            style: TextStyle(
-              color: VamoTravelTokens.plum,
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+    return Semantics(
+      button: true,
+      label: 'Resolve destination',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: resolving ? null : onTap,
+        child: Opacity(
+          opacity: onTap == null && !resolving ? 0.52 : 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFF3E9FA), Color(0xFFFBEEF3)],
+              ),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: VamoTravelTokens.advancedPillBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (resolving)
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: VamoTravelTokens.plum,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 14,
+                    color: VamoTravelTokens.plum,
+                  ),
+                const SizedBox(width: 5),
+                Text(
+                  resolving ? 'Resolving' : 'AI resolve',
+                  style: const TextStyle(
+                    color: VamoTravelTokens.plum,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
