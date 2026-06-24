@@ -25,6 +25,7 @@ final testTripsListLabels = TripsListScreenLabels(
   deleteTrip: 'Delete',
   deleteTripConfirmTitle: 'Delete this trip?',
   deleteTripConfirmAction: 'OK',
+  deleteTripOwnerRequired: 'Only the trip owner can delete this trip.',
   cancel: 'Cancel',
   weather: testWeatherBadgeLabels,
 );

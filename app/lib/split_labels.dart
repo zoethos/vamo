@@ -42,6 +42,7 @@ class SplitLabels {
         deleteTrip: l10n.tripsDeleteTrip,
         deleteTripConfirmTitle: l10n.tripsDeleteTripConfirmTitle,
         deleteTripConfirmAction: l10n.tripsDeleteTripConfirmAction,
+        deleteTripOwnerRequired: l10n.tripsDeleteTripOwnerRequired,
         cancel: l10n.commonCancel,
         weather: weather(l10n),
       );
