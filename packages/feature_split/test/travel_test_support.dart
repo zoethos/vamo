@@ -2,7 +2,7 @@ import 'package:feature_split/src/travel/advanced_travel_labels.dart';
 
 /// Shared AdvancedTravelLabels fixture for the travel-feature widget tests.
 const advancedTravelTestLabels = AdvancedTravelLabels(
-  toggleTitle: 'Multimodale',
+  toggleTitle: 'Multimodal',
   toggleBadge: 'Advanced',
   toggleSubtitle: 'Multi-modal legs',
   legsSectionTitle: 'Travel legs',

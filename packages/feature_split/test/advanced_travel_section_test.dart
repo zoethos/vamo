@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _labels = AdvancedTravelLabels(
-  toggleTitle: 'Multimodale',
+  toggleTitle: 'Multimodal',
   toggleBadge: 'Advanced',
   toggleSubtitle: 'Multi-modal legs',
   legsSectionTitle: 'Travel legs',
