@@ -7,12 +7,18 @@
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
+  classifyFoursquareProviderError,
+  FoursquareHttpError,
+  queryForFoursquareCategory,
+  searchFoursquarePlaces,
+} from "../_shared/foursquare_places.ts";
+import {
   completeServiceUsageReservation,
   recordPremiumGateNotification,
   releaseServiceUsageReservation,
   reserveServiceUsage,
 } from "../_shared/premium.ts";
-import { normalizeFoursquarePlaces, queryForCategory } from "./poi.ts";
+import { normalizeFoursquarePlaces } from "./poi.ts";
 import {
   cacheKeyForPoiInput,
   normalizeQuery,
@@ -21,10 +27,24 @@ import {
   reservationKeyForSearchSession,
 } from "./request.ts";
 
-const FOURSQUARE_SEARCH = "https://places-api.foursquare.com/places/search";
-const FOURSQUARE_API_VERSION = "2025-06-17";
 const SERVICE = "poi";
 const DEFAULT_LIMIT = 12;
+const FOURSQUARE_POI_FIELDS = [
+  "fsq_place_id",
+  "name",
+  "categories",
+  "latitude",
+  "longitude",
+  "location",
+  "distance",
+  "description",
+  "tel",
+  "website",
+  "hours",
+  "rating",
+  "price",
+  "photos",
+];
 
 interface TripRow {
   id: string;
@@ -214,7 +234,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const raw = await fetchFoursquare(apiKey, input, regionBias);
+    const raw = await fetchFoursquarePois(apiKey, input, regionBias);
     const pois = normalizeFoursquarePlaces(raw);
     await completeServiceUsageReservation(
       serviceClient,
@@ -239,7 +259,7 @@ Deno.serve(async (req) => {
     });
     return json({ available: true, pois, cached: false });
   } catch (error) {
-    const errorKind = classifyPoiProviderError(error);
+    const errorKind = classifyFoursquareProviderError(error);
     console.error("poi-discovery provider failure", error);
     await releaseServiceUsageReservation(
       serviceClient,
@@ -308,73 +328,29 @@ async function writeCachedPois(
   );
 }
 
-async function fetchFoursquare(
+async function fetchFoursquarePois(
   apiKey: string,
   input: PoiInput,
   regionBias: string | null,
 ): Promise<unknown> {
-  const url = new URL(FOURSQUARE_SEARCH);
   if (input.mode === "search") {
-    url.searchParams.set("near", regionBias ?? "");
-  } else {
-    url.searchParams.set("ll", `${input.lat},${input.lng}`);
-    url.searchParams.set("radius", `${input.radius}`);
+    return searchFoursquarePlaces({
+      apiKey,
+      near: regionBias,
+      query: input.query?.trim() || queryForFoursquareCategory(input.category),
+      limit: DEFAULT_LIMIT,
+      fields: FOURSQUARE_POI_FIELDS,
+    });
   }
-  url.searchParams.set("limit", `${DEFAULT_LIMIT}`);
-  url.searchParams.set(
-    "fields",
-    [
-      "fsq_place_id",
-      "name",
-      "categories",
-      "latitude",
-      "longitude",
-      "location",
-      "distance",
-      "description",
-      "tel",
-      "website",
-      "hours",
-      "rating",
-      "price",
-      "photos",
-    ].join(","),
-  );
-  const query = queryForCategory(input.category);
-  const searchQuery = input.query?.trim() || query;
-  if (searchQuery) url.searchParams.set("query", searchQuery);
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-      "X-Places-Api-Version": FOURSQUARE_API_VERSION,
-    },
+  return searchFoursquarePlaces({
+    apiKey,
+    lat: input.lat,
+    lng: input.lng,
+    radius: input.radius,
+    query: input.query?.trim() || queryForFoursquareCategory(input.category),
+    limit: DEFAULT_LIMIT,
+    fields: FOURSQUARE_POI_FIELDS,
   });
-  if (!response.ok) {
-    throw new FoursquareHttpError(response.status);
-  }
-  return await response.json();
-}
-
-class FoursquareHttpError extends Error {
-  constructor(readonly status: number) {
-    super(`Foursquare search failed: ${status}`);
-    this.name = "FoursquareHttpError";
-  }
-}
-
-function classifyPoiProviderError(error: unknown): string {
-  if (error instanceof FoursquareHttpError) {
-    if (error.status === 401 || error.status === 403) return "provider_auth";
-    if (error.status === 429) return "provider_throttled";
-    if (error.status >= 400 && error.status < 500) {
-      return "provider_bad_request";
-    }
-    return "provider_error";
-  }
-  if (error instanceof TypeError) return "provider_network";
-  return "provider_error";
 }
 
 async function usageMetadataForInput(

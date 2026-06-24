@@ -4,10 +4,12 @@
 // Priority: Foursquare place photo -> OpenAI generated image -> unavailable.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-const FOURSQUARE_SEARCH = "https://places-api.foursquare.com/places/search";
-const FOURSQUARE_API_VERSION = "2025-06-17";
-const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
+import {
+  addressFromFoursquareLocation,
+  photoUrlFromFoursquarePhotos,
+  searchFoursquarePlaces,
+} from "../_shared/foursquare_places.ts";
+import { generateDestinationImage } from "../_shared/openai_images.ts";
 
 interface DestinationVisualInput {
   destination: string;
@@ -77,41 +79,30 @@ async function resolveFoursquarePhoto(
   const apiKey = Deno.env.get("FOURSQUARE_API_KEY")?.trim();
   if (!apiKey) return null;
 
-  const url = new URL(FOURSQUARE_SEARCH);
-  if (input.lat != null && input.lng != null) {
-    url.searchParams.set("ll", `${input.lat},${input.lng}`);
-    url.searchParams.set("radius", "25000");
-  } else {
-    url.searchParams.set("near", input.destination);
-  }
-  url.searchParams.set("query", input.destination);
-  url.searchParams.set("limit", "8");
-  url.searchParams.set(
-    "fields",
-    ["fsq_place_id", "name", "location", "photos"].join(","),
-  );
-
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-        "X-Places-Api-Version": FOURSQUARE_API_VERSION,
-      },
+    const raw = await searchFoursquarePlaces({
+      apiKey,
+      near: input.lat == null || input.lng == null ? input.destination : null,
+      lat: input.lat,
+      lng: input.lng,
+      radius: 25000,
+      query: input.destination,
+      limit: 8,
+      fields: ["fsq_place_id", "name", "location", "photos"],
     });
-    if (!response.ok) return null;
-    const body = await response.json();
-    const rows = Array.isArray(body?.results) ? body.results : [];
+    const rows = Array.isArray((raw as { results?: unknown[] })?.results)
+      ? (raw as { results: unknown[] }).results
+      : [];
     for (const row of rows) {
       if (row == null || typeof row !== "object") continue;
       const place = row as Record<string, unknown>;
-      const imageUrl = photoUrlFromPhotos(place.photos);
+      const imageUrl = photoUrlFromFoursquarePhotos(place.photos, "original");
       if (!imageUrl) continue;
       return {
         source: "foursquare",
         imageUrl,
         title: stringValue(place.name) ?? input.destination,
-        subtitle: addressFromLocation(place.location),
+        subtitle: addressFromFoursquareLocation(place.location),
       };
     }
   } catch (error) {
@@ -127,75 +118,12 @@ async function resolveAiImage(
   if (!apiKey) return null;
 
   try {
-    const response = await fetch(OPENAI_IMAGE_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-image-1",
-        prompt:
-          `Create a realistic scenic travel photograph for ${destination}. ` +
-          "No people, no text, no logos. Make it suitable as a mobile trip card background.",
-        size: "1024x1024",
-        n: 1,
-      }),
-    });
-    if (!response.ok) {
-      console.error("destination-visual ai status", response.status);
-      return null;
-    }
-    const body = await response.json();
-    const first = Array.isArray(body?.data) ? body.data[0] : null;
-    if (first == null || typeof first !== "object") return null;
-    const row = first as Record<string, unknown>;
-    const imageBase64 = stringValue(row.b64_json);
-    if (imageBase64) {
-      return {
-        source: "ai",
-        imageBase64,
-        mimeType: "image/png",
-        title: destination,
-      };
-    }
-    const imageUrl = stringValue(row.url);
-    if (imageUrl) {
-      return {
-        source: "ai",
-        imageUrl,
-        title: destination,
-      };
-    }
+    const generated = await generateDestinationImage({ apiKey, destination });
+    return generated == null ? null : { ...generated };
   } catch (error) {
     console.error("destination-visual ai failure", error);
+    return null;
   }
-  return null;
-}
-
-function photoUrlFromPhotos(raw: unknown): string | undefined {
-  if (!Array.isArray(raw) || raw.length === 0) return undefined;
-  for (const entry of raw) {
-    if (entry == null || typeof entry !== "object") continue;
-    const photo = entry as Record<string, unknown>;
-    const directUrl = stringValue(photo.url);
-    if (directUrl) return directUrl;
-    const prefix = stringValue(photo.prefix);
-    const suffix = stringValue(photo.suffix);
-    if (prefix && suffix) return `${prefix}original${suffix}`;
-  }
-  return undefined;
-}
-
-function addressFromLocation(raw: unknown): string | undefined {
-  if (raw == null || typeof raw !== "object") return undefined;
-  const location = raw as Record<string, unknown>;
-  const joined = [location.locality, location.region, location.country]
-    .map(stringValue)
-    .filter((value): value is string => value != null)
-    .join(", ");
-  return stringValue(location.formatted_address) ??
-    (joined.length > 0 ? joined : undefined);
 }
 
 function stringValue(raw: unknown): string | undefined {

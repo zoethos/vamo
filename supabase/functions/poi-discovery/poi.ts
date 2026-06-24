@@ -58,7 +58,7 @@ function normalizeFoursquarePlace(raw: unknown): Poi | null {
     lng,
     source: "foursquare",
   };
-  const address = addressFromLocation(row.location);
+  const address = addressFromFoursquareLocation(row.location);
   const distanceM = roundOrUndefined(numberValue(row.distance));
   const about = stringValue(row.description);
   const website = stringValue(row.website);
@@ -66,7 +66,7 @@ function normalizeFoursquarePlace(raw: unknown): Poi | null {
   const hours = hoursLabel(row.hours);
   const rating = numberValue(row.rating);
   const priceLevel = roundOrUndefined(numberValue(row.price));
-  const photoUrl = photoUrlFromPhotos(row.photos);
+  const photoUrl = photoUrlFromFoursquarePhotos(row.photos);
   if (address) poi.address = address;
   if (distanceM != null) poi.distanceM = distanceM;
   if (about) poi.about = about;
@@ -79,28 +79,7 @@ function normalizeFoursquarePlace(raw: unknown): Poi | null {
   return poi;
 }
 
-export function queryForCategory(category: string | null): string | null {
-  switch (category) {
-    case "food":
-      return "restaurant";
-    case "lodging":
-      return "hotel";
-    case "attraction":
-      return "attraction";
-    case "museum":
-      return "museum";
-    case "nature":
-      return "park";
-    case "nightlife":
-      return "bar";
-    case "shopping":
-      return "shopping";
-    case "transport":
-      return "station";
-    default:
-      return null;
-  }
-}
+export const queryForCategory = queryForFoursquareCategory;
 
 function bucketForCategories(
   categoriesRaw: unknown,
@@ -142,23 +121,6 @@ function bucketForCategories(
   return "other";
 }
 
-function addressFromLocation(raw: unknown): string | undefined {
-  if (raw == null || typeof raw !== "object") return undefined;
-  const location = raw as Record<string, unknown>;
-  const joined = [
-    location.address,
-    location.locality,
-    location.region,
-    location.country,
-  ]
-    .map(stringValue)
-    .filter((value): value is string => value != null)
-    .join(", ");
-  return stringValue(location.formatted_address) ??
-    stringValue(location.address) ??
-    (joined.length > 0 ? joined : undefined);
-}
-
 function hoursLabel(raw: unknown): string | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const hours = raw as Record<string, unknown>;
@@ -166,20 +128,6 @@ function hoursLabel(raw: unknown): string | undefined {
   if (display) return display;
   if (hours.open_now === true) return "Open now";
   if (hours.open_now === false) return "Closed now";
-  return undefined;
-}
-
-function photoUrlFromPhotos(raw: unknown): string | undefined {
-  if (!Array.isArray(raw) || raw.length === 0) return undefined;
-  for (const entry of raw) {
-    if (entry == null || typeof entry !== "object") continue;
-    const photo = entry as Record<string, unknown>;
-    const directUrl = stringValue(photo.url);
-    if (directUrl) return directUrl;
-    const prefix = stringValue(photo.prefix);
-    const suffix = stringValue(photo.suffix);
-    if (prefix && suffix) return `${prefix}300x300${suffix}`;
-  }
   return undefined;
 }
 
@@ -199,3 +147,8 @@ function numberValue(raw: unknown): number | undefined {
 function roundOrUndefined(value: number | undefined): number | undefined {
   return value == null ? undefined : Math.round(value);
 }
+import {
+  addressFromFoursquareLocation,
+  photoUrlFromFoursquarePhotos,
+  queryForFoursquareCategory,
+} from "../_shared/foursquare_places.ts";
