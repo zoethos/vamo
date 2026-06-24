@@ -81,155 +81,164 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   Widget build(BuildContext context) {
     final labels = widget.labels;
+    final colors = context.vamoColors;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(labels.title),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _saving ? null : () => context.pop(),
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Text(
-              labels.headline,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              labels.subtitle,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: AppColors.graphite),
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _nameController,
-              decoration: InputDecoration(
-                labelText: labels.nameLabel,
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            children: [
+              _CreateTripHeader(
+                title: labels.title,
+                saving: _saving,
+                onClose: () => context.pop(),
+              ),
+              const SizedBox(height: 22),
+              _CompactTextCard(
+                label: labels.nameLabel,
+                controller: _nameController,
                 hintText: labels.nameHint,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return labels.nameRequired;
+                  }
+                  return null;
+                },
               ),
-              textCapitalization: TextCapitalization.sentences,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return labels.nameRequired;
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _destinationController,
-              decoration: InputDecoration(
-                labelText: labels.destinationLabel,
-                hintText: labels.destinationHint,
-              ),
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _baseCurrency,
-              decoration: InputDecoration(labelText: labels.currencyLabel),
-              items: _currencies
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                  .toList(),
-              onChanged: _saving
-                  ? null
-                  : (v) => setState(() => _baseCurrency = v ?? 'EUR'),
-            ),
-            const SizedBox(height: 16),
-            _DateRow(
-              label: labels.startDate,
-              value: _startDate,
-              onPick: _pickStart,
-              optionalHint: labels.startDate,
-            ),
-            const SizedBox(height: 12),
-            _DateRow(
-              label: labels.endDate,
-              value: _endDate,
-              onPick: _pickEnd,
-              optionalHint: labels.endDate,
-            ),
-            if (_dateRangeError != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _dateRangeError!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.error,
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _CompactTextCard(
+                      label: labels.destinationLabel,
+                      controller: _destinationController,
+                      hintText: labels.destinationHint,
+                      textCapitalization: TextCapitalization.words,
+                      trailing:
+                          _AiModeChip(label: labels.advanced.draftWithAiBadge),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: _DateSummaryCard(
+                      label: labels.endDate,
+                      value: _dateSummary(labels),
+                      onTap: _pickDates,
+                    ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 24),
-            _AdvancedToggle(
-              labels: labels.advanced,
-              value: _advanced,
-              onChanged: _saving
-                  ? null
-                  : (v) => setState(() => _advanced = v),
-            ),
-            if (_advanced) ...[
-              const SizedBox(height: 20),
-              AdvancedTravelSection(
-                labels: labels.advanced,
-                legs: _legs,
-                onChanged: (legs) => setState(() => _legs = legs),
-                unit: ref.watch(distanceUnitProvider),
-                datePickerLabels: VamoDatePickerLabels(
-                  cancel: labels.datePickerCancel,
-                  skip: labels.datePickerSkip,
-                  select: labels.datePickerSelect,
+              if (_dateRangeError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _dateRangeError!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                 ),
-                tripStart: _startDate,
-                tripEnd: _endDate,
+              ],
+              const SizedBox(height: 12),
+              _CurrencyCard(
+                label: labels.currencyLabel,
+                value: _baseCurrency,
+                currencies: _currencies,
+                onChanged: _saving
+                    ? null
+                    : (v) => setState(() => _baseCurrency = v ?? 'EUR'),
               ),
+              const SizedBox(height: 20),
+              _AdvancedToggle(
+                labels: labels.advanced,
+                value: _advanced,
+                onChanged:
+                    _saving ? null : (v) => setState(() => _advanced = v),
+              ),
+              if (_advanced) ...[
+                const SizedBox(height: 20),
+                AdvancedTravelSection(
+                  labels: labels.advanced,
+                  legs: _legs,
+                  onChanged: (legs) => setState(() => _legs = legs),
+                  unit: ref.watch(distanceUnitProvider),
+                  datePickerLabels: VamoDatePickerLabels(
+                    cancel: labels.datePickerCancel,
+                    skip: labels.datePickerSkip,
+                    select: labels.datePickerSelect,
+                  ),
+                  tripStart: _startDate,
+                  tripEnd: _endDate,
+                ),
+              ],
+              const SizedBox(height: 28),
+              ..._buildCtas(labels),
             ],
-            const SizedBox(height: 32),
-            ..._buildCtas(labels),
-          ],
+          ),
         ),
       ),
     );
   }
 
   List<Widget> _buildCtas(CreateTripLabels labels) {
-    final saveButton = FilledButton(
-      onPressed: _saving ? null : _save,
-      child: _saving
-          ? const SizedBox(
-              height: 22,
-              width: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
-              ),
-            )
-          : Text(_advanced ? labels.advanced.planItMyself : labels.submit),
-    );
+    final manualButton = _advanced
+        ? OutlinedButton.icon(
+            onPressed: _saving ? null : _save,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+              foregroundColor: context.vamoColors.onSurface,
+              side: BorderSide(color: context.vamoColors.border),
+            ),
+            icon: const Icon(Icons.format_list_bulleted_add, size: 18),
+            label: Text(labels.advanced.planItMyself),
+          )
+        : FilledButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(labels.submit),
+          );
 
-    if (!_advanced) return [saveButton];
+    if (!_advanced) return [manualButton];
 
     // "Draft route with AI" is the headline CTA; the manual path sits beside it.
     return [
-      FilledButton.icon(
-        onPressed: _saving ? null : _draftWithAi,
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.goLime,
-          foregroundColor: AppColors.ink,
-          minimumSize: const Size.fromHeight(52),
-        ),
-        icon: const Icon(Icons.auto_awesome),
-        label: Text(labels.advanced.draftWithAi),
+      Stack(
+        clipBehavior: Clip.none,
+        alignment: AlignmentDirectional.topEnd,
+        children: [
+          FilledButton.icon(
+            onPressed: _saving ? null : _draftWithAi,
+            style: FilledButton.styleFrom(
+              backgroundColor: context.vamoColors.action,
+              foregroundColor: context.vamoColors.onAction,
+              minimumSize: const Size.fromHeight(64),
+              textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            icon: const Icon(Icons.auto_awesome),
+            label: Text(labels.advanced.draftWithAi),
+          ),
+          PositionedDirectional(
+            end: 18,
+            top: -11,
+            child: _VamoAiBadge(label: labels.advanced.draftWithAiBadge),
+          ),
+        ],
       ),
       const SizedBox(height: 12),
-      saveButton,
+      manualButton,
       const SizedBox(height: 12),
       Text(
         labels.advanced.aiFootnote,
@@ -237,9 +246,28 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         style: Theme.of(context)
             .textTheme
             .bodySmall
-            ?.copyWith(color: AppColors.neutralMid),
+            ?.copyWith(color: context.vamoColors.onSurfaceMuted),
       ),
     ];
+  }
+
+  String _dateSummary(CreateTripLabels labels) {
+    if (_startDate == null && _endDate == null) return labels.startDate;
+    final fmt = DateFormat('MMM d');
+    if (_startDate != null && _endDate != null) {
+      final sameMonth = _startDate!.month == _endDate!.month &&
+          _startDate!.year == _endDate!.year;
+      return sameMonth
+          ? '${fmt.format(_startDate!)} – ${_endDate!.day}'
+          : '${fmt.format(_startDate!)} – ${fmt.format(_endDate!)}';
+    }
+    return fmt.format((_startDate ?? _endDate)!);
+  }
+
+  Future<void> _pickDates() async {
+    await _pickStart();
+    if (!mounted || _startDate == null) return;
+    await _pickEnd();
   }
 
   void _validateDateRange() {
@@ -368,14 +396,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       final id = await _createTrip();
       if (id == null || !mounted) return;
       final destination = _destinationController.text.trim();
-      final result =
-          await ref.read(tripRouteRepositoryProvider).draftRoute(
-                tripId: id,
-                destination: destination,
-                tripStart: _isoDate(_startDate),
-                tripEnd: _isoDate(_endDate),
-                legs: _legs,
-              );
+      final result = await ref.read(tripRouteRepositoryProvider).draftRoute(
+            tripId: id,
+            destination: destination,
+            tripStart: _isoDate(_startDate),
+            tripEnd: _isoDate(_endDate),
+            legs: _legs,
+          );
       if (!mounted) return;
       _flowTracker.complete();
       final advanced = widget.labels.advanced;
@@ -425,18 +452,28 @@ class _AdvancedToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final accent = VamoPlanTypeColors.lodging;
     final textTheme = Theme.of(context).textTheme;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.deepPlum.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.deepPlum.withValues(alpha: 0.4)),
+        color: accent.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 18, 14, 18),
       child: Row(
         children: [
-          const Icon(Icons.tune, color: AppColors.deepPlum),
-          const SizedBox(width: 12),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.tune, color: accent),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -447,8 +484,8 @@ class _AdvancedToggle extends StatelessWidget {
                       child: Text(
                         labels.toggleTitle,
                         style: textTheme.titleMedium?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -459,13 +496,13 @@ class _AdvancedToggle extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.deepPlum.withValues(alpha: 0.12),
+                        color: accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         labels.toggleBadge.toUpperCase(),
                         style: textTheme.labelSmall?.copyWith(
-                          color: AppColors.deepPlum,
+                          color: accent,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
@@ -477,7 +514,7 @@ class _AdvancedToggle extends StatelessWidget {
                 Text(
                   labels.toggleSubtitle,
                   style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.graphite,
+                    color: colors.onSurfaceMuted,
                   ),
                 ),
               ],
@@ -486,7 +523,7 @@ class _AdvancedToggle extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: AppColors.deepPlum,
+            activeTrackColor: accent,
           ),
         ],
       ),
@@ -494,31 +531,235 @@ class _AdvancedToggle extends StatelessWidget {
   }
 }
 
-class _DateRow extends StatelessWidget {
-  const _DateRow({
+class _CreateTripHeader extends StatelessWidget {
+  const _CreateTripHeader({
+    required this.title,
+    required this.saving,
+    required this.onClose,
+  });
+
+  final String title;
+  final bool saving;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: saving ? null : onClose,
+          icon: const Icon(Icons.close),
+          color: context.vamoColors.onSurface,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: context.vamoColors.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactTextCard extends StatelessWidget {
+  const _CompactTextCard({
     required this.label,
-    required this.value,
-    required this.onPick,
-    required this.optionalHint,
+    required this.controller,
+    required this.hintText,
+    this.validator,
+    this.textCapitalization = TextCapitalization.sentences,
+    this.trailing,
   });
 
   final String label;
-  final DateTime? value;
-  final VoidCallback onPick;
-  final String optionalHint;
+  final TextEditingController controller;
+  final String hintText;
+  final FormFieldValidator<String>? validator;
+  final TextCapitalization textCapitalization;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.vamoColors;
-    final formatted = value == null ? null : DateFormat.yMMMd().format(value!);
-    return OutlinedButton(
-      onPressed: onPick,
-      style: OutlinedButton.styleFrom(
-        alignment: AlignmentDirectional.centerStart,
-        foregroundColor: colors.onSurface,
-        side: BorderSide(color: colors.border),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border.withValues(alpha: 0.5)),
       ),
-      child: Text(formatted ?? optionalHint),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              validator: validator,
+              textCapitalization: textCapitalization,
+              decoration: InputDecoration(
+                labelText: label.toUpperCase(),
+                hintText: hintText,
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DateSummaryCard extends StatelessWidget {
+  const _DateSummaryCard({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 13),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceMuted,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrencyCard extends StatelessWidget {
+  const _CurrencyCard({
+    required this.label,
+    required this.value,
+    required this.currencies,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<String> currencies;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceMuted,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.border.withValues(alpha: 0.45)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        decoration: InputDecoration(
+          labelText: label.toUpperCase(),
+          border: InputBorder.none,
+          isDense: true,
+        ),
+        items: currencies
+            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+            .toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+class _AiModeChip extends StatelessWidget {
+  const _AiModeChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = VamoPlanTypeColors.lodging;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
+class _VamoAiBadge extends StatelessWidget {
+  const _VamoAiBadge({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = VamoPlanTypeColors.lodging;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: accent,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '★ ${label.toUpperCase()}',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
     );
   }
 }
