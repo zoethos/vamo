@@ -87,6 +87,17 @@ void main() {
     expect(find.text("Plan how you'll travel"), findsOneWidget);
     expect(find.byIcon(Icons.edit), findsNothing);
     expect(find.byIcon(Icons.search), findsNothing);
+
+    final fields = tester.widgetList<TextField>(
+      find.byType(TextField),
+    );
+    for (final field in fields.take(2)) {
+      final decoration = field.decoration;
+      expect(decoration?.filled, isFalse);
+      expect(decoration?.fillColor, Colors.transparent);
+      expect(decoration?.enabledBorder, InputBorder.none);
+      expect(decoration?.focusedBorder, InputBorder.none);
+    }
   });
 
   testWidgets('failed AI draft rolls back the just-created trip', (
