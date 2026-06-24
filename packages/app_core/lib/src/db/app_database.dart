@@ -640,13 +640,6 @@ class AppDatabase extends _$AppDatabase {
     for (final expenseId in expenseIds) {
       await deleteExpense(expenseId);
     }
-    await (delete(localSettlements)..where((s) => s.tripId.equals(tripId)))
-        .go();
-    await (delete(localTripNotes)..where((n) => n.tripId.equals(tripId))).go();
-    await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId))).go();
-    await (delete(localTripVideos)..where((v) => v.tripId.equals(tripId))).go();
-    await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
-    await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localPlanItemRsvps)
           ..where(
             (r) => r.planItemId.isInQuery(
@@ -656,6 +649,13 @@ class AppDatabase extends _$AppDatabase {
             ),
           ))
         .go();
+    await (delete(localSettlements)..where((s) => s.tripId.equals(tripId)))
+        .go();
+    await (delete(localTripNotes)..where((n) => n.tripId.equals(tripId))).go();
+    await (delete(localTripPhotos)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localTripVideos)..where((v) => v.tripId.equals(tripId))).go();
+    await (delete(localPlaces)..where((p) => p.tripId.equals(tripId))).go();
+    await (delete(localPlanItems)..where((p) => p.tripId.equals(tripId))).go();
     await (delete(localTripListItems)..where((l) => l.tripId.equals(tripId)))
         .go();
     await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId)))

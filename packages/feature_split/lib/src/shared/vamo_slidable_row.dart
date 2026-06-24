@@ -17,6 +17,7 @@ class VamoSlidableRow extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.startActions,
+    this.enableLongPressMenu = true,
   });
 
   final Widget child;
@@ -29,6 +30,7 @@ class VamoSlidableRow extends StatelessWidget {
   final VoidCallback? onInfo;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final bool enableLongPressMenu;
 
   /// Optional custom start pane (e.g. member role actions).
   final List<SlidableAction>? startActions;
@@ -164,10 +166,12 @@ class VamoSlidableRow extends StatelessWidget {
             children: actions,
           );
         }(),
-        child: GestureDetector(
-          onLongPress: () => _showA11yMenu(context),
-          child: child,
-        ),
+        child: enableLongPressMenu
+            ? GestureDetector(
+                onLongPress: () => _showA11yMenu(context),
+                child: child,
+              )
+            : child,
       ),
     );
   }

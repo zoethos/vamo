@@ -41,6 +41,10 @@
       "count": {"type": "int"}
     }
   },
+  "tripsDeleteTrip": "Delete",
+  "tripsDeleteTripConfirmTitle": "Delete this trip?",
+  "tripsDeleteTripConfirmAction": "Delete trip",
+  "commonCancel": "Cancel",
   "weatherPreviewTemp": "{celsius}°",
   "@weatherPreviewTemp": {
     "placeholders": {

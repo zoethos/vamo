@@ -14,6 +14,7 @@ import '../travel/route_draft_review_screen.dart';
 import '../travel/travel_leg.dart';
 import '../travel/trip_route_repository.dart';
 import 'create_trip_labels.dart';
+import 'destination_visual_repository.dart';
 import 'trips_models.dart';
 import 'trips_repository.dart';
 
@@ -287,12 +288,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       return;
     }
 
+    final visual = await ref.read(destinationVisualRepositoryProvider).resolve(
+          destination: resolved.label,
+          lat: resolved.coords.lat,
+          lng: resolved.coords.lng,
+        );
+    if (!mounted) return;
+
     final suggestion = _DestinationSuggestion(
       name: resolved.label,
-      meta: resolved.subtitle ??
+      meta: visual?.subtitle ??
+          resolved.subtitle ??
           '${resolved.coords.lat.toStringAsFixed(4)}, '
               '${resolved.coords.lng.toStringAsFixed(4)}',
       swatch: _DestinationSwatch.seaGold,
+      visual: visual,
     );
     setState(() {
       _destinationResolving = false;
@@ -374,6 +384,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               destination: destination,
             ),
       );
+      unawaited(_applyResolvedDestinationBackground(id));
       return id;
     } catch (e) {
       if (mounted) {
@@ -457,6 +468,40 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _isoDate(DateTime? d) =>
       d == null ? null : DateFormat('yyyy-MM-dd').format(d);
 
+  Future<void> _applyResolvedDestinationBackground(String tripId) async {
+    final visual = _resolvedDestination?.visual;
+    if (visual == null || !visual.hasImage) return;
+    final trips = ref.read(tripsRepositoryProvider);
+    final analytics = ref.read(analyticsProvider);
+    try {
+      final bytes = visual.imageBytes;
+      if (bytes != null) {
+        await trips.setTripBackgroundBytes(
+          tripId: tripId,
+          sourceName: visual.sourceName,
+          bytes: bytes,
+        );
+        return;
+      }
+      final imageUrl = visual.imageUrl;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        await trips.setTripBackgroundFromUrl(
+          tripId: tripId,
+          imageUrl: imageUrl,
+        );
+      }
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'create_trip',
+        action: 'apply_destination_background',
+        severity: ActionFailureSeverity.degraded,
+        analytics: analytics,
+      );
+    }
+  }
+
   String _proposalTitle() {
     final name = _nameController.text.trim();
     return name.isEmpty ? widget.labels.title : name;
@@ -495,11 +540,13 @@ class _DestinationSuggestion {
     required this.name,
     required this.meta,
     required this.swatch,
+    this.visual,
   });
 
   final String name;
   final String meta;
   final _DestinationSwatch swatch;
+  final DestinationVisual? visual;
 }
 
 class _AdvancedToggle extends StatelessWidget {
@@ -1069,7 +1116,7 @@ class _DestinationSuggestionRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _DestinationSwatchBox(swatch: suggestion.swatch),
+            _DestinationVisualBox(suggestion: suggestion),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1144,6 +1191,39 @@ class _DestinationSwatchBox extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         border: Border.all(color: const Color(0x0F000000)),
+      ),
+    );
+  }
+}
+
+class _DestinationVisualBox extends StatelessWidget {
+  const _DestinationVisualBox({required this.suggestion});
+
+  final _DestinationSuggestion suggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = suggestion.visual;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(13),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: visual?.imageBytes != null
+            ? Image.memory(
+                visual!.imageBytes!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    _DestinationSwatchBox(swatch: suggestion.swatch),
+              )
+            : visual?.imageUrl != null
+                ? Image.network(
+                    visual!.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) =>
+                        _DestinationSwatchBox(swatch: suggestion.swatch),
+                  )
+                : _DestinationSwatchBox(swatch: suggestion.swatch),
       ),
     );
   }

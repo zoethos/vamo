@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:app_core/app_core.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -520,6 +521,15 @@ class TripsRepository {
     );
   }
 
+  Future<void> deleteTrip(String tripId) async {
+    await _client.rpc('delete_trip', params: {'p_trip_id': tripId});
+    await _db.deleteTripCascade(tripId);
+    _analytics.capture(
+      VamoEvent.tripCancelled,
+      properties: {'trip_id': tripId, 'mode': 'delete'},
+    );
+  }
+
   Future<void> discardNewTripAfterDraftFailure(String tripId) async {
     try {
       await _client.rpc('cancel_trip', params: {'p_trip_id': tripId});
@@ -688,6 +698,25 @@ class TripsRepository {
     );
   }
 
+  Future<void> setTripBackgroundFromUrl({
+    required String tripId,
+    required String imageUrl,
+  }) async {
+    final uri = Uri.tryParse(imageUrl.trim());
+    if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw StateError('Invalid trip background URL');
+    }
+    final response = await http.get(uri).timeout(const Duration(seconds: 12));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Could not download trip background');
+    }
+    await setTripBackgroundBytes(
+      tripId: tripId,
+      sourceName: _sourceNameForBackgroundUrl(uri, response.headers),
+      bytes: response.bodyBytes,
+    );
+  }
+
   Future<void> _setTripBackgroundLocal({
     required String tripId,
     required String userId,
@@ -769,6 +798,22 @@ class TripsRepository {
       );
       unawaited(_syncWorker.flush());
     }
+  }
+
+  String _sourceNameForBackgroundUrl(
+    Uri uri,
+    Map<String, String> headers,
+  ) {
+    final path = uri.pathSegments.isEmpty ? '' : uri.pathSegments.last;
+    if (path.contains('.')) return path;
+    final contentType = headers['content-type'] ?? '';
+    final ext = switch (contentType.split(';').first.trim().toLowerCase()) {
+      'image/png' => '.png',
+      'image/webp' => '.webp',
+      'image/heic' => '.heic',
+      _ => '.jpg',
+    };
+    return 'destination-background$ext';
   }
 
   String _tripBackgroundStoragePath({
