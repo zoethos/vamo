@@ -32,6 +32,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _destinationController = TextEditingController();
+  final _destinationFocusNode = FocusNode();
 
   String _baseCurrency = 'EUR';
   DateTime? _startDate;
@@ -51,6 +52,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       flow: 'create_trip',
       analytics: ref.read(analyticsProvider),
     );
+    _destinationController.addListener(_onDestinationEdited);
+    _destinationFocusNode.addListener(_onDestinationFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadDefaultCurrency());
   }
 
@@ -74,9 +77,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   void dispose() {
     _flowTracker.abandonIfIncomplete();
+    _destinationController.removeListener(_onDestinationEdited);
+    _destinationFocusNode.removeListener(_onDestinationFocusChanged);
     _nameController.dispose();
     _destinationController.dispose();
+    _destinationFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onDestinationEdited() {
+    if (mounted) setState(() {});
+  }
+
+  void _onDestinationFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -90,7 +104,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 16, 6),
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
                 child: _CreateTripHeader(
                   title: labels.title,
                   saving: _saving,
@@ -99,13 +113,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
                   physics: const BouncingScrollPhysics(),
                   children: [
-                    _CompactTextCard(
+                    _TripTextField(
                       label: labels.nameLabel,
                       controller: _nameController,
                       hintText: labels.nameHint,
+                      icon: Icons.edit,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return labels.nameRequired;
@@ -113,32 +128,25 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _CompactTextCard(
-                            label: labels.destinationLabel,
-                            controller: _destinationController,
-                            hintText: labels.destinationHint,
-                            textCapitalization: TextCapitalization.words,
-                            trailing: _AiModeChip(
-                              label: labels.advanced.draftWithAiBadge,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: _DateSummaryCard(
-                            label: 'Dates',
-                            value: _dateSummary(labels),
-                            onTap: _pickDates,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 24),
+                    _DestinationHeroField(
+                      label: labels.destinationLabel,
+                      controller: _destinationController,
+                      focusNode: _destinationFocusNode,
+                      hintText: labels.destinationHint,
+                      suggestions: _destinationSuggestions(),
+                      showSuggestions: _showDestinationSuggestions,
+                      onSuggestionTap: _selectDestinationSuggestion,
+                      onClear: _destinationController.text.trim().isEmpty
+                          ? null
+                          : _clearDestination,
+                    ),
+                    const SizedBox(height: 24),
+                    _DateRow(
+                      label: 'Dates',
+                      value: _dateSummary(labels),
+                      duration: _dateDurationLabel(),
+                      onTap: _pickDates,
                     ),
                     if (_dateRangeError != null) ...[
                       const SizedBox(height: 8),
@@ -150,20 +158,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
-                    _CurrencyCard(
-                      label: labels.currencyLabel,
-                      value: _baseCurrency,
-                      currencies: _currencies,
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _baseCurrency = v ?? 'EUR'),
-                    ),
-                    const SizedBox(height: 14),
-                    _ContextSummaryRow(
-                      destination: _destinationSummary(),
-                      dates: _dateSummary(labels),
-                    ),
                     const SizedBox(height: 14),
                     _AdvancedToggle(
                       labels: labels.advanced,
@@ -192,6 +186,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             )
                           : const SizedBox.shrink(),
                     ),
+                    const SizedBox(height: 14),
+                    _CurrencyDisclosureRow(
+                      label: labels.currencyLabel,
+                      value: _baseCurrency,
+                      currencies: _currencies,
+                      onChanged: _saving
+                          ? null
+                          : (v) => setState(() => _baseCurrency = v ?? 'EUR'),
+                    ),
                   ],
                 ),
               ),
@@ -203,10 +206,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: _CreateTripFooter(
           labels: labels.advanced,
-          advanced: _advanced,
+          createLabel: labels.submit,
           saving: _saving,
           onDraftWithAi: _draftWithAi,
-          onPlanMyself: _save,
+          onCreate: _save,
         ),
       ),
     );
@@ -225,9 +228,75 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     return fmt.format((_startDate ?? _endDate)!);
   }
 
-  String _destinationSummary() {
-    final destination = _destinationController.text.trim();
-    return destination.isEmpty ? 'Amalfi Coast' : destination;
+  bool get _showDestinationSuggestions {
+    final query = _destinationController.text.trim();
+    return query.isNotEmpty || _destinationFocusNode.hasFocus;
+  }
+
+  List<_DestinationSuggestion> _destinationSuggestions() {
+    final raw = _destinationController.text.trim();
+    final query = raw.isEmpty ? 'amalfi' : raw;
+    if (query.toLowerCase().contains('amalfi')) {
+      return const [
+        _DestinationSuggestion(
+          name: 'Amalfi',
+          meta: 'Town · Salerno, Italy',
+          swatch: _DestinationSwatch.seaGold,
+        ),
+        _DestinationSuggestion(
+          name: 'Amalfi Coast',
+          meta: 'Region · Campania, Italy',
+          swatch: _DestinationSwatch.sunset,
+        ),
+        _DestinationSuggestion(
+          name: 'Amalfi (Positano area)',
+          meta: 'Area · 16 km west',
+          swatch: _DestinationSwatch.coast,
+        ),
+      ];
+    }
+    final title = _titleCase(query);
+    return [
+      _DestinationSuggestion(
+        name: title,
+        meta: 'Destination',
+        swatch: _DestinationSwatch.seaGold,
+      ),
+      _DestinationSuggestion(
+        name: '$title Coast',
+        meta: 'Region suggestion',
+        swatch: _DestinationSwatch.sunset,
+      ),
+      _DestinationSuggestion(
+        name: '$title area',
+        meta: 'Area suggestion',
+        swatch: _DestinationSwatch.coast,
+      ),
+    ];
+  }
+
+  void _selectDestinationSuggestion(_DestinationSuggestion suggestion) {
+    _destinationController.text = suggestion.name;
+    _destinationController.selection = TextSelection.collapsed(
+      offset: _destinationController.text.length,
+    );
+    _destinationFocusNode.unfocus();
+  }
+
+  void _clearDestination() {
+    _destinationController.clear();
+    _destinationFocusNode.requestFocus();
+  }
+
+  String _dateDurationLabel() {
+    final start = _startDate;
+    final end = _endDate;
+    if (start == null || end == null) return '';
+    final days = DateTime(end.year, end.month, end.day)
+            .difference(DateTime(start.year, start.month, start.day))
+            .inDays +
+        1;
+    return days <= 1 ? '1 day' : '$days days';
   }
 
   Future<void> _pickDates() async {
@@ -360,6 +429,29 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       d == null ? null : DateFormat('yyyy-MM-dd').format(d);
 }
 
+String _titleCase(String value) {
+  return value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
+      .join(' ');
+}
+
+enum _DestinationSwatch { seaGold, sunset, coast }
+
+class _DestinationSuggestion {
+  const _DestinationSuggestion({
+    required this.name,
+    required this.meta,
+    required this.swatch,
+  });
+
+  final String name;
+  final String meta;
+  final _DestinationSwatch swatch;
+}
+
 class _AdvancedToggle extends StatelessWidget {
   const _AdvancedToggle({
     required this.labels,
@@ -378,66 +470,35 @@ class _AdvancedToggle extends StatelessWidget {
       onTap: onChanged == null ? null : () => onChanged!(!value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
           color: value ? VamoTravelTokens.advancedBg : VamoTravelTokens.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: value ? VamoTravelTokens.plum : VamoTravelTokens.border,
-            width: 1.5,
           ),
         ),
-        padding: const EdgeInsets.all(13),
         child: Row(
           children: [
-            const Icon(Icons.tune, color: VamoTravelTokens.plum, size: 21),
+            const Icon(Icons.tune, color: VamoTravelTokens.plum, size: 20),
             const SizedBox(width: 11),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 7,
-                    children: [
-                      Text(
-                        labels.toggleTitle,
-                        style: const TextStyle(
-                          color: VamoTravelTokens.ink,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                        ),
+                  Flexible(
+                    child: Text(
+                      labels.toggleTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: VamoTravelTokens.inkSoft,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: VamoTravelTokens.advancedPillBg,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: VamoTravelTokens.advancedPillBorder,
-                          ),
-                        ),
-                        child: Text(
-                          labels.toggleBadge.toUpperCase(),
-                          style: const TextStyle(
-                            color: VamoTravelTokens.plum,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    labels.toggleSubtitle,
-                    style: const TextStyle(
-                      color: VamoTravelTokens.mute,
-                      fontSize: 11,
                     ),
                   ),
+                  const SizedBox(width: 7),
+                  _AdvancedBadge(label: labels.toggleBadge),
                 ],
               ),
             ),
@@ -450,75 +511,27 @@ class _AdvancedToggle extends StatelessWidget {
   }
 }
 
-class _ContextSummaryRow extends StatelessWidget {
-  const _ContextSummaryRow({required this.destination, required this.dates});
-
-  final String destination;
-  final String dates;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ContextSummaryCard(
-            label: 'Destination',
-            value: destination,
-          ),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: _ContextSummaryCard(
-            label: 'Dates',
-            value: dates,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ContextSummaryCard extends StatelessWidget {
-  const _ContextSummaryCard({required this.label, required this.value});
+class _AdvancedBadge extends StatelessWidget {
+  const _AdvancedBadge({required this.label});
 
   final String label;
-  final String value;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: VamoTravelTokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: VamoTravelTokens.hairline),
+        color: VamoTravelTokens.advancedPillBg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: VamoTravelTokens.advancedPillBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: VamoTravelTokens.slate,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: VamoTravelTokens.ink,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          color: VamoTravelTokens.plum,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -527,58 +540,72 @@ class _ContextSummaryCard extends StatelessWidget {
 class _CreateTripFooter extends StatelessWidget {
   const _CreateTripFooter({
     required this.labels,
-    required this.advanced,
+    required this.createLabel,
     required this.saving,
     required this.onDraftWithAi,
-    required this.onPlanMyself,
+    required this.onCreate,
   });
 
   final AdvancedTravelLabels labels;
-  final bool advanced;
+  final String createLabel;
   final bool saving;
   final VoidCallback onDraftWithAi;
-  final VoidCallback onPlanMyself;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    final draftLabel = advanced ? labels.draftWithAi : 'Draft my plan with AI';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: AlignmentDirectional.topEnd,
+        Row(
           children: [
-            _SpecButton(
-              label: draftLabel,
-              icon: Icons.auto_awesome,
-              filled: true,
-              busy: saving,
-              onTap: saving ? null : onDraftWithAi,
+            Expanded(
+              flex: 155,
+              child: _FooterButton(
+                label: 'Draft with AI',
+                icon: Icons.auto_awesome,
+                background: VamoTravelTokens.lime,
+                foreground: VamoTravelTokens.ink,
+                fontWeight: FontWeight.w800,
+                saving: saving,
+                onTap: saving ? null : onDraftWithAi,
+              ),
             ),
-            PositionedDirectional(
-              end: 12,
-              top: -9,
-              child: _VamoAiBadge(label: labels.draftWithAiBadge),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 100,
+              child: _FooterButton(
+                label: createLabel,
+                background: VamoTravelTokens.ink,
+                foreground: Colors.white,
+                fontWeight: FontWeight.w700,
+                saving: false,
+                onTap: saving ? null : onCreate,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 9),
-        _SpecButton(
-          label: labels.planItMyself,
-          icon: Icons.edit_note,
-          filled: false,
-          busy: false,
-          onTap: saving ? null : onPlanMyself,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          labels.aiFootnote,
+        RichText(
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: VamoTravelTokens.mute2,
-            fontSize: 10.5,
+          text: const TextSpan(
+            style: TextStyle(
+              color: VamoTravelTokens.mute2,
+              fontSize: 11,
+              height: 1.2,
+            ),
+            children: [
+              TextSpan(text: 'AI drafts a plan you can edit · '),
+              TextSpan(
+                text: 'Create',
+                style: TextStyle(
+                  color: VamoTravelTokens.inkSoft,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              TextSpan(text: ' makes the trip now'),
+            ],
           ),
         ),
       ],
@@ -586,19 +613,23 @@ class _CreateTripFooter extends StatelessWidget {
   }
 }
 
-class _SpecButton extends StatelessWidget {
-  const _SpecButton({
+class _FooterButton extends StatelessWidget {
+  const _FooterButton({
     required this.label,
-    required this.icon,
-    required this.filled,
-    required this.busy,
+    required this.background,
+    required this.foreground,
+    required this.fontWeight,
+    required this.saving,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
-  final IconData icon;
-  final bool filled;
-  final bool busy;
+  final IconData? icon;
+  final Color background;
+  final Color foreground;
+  final FontWeight fontWeight;
+  final bool saving;
   final VoidCallback? onTap;
 
   @override
@@ -609,14 +640,11 @@ class _SpecButton extends StatelessWidget {
       child: Opacity(
         opacity: onTap == null ? 0.65 : 1,
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: filled ? 15 : 13),
+          padding: const EdgeInsets.symmetric(vertical: 15),
           decoration: BoxDecoration(
-            color: filled ? VamoTravelTokens.lime : VamoTravelTokens.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: filled
-                ? null
-                : Border.all(color: VamoTravelTokens.borderDash, width: 1.5),
-            boxShadow: filled
+            color: background,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: background == VamoTravelTokens.lime
                 ? [
                     BoxShadow(
                       color: VamoTravelTokens.lime.withValues(alpha: 0.4),
@@ -627,39 +655,32 @@ class _SpecButton extends StatelessWidget {
                 : null,
           ),
           alignment: Alignment.center,
-          child: busy
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
+          child: saving
+              ? SizedBox(
+                  width: 19,
+                  height: 19,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: VamoTravelTokens.ink,
+                    color: foreground,
                   ),
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      icon,
-                      size: filled ? 20 : 19,
-                      color: filled
-                          ? VamoTravelTokens.ink
-                          : VamoTravelTokens.slate,
-                    ),
-                    const SizedBox(width: 8),
+                    if (icon != null) ...[
+                      Icon(icon, size: 19, color: foreground),
+                      const SizedBox(width: 7),
+                    ],
                     Flexible(
                       child: Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: filled
-                              ? VamoTravelTokens.ink
-                              : VamoTravelTokens.inkSoft,
-                          fontSize: filled ? 15 : 14,
-                          fontWeight:
-                              filled ? FontWeight.w800 : FontWeight.w700,
+                          color: foreground,
+                          fontSize: 14.5,
+                          fontWeight: fontWeight,
                         ),
                       ),
                     ),
@@ -724,28 +745,94 @@ class _CreateTripHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: saving ? null : onClose,
-          child: const SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(
-              Icons.close,
-              size: 24,
-              color: VamoTravelTokens.ink,
+    return SizedBox(
+      height: 44,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: saving ? null : onClose,
+              child: const SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(
+                  Icons.close,
+                  size: 24,
+                  color: VamoTravelTokens.ink,
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          title,
-          style: const TextStyle(
-            color: VamoTravelTokens.ink,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
+          Text(
+            title,
+            style: const TextStyle(
+              color: VamoTravelTokens.ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TripTextField extends StatelessWidget {
+  const _TripTextField({
+    required this.label,
+    required this.controller,
+    required this.hintText,
+    required this.icon,
+    this.validator,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+  final FormFieldValidator<String>? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FormLabel(label),
+        const SizedBox(height: 9),
+        Container(
+          decoration: BoxDecoration(
+            color: VamoTravelTokens.surface,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: VamoTravelTokens.border, width: 1.5),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: VamoTravelTokens.mute2),
+              const SizedBox(width: 11),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  validator: validator,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  style: const TextStyle(
+                    color: VamoTravelTokens.ink,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  cursorColor: VamoTravelTokens.plum,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -753,71 +840,123 @@ class _CreateTripHeader extends StatelessWidget {
   }
 }
 
-class _CompactTextCard extends StatelessWidget {
-  const _CompactTextCard({
+class _DestinationHeroField extends StatelessWidget {
+  const _DestinationHeroField({
     required this.label,
     required this.controller,
+    required this.focusNode,
     required this.hintText,
-    this.validator,
-    this.textCapitalization = TextCapitalization.sentences,
-    this.trailing,
+    required this.suggestions,
+    required this.showSuggestions,
+    required this.onSuggestionTap,
+    required this.onClear,
   });
 
   final String label;
   final TextEditingController controller;
+  final FocusNode focusNode;
   final String hintText;
-  final FormFieldValidator<String>? validator;
-  final TextCapitalization textCapitalization;
-  final Widget? trailing;
+  final List<_DestinationSuggestion> suggestions;
+  final bool showSuggestions;
+  final ValueChanged<_DestinationSuggestion> onSuggestionTap;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.vamoColors;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.border.withValues(alpha: 0.5)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 12, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextFormField(
-              controller: controller,
-              validator: validator,
-              textCapitalization: textCapitalization,
-              decoration: InputDecoration(
-                labelText: label.toUpperCase(),
-                hintText: hintText,
-                border: InputBorder.none,
-                isDense: true,
-              ),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            trailing!,
+    final selectedName = controller.text.trim();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _FormLabel(label)),
+            const _AiResolvePill(),
           ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: VamoTravelTokens.surface,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: VamoTravelTokens.plum, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: VamoTravelTokens.plum.withValues(alpha: 0.10),
+                blurRadius: 0,
+                spreadRadius: 3,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Row(
+            children: [
+              const Icon(Icons.search, size: 21, color: VamoTravelTokens.plum),
+              const SizedBox(width: 11),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  style: const TextStyle(
+                    color: VamoTravelTokens.ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  cursorColor: VamoTravelTokens.plum,
+                ),
+              ),
+              if (onClear != null)
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onClear,
+                  child: const Icon(
+                    Icons.cancel_outlined,
+                    size: 19,
+                    color: VamoTravelTokens.mute2,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 160),
+          alignment: Alignment.topCenter,
+          child: showSuggestions
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    children: [
+                      for (final suggestion in suggestions)
+                        _DestinationSuggestionRow(
+                          suggestion: suggestion,
+                          selected: selectedName == suggestion.name,
+                          onTap: () => onSuggestionTap(suggestion),
+                        ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 }
 
-class _DateSummaryCard extends StatelessWidget {
-  const _DateSummaryCard({
-    required this.label,
-    required this.value,
+class _DestinationSuggestionRow extends StatelessWidget {
+  const _DestinationSuggestionRow({
+    required this.suggestion,
+    required this.selected,
     required this.onTap,
   });
 
-  final String label;
-  final String value;
+  final _DestinationSuggestion suggestion;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -825,38 +964,54 @@ class _DateSummaryCard extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: VamoTravelTokens.surface,
+          color: selected
+              ? const Color(0xFFF3EFF6)
+              : VamoTravelTokens.surface.withValues(alpha: 0.64),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: VamoTravelTokens.border),
         ),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: VamoTravelTokens.slate,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
+            _DestinationSwatchBox(swatch: suggestion.swatch),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    suggestion.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: VamoTravelTokens.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    suggestion.meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: VamoTravelTokens.mute,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: VamoTravelTokens.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+            if (selected)
+              const Icon(
+                Icons.check_circle_outline,
+                size: 24,
+                color: VamoTravelTokens.plum,
               ),
-            ),
           ],
         ),
       ),
@@ -864,8 +1019,120 @@ class _DateSummaryCard extends StatelessWidget {
   }
 }
 
-class _CurrencyCard extends StatelessWidget {
-  const _CurrencyCard({
+class _DestinationSwatchBox extends StatelessWidget {
+  const _DestinationSwatchBox({required this.swatch});
+
+  final _DestinationSwatch swatch;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (swatch) {
+      _DestinationSwatch.seaGold => const [
+          Color(0xFF7FB3D5),
+          Color(0xFFF5B64A),
+        ],
+      _DestinationSwatch.sunset => const [
+          Color(0xFFF3A15F),
+          Color(0xFFC44D7C),
+        ],
+      _DestinationSwatch.coast => const [
+          Color(0xFF5AB8C7),
+          Color(0xFFE7C858),
+        ],
+    };
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(13),
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: const Color(0x0F000000)),
+      ),
+    );
+  }
+}
+
+class _DateRow extends StatelessWidget {
+  const _DateRow({
+    required this.label,
+    required this.value,
+    required this.duration,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final String duration;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FormLabel(label),
+        const SizedBox(height: 9),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+            decoration: BoxDecoration(
+              color: VamoTravelTokens.surface,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: VamoTravelTokens.border, width: 1.5),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.calendar_month,
+                  size: 21,
+                  color: VamoTravelTokens.coral,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: VamoTravelTokens.ink,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (duration.isNotEmpty) ...[
+                  Text(
+                    duration,
+                    style: const TextStyle(
+                      color: VamoTravelTokens.mute2,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                const Icon(
+                  Icons.chevron_right,
+                  size: 19,
+                  color: VamoTravelTokens.chevron,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CurrencyDisclosureRow extends StatelessWidget {
+  const _CurrencyDisclosureRow({
     required this.label,
     required this.value,
     required this.currencies,
@@ -879,20 +1146,28 @@ class _CurrencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.vamoColors;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.border.withValues(alpha: 0.45)),
+        color: VamoTravelTokens.surface.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(color: VamoTravelTokens.hairline),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: DropdownButtonFormField<String>(
         initialValue: value,
+        icon: const Icon(
+          Icons.keyboard_arrow_down,
+          color: VamoTravelTokens.mute2,
+        ),
         decoration: InputDecoration(
           labelText: label.toUpperCase(),
           border: InputBorder.none,
           isDense: true,
+        ),
+        style: const TextStyle(
+          color: VamoTravelTokens.inkSoft,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
         ),
         items: currencies
             .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -903,56 +1178,55 @@ class _CurrencyCard extends StatelessWidget {
   }
 }
 
-class _AiModeChip extends StatelessWidget {
-  const _AiModeChip({required this.label});
-  final String label;
+class _AiResolvePill extends StatelessWidget {
+  const _AiResolvePill();
 
   @override
   Widget build(BuildContext context) {
-    final accent = VamoPlanTypeColors.lodging;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.1),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF3E9FA), Color(0xFFFBEEF3)],
+        ),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: VamoTravelTokens.advancedPillBorder),
       ),
-      child: Text(
-        label.toUpperCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: accent,
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.auto_awesome, size: 14, color: VamoTravelTokens.plum),
+          SizedBox(width: 5),
+          Text(
+            'AI resolve',
+            style: TextStyle(
+              color: VamoTravelTokens.plum,
+              fontSize: 11,
               fontWeight: FontWeight.w800,
             ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _VamoAiBadge extends StatelessWidget {
-  const _VamoAiBadge({required this.label});
+class _FormLabel extends StatelessWidget {
+  const _FormLabel(this.label);
+
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
-      decoration: const BoxDecoration(
-        color: VamoTravelTokens.plum,
-        borderRadius: BorderRadius.all(Radius.circular(999)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x666A2D6F),
-            blurRadius: 6,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Text(
-        '★ ${label.toUpperCase()}',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-        ),
+    return Text(
+      label.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: VamoTravelTokens.slate,
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.8,
       ),
     );
   }
