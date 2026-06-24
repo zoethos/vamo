@@ -48,8 +48,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   bool _destinationResolveIsError = false;
   _DestinationSuggestion? _resolvedDestination;
 
-  static const _currencies = kProfileCurrencies;
-
   @override
   void initState() {
     super.initState();
@@ -132,7 +130,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       label: labels.nameLabel,
                       controller: _nameController,
                       hintText: labels.nameHint,
-                      icon: Icons.edit,
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return labels.nameRequired;
@@ -202,15 +199,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                               ),
                             )
                           : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 14),
-                    _CurrencyDisclosureRow(
-                      label: labels.currencyLabel,
-                      value: _baseCurrency,
-                      currencies: _currencies,
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _baseCurrency = v ?? 'EUR'),
                     ),
                   ],
                 ),
@@ -292,9 +280,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (resolved == null) {
       setState(() {
         _destinationResolving = false;
-        _destinationResolveMessage = placeGeocodeSupported
-            ? 'No destination match found. Check the spelling or add country.'
-            : 'Destination resolve is available on iOS and Android.';
+        _destinationResolveMessage =
+            'No destination match found. Check the spelling or add country.';
         _destinationResolveIsError = true;
       });
       return;
@@ -415,10 +402,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   /// Creates the trip, then asks the AI to draft a route and opens the review
-  /// screen. Gating/failure degrade to the trip home — the trip still exists.
+  /// screen. Gating/failure roll back the just-created draft trip.
   Future<void> _draftWithAi() async {
     setState(() => _saving = true);
     try {
+      final trips = ref.read(tripsRepositoryProvider);
       final id = await _createTrip();
       if (id == null || !mounted) return;
       final destination = _destinationController.text.trim();
@@ -431,10 +419,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             legs: _legs,
           );
       if (!mounted) return;
-      _flowTracker.complete();
       final advanced = widget.labels.advanced;
       switch (result) {
         case RouteDraftSuccess(:final draft):
+          _flowTracker.complete();
           await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               builder: (_) => RouteDraftReviewScreen(
@@ -448,11 +436,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           );
           if (mounted) context.go(AppRoutes.trip(id));
         case RouteDraftGated():
+          await trips.discardNewTripAfterDraftFailure(id);
+          if (!mounted) return;
           _toast(advanced.draftGatedMessage);
-          context.go(AppRoutes.trip(id));
         case RouteDraftUnavailable():
+          await trips.discardNewTripAfterDraftFailure(id);
+          if (!mounted) return;
           _toast(advanced.draftFailedMessage);
-          context.go(AppRoutes.trip(id));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -543,54 +533,20 @@ class _AdvancedToggle extends StatelessWidget {
             const Icon(Icons.tune, color: VamoTravelTokens.plum, size: 20),
             const SizedBox(width: 11),
             Expanded(
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      labels.toggleTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: VamoTravelTokens.inkSoft,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 7),
-                  _AdvancedBadge(label: labels.toggleBadge),
-                ],
+              child: Text(
+                labels.toggleTitle,
+                maxLines: 2,
+                overflow: TextOverflow.visible,
+                style: const TextStyle(
+                  color: VamoTravelTokens.inkSoft,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             const SizedBox(width: 11),
             _SpecSwitch(value: value, activeColor: VamoTravelTokens.plum),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AdvancedBadge extends StatelessWidget {
-  const _AdvancedBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: VamoTravelTokens.advancedPillBg,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: VamoTravelTokens.advancedPillBorder),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: const TextStyle(
-          color: VamoTravelTokens.plum,
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -845,14 +801,12 @@ class _TripTextField extends StatelessWidget {
     required this.label,
     required this.controller,
     required this.hintText,
-    required this.icon,
     this.validator,
   });
 
   final String label;
   final TextEditingController controller;
   final String hintText;
-  final IconData icon;
   final FormFieldValidator<String>? validator;
 
   @override
@@ -871,8 +825,6 @@ class _TripTextField extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: VamoTravelTokens.mute2),
-              const SizedBox(width: 11),
               Expanded(
                 child: TextFormField(
                   controller: controller,
@@ -938,7 +890,7 @@ class _DestinationHeroField extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _FormLabel(label)),
-            _AiResolvePill(
+            _DestinationFindPill(
               resolving: resolving,
               onTap: onResolve,
             ),
@@ -961,12 +913,12 @@ class _DestinationHeroField extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 15),
           child: Row(
             children: [
-              const Icon(Icons.search, size: 21, color: VamoTravelTokens.plum),
-              const SizedBox(width: 11),
               Expanded(
                 child: TextFormField(
                   controller: controller,
                   focusNode: focusNode,
+                  textInputAction: TextInputAction.search,
+                  onFieldSubmitted: (_) => onResolve?.call(),
                   textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                     hintText: hintText,
@@ -1282,55 +1234,8 @@ class _DateRow extends StatelessWidget {
   }
 }
 
-class _CurrencyDisclosureRow extends StatelessWidget {
-  const _CurrencyDisclosureRow({
-    required this.label,
-    required this.value,
-    required this.currencies,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final List<String> currencies;
-  final ValueChanged<String?>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: VamoTravelTokens.surface.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: VamoTravelTokens.hairline),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-      child: DropdownButtonFormField<String>(
-        initialValue: value,
-        icon: const Icon(
-          Icons.keyboard_arrow_down,
-          color: VamoTravelTokens.mute2,
-        ),
-        decoration: InputDecoration(
-          labelText: label.toUpperCase(),
-          border: InputBorder.none,
-          isDense: true,
-        ),
-        style: const TextStyle(
-          color: VamoTravelTokens.inkSoft,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
-        items: currencies
-            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-            .toList(),
-        onChanged: onChanged,
-      ),
-    );
-  }
-}
-
-class _AiResolvePill extends StatelessWidget {
-  const _AiResolvePill({
+class _DestinationFindPill extends StatelessWidget {
+  const _DestinationFindPill({
     required this.resolving,
     required this.onTap,
   });
@@ -1342,7 +1247,7 @@ class _AiResolvePill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'Resolve destination',
+      label: 'Find destination',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: resolving ? null : onTap,
@@ -1377,7 +1282,7 @@ class _AiResolvePill extends StatelessWidget {
                   ),
                 const SizedBox(width: 5),
                 Text(
-                  resolving ? 'Resolving' : 'AI resolve',
+                  resolving ? 'Finding' : 'Find',
                   style: const TextStyle(
                     color: VamoTravelTokens.plum,
                     fontSize: 11,

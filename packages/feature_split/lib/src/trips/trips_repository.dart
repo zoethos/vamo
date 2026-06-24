@@ -520,6 +520,22 @@ class TripsRepository {
     );
   }
 
+  Future<void> discardNewTripAfterDraftFailure(String tripId) async {
+    try {
+      await _client.rpc('cancel_trip', params: {'p_trip_id': tripId});
+    } catch (error, stackTrace) {
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'create_trip',
+        action: 'discard_failed_draft_trip_remote',
+        severity: ActionFailureSeverity.degraded,
+        analytics: _analytics,
+      );
+    }
+    await _db.deleteTripCascade(tripId);
+  }
+
   Future<void> setTripBudget({
     required String tripId,
     required String mode,
