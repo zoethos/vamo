@@ -57,9 +57,44 @@ class AdvancedTravelSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.vamoColors;
     final textTheme = Theme.of(context).textTheme;
+    final selectedModes = legs.map((l) => l.mode).toSet();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          labels.modeSectionTitle.toUpperCase(),
+          style: textTheme.labelMedium?.copyWith(
+            color: colors.onSurfaceMuted,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final mode in TravelMode.values)
+              _ModePill(
+                label: labels.modeLabel(mode),
+                icon: mode.icon,
+                color: travelModeColor(mode),
+                selected: selectedModes.contains(mode),
+                onTap: () {
+                  if (selectedModes.contains(mode)) return;
+                  onChanged([
+                    ...legs,
+                    TravelLeg(
+                      mode: mode,
+                      windowStart: tripStart,
+                      windowEnd: tripEnd,
+                    ),
+                  ]);
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: 24),
         Row(
           children: [
             Expanded(
@@ -80,11 +115,21 @@ class AdvancedTravelSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (legs.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              labels.noLegs,
-              style: textTheme.bodyMedium?.copyWith(color: colors.onSurfaceMuted),
+          Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              onTap: () => _editLeg(context),
+              borderRadius: BorderRadius.circular(14),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  labels.noLegs,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceMuted,
+                  ),
+                ),
+              ),
             ),
           )
         else
@@ -98,7 +143,7 @@ class AdvancedTravelSection extends StatelessWidget {
                 onTap: () => _editLeg(context, index: i),
               ),
             ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
@@ -108,6 +153,60 @@ class AdvancedTravelSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ModePill extends StatelessWidget {
+  const _ModePill({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : colors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? color : colors.border.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? color : colors.onSurfaceMuted,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: selected ? colors.onSurface : colors.onSurfaceMuted,
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -238,19 +337,18 @@ Future<TravelLegEditResult?> showTravelLegEditor({
   DateTime? tripEnd,
   bool canRemove = false,
 }) {
-  return showModalBottomSheet<TravelLegEditResult>(
-    context: context,
-    isScrollControlled: true,
-    useRootNavigator: true,
-    showDragHandle: true,
-    builder: (sheetContext) => _TravelLegEditor(
-      labels: labels,
-      unit: unit,
-      datePickerLabels: datePickerLabels,
-      initial: initial,
-      tripStart: tripStart,
-      tripEnd: tripEnd,
-      canRemove: canRemove,
+  return Navigator.of(context).push<TravelLegEditResult>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (sheetContext) => _TravelLegEditor(
+        labels: labels,
+        unit: unit,
+        datePickerLabels: datePickerLabels,
+        initial: initial,
+        tripStart: tripStart,
+        tripEnd: tripEnd,
+        canRemove: canRemove,
+      ),
     ),
   );
 }
@@ -399,174 +497,254 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
       return (current - value).abs() < 0.5;
     }
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        4,
-        20,
-        20 + MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l.legEditorTitle,
-                    style: textTheme.titleLarge?.copyWith(
-                      color: colors.onSurface,
-                      fontWeight: FontWeight.w700,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back),
+                  ),
+                  Expanded(
+                    child: Text(
+                      l.legEditorTitle,
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                if (widget.canRemove)
-                  TextButton(
-                    onPressed: () => Navigator.of(context)
-                        .pop(const TravelLegEditResult.removed()),
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.error,
+                  if (widget.canRemove)
+                    TextButton(
+                      onPressed: () => Navigator.of(context)
+                          .pop(const TravelLegEditResult.removed()),
+                      style:
+                          TextButton.styleFrom(foregroundColor: colors.error),
+                      child: Text(l.removeLeg),
                     ),
-                    child: Text(l.removeLeg),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _SectionLabel(l.modeSectionTitle),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final mode in TravelMode.values)
-                  ChoiceChip(
-                    avatar: Icon(
-                      mode.icon,
-                      size: 18,
-                      color: _mode == mode
-                          ? travelModeColor(mode)
-                          : colors.onSurfaceMuted,
-                    ),
-                    label: Text(l.modeLabel(mode)),
-                    selected: _mode == mode,
-                    onSelected: (_) => setState(() => _mode = mode),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _SectionLabel(l.windowSectionTitle),
-            OutlinedButton.icon(
-              onPressed: _pickWindow,
-              style: OutlinedButton.styleFrom(
-                alignment: AlignmentDirectional.centerStart,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-              icon: const Icon(Icons.calendar_today_outlined, size: 18),
-              label: Text(
-                legWindowSummary(
-                  TravelLeg(
-                    mode: _mode,
-                    windowStart: _windowStart,
-                    windowEnd: _windowEnd,
-                  ),
-                  l.windowAnyTime,
-                ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              l.windowOptionalHint,
-              style: textTheme.bodySmall?.copyWith(color: colors.success),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(child: _SectionLabel(l.reachSectionTitle)),
-                SegmentedButton<ReachType>(
-                  segments: [
-                    ButtonSegment(
-                      value: ReachType.distance,
-                      label: Text(l.reachDistance),
-                    ),
-                    ButtonSegment(
-                      value: ReachType.time,
-                      label: Text(l.reachTime),
-                    ),
-                  ],
-                  selected: {_reachType},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) => _switchReachType(s.first),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  _bigValue,
-                  style: textTheme.displaySmall?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w800,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                children: [
+                  _SectionLabel(l.modeSectionTitle),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final mode in TravelMode.values)
+                        _ModePill(
+                          label: l.modeLabel(mode),
+                          icon: mode.icon,
+                          color: travelModeColor(mode),
+                          selected: _mode == mode,
+                          onTap: () => setState(() => _mode = mode),
+                        ),
+                    ],
                   ),
-                ),
-                if (_bigUnit.isNotEmpty) ...[
-                  const SizedBox(width: 6),
+                  const SizedBox(height: 26),
+                  _SectionLabel(l.windowSectionTitle),
+                  _EditorCardButton(
+                    onTap: _pickWindow,
+                    icon: Icons.calendar_month_outlined,
+                    iconColor: VamoPlanTypeColors.visit,
+                    title: legWindowSummary(
+                      TravelLeg(
+                        mode: _mode,
+                        windowStart: _windowStart,
+                        windowEnd: _windowEnd,
+                      ),
+                      l.windowAnyTime,
+                    ),
+                    trailing: _windowStart != null && _windowEnd != null
+                        ? '${_windowEnd!.difference(_windowStart!).inDays + 1} days'
+                        : null,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_outlined,
+                        color: VamoPlanTypeColors.train,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          l.windowOptionalHint,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      Expanded(child: _SectionLabel(l.reachSectionTitle)),
+                      SegmentedButton<ReachType>(
+                        segments: [
+                          ButtonSegment(
+                            value: ReachType.distance,
+                            label: Text(l.reachDistance),
+                          ),
+                          ButtonSegment(
+                            value: ReachType.time,
+                            label: Text(l.reachTime),
+                          ),
+                        ],
+                        selected: {_reachType},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (s) => _switchReachType(s.first),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          _bigValue,
+                          style: textTheme.displayLarge?.copyWith(
+                            color: colors.onSurface,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        if (_bigUnit.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            _bigUnit,
+                            style: textTheme.titleMedium
+                                ?.copyWith(color: colors.onSurfaceMuted),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Text(
-                    _bigUnit,
-                    style: textTheme.titleMedium
+                    _reachType == ReachType.distance
+                        ? l.reachDistanceCaption
+                        : l.reachTimeCaption,
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: colors.onSurfaceMuted),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final value in presets)
+                        ChoiceChip(
+                          label: Text(
+                            '${_trimNum(value)} '
+                            '${_reachType == ReachType.distance ? widget.unit.name : l.reachHoursUnit}',
+                          ),
+                          selected: presetSelected(value),
+                          onSelected: (_) => _selectPreset(value),
+                        ),
+                      ChoiceChip(
+                        label: Text(l.reachNoLimit),
+                        selected: _reach.isUnlimited,
+                        onSelected: (_) => _selectNoLimit(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    l.unitsFootnote,
+                    style: textTheme.bodySmall
                         ?.copyWith(color: colors.onSurfaceMuted),
                   ),
                 ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _reachType == ReachType.distance
-                  ? l.reachDistanceCaption
-                  : l.reachTimeCaption,
-              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceMuted),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final value in presets)
-                  ChoiceChip(
-                    label: Text(
-                      '${_trimNum(value)} '
-                      '${_reachType == ReachType.distance ? widget.unit.name : l.reachHoursUnit}',
-                    ),
-                    selected: presetSelected(value),
-                    onSelected: (_) => _selectPreset(value),
-                  ),
-                ChoiceChip(
-                  label: Text(l.reachNoLimit),
-                  selected: _reach.isUnlimited,
-                  onSelected: (_) => _selectNoLimit(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              l.unitsFootnote,
-              style: textTheme.bodySmall?.copyWith(color: colors.onSurfaceMuted),
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _save,
-              style: FilledButton.styleFrom(
-                backgroundColor: colors.action,
-                foregroundColor: colors.onAction,
-                minimumSize: const Size.fromHeight(52),
               ),
-              child: Text(l.saveLeg),
             ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+        child: FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(
+            backgroundColor: colors.action,
+            foregroundColor: colors.onAction,
+            minimumSize: const Size.fromHeight(58),
+          ),
+          child: Text(l.saveLeg),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorCardButton extends StatelessWidget {
+  const _EditorCardButton({
+    required this.onTap,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.trailing,
+  });
+
+  final VoidCallback onTap;
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.border.withValues(alpha: 0.5)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          child: Row(
+            children: [
+              Icon(icon, color: iconColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ),
+              if (trailing != null)
+                Text(
+                  trailing!,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colors.onSurfaceMuted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+            ],
+          ),
         ),
       ),
     );

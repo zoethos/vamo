@@ -103,9 +103,24 @@ void main() {
       ],
       onChanged: (_) {},
     );
-    expect(find.text('Train'), findsOneWidget);
+    expect(find.text('Train'), findsWidgets);
     expect(find.textContaining('Jul 4 – Jul 7'), findsOneWidget);
     expect(find.textContaining('≤ 5 h / day'), findsOneWidget);
+  });
+
+  testWidgets('mode chips add a new ordered leg', (tester) async {
+    List<TravelLeg>? captured;
+    await _pumpSection(
+      tester,
+      legs: const [],
+      onChanged: (legs) => captured = legs,
+    );
+
+    await tester.tap(find.text('Train'));
+    await tester.pump();
+
+    expect(captured, isNotNull);
+    expect(captured!.single.mode, TravelMode.train);
   });
 
   testWidgets('add → pick mode + reach → save emits a new leg', (tester) async {
@@ -122,11 +137,14 @@ void main() {
 
     await tester.tap(find.text('Train'));
     await tester.pump();
-    await tester.ensureVisible(find.text('300 km'));
-    await tester.tap(find.text('300 km')); // a distance preset (canonical km)
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, '300 km'));
+    await tester.drag(find.byType(ListView).last, const Offset(0, -160));
     await tester.pump();
-    await tester.ensureVisible(find.text('Save leg'));
-    await tester.tap(find.text('Save leg'));
+    await tester.tap(
+      find.widgetWithText(ChoiceChip, '300 km'),
+    ); // a distance preset (canonical km)
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save leg'));
     await tester.pumpAndSettle();
 
     expect(captured, isNotNull);
