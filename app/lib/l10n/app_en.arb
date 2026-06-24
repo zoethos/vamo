@@ -44,6 +44,7 @@
   "tripsDeleteTrip": "Delete",
   "tripsDeleteTripConfirmTitle": "Delete this trip?",
   "tripsDeleteTripConfirmAction": "OK",
+  "tripsDeleteTripOwnerRequired": "Only the trip owner can delete this trip.",
   "commonCancel": "Cancel",
   "weatherPreviewTemp": "{celsius}°",
   "@weatherPreviewTemp": {

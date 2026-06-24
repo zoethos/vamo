@@ -117,6 +117,18 @@ void main() {
       );
     });
 
+    test('PostgREST permission denied is auth', () {
+      expect(
+        classifyActionFailureKind(
+          const PostgrestException(
+            message: 'only_owner_may_delete',
+            code: '42501',
+          ),
+        ),
+        AnalyticsErrorKind.auth,
+      );
+    });
+
     test('AuthException is auth unless retryable fetch', () {
       expect(
         classifyActionFailureKind(

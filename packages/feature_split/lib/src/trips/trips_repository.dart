@@ -19,6 +19,15 @@ import 'trip_background_storage.dart';
 import 'trip_fx_models.dart';
 import 'trips_models.dart';
 
+class TripDeleteOwnerRequiredException implements Exception {
+  const TripDeleteOwnerRequiredException(this.cause);
+
+  final PostgrestException cause;
+
+  @override
+  String toString() => 'TripDeleteOwnerRequiredException';
+}
+
 final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
   return TripsRepository(
     db: ref.watch(appDatabaseProvider),
@@ -522,12 +531,24 @@ class TripsRepository {
   }
 
   Future<void> deleteTrip(String tripId) async {
-    await _client.rpc('delete_trip', params: {'p_trip_id': tripId});
+    try {
+      await _client.rpc('delete_trip', params: {'p_trip_id': tripId});
+    } on PostgrestException catch (error) {
+      if (_isDeleteTripOwnerRequired(error)) {
+        throw TripDeleteOwnerRequiredException(error);
+      }
+      rethrow;
+    }
     await _db.deleteTripCascade(tripId);
     _analytics.capture(
       VamoEvent.tripCancelled,
       properties: {'trip_id': tripId, 'mode': 'delete'},
     );
+  }
+
+  bool _isDeleteTripOwnerRequired(PostgrestException error) {
+    return error.code == '42501' &&
+        error.message.toLowerCase().contains('only_owner_may_delete');
   }
 
   Future<void> discardNewTripAfterDraftFailure(String tripId) async {

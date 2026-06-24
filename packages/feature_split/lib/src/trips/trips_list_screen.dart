@@ -41,6 +41,7 @@ class TripsListScreenLabels {
     required this.deleteTrip,
     required this.deleteTripConfirmTitle,
     required this.deleteTripConfirmAction,
+    required this.deleteTripOwnerRequired,
     required this.cancel,
     required this.weather,
   });
@@ -67,6 +68,7 @@ class TripsListScreenLabels {
   final String deleteTrip;
   final String deleteTripConfirmTitle;
   final String deleteTripConfirmAction;
+  final String deleteTripOwnerRequired;
   final String cancel;
   final WeatherBadgeLabels weather;
 }
@@ -428,6 +430,18 @@ class _DeletableTripCard extends ConsumerWidget {
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(tripsRepositoryProvider).deleteTrip(trip.id);
+    } on TripDeleteOwnerRequiredException catch (error, stackTrace) {
+      if (!context.mounted) return;
+      reportAndLog(
+        error.cause,
+        stackTrace,
+        screen: 'trips_list',
+        action: 'delete_trip',
+        analytics: ref.read(analyticsProvider),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(labels.deleteTripOwnerRequired)),
+      );
     } catch (error) {
       if (!context.mounted) return;
       showActionError(
