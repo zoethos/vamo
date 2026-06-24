@@ -296,7 +296,7 @@
   "createTripSubmit": "Create trip",
   "createTripEndBeforeStart": "End date must be on or after start date.",
   "createTripClearDate": "Clear date",
-  "travelToggleTitle": "Plan how you'll travel",
+  "travelToggleTitle": "Multimodale",
   "@travelToggleTitle": {
     "description": "Advanced Travel Planning toggle title on New Trip."
   },

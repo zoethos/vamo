@@ -84,7 +84,7 @@ void main() {
     expect(find.text('Base currency'), findsNothing);
     expect(find.text('AI resolve'), findsNothing);
     expect(find.text('Find'), findsOneWidget);
-    expect(find.text("Plan how you'll travel"), findsOneWidget);
+    expect(find.text('Multimodale'), findsOneWidget);
     expect(find.byIcon(Icons.edit), findsNothing);
     expect(find.byIcon(Icons.search), findsNothing);
 
