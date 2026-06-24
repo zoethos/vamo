@@ -51,18 +51,20 @@ const _labels = AdvancedTravelLabels(
   draftFailedMessage: 'Could not draft.',
 );
 
-const _datePickerLabels = VamoDatePickerLabels(
-  cancel: 'Cancel',
-  skip: 'Skip',
-  select: 'Select',
-);
-
 Future<void> _pumpSection(
   WidgetTester tester, {
   required List<TravelLeg> legs,
   required ValueChanged<List<TravelLeg>> onChanged,
+  Set<TravelMode> modes = const {TravelMode.car, TravelMode.train},
+  ValueChanged<Set<TravelMode>>? onModesChanged,
   DistanceUnit unit = DistanceUnit.km,
 }) async {
+  tester.view.physicalSize = const Size(420, 1000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light,
@@ -70,10 +72,11 @@ Future<void> _pumpSection(
         body: SingleChildScrollView(
           child: AdvancedTravelSection(
             labels: _labels,
+            modes: modes,
+            onModesChanged: onModesChanged ?? (_) {},
             legs: legs,
             onChanged: onChanged,
             unit: unit,
-            datePickerLabels: _datePickerLabels,
           ),
         ),
       ),
@@ -84,8 +87,7 @@ Future<void> _pumpSection(
 void main() {
   testWidgets('empty state offers an Add leg affordance', (tester) async {
     await _pumpSection(tester, legs: const [], onChanged: (_) {});
-    expect(find.text('No legs yet'), findsOneWidget);
-    expect(find.text('Add leg'), findsOneWidget);
+    expect(find.text('Add a travel leg'), findsOneWidget);
   });
 
   testWidgets('renders a leg row with mode label and window·reach summary', (
@@ -104,26 +106,28 @@ void main() {
       onChanged: (_) {},
     );
     expect(find.text('Train'), findsWidgets);
-    expect(find.textContaining('Jul 4 – Jul 7'), findsOneWidget);
-    expect(find.textContaining('≤ 5 h / day'), findsOneWidget);
+    expect(find.textContaining('Jul 4 – 7'), findsOneWidget);
+    expect(find.textContaining('≤ 5h / day'), findsOneWidget);
   });
 
-  testWidgets('mode chips add a new ordered leg', (tester) async {
-    List<TravelLeg>? captured;
+  testWidgets('mode chips toggle the selected mode set', (tester) async {
+    Set<TravelMode>? captured;
     await _pumpSection(
       tester,
       legs: const [],
-      onChanged: (legs) => captured = legs,
+      modes: const {},
+      onChanged: (_) {},
+      onModesChanged: (modes) => captured = modes,
     );
 
     await tester.tap(find.text('Train'));
     await tester.pump();
 
     expect(captured, isNotNull);
-    expect(captured!.single.mode, TravelMode.train);
+    expect(captured, contains(TravelMode.train));
   });
 
-  testWidgets('add → pick mode + reach → save emits a new leg', (tester) async {
+  testWidgets('add → save emits a new default leg', (tester) async {
     List<TravelLeg>? captured;
     await _pumpSection(
       tester,
@@ -131,43 +135,30 @@ void main() {
       onChanged: (legs) => captured = legs,
     );
 
-    await tester.tap(find.text('Add leg'));
+    await tester.tap(find.text('Add a travel leg'));
     await tester.pumpAndSettle();
     expect(find.text('Travel leg'), findsOneWidget);
 
-    await tester.tap(find.text('Train'));
-    await tester.pump();
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, '300 km'));
-    await tester.drag(find.byType(ListView).last, const Offset(0, -160));
-    await tester.pump();
-    await tester.tap(
-      find.widgetWithText(ChoiceChip, '300 km'),
-    ); // a distance preset (canonical km)
-    await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save leg'));
+    await tester.tap(find.text('Save leg'));
     await tester.pumpAndSettle();
 
     expect(captured, isNotNull);
     expect(captured!.length, 1);
-    expect(captured!.single.mode, TravelMode.train);
+    expect(captured!.single.mode, TravelMode.car);
     expect(captured!.single.reach.type, ReachType.distance);
-    expect(captured!.single.reach.value, 300);
+    expect(captured!.single.reach.value, 600);
   });
 
-  testWidgets('distance presets render in miles when unit is miles', (
-    tester,
-  ) async {
-    await _pumpSection(
-      tester,
-      legs: const [],
-      onChanged: (_) {},
-      unit: DistanceUnit.miles,
+  test('reach summaries render in miles when unit is miles', () {
+    final summary = legReachSummary(
+      const TravelLeg(
+        mode: TravelMode.car,
+        reach: ReachLimit.distanceKm(300),
+      ),
+      DistanceUnit.miles,
+      _labels,
     );
-    await tester.tap(find.text('Add leg'));
-    await tester.pumpAndSettle();
 
-    // 300 km preset → ~186 mi chip label.
-    expect(find.textContaining('mi'), findsWidgets);
-    expect(find.text('300 km'), findsNothing);
+    expect(summary, '≤ 186 mi');
   });
 }

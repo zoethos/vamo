@@ -21,12 +21,12 @@ enum TravelMode {
       );
 
   IconData get icon => switch (this) {
-        TravelMode.car => Icons.directions_car_outlined,
-        TravelMode.motorbike => Icons.two_wheeler_outlined,
-        TravelMode.bike => Icons.pedal_bike_outlined,
-        TravelMode.train => Icons.train_outlined,
-        TravelMode.flight => Icons.flight_outlined,
-        TravelMode.bus => Icons.directions_bus_outlined,
+        TravelMode.car => Icons.directions_car,
+        TravelMode.motorbike => Icons.two_wheeler,
+        TravelMode.bike => Icons.pedal_bike,
+        TravelMode.train => Icons.train,
+        TravelMode.flight => Icons.flight,
+        TravelMode.bus => Icons.directions_bus,
       };
 
   /// Plan kind this mode commits to when an AI draft lands in the Plan.
@@ -93,12 +93,16 @@ class TravelLeg {
     required this.mode,
     this.windowStart,
     this.windowEnd,
+    this.windowStartTime,
+    this.windowEndTime,
     this.reach = const ReachLimit.none(),
   });
 
   final TravelMode mode;
   final DateTime? windowStart;
   final DateTime? windowEnd;
+  final String? windowStartTime;
+  final String? windowEndTime;
   final ReachLimit reach;
 
   TravelLeg copyWith({
@@ -107,20 +111,32 @@ class TravelLeg {
     bool clearWindowStart = false,
     DateTime? windowEnd,
     bool clearWindowEnd = false,
+    String? windowStartTime,
+    bool clearWindowStartTime = false,
+    String? windowEndTime,
+    bool clearWindowEndTime = false,
     ReachLimit? reach,
   }) {
     return TravelLeg(
       mode: mode ?? this.mode,
-      windowStart:
-          clearWindowStart ? null : (windowStart ?? this.windowStart),
+      windowStart: clearWindowStart ? null : (windowStart ?? this.windowStart),
       windowEnd: clearWindowEnd ? null : (windowEnd ?? this.windowEnd),
+      windowStartTime: clearWindowStartTime
+          ? null
+          : (windowStartTime ?? this.windowStartTime),
+      windowEndTime:
+          clearWindowEndTime ? null : (windowEndTime ?? this.windowEndTime),
       reach: reach ?? this.reach,
     );
   }
 }
 
 /// A validation problem on a single leg.
-enum TravelLegProblem { windowEndBeforeStart, windowOutsideTrip, reachNonPositive }
+enum TravelLegProblem {
+  windowEndBeforeStart,
+  windowOutsideTrip,
+  reachNonPositive
+}
 
 /// Deterministic, AI-free leg validation: window ordering, trip-bound
 /// containment, and a positive reach cap. Returns an empty set when valid.

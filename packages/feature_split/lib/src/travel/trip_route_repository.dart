@@ -52,6 +52,7 @@ class TripRouteRepository {
     required String destination,
     String? tripStart,
     String? tripEnd,
+    required List<TravelMode> modes,
     required List<TravelLeg> legs,
   }) async {
     try {
@@ -62,6 +63,7 @@ class TripRouteRepository {
           'destination': destination,
           if (tripStart != null) 'trip_start': tripStart,
           if (tripEnd != null) 'trip_end': tripEnd,
+          'modes': [for (final mode in modes) mode.name],
           'legs': [for (final leg in legs) _legToJson(leg)],
         },
       ).timeout(const Duration(seconds: 35));
@@ -104,8 +106,10 @@ class TripRouteRepository {
       'window_start':
           leg.windowStart == null ? null : fmt.format(leg.windowStart!),
       'window_end': leg.windowEnd == null ? null : fmt.format(leg.windowEnd!),
+      if (leg.windowStartTime != null) 'window_start_time': leg.windowStartTime,
+      if (leg.windowEndTime != null) 'window_end_time': leg.windowEndTime,
       'reach_type': leg.reach.type == ReachType.time ? 'time' : 'distance',
-      'reach_value': leg.reach.value,
+      'reach_value': leg.reach.isUnlimited ? 9999 : leg.reach.value,
     };
   }
 }
