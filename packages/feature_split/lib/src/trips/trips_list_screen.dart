@@ -447,6 +447,7 @@ class _DeletableTripCard extends ConsumerWidget {
       deleteConfirmTitle: labels.deleteTripConfirmTitle,
       deleteConfirmAction: labels.deleteTripConfirmAction,
       cancelLabel: labels.cancel,
+      enableLongPressMenu: false,
       onDelete: () => _delete(context, ref),
       child: child,
     );
