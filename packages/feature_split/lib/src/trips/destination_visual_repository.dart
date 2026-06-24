@@ -105,7 +105,7 @@ class DestinationVisual {
   static Uint8List? _decodeBase64(String raw) {
     try {
       return base64Decode(raw);
-    } catch (_) {
+    } on FormatException {
       return null;
     }
   }
