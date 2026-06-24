@@ -58,6 +58,8 @@ Future<void> _pumpSection(
   Set<TravelMode> modes = const {TravelMode.car, TravelMode.train},
   ValueChanged<Set<TravelMode>>? onModesChanged,
   DistanceUnit unit = DistanceUnit.km,
+  DateTime? tripStart,
+  DateTime? tripEnd,
 }) async {
   tester.view.physicalSize = const Size(420, 1000);
   tester.view.devicePixelRatio = 1;
@@ -77,6 +79,8 @@ Future<void> _pumpSection(
             legs: legs,
             onChanged: onChanged,
             unit: unit,
+            tripStart: tripStart,
+            tripEnd: tripEnd,
           ),
         ),
       ),
@@ -147,6 +151,45 @@ void main() {
     expect(captured!.single.mode, TravelMode.car);
     expect(captured!.single.reach.type, ReachType.distance);
     expect(captured!.single.reach.value, 600);
+  });
+
+  testWidgets('new leg defaults to the gap after the previous leg', (
+    tester,
+  ) async {
+    List<TravelLeg>? captured;
+    await _pumpSection(
+      tester,
+      legs: [
+        TravelLeg(
+          mode: TravelMode.car,
+          windowStart: DateTime.utc(2026, 5, 12),
+          windowEnd: DateTime.utc(2026, 5, 14),
+          reach: const ReachLimit.distanceKm(600),
+        ),
+      ],
+      onChanged: (legs) => captured = legs,
+      unit: DistanceUnit.km,
+      tripStart: DateTime.utc(2026, 5, 12),
+      tripEnd: DateTime.utc(2026, 5, 18),
+    );
+
+    await tester.tap(find.text('Add a travel leg'));
+    await tester.pumpAndSettle();
+    expect(find.text('Travel leg'), findsOneWidget);
+
+    await tester.tap(find.text('Save leg'));
+    await tester.pumpAndSettle();
+
+    expect(captured, isNotNull);
+    expect(captured!.length, 2);
+    expect(
+      DateUtils.dateOnly(captured!.last.windowStart!),
+      DateTime(2026, 5, 15),
+    );
+    expect(
+      DateUtils.dateOnly(captured!.last.windowEnd!),
+      DateTime(2026, 5, 18),
+    );
   });
 
   test('reach summaries render in miles when unit is miles', () {

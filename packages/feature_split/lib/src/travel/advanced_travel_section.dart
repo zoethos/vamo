@@ -36,7 +36,7 @@ class AdvancedTravelSection extends StatelessWidget {
       context: context,
       labels: labels,
       unit: unit,
-      initial: existing,
+      initial: existing ?? _newLegTemplate(),
       tripStart: tripStart,
       tripEnd: tripEnd,
       canRemove: index != null,
@@ -51,6 +51,35 @@ class AdvancedTravelSection extends StatelessWidget {
       next[index] = result.leg!;
     }
     onChanged(next);
+  }
+
+  TravelLeg _newLegTemplate() {
+    final mode = modes.isEmpty ? TravelMode.car : modes.first;
+    DateTime? start = tripStart;
+    DateTime? end = tripEnd ?? tripStart;
+
+    if (legs.isNotEmpty) {
+      final last = legs.last;
+      final anchor = last.windowEnd ?? last.windowStart;
+      if (anchor != null) {
+        final nextDay = DateTime(anchor.year, anchor.month, anchor.day)
+            .add(const Duration(days: 1));
+        if (tripEnd == null || !nextDay.isAfter(tripEnd!)) {
+          start = nextDay;
+          end = tripEnd ?? nextDay;
+        } else {
+          start = tripEnd;
+          end = tripEnd;
+        }
+      }
+    }
+
+    return TravelLeg(
+      mode: mode,
+      windowStart: start,
+      windowEnd: end,
+      reach: const ReachLimit.distanceKm(600),
+    );
   }
 
   void _toggleMode(TravelMode mode) {
@@ -68,10 +97,10 @@ class AdvancedTravelSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _SectionLabel("MODES YOU'LL USE"),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               for (final mode in TravelMode.values)
                 _ModeChip(
@@ -84,7 +113,7 @@ class AdvancedTravelSection extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(child: _SectionLabel(labels.legsSectionTitle)),
@@ -98,7 +127,7 @@ class AdvancedTravelSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           for (var i = 0; i < legs.length; i++) ...[
             _LegRow(
               leg: legs[i],
@@ -106,19 +135,19 @@ class AdvancedTravelSection extends StatelessWidget {
               unit: unit,
               onTap: () => _editLeg(context, index: i),
             ),
-            const SizedBox(height: 9),
+            const SizedBox(height: 7),
           ],
           _AddLegRow(
             label: _addLegLabel(labels),
             onTap: () => _editLeg(context),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 11),
           _FeasibilityBanner(
             legs: legs,
             tripStart: tripStart,
             tripEnd: tripEnd,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -202,7 +231,7 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: selected
               ? VamoTravelTokens.tint(color)
@@ -216,8 +245,8 @@ class _ModeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17, color: selected ? color : unselectedTextColor),
-            const SizedBox(width: 6),
+            Icon(icon, size: 15, color: selected ? color : unselectedTextColor),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
@@ -254,10 +283,10 @@ class _LegRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
         decoration: BoxDecoration(
           color: VamoTravelTokens.surface,
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: VamoTravelTokens.hairline),
           boxShadow: const [
             BoxShadow(
@@ -270,16 +299,16 @@ class _LegRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: VamoTravelTokens.tint(color),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(9),
               ),
               alignment: Alignment.center,
-              child: Icon(leg.mode.icon, size: 20, color: color),
+              child: Icon(leg.mode.icon, size: 17, color: color),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +319,7 @@ class _LegRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: VamoTravelTokens.ink,
-                      fontSize: 13.5,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -302,16 +331,16 @@ class _LegRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: VamoTravelTokens.mute,
-                      fontSize: 11,
+                      fontSize: 10.5,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 10),
             const Icon(
               Icons.chevron_right,
-              size: 18,
+              size: 16,
               color: VamoTravelTokens.chevron,
             ),
           ],
@@ -335,20 +364,20 @@ class _AddLegRow extends StatelessWidget {
       child: CustomPaint(
         painter: _DashedBorderPainter(
           color: VamoTravelTokens.borderDash,
-          radius: 13,
+          radius: 12,
           strokeWidth: 1.5,
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
           child: Row(
             children: [
-              const Icon(Icons.add, size: 19, color: VamoTravelTokens.plum),
-              const SizedBox(width: 9),
+              const Icon(Icons.add, size: 17, color: VamoTravelTokens.plum),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: const TextStyle(
                   color: VamoTravelTokens.plum,
-                  fontSize: 13,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -376,10 +405,10 @@ class _FeasibilityBanner extends StatelessWidget {
     final tripRange = _tripRangeLabel(tripStart, tripEnd);
     final count = legs.length == 1 ? '1 leg' : '${legs.length} legs';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
       decoration: BoxDecoration(
         color: VamoTravelTokens.feasGreenBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(color: VamoTravelTokens.feasGreenBd),
       ),
       child: Row(
@@ -388,9 +417,9 @@ class _FeasibilityBanner extends StatelessWidget {
           const Icon(
             Icons.verified,
             color: VamoTravelTokens.feasGreenFg,
-            size: 18,
+            size: 16,
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               legs.isEmpty
@@ -398,7 +427,7 @@ class _FeasibilityBanner extends StatelessWidget {
                   : 'Feasible — AI can connect 8 stops across your $count within the $tripRange range.',
               style: const TextStyle(
                 color: VamoTravelTokens.inkSoft,
-                fontSize: 11.5,
+                fontSize: 11,
                 height: 1.4,
               ),
             ),
@@ -677,14 +706,14 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 116),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 116),
                 physics: const BouncingScrollPhysics(),
                 children: [
                   _SectionLabel(l.modeSectionTitle),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 9),
                   Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 6,
+                    runSpacing: 6,
                     children: [
                       for (final mode in TravelMode.values)
                         _ModeChip(
@@ -697,9 +726,9 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   _SectionLabel(l.windowSectionTitle),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 9),
                   _FieldRow(
                     onTap: _pickWindow,
                     leading: Icons.calendar_month,
@@ -707,7 +736,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                     value: windowText,
                     trailing: _durationLabel,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 9),
                   Row(
                     children: [
                       const Icon(
@@ -727,7 +756,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 22),
                   Row(
                     children: [
                       Expanded(child: _SectionLabel(l.reachSectionTitle)),
@@ -738,7 +767,7 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 9),
                   _ReachValueBlock(
                     value: _bigValue,
                     suffix: _bigSuffix,
@@ -831,16 +860,16 @@ class _FieldRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: VamoTravelTokens.surface,
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: VamoTravelTokens.border, width: 1.5),
         ),
         child: Row(
           children: [
-            Icon(leading, size: 20, color: leadingColor),
-            const SizedBox(width: 10),
+            Icon(leading, size: 21, color: leadingColor),
+            const SizedBox(width: 11),
             Expanded(
               child: Text(
                 value,
@@ -848,7 +877,7 @@ class _FieldRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: VamoTravelTokens.ink,
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -858,7 +887,7 @@ class _FieldRow extends StatelessWidget {
                 trailing,
                 style: const TextStyle(
                   color: VamoTravelTokens.mute2,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
