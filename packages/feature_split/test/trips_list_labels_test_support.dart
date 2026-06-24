@@ -24,7 +24,7 @@ final testTripsListLabels = TripsListScreenLabels(
   createTripTooltip: 'Create trip',
   deleteTrip: 'Delete',
   deleteTripConfirmTitle: 'Delete this trip?',
-  deleteTripConfirmAction: 'Delete trip',
+  deleteTripConfirmAction: 'OK',
   cancel: 'Cancel',
   weather: testWeatherBadgeLabels,
 );

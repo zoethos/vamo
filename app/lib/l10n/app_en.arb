@@ -43,7 +43,7 @@
   },
   "tripsDeleteTrip": "Delete",
   "tripsDeleteTripConfirmTitle": "Delete this trip?",
-  "tripsDeleteTripConfirmAction": "Delete trip",
+  "tripsDeleteTripConfirmAction": "OK",
   "commonCancel": "Cancel",
   "weatherPreviewTemp": "{celsius}°",
   "@weatherPreviewTemp": {
