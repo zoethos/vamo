@@ -13,6 +13,7 @@ class VamoSlidableRow extends StatelessWidget {
     this.deleteConfirmTitle = 'Delete?',
     this.deleteConfirmAction = 'Delete',
     this.cancelLabel = 'Cancel',
+    this.showDeleteActionLabel = true,
     this.onInfo,
     this.onEdit,
     this.onDelete,
@@ -27,6 +28,7 @@ class VamoSlidableRow extends StatelessWidget {
   final String deleteConfirmTitle;
   final String deleteConfirmAction;
   final String cancelLabel;
+  final bool showDeleteActionLabel;
   final VoidCallback? onInfo;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -36,18 +38,39 @@ class VamoSlidableRow extends StatelessWidget {
   final List<SlidableAction>? startActions;
 
   Future<bool> _confirmDelete(BuildContext context) async {
+    final colors = context.vamoColors;
+    final space = context.vamoSpace;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(deleteConfirmTitle),
+        actionsPadding: EdgeInsetsDirectional.fromSTEB(
+          space.x6,
+          0,
+          space.x6,
+          space.x4,
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(cancelLabel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(deleteConfirmAction),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(cancelLabel),
+                ),
+              ),
+              SizedBox(width: space.x3),
+              Expanded(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.error,
+                    foregroundColor: colors.onPrimary,
+                  ),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: Text(deleteConfirmAction),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -137,13 +160,15 @@ class VamoSlidableRow extends StatelessWidget {
                 backgroundColor: colors.error,
                 foregroundColor: colors.onPrimary,
                 icon: Icons.delete_outline,
-                label: deleteLabel,
+                label: showDeleteActionLabel ? deleteLabel : null,
               ),
           ];
           if (actions.isEmpty) return null;
           return ActionPane(
             motion: const DrawerMotion(),
-            extentRatio: 0.28 + (actions.length - 1) * 0.18,
+            extentRatio: showDeleteActionLabel
+                ? 0.28 + (actions.length - 1) * 0.18
+                : 0.18 + (actions.length - 1) * 0.18,
             children: actions,
           );
         }(),

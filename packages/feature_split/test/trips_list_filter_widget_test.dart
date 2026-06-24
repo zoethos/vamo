@@ -84,6 +84,7 @@ void main() {
     );
     expect(row.deleteLabel, testTripsListLabels.deleteTrip);
     expect(row.deleteConfirmTitle, testTripsListLabels.deleteTripConfirmTitle);
+    expect(row.showDeleteActionLabel, isFalse);
     expect(row.enableLongPressMenu, isFalse);
     expect(row.onDelete, isNotNull);
   });
