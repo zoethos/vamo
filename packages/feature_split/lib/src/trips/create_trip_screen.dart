@@ -830,12 +830,7 @@ class _TripTextField extends StatelessWidget {
                   controller: controller,
                   validator: validator,
                   textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    hintText: hintText,
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
+                  decoration: _singleShapeInputDecoration(hintText),
                   style: const TextStyle(
                     color: VamoTravelTokens.ink,
                     fontSize: 15.5,
@@ -920,12 +915,7 @@ class _DestinationHeroField extends StatelessWidget {
                   textInputAction: TextInputAction.search,
                   onFieldSubmitted: (_) => onResolve?.call(),
                   textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    hintText: hintText,
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                  ),
+                  decoration: _singleShapeInputDecoration(hintText),
                   style: const TextStyle(
                     color: VamoTravelTokens.ink,
                     fontSize: 16,
@@ -1296,6 +1286,24 @@ class _DestinationFindPill extends StatelessWidget {
       ),
     );
   }
+}
+
+InputDecoration _singleShapeInputDecoration(String hintText) {
+  return InputDecoration(
+    hintText: hintText,
+    filled: false,
+    fillColor: Colors.transparent,
+    hoverColor: Colors.transparent,
+    focusColor: Colors.transparent,
+    border: InputBorder.none,
+    enabledBorder: InputBorder.none,
+    focusedBorder: InputBorder.none,
+    errorBorder: InputBorder.none,
+    focusedErrorBorder: InputBorder.none,
+    disabledBorder: InputBorder.none,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(vertical: 15),
+  );
 }
 
 class _FormLabel extends StatelessWidget {
