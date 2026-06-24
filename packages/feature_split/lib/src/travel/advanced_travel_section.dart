@@ -701,12 +701,30 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
                         ),
                       ),
                     ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _save,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 8,
+                      ),
+                      child: Text(
+                        l.saveLeg,
+                        style: const TextStyle(
+                          color: VamoTravelTokens.plum,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 116),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                 physics: const BouncingScrollPhysics(),
                 children: [
                   _SectionLabel(l.modeSectionTitle),
@@ -826,13 +844,6 @@ class _TravelLegEditorState extends State<_TravelLegEditor> {
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(18, 10, 18, 16),
-        child: _PrimaryActionButton(
-          label: l.saveLeg,
-          onTap: _save,
         ),
       ),
     );
@@ -1100,44 +1111,6 @@ class _IconTap extends StatelessWidget {
         width: 44,
         height: 44,
         child: Icon(icon, size: 24, color: VamoTravelTokens.ink),
-      ),
-    );
-  }
-}
-
-class _PrimaryActionButton extends StatelessWidget {
-  const _PrimaryActionButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        decoration: BoxDecoration(
-          color: VamoTravelTokens.lime,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: VamoTravelTokens.lime.withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: VamoTravelTokens.ink,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
       ),
     );
   }
