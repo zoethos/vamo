@@ -41,7 +41,11 @@ void main() {
 
     await expectLater(
       find.byType(RouteDraftReviewScreen),
-      matchesGoldenFile('goldens/route_draft_review_ai_plan.png'),
+      matchesGoldenFile(
+        Platform.isLinux
+            ? 'goldens/route_draft_review_ai_plan_linux.png'
+            : 'goldens/route_draft_review_ai_plan.png',
+      ),
     );
   });
 }
