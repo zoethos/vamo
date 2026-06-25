@@ -25,6 +25,7 @@ dependencies:
   posthog_flutter: ^5.25.0
   supabase_flutter: ^2.5.6
   uuid: ^4.5.1
+  flutter_secure_storage: ^10.3.1
 
 dev_dependencies:
   build_runner: ^2.4.12

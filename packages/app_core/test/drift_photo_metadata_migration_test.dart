@@ -8,7 +8,7 @@ void main() {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
-    expect(db.schemaVersion, 23);
+    expect(db.schemaVersion, 24);
 
     final now = DateTime.utc(2026, 6, 18);
     final mediaCapturedAt = DateTime.utc(2026, 5, 1, 9, 30);

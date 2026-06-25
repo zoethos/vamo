@@ -223,6 +223,32 @@ class LocalPlanItemRsvps extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
+/// B P0 — metadata-only offline pack manifest. The trip/plan/member/place
+/// projection remains recomputed from existing Drift tables on demand.
+class LocalOfflinePacks extends Table {
+  TextColumn get tripId => text()();
+  TextColumn get tier => text()();
+  TextColumn get status => text()();
+  DateTimeColumn get lastUpdatedAt => dateTime().nullable()();
+  TextColumn get rowCountsJson => text().withDefault(const Constant('{}'))();
+  TextColumn get missingScopesJson =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get staleReasonsJson => text().withDefault(const Constant('[]'))();
+  IntColumn get pendingOutboxCount =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get storageBytes => integer().withDefault(const Constant(0))();
+  TextColumn get secureSnapshotRef => text().nullable()();
+  TextColumn get lastError => text().nullable()();
+  BoolColumn get evictionPinned =>
+      boolean().withDefault(const Constant(false))();
+  DateTimeColumn get lastAccessedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {tripId, tier};
+}
+
 /// S20 — per-trip constant FX rates (D4).
 class LocalTripFxRates extends Table {
   TextColumn get id => text()();
