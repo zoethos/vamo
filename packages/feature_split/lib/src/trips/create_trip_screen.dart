@@ -292,6 +292,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           destination: resolved.label,
           lat: resolved.coords.lat,
           lng: resolved.coords.lng,
+          observationKind: 'manual_find',
         );
     if (!mounted) return;
 
@@ -302,6 +303,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           '${resolved.coords.lat.toStringAsFixed(4)}, '
               '${resolved.coords.lng.toStringAsFixed(4)}',
       swatch: _DestinationSwatch.seaGold,
+      coords: resolved.coords,
       visual: visual,
     );
     setState(() {
@@ -384,7 +386,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               destination: destination,
             ),
       );
-      unawaited(_applyResolvedDestinationBackground(id));
+      unawaited(
+        _applyDestinationBackground(
+          tripId: id,
+          destination: destination,
+          resolved: _resolvedDestination,
+        ),
+      );
       return id;
     } catch (e) {
       if (mounted) {
@@ -468,12 +476,28 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _isoDate(DateTime? d) =>
       d == null ? null : DateFormat('yyyy-MM-dd').format(d);
 
-  Future<void> _applyResolvedDestinationBackground(String tripId) async {
-    final visual = _resolvedDestination?.visual;
-    if (visual == null || !visual.hasImage) return;
+  Future<void> _applyDestinationBackground({
+    required String tripId,
+    required String destination,
+    required _DestinationSuggestion? resolved,
+  }) async {
     final trips = ref.read(tripsRepositoryProvider);
+    final visuals = ref.read(destinationVisualRepositoryProvider);
     final analytics = ref.read(analyticsProvider);
     try {
+      var visual = resolved?.visual;
+      if (visual == null || !visual.hasImage) {
+        final query = destination.trim();
+        if (query.isEmpty) return;
+        visual = await visuals.resolve(
+          destination: resolved?.name ?? query,
+          lat: resolved?.coords?.lat,
+          lng: resolved?.coords?.lng,
+          tripId: tripId,
+          observationKind: 'create_trip_background',
+        );
+      }
+      if (visual == null || !visual.hasImage) return;
       final bytes = visual.imageBytes;
       if (bytes != null) {
         await trips.setTripBackgroundBytes(
@@ -540,12 +564,14 @@ class _DestinationSuggestion {
     required this.name,
     required this.meta,
     required this.swatch,
+    this.coords,
     this.visual,
   });
 
   final String name;
   final String meta;
   final _DestinationSwatch swatch;
+  final GeocodeCoords? coords;
   final DestinationVisual? visual;
 }
 

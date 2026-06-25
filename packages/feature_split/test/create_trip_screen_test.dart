@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:app_core/app_core.dart';
 import 'package:drift/native.dart';
 import 'package:feature_split/src/capture/capture_repository.dart';
@@ -6,10 +8,12 @@ import 'package:feature_split/src/notifications/notifications_repository.dart';
 import 'package:feature_split/src/plan/plan_repository.dart';
 import 'package:feature_split/src/places/places_repository.dart';
 import 'package:feature_split/src/settle/settlements_repository.dart';
+import 'package:feature_split/src/snapshot/theme_resolver_repository.dart';
 import 'package:feature_split/src/travel/travel_leg.dart';
 import 'package:feature_split/src/travel/trip_route_repository.dart';
 import 'package:feature_split/src/trips/create_trip_labels.dart';
 import 'package:feature_split/src/trips/create_trip_screen.dart';
+import 'package:feature_split/src/trips/destination_visual_repository.dart';
 import 'package:feature_split/src/trips/trips_models.dart';
 import 'package:feature_split/src/trips/trips_repository.dart';
 import 'package:flutter/material.dart';
@@ -146,6 +150,64 @@ void main() {
     expect(trips.discardedTripIds, ['trip-1']);
     expect(find.text('Could not draft.'), findsOneWidget);
   });
+
+  testWidgets('typed destination resolves background after trip create', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    final trips = _DraftFailureTripsRepository(db);
+    final routeDraft = _UnavailableTripRouteRepository();
+    final visuals = _RecordingDestinationVisualRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          analyticsProvider.overrideWithValue(DebugAnalytics()),
+          userProfileProvider.overrideWith((ref) async => _profile),
+          supabaseClientProvider.overrideWithValue(_client),
+          distanceUnitProvider.overrideWith(
+            (ref) => DistanceUnitController(
+              persistence: const NoopDistanceUnitPersistence(),
+            ),
+          ),
+          tripsRepositoryProvider.overrideWith((ref) => trips),
+          tripRouteRepositoryProvider.overrideWith((ref) => routeDraft),
+          destinationVisualRepositoryProvider.overrideWith((ref) => visuals),
+          themeResolverRepositoryProvider.overrideWith(
+            (ref) => _NoopThemeResolverRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          themeMode: ThemeMode.light,
+          home: CreateTripScreen(labels: _labels),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'Paris weekend');
+    await tester.enterText(fields.at(1), 'Eiffel Tower');
+    await tester.tap(find.text('Draft with AI'));
+    await tester.pumpAndSettle();
+
+    expect(trips.createdInputs.single.destination, 'Eiffel Tower');
+    expect(visuals.calls.single.destination, 'Eiffel Tower');
+    expect(visuals.calls.single.tripId, 'trip-1');
+    expect(visuals.calls.single.observationKind, 'create_trip_background');
+    expect(trips.backgroundBytes.single.tripId, 'trip-1');
+    expect(
+        trips.backgroundBytes.single.sourceName, 'destination-foursquare.jpg');
+    expect(trips.backgroundBytes.single.bytes, [7, 8, 9]);
+  });
 }
 
 class _DraftFailureTripsRepository extends TripsRepository {
@@ -196,6 +258,7 @@ class _DraftFailureTripsRepository extends TripsRepository {
 
   final createdInputs = <CreateTripInput>[];
   final discardedTripIds = <String>[];
+  final backgroundBytes = <_BackgroundBytesCall>[];
 
   @override
   Future<String> createTrip(CreateTripInput input) async {
@@ -207,6 +270,86 @@ class _DraftFailureTripsRepository extends TripsRepository {
   Future<void> discardNewTripAfterDraftFailure(String tripId) async {
     discardedTripIds.add(tripId);
   }
+
+  @override
+  Future<void> setTripBackgroundBytes({
+    required String tripId,
+    required String sourceName,
+    required Uint8List bytes,
+  }) async {
+    backgroundBytes.add(
+      _BackgroundBytesCall(
+        tripId: tripId,
+        sourceName: sourceName,
+        bytes: bytes.toList(growable: false),
+      ),
+    );
+  }
+}
+
+class _RecordingDestinationVisualRepository
+    extends DestinationVisualRepository {
+  _RecordingDestinationVisualRepository()
+      : super(client: _client, analytics: _analytics);
+
+  final calls = <_DestinationVisualCall>[];
+
+  @override
+  Future<DestinationVisual?> resolve({
+    required String destination,
+    double? lat,
+    double? lng,
+    String? tripId,
+    String? observationKind,
+  }) async {
+    calls.add(
+      _DestinationVisualCall(
+        destination: destination,
+        tripId: tripId,
+        observationKind: observationKind,
+      ),
+    );
+    return DestinationVisual(
+      source: 'foursquare',
+      imageBytes: Uint8List.fromList([7, 8, 9]),
+      mimeType: 'image/jpeg',
+      title: destination,
+    );
+  }
+}
+
+class _NoopThemeResolverRepository extends ThemeResolverRepository {
+  _NoopThemeResolverRepository() : super(client: _client);
+
+  @override
+  Future<void> resolveForTrip({
+    required String tripId,
+    required String? destination,
+  }) async {}
+}
+
+class _DestinationVisualCall {
+  const _DestinationVisualCall({
+    required this.destination,
+    required this.tripId,
+    required this.observationKind,
+  });
+
+  final String destination;
+  final String? tripId;
+  final String? observationKind;
+}
+
+class _BackgroundBytesCall {
+  const _BackgroundBytesCall({
+    required this.tripId,
+    required this.sourceName,
+    required this.bytes,
+  });
+
+  final String tripId;
+  final String sourceName;
+  final List<int> bytes;
 }
 
 class _UnavailableTripRouteRepository extends TripRouteRepository {

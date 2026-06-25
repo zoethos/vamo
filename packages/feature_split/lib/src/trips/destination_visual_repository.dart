@@ -27,6 +27,8 @@ class DestinationVisualRepository {
     required String destination,
     double? lat,
     double? lng,
+    String? tripId,
+    String? observationKind,
   }) async {
     try {
       final response = await _client.functions.invoke(
@@ -35,6 +37,8 @@ class DestinationVisualRepository {
           'destination': destination.trim(),
           if (lat != null) 'lat': lat,
           if (lng != null) 'lng': lng,
+          if (tripId != null) 'trip_id': tripId,
+          if (observationKind != null) 'observation_kind': observationKind,
         },
       ).timeout(const Duration(seconds: 16));
 
@@ -62,6 +66,7 @@ class DestinationVisual {
     this.mimeType,
     this.title,
     this.subtitle,
+    this.attribution,
   });
 
   final String source;
@@ -70,6 +75,7 @@ class DestinationVisual {
   final String? mimeType;
   final String? title;
   final String? subtitle;
+  final String? attribution;
 
   bool get hasImage =>
       imageBytes != null || (imageUrl != null && imageUrl!.isNotEmpty);
@@ -98,6 +104,7 @@ class DestinationVisual {
       mimeType: _stringValue(map['mimeType']),
       title: _stringValue(map['title']),
       subtitle: _stringValue(map['subtitle']),
+      attribution: _stringValue(map['attribution']),
     );
     return visual.hasImage ? visual : null;
   }
