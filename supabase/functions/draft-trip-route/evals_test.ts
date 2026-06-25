@@ -9,7 +9,7 @@
 import {
   assert,
   assertEquals,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+} from "jsr:@std/assert@1.0.19";
 import { parseDraftInput, validateRouteDraft } from "./draft.ts";
 
 const TRIP = "11111111-1111-4111-8111-111111111111";
