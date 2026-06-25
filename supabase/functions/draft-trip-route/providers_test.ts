@@ -1,7 +1,7 @@
 import {
   assertEquals,
   assertThrows,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+} from "jsr:@std/assert@1.0.19";
 import { loadRouteAiProviderConfig, ProviderError } from "./providers.ts";
 
 Deno.test("loadRouteAiProviderConfig binds OpenAI routing to provider_config + environment-scoped secret", () => {

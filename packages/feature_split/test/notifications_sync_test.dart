@@ -1,5 +1,5 @@
 import 'package:app_core/app_core.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:feature_split/src/notifications/notifications_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,11 +53,24 @@ void main() {
         createdAt: Value(DateTime.utc(2026, 6, 9)),
       ),
     );
+    await db.upsertOfflinePack(
+      LocalOfflinePacksCompanion.insert(
+        tripId: 'trip-1',
+        tier: OfflinePackTier.essentials.value,
+        status: OfflinePackStatus.ready.value,
+        createdAt: DateTime.utc(2026, 6, 9),
+        updatedAt: DateTime.utc(2026, 6, 9),
+      ),
+    );
 
     final repo = buildTestTripsRepository(db);
     await repo.clearLocal();
 
     final rows = await db.watchNotifications('user-1').first;
     expect(rows, isEmpty);
+    expect(
+      await db.getOfflinePack('trip-1', OfflinePackTier.essentials.value),
+      isNull,
+    );
   });
 }

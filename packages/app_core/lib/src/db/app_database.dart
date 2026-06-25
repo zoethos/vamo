@@ -22,6 +22,7 @@ part 'app_database.g.dart';
   LocalTripListItems,
   LocalTripFxRates,
   LocalPlanItemRsvps,
+  LocalOfflinePacks,
   LocalSyncOutbox,
   LocalNotifications,
 ])
@@ -32,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -174,6 +175,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 23 && to >= 23) {
             await m.addColumn(localTripMembers, localTripMembers.joinedAt);
+          }
+          if (from < 24 && to >= 24) {
+            await m.createTable(localOfflinePacks);
           }
         },
       );
@@ -515,6 +519,48 @@ class AppDatabase extends _$AppDatabase {
     return into(localPlanItemRsvps).insertOnConflictUpdate(row);
   }
 
+  Stream<LocalOfflinePack?> watchOfflinePack(String tripId, String tier) {
+    return (select(localOfflinePacks)
+          ..where((p) => p.tripId.equals(tripId))
+          ..where((p) => p.tier.equals(tier)))
+        .watchSingleOrNull();
+  }
+
+  Future<LocalOfflinePack?> getOfflinePack(String tripId, String tier) {
+    return (select(localOfflinePacks)
+          ..where((p) => p.tripId.equals(tripId))
+          ..where((p) => p.tier.equals(tier)))
+        .getSingleOrNull();
+  }
+
+  Future<List<LocalOfflinePack>> listOfflinePacks() {
+    return (select(localOfflinePacks)
+          ..orderBy([(p) => OrderingTerm.desc(p.lastAccessedAt)]))
+        .get();
+  }
+
+  Future<void> upsertOfflinePack(LocalOfflinePacksCompanion row) {
+    return into(localOfflinePacks).insertOnConflictUpdate(row);
+  }
+
+  Future<int> updateOfflinePackFields(
+    String tripId,
+    String tier,
+    LocalOfflinePacksCompanion fields,
+  ) {
+    return (update(localOfflinePacks)
+          ..where((p) => p.tripId.equals(tripId))
+          ..where((p) => p.tier.equals(tier)))
+        .write(fields);
+  }
+
+  Future<void> deleteOfflinePack(String tripId, String tier) {
+    return (delete(localOfflinePacks)
+          ..where((p) => p.tripId.equals(tripId))
+          ..where((p) => p.tier.equals(tier)))
+        .go();
+  }
+
   Stream<List<LocalNotification>> watchNotifications(String userId) {
     return (select(localNotifications)
           ..where((n) => n.userId.equals(userId))
@@ -661,6 +707,8 @@ class AppDatabase extends _$AppDatabase {
     await (delete(localTripFxRates)..where((r) => r.tripId.equals(tripId)))
         .go();
     await (delete(localNotifications)..where((n) => n.tripId.equals(tripId)))
+        .go();
+    await (delete(localOfflinePacks)..where((p) => p.tripId.equals(tripId)))
         .go();
     await (delete(localTripMembers)..where((m) => m.tripId.equals(tripId)))
         .go();
