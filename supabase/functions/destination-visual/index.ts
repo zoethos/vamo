@@ -1,20 +1,34 @@
 // Destination visual resolver.
 //
 // Auth: caller JWT required. Provider keys stay server-side.
-// Priority: Foursquare place photo -> OpenAI generated image -> unavailable.
+// Priority: provider-safe place photo -> unavailable.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import {
   addressFromFoursquareLocation,
   photoUrlFromFoursquarePhotos,
   searchFoursquarePlaces,
 } from "../_shared/foursquare_places.ts";
-import { generateDestinationImage } from "../_shared/openai_images.ts";
+import {
+  recordLocationObservation,
+  runInBackground,
+} from "../_shared/place_intelligence.ts";
 
 interface DestinationVisualInput {
   destination: string;
   lat?: number;
   lng?: number;
+  tripId?: string | null;
+  observationKind?: "manual_find" | "create_trip_background";
+}
+
+interface DestinationVisualResult {
+  source: string;
+  imageUrl?: string;
+  title?: string;
+  subtitle?: string;
+  providerPlaceId?: string;
+  attribution?: string;
 }
 
 Deno.serve(async (req) => {
@@ -32,6 +46,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !anonKey) return json({ error: "misconfigured" }, 503);
 
   const input = await readInput(req);
@@ -41,18 +56,42 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: authData } = await userClient.auth.getUser();
-  if (!authData?.user) return json({ error: "unauthorized" }, 401);
+  const user = authData?.user;
+  if (!user) return json({ error: "unauthorized" }, 401);
+
+  if (input.tripId) {
+    const { data: trip, error: tripError } = await userClient
+      .from("trips")
+      .select("id")
+      .eq("id", input.tripId)
+      .maybeSingle();
+    if (tripError || !trip) return json({ error: "trip_not_found" }, 404);
+  }
+
+  const serviceClient = serviceKey
+    ? createClient(supabaseUrl, serviceKey)
+    : null;
 
   const foursquare = await resolveFoursquarePhoto(input);
   if (foursquare) {
+    if (serviceClient) {
+      scheduleObservation(serviceClient, {
+        input,
+        userId: user.id,
+        result: foursquare,
+        selected: true,
+      });
+    }
     return json({ available: true, ...foursquare });
   }
 
-  const ai = await resolveAiImage(input.destination);
-  if (ai) {
-    return json({ available: true, ...ai });
+  if (serviceClient) {
+    scheduleObservation(serviceClient, {
+      input,
+      userId: user.id,
+      selected: false,
+    });
   }
-
   return json({ available: false, reason: "no_visual_available" });
 });
 
@@ -67,7 +106,14 @@ async function readInput(req: Request): Promise<DestinationVisualInput | null> {
     }
     const lat = numberValue(row.lat);
     const lng = numberValue(row.lng);
-    return { destination, lat, lng };
+    return {
+      destination,
+      lat,
+      lng,
+      tripId: stringValue(row.trip_id) ?? stringValue(row.tripId) ?? null,
+      observationKind: observationKindValue(row.observation_kind) ??
+        observationKindValue(row.observationKind) ?? "manual_find",
+    };
   } catch {
     return null;
   }
@@ -75,7 +121,7 @@ async function readInput(req: Request): Promise<DestinationVisualInput | null> {
 
 async function resolveFoursquarePhoto(
   input: DestinationVisualInput,
-): Promise<Record<string, unknown> | null> {
+): Promise<DestinationVisualResult | null> {
   const apiKey = Deno.env.get("FOURSQUARE_API_KEY")?.trim();
   if (!apiKey) return null;
 
@@ -103,6 +149,8 @@ async function resolveFoursquarePhoto(
         imageUrl,
         title: stringValue(place.name) ?? input.destination,
         subtitle: addressFromFoursquareLocation(place.location),
+        providerPlaceId: stringValue(place.fsq_place_id),
+        attribution: "Foursquare Places API live response",
       };
     }
   } catch (error) {
@@ -111,19 +159,38 @@ async function resolveFoursquarePhoto(
   return null;
 }
 
-async function resolveAiImage(
-  destination: string,
-): Promise<Record<string, unknown> | null> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
-  if (!apiKey) return null;
-
-  try {
-    const generated = await generateDestinationImage({ apiKey, destination });
-    return generated == null ? null : { ...generated };
-  } catch (error) {
-    console.error("destination-visual ai failure", error);
-    return null;
-  }
+function scheduleObservation(
+  supabase: SupabaseClient,
+  args: {
+    input: DestinationVisualInput;
+    userId: string;
+    result?: DestinationVisualResult;
+    selected: boolean;
+  },
+): void {
+  runInBackground(
+    recordLocationObservation(supabase, {
+      userId: args.userId,
+      tripId: args.input.tripId,
+      query: args.input.destination,
+      resolvedDisplayName: args.result?.title ?? null,
+      resolvedFeatureType: "poi",
+      resolvedLat: args.input.lat ?? null,
+      resolvedLng: args.input.lng ?? null,
+      provider: args.result?.providerPlaceId ? "foursquare_places_api" : null,
+      providerPlaceId: args.result?.providerPlaceId ?? null,
+      sourceAttribution: args.result?.attribution ?? null,
+      trustedSourceMatch: false,
+      observationKind: args.input.observationKind ?? "manual_find",
+      selected: args.selected,
+      metadata: {
+        resolver: "destination-visual",
+        visual_source: args.result?.source ?? null,
+        has_image: args.result?.imageUrl != null,
+      },
+    }),
+    "destination-visual observation",
+  );
 }
 
 function stringValue(raw: unknown): string | undefined {
@@ -137,6 +204,18 @@ function numberValue(raw: unknown): number | undefined {
   if (typeof raw !== "string") return undefined;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function observationKindValue(
+  raw: unknown,
+): DestinationVisualInput["observationKind"] | undefined {
+  switch (stringValue(raw)) {
+    case "manual_find":
+    case "create_trip_background":
+      return stringValue(raw) as DestinationVisualInput["observationKind"];
+    default:
+      return undefined;
+  }
 }
 
 function json(body: Record<string, unknown>, status = 200): Response {
