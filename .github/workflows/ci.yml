@@ -11,9 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.8.2
+      - name: Install Deno
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno_version="2.8.2"
+          deno_zip="deno-x86_64-unknown-linux-gnu.zip"
+          deno_dir="$RUNNER_TEMP/deno"
+          curl -fsSL --retry 5 --retry-delay 2 \
+            -o "$RUNNER_TEMP/$deno_zip" \
+            "https://github.com/denoland/deno/releases/download/v${deno_version}/${deno_zip}"
+          mkdir -p "$deno_dir"
+          unzip -q "$RUNNER_TEMP/$deno_zip" -d "$deno_dir"
+          echo "$deno_dir" >> "$GITHUB_PATH"
+          "$deno_dir/deno" --version
 
       - name: Check Supabase Edge Functions
         shell: bash
