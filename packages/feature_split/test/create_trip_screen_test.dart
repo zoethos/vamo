@@ -254,6 +254,7 @@ class _DraftFailureTripsRepository extends TripsRepository {
           syncQueue: _queue(db),
           syncWorker: _syncWorker(db),
           notifications: NotificationsRepository(db: db, client: _client),
+          offlinePacks: null,
         );
 
   final createdInputs = <CreateTripInput>[];

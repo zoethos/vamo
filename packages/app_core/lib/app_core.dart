@@ -58,6 +58,7 @@ export 'src/invites/invite_urls.dart';
 export 'src/locale/app_locales.dart';
 export 'src/locale/locale_providers.dart';
 export 'src/offline/offline_pack_models.dart';
+export 'src/offline/offline_pack_providers.dart';
 export 'src/offline/offline_pack_storage.dart';
 export 'src/offline/trip_offline_pack_service.dart';
 export 'src/router/app_router.dart';

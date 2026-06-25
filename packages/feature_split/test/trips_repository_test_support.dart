@@ -55,7 +55,9 @@ TripsRepository buildTestTripsRepository(
   AppDatabase db, {
   SupabaseClient? client,
   NotificationsRepository? notifications,
+  TripOfflinePackService? offlinePacks,
   TripBackgroundCacheLoader? cacheBackgroundFromStorage,
+  CreateTripRpc? createTripRpc,
 }) {
   final resolved = client ??
       SupabaseClient(
@@ -116,6 +118,8 @@ TripsRepository buildTestTripsRepository(
     syncWorker: syncWorker,
     notifications:
         notifications ?? buildTestNotificationsRepository(db, client: resolved),
+    offlinePacks: offlinePacks,
     cacheBackgroundFromStorage: cacheBackgroundFromStorage,
+    createTripRpc: createTripRpc,
   );
 }

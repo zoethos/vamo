@@ -41,6 +41,7 @@ final tripsRepositoryProvider = Provider<TripsRepository>((ref) {
     syncQueue: ref.watch(syncQueueProvider),
     syncWorker: ref.watch(syncWorkerProvider),
     notifications: ref.watch(notificationsRepositoryProvider),
+    offlinePacks: ref.watch(tripOfflinePackServiceProvider),
   );
 });
 
@@ -49,6 +50,12 @@ typedef TripBackgroundCacheLoader = Future<StorageAttachmentLoadResult>
   required SupabaseClient client,
   required String tripId,
   required String storagePath,
+});
+
+typedef CreateTripRpc = Future<void> Function({
+  required SupabaseClient client,
+  required String id,
+  required CreateTripInput input,
 });
 
 /// Slice 1: Drift is the UI source of truth; Supabase is written on create and
@@ -66,20 +73,24 @@ class TripsRepository {
     required SyncQueue syncQueue,
     required SyncWorker syncWorker,
     required NotificationsRepository notifications,
+    TripOfflinePackService? offlinePacks,
     TripBackgroundCacheLoader? cacheBackgroundFromStorage,
-  }) : _db = db,
-       _client = client,
-       _analytics = analytics,
-       _expenses = expenses,
-       _settlements = settlements,
-       _capture = capture,
-       _places = places,
-       _plan = plan,
-       _syncQueue = syncQueue,
-       _syncWorker = syncWorker,
-       _notifications = notifications,
-       _cacheBackgroundFromStorage =
-           cacheBackgroundFromStorage ?? TripBackgroundStorage.cacheFromStorage;
+    CreateTripRpc? createTripRpc,
+  })  : _db = db,
+        _client = client,
+        _analytics = analytics,
+        _expenses = expenses,
+        _settlements = settlements,
+        _capture = capture,
+        _places = places,
+        _plan = plan,
+        _syncQueue = syncQueue,
+        _syncWorker = syncWorker,
+        _notifications = notifications,
+        _offlinePacks = offlinePacks,
+        _cacheBackgroundFromStorage = cacheBackgroundFromStorage ??
+            TripBackgroundStorage.cacheFromStorage,
+        _createTripRpc = createTripRpc ?? _defaultCreateTripRpc;
 
   final AppDatabase _db;
   final SupabaseClient _client;
@@ -92,29 +103,31 @@ class TripsRepository {
   final SyncQueue _syncQueue;
   final SyncWorker _syncWorker;
   final NotificationsRepository _notifications;
+  final TripOfflinePackService? _offlinePacks;
   final TripBackgroundCacheLoader _cacheBackgroundFromStorage;
+  final CreateTripRpc _createTripRpc;
   final _uuid = const Uuid();
 
   Stream<List<TripSummary>> watchTripSummaries() {
     return _db.watchAllTrips().map(
-      (rows) => rows
-          .map(
-            (r) => TripSummary(
-              id: r.id,
-              name: r.name,
-              destination: r.destination,
-              startDate: r.startDate,
-              endDate: r.endDate,
-              baseCurrency: r.baseCurrency,
-              lifecycle: r.lifecycle,
-              budgetMode: r.budgetMode,
-              budgetCents: r.budgetCents,
-              backgroundStoragePath: r.backgroundPath,
-              backgroundLocalPath: r.backgroundLocalPath,
-            ),
-          )
-          .toList(),
-    );
+          (rows) => rows
+              .map(
+                (r) => TripSummary(
+                  id: r.id,
+                  name: r.name,
+                  destination: r.destination,
+                  startDate: r.startDate,
+                  endDate: r.endDate,
+                  baseCurrency: r.baseCurrency,
+                  lifecycle: r.lifecycle,
+                  budgetMode: r.budgetMode,
+                  budgetCents: r.budgetCents,
+                  backgroundStoragePath: r.backgroundPath,
+                  backgroundLocalPath: r.backgroundLocalPath,
+                ),
+              )
+              .toList(),
+        );
   }
 
   Stream<TripDetail?> watchTrip(String id) {
@@ -139,9 +152,7 @@ class TripsRepository {
   }
 
   Stream<List<TripFxRateRow>> watchTripFxRates(String tripId) {
-    return _db
-        .watchTripFxRates(tripId)
-        .map(
+    return _db.watchTripFxRates(tripId).map(
           (rows) => rows
               .map(
                 (r) => TripFxRateRow(
@@ -190,6 +201,7 @@ class TripsRepository {
     await _db.delete(_db.localTripListItems).go();
     await _db.delete(_db.localTripFxRates).go();
     await _db.delete(_db.localNotifications).go();
+    await _db.delete(_db.localOfflinePacks).go();
     await _db.delete(_db.localTrips).go();
   }
 
@@ -199,7 +211,11 @@ class TripsRepository {
   }
 
   /// Pulls one trip's remote data into Drift (realtime refresh).
-  Future<void> syncTripFromRemote(String tripId) async {
+  Future<void> syncTripFromRemote(
+    String tripId, {
+    OfflinePackRefreshTrigger offlineRefreshTrigger =
+        OfflinePackRefreshTrigger.appForeground,
+  }) async {
     if (_client.auth.currentUser?.id == null) return;
     final pending = await _syncQueue.collectPendingEntityIds();
     try {
@@ -218,6 +234,7 @@ class TripsRepository {
         excludeListIds: pending.listItemIds,
       );
       await _syncTripFxRatesForTrips([tripId]);
+      _scheduleOfflinePackRefresh(tripId, offlineRefreshTrigger);
     } finally {
       await _notifications.syncFromRemote();
     }
@@ -257,6 +274,12 @@ class TripsRepository {
       excludeListIds: pending.listItemIds,
     );
     await _syncTripFxRatesForTrips(remoteIds);
+    for (final tripId in remoteIds) {
+      _scheduleOfflinePackRefresh(
+        tripId,
+        OfflinePackRefreshTrigger.appForeground,
+      );
+    }
     await _notifications.syncFromRemote();
   }
 
@@ -266,17 +289,15 @@ class TripsRepository {
   }) async {
     final tripRows = onlyTripId == null
         ? await _client
-              .from('trips')
-              .select(_tripSelectFields)
-              .order('created_at', ascending: false)
+            .from('trips')
+            .select(_tripSelectFields)
+            .order('created_at', ascending: false)
         : await _client
-              .from('trips')
-              .select(_tripSelectFields)
-              .eq('id', onlyTripId);
+            .from('trips')
+            .select(_tripSelectFields)
+            .eq('id', onlyTripId);
 
-    final memberQuery = _client
-        .from('trip_members')
-        .select(
+    final memberQuery = _client.from('trip_members').select(
           'trip_id, user_id, role, status, completed_at, close_accepted_at, '
           'close_objected_at, close_objection_reason, close_notified_at, '
           'close_reminded_at, settle_nudged_at, joined_at, '
@@ -383,22 +404,13 @@ class TripsRepository {
     );
 
     try {
-      await _client.rpc(
-        'create_trip',
-        params: {
-          'p_id': id,
-          'p_name': input.name.trim(),
-          'p_destination': input.destination?.trim(),
-          'p_start_date': input.startDate,
-          'p_end_date': input.endDate,
-          'p_base_currency': input.baseCurrency,
-        },
-      );
+      await _createTripRpc(client: _client, id: id, input: input);
     } catch (e) {
       await (_db.delete(_db.localTrips)..where((t) => t.id.equals(id))).go();
       await (_db.delete(
         _db.localTripMembers,
-      )..where((m) => m.tripId.equals(id))).go();
+      )..where((m) => m.tripId.equals(id)))
+          .go();
       rethrow;
     }
 
@@ -410,6 +422,7 @@ class TripsRepository {
         'solo': true,
       },
     );
+    _scheduleOfflinePackRefresh(id, OfflinePackRefreshTrigger.tripEdit);
 
     return id;
   }
@@ -439,7 +452,10 @@ class TripsRepository {
       'p_start_date': startDate,
       'p_end_date': endDate,
     });
-    await syncTripFromRemote(tripId);
+    await syncTripFromRemote(
+      tripId,
+      offlineRefreshTrigger: OfflinePackRefreshTrigger.tripEdit,
+    );
   }
 
   Future<void> requestTripClose(String tripId) async {
@@ -577,7 +593,10 @@ class TripsRepository {
       params: {'p_trip_id': tripId, 'p_mode': mode, 'p_cents': budgetCents},
     );
     _analytics.capture(VamoEvent.tripBudgetSet, properties: {'mode': mode});
-    await syncTripFromRemote(tripId);
+    await syncTripFromRemote(
+      tripId,
+      offlineRefreshTrigger: OfflinePackRefreshTrigger.tripEdit,
+    );
   }
 
   Future<void> captureFxRate({
@@ -593,6 +612,32 @@ class TripsRepository {
       properties: {'currency': currency.toUpperCase()},
     );
     await _syncTripFxRatesForTrips({tripId});
+    _scheduleOfflinePackRefresh(tripId, OfflinePackRefreshTrigger.tripEdit);
+  }
+
+  void _scheduleOfflinePackRefresh(
+    String tripId,
+    OfflinePackRefreshTrigger trigger,
+  ) {
+    final offlinePacks = _offlinePacks;
+    if (offlinePacks == null) return;
+    unawaited(() async {
+      try {
+        await offlinePacks.refreshEssentialsIfNeeded(
+          tripId,
+          trigger: trigger,
+        );
+      } catch (error, stackTrace) {
+        reportAndLog(
+          error,
+          stackTrace,
+          screen: 'trips_repository',
+          action: 'offline_pack_refresh',
+          severity: ActionFailureSeverity.degraded,
+          analytics: _analytics,
+        );
+      }
+    }());
   }
 
   Future<void> _syncTripFxRatesForTrips(Iterable<String> tripIds) async {
@@ -863,9 +908,7 @@ class TripsRepository {
       tripId: tripId,
       localPath: localPath,
     );
-    await _client.storage
-        .from(StoragePaths.tripBackgroundsBucket)
-        .uploadBinary(
+    await _client.storage.from(StoragePaths.tripBackgroundsBucket).uploadBinary(
           path,
           bytes,
           fileOptions: FileOptions(
@@ -887,4 +930,22 @@ class TripsRepository {
     if (value is String) return value;
     return value.toString();
   }
+}
+
+Future<void> _defaultCreateTripRpc({
+  required SupabaseClient client,
+  required String id,
+  required CreateTripInput input,
+}) async {
+  await client.rpc(
+    'create_trip',
+    params: {
+      'p_id': id,
+      'p_name': input.name.trim(),
+      'p_destination': input.destination?.trim(),
+      'p_start_date': input.startDate,
+      'p_end_date': input.endDate,
+      'p_base_currency': input.baseCurrency,
+    },
+  );
 }

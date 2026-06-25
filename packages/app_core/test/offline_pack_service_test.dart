@@ -133,6 +133,32 @@ void main() {
     expect(first, second);
     expect(first.length, lessThan(80));
   });
+
+  test('refreshDueLocalEssentials skips fresh foreground packs', () async {
+    await _seedTripEssentials(db, now: now);
+    await service.refreshEssentials('trip-1');
+
+    now = now.add(const Duration(hours: 1));
+    await service.refreshDueLocalEssentials(
+      trigger: OfflinePackRefreshTrigger.appForeground,
+    );
+
+    final stored = await service.getEssentialsManifest('trip-1');
+    expect(stored?.lastUpdatedAt, DateTime.utc(2026, 6, 25, 10));
+  });
+
+  test('refreshDueLocalEssentials refreshes pre-departure packs', () async {
+    await _seedTripEssentials(db, now: now);
+    await service.refreshEssentials('trip-1');
+
+    now = DateTime.utc(2026, 6, 30, 12);
+    await service.refreshDueLocalEssentials(
+      trigger: OfflinePackRefreshTrigger.preDeparture,
+    );
+
+    final stored = await service.getEssentialsManifest('trip-1');
+    expect(stored?.lastUpdatedAt, DateTime.utc(2026, 6, 30, 12));
+  });
 }
 
 OfflinePackEvictionCandidate _candidate(

@@ -87,6 +87,7 @@ class _VamoAppState extends ConsumerState<VamoApp> {
   @override
   Widget build(BuildContext context) {
     ref.watch(syncLifecycleProvider);
+    ref.watch(offlinePackLifecycleProvider);
     ref.watch(analyticsLifecycleProvider);
     ref.watch(pushLifecycleProvider);
     final router = ref.watch(routerProvider);

@@ -60,6 +60,39 @@ class TripOfflinePackService {
     return _fromRow(row);
   }
 
+  Future<OfflinePackManifest?> refreshEssentialsIfNeeded(
+    String tripId, {
+    required OfflinePackRefreshTrigger trigger,
+  }) async {
+    final current = await getEssentialsManifest(tripId);
+    final trip = await _db.watchTrip(tripId).first;
+    if (trip == null) return current;
+    if (!_policy.shouldRefresh(
+      trigger: trigger,
+      manifest: current,
+      now: _now(),
+      tripStartDate: _parseDate(trip.startDate),
+    )) {
+      return current;
+    }
+    return refreshEssentials(tripId);
+  }
+
+  Future<List<OfflinePackManifest>> refreshDueLocalEssentials({
+    required OfflinePackRefreshTrigger trigger,
+  }) async {
+    final trips = await _db.watchAllTrips().first;
+    final manifests = <OfflinePackManifest>[];
+    for (final trip in trips.where(_tracksOfflineEssentials)) {
+      final refreshed = await refreshEssentialsIfNeeded(
+        trip.id,
+        trigger: trigger,
+      );
+      if (refreshed != null) manifests.add(refreshed);
+    }
+    return manifests;
+  }
+
   Future<void> markEssentialsAccessed(String tripId) async {
     await _db.updateOfflinePackFields(
       tripId,
@@ -409,6 +442,13 @@ OfflinePackScope? _scopeFromValue(Object? value) {
 DateTime? _parseDate(String? value) {
   if (value == null || value.isEmpty) return null;
   return DateTime.tryParse(value)?.toUtc();
+}
+
+bool _tracksOfflineEssentials(LocalTrip trip) {
+  return switch (trip.lifecycle) {
+    'cancelled' || 'closed' => false,
+    _ => true,
+  };
 }
 
 int _oldestAccessFirst(

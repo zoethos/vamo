@@ -84,6 +84,7 @@ TripsRepository _buildTripsRepository(
     syncQueue: queue,
     syncWorker: syncWorker,
     notifications: NotificationsRepository(db: db, client: client),
+    offlinePacks: null,
     cacheBackgroundFromStorage: cacheBackgroundFromStorage,
   );
 }
