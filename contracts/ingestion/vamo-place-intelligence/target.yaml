@@ -1,0 +1,29 @@
+kind: ingestion.target
+version: 1
+id: vamo-place-intelligence-staging
+name: Vamo Place Intelligence Staging
+adapter: supabase_postgres
+engine:
+  type: supabase_postgres
+  dsnEnv: VAMO_STAGING_DATABASE_URL
+  serviceRoleSecretEnv: VAMO_STAGING_SUPABASE_SERVICE_ROLE
+  exposeServiceRoleToBrowser: false
+security:
+  serverSideOnly: true
+  forbidBrowserServiceRole: true
+  requireRlsOnExposedSchemas: true
+  exposedSchemas:
+    - public
+  writeMode: dry_run
+shipment:
+  defaultMode: dry_run
+  tables:
+    - table: location_canonicals
+      mode: upsert
+      upsertKeys:
+        - canonical_key
+    - table: location_source_refs
+      mode: upsert
+      upsertKeys:
+        - source
+        - source_id
