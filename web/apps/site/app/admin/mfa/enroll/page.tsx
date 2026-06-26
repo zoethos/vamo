@@ -6,6 +6,7 @@ import {
   readableAdminAccessFailure,
   requireIngestionAdminPrincipal,
 } from "@/lib/ingestion-admin-auth";
+import { MfaEnrollForm } from "./mfa-enroll-form";
 
 export const metadata: Metadata = {
   title: "Admin MFA enrollment · Vamo",
@@ -50,9 +51,11 @@ export default async function AdminMfaEnrollPage({
         </div>
 
         <div className="admin-auth-message" role="status">
-          TOTP enrollment UI is the next slice. Until it lands, operators and
-          admins without a verified factor stay locked out of mutation controls.
+          Scan the QR code with Google Authenticator, Microsoft Authenticator,
+          1Password, Authy, iCloud Keychain, or another TOTP app.
         </div>
+
+        <MfaEnrollForm next={next} />
 
         <div className="admin-auth-actions">
           <Link href="/admin/sign-out">Sign out</Link>

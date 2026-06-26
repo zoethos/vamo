@@ -76,10 +76,7 @@ export async function getIngestionAdminPrincipal(
 
   const assuranceLevel: AdminAssuranceLevel =
     aalResult.data.currentLevel === "aal2" ? "aal2" : "aal1";
-  const hasVerifiedMfaFactor =
-    factorsResult.data.all.some((factor) => factor.status === "verified") ||
-    factorsResult.data.totp.length > 0 ||
-    factorsResult.data.phone.length > 0;
+  const hasVerifiedMfaFactor = factorsResult.data.totp.length > 0;
 
   return resolvePostgresAdminPrincipal({
     connectionString,

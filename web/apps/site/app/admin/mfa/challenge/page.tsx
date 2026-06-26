@@ -6,6 +6,8 @@ import {
   readableAdminAccessFailure,
   requireIngestionAdminPrincipal,
 } from "@/lib/ingestion-admin-auth";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { MfaChallengeForm } from "./mfa-challenge-form";
 
 export const metadata: Metadata = {
   title: "Admin MFA challenge · Vamo",
@@ -40,6 +42,15 @@ export default async function AdminMfaChallengePage({
     redirect(next);
   }
 
+  const supabase = await createSupabaseServerClient();
+  const factors = await supabase?.auth.mfa.listFactors();
+  const factorLookupFailed = !factors || Boolean(factors.error);
+  const factorId = factors?.data?.totp[0]?.id;
+
+  if (!factorLookupFailed && !factorId) {
+    redirect(`/admin/mfa/enroll?next=${encodeURIComponent(next)}`);
+  }
+
   return (
     <main className="admin-auth-page">
       <section className="admin-auth-panel" aria-labelledby="admin-mfa-challenge-title">
@@ -57,9 +68,18 @@ export default async function AdminMfaChallengePage({
         </div>
 
         <div className="admin-auth-message" role="status">
-          TOTP challenge UI is the next slice. The server already blocks command
-          execution until Supabase reports an `aal2` session.
+          Enter the current six-digit code from your authenticator app. Reset
+          actions require a fresh verification.
         </div>
+
+        {factorLookupFailed || !factorId ? (
+          <div className="admin-auth-message admin-auth-message-danger" role="alert">
+            Supabase MFA factors could not be loaded. Refresh this page before
+            using operator controls.
+          </div>
+        ) : (
+          <MfaChallengeForm factorId={factorId} next={next} />
+        )}
 
         <div className="admin-auth-actions">
           <Link href="/admin/sign-out">Sign out</Link>
