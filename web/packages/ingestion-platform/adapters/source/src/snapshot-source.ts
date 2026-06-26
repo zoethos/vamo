@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 
 import { compareCursorValues } from "./fixture-source.js";
+import { findLocalSnapshotConnectionViolations } from "../../../spec/src/source-connection-policy.js";
 
 export interface SnapshotSourceRecord {
   lineNumber: number;
@@ -46,20 +47,6 @@ export interface SnapshotBatch {
   issues: SnapshotSourceIssue[];
   lastCursorValue?: string | number;
 }
-
-const forbiddenNetworkConnectionKeys = new Set([
-  "url",
-  "endpoint",
-  "httpurl",
-  "apiurl",
-  "proxy",
-  "proxyurl",
-  "vpn",
-  "vpnprofile",
-  "headers",
-  "rotateuseragent",
-  "useragentpool"
-]);
 
 export function readSnapshotBatch(input: ReadSnapshotBatchInput): SnapshotBatch {
   validateSnapshotInput(input);
@@ -162,14 +149,15 @@ function validateSnapshotInput(input: ReadSnapshotBatchInput): void {
     throw new Error(`Unsupported snapshot format: ${input.format}`);
   }
 
-  if (looksLikeUrl(input.snapshotPath)) {
-    throw new Error("Snapshot source only reads local files; URL inputs are not allowed.");
-  }
-
-  for (const key of Object.keys(input.connection ?? {})) {
-    if (forbiddenNetworkConnectionKeys.has(normalizeConnectionKey(key))) {
-      throw new Error(`Snapshot source does not allow network/evasion connection field: ${key}`);
-    }
+  const violations = findLocalSnapshotConnectionViolations(
+    {
+      ...input.connection,
+      snapshotPath: input.snapshotPath
+    },
+    { pathPrefix: "source.connection", requireSnapshotPath: true }
+  );
+  if (violations.length > 0) {
+    throw new Error(violations[0].message);
   }
 }
 
@@ -205,14 +193,6 @@ function withSnapshotMetadata(
       snapshotFile: basename(filePath)
     }
   };
-}
-
-function looksLikeUrl(value: string): boolean {
-  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value);
-}
-
-function normalizeConnectionKey(key: string): string {
-  return key.replace(/[_-]/g, "").toLowerCase();
 }
 
 function isCursorValue(value: unknown): value is string | number {

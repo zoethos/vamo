@@ -24,6 +24,7 @@ import {
   requireRecord,
   requireString
 } from "./validation.js";
+import { findLocalSnapshotConnectionViolations } from "./source-connection-policy.js";
 
 export function parsePipelineSpec(input: string | unknown): SpecValidationResult<PipelineSpec> {
   const parsed = parseYamlDocument(input);
@@ -97,13 +98,27 @@ function parseSource(
       errors
     ) ?? "fixture";
   const licenseRecord = requireRecord(record.license, "source.license", errors);
+  const connection = readOptionalRecord(record.connection, "source.connection", errors);
+
+  if (adapter === "snapshot") {
+    for (const violation of findLocalSnapshotConnectionViolations(connection, {
+      pathPrefix: "source.connection",
+      requireSnapshotPath: true
+    })) {
+      errors.add({
+        code: "source_connection_violation",
+        path: violation.path,
+        message: violation.message
+      });
+    }
+  }
 
   return {
     id: requireString(record, "id", "source.id", errors) ?? "",
     name: requireString(record, "name", "source.name", errors) ?? "",
     adapter,
     license: licenseRecord ? parseLicense(licenseRecord, errors) : emptyLicense(),
-    connection: readOptionalRecord(record.connection, "source.connection", errors)
+    connection
   };
 }
 

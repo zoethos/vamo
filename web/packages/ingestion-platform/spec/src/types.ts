@@ -30,6 +30,7 @@ export interface SpecValidationError {
     | "missing_required"
     | "unknown_adapter"
     | "unknown_cursor_strategy"
+    | "source_connection_violation"
     | "policy_contradiction"
     | "target_security_violation";
   path: string;

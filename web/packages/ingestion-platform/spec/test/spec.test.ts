@@ -121,6 +121,64 @@ shipment:
     assert.equal(target.errors.some((error) => error.path === "adapter"), true);
   });
 
+  it("rejects snapshot URL and network/evasion controls at spec-parse time", () => {
+    const result = parsePipelineSpec(`
+kind: ingestion.pipeline
+version: 1
+id: unsafe-snapshot-source
+name: Unsafe Snapshot Source
+owner: test
+source:
+  id: local
+  name: Local
+  adapter: snapshot
+  license:
+    name: Local
+    attribution: Local
+    canStoreFacts: true
+    canStoreContent: false
+    canStoreMediaBytes: false
+  connection:
+    snapshotPath: https://example.com/open-dataset.jsonl
+    proxy_url: http://127.0.0.1:8888
+    ipRotation: true
+target:
+  id: local
+  adapter: postgres
+  project: demo
+  profile: places
+cursor:
+  strategy: snapshot
+mappings: []
+`);
+
+    assert.equal(result.ok, false);
+    assert.equal(
+      result.errors.some(
+        (error) =>
+          error.code === "source_connection_violation" &&
+          error.path === "source.connection.snapshotPath"
+      ),
+      true
+    );
+    assert.equal(
+      result.errors.some(
+        (error) =>
+          error.code === "source_connection_violation" &&
+          error.path === "source.connection.proxy_url"
+      ),
+      true
+    );
+    assert.equal(
+      result.errors.some(
+        (error) =>
+          error.code === "source_connection_violation" &&
+          error.path === "source.connection.ipRotation"
+      ),
+      true
+    );
+  });
+
   it("rejects media-byte storage when source policy does not permit it", () => {
     const result = parsePipelineSpec(`
 kind: ingestion.pipeline

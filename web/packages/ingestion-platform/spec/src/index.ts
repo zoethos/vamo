@@ -1,6 +1,7 @@
 export { parsePipelineSpec } from "./pipeline.js";
 export { parseTargetProjectSpec } from "./target.js";
 export { parseConsumerContractManifest } from "./consumer-contract.js";
+export { findLocalSnapshotConnectionViolations } from "./source-connection-policy.js";
 export {
   CURSOR_STRATEGIES,
   DATA_API_PRIVILEGES,
