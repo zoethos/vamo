@@ -6,11 +6,13 @@ import {
   ingestionEvents,
   ingestionInstances,
   ingestionPolicyLocks,
+  ingestionServices,
   ingestionSignals,
   ingestionStats,
   ingestionTargets,
 } from "@/content/ingestion-dashboard";
 import type {
+  IngestionServiceStatus,
   IngestionStatus,
   IngestionTone,
 } from "@/content/ingestion-dashboard";
@@ -37,6 +39,13 @@ const toneLabels: Record<IngestionTone, string> = {
   watch: "Watch",
   danger: "Needs action",
   neutral: "Info",
+};
+
+const serviceStatusLabels: Record<IngestionServiceStatus, string> = {
+  online: "Online",
+  degraded: "Degraded",
+  offline: "Offline",
+  unknown: "Unknown",
 };
 
 const selectedTarget =
@@ -117,6 +126,51 @@ export default function IngestionDashboardPage() {
       <section className="admin-section">
         <div className="admin-section-heading">
           <div>
+            <p className="admin-kicker">Connected services</p>
+            <h2>Live dependency semaphore</h2>
+          </div>
+          <span className="admin-readonly-pill">
+            Health probes mapped from control-plane state
+          </span>
+        </div>
+        <div className="admin-service-grid">
+          {ingestionServices.map((service) => (
+            <article
+              className={`admin-service-card admin-tone-${service.tone}`}
+              key={service.name}
+            >
+              <div className="admin-service-topline">
+                <span
+                  className={`admin-semaphore admin-semaphore-${service.status}`}
+                  aria-hidden="true"
+                />
+                <div>
+                  <h3>{service.name}</h3>
+                  <p>{service.category}</p>
+                </div>
+                <strong>{serviceStatusLabels[service.status]}</strong>
+              </div>
+              <p className="admin-service-detail">{service.detail}</p>
+              <dl className="admin-definition-grid admin-service-meta">
+                <div>
+                  <dt>Endpoint</dt>
+                  <dd>
+                    <code>{service.endpoint}</code>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Last checked</dt>
+                  <dd>{service.lastChecked}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-section">
+        <div className="admin-section-heading">
+          <div>
             <p className="admin-kicker">Instances</p>
             <h2>Containerized workers</h2>
           </div>
@@ -156,6 +210,40 @@ export default function IngestionDashboardPage() {
                   <dd>{instance.network}</dd>
                 </div>
               </dl>
+              <div className="admin-runtime-panel">
+                <div className="admin-runtime-heading">
+                  <span>Runtime identity</span>
+                  <code>{instance.runtime.hostName}</code>
+                </div>
+                <dl className="admin-runtime-grid">
+                  <div>
+                    <dt>Physical path</dt>
+                    <dd>
+                      <code>{instance.runtime.physicalPath}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Docker image</dt>
+                    <dd>
+                      <code>
+                        {instance.runtime.dockerImage}:{instance.runtime.imageVersion}
+                      </code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Container</dt>
+                    <dd>
+                      <code>{instance.runtime.containerName}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Container version</dt>
+                    <dd>
+                      <code>{instance.runtime.containerVersion}</code>
+                    </dd>
+                  </div>
+                </dl>
+              </div>
             </article>
           ))}
         </div>

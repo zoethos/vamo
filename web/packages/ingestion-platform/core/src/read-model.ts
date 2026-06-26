@@ -42,6 +42,7 @@ export interface IngestionInstance {
   cursor: string;
   throughput: string;
   network: string;
+  runtime: IngestionRuntimeIdentity;
 }
 
 export interface IngestionTarget {
@@ -70,9 +71,31 @@ export interface IngestionStat {
   detail: string;
 }
 
+export type IngestionServiceStatus = "online" | "degraded" | "offline" | "unknown";
+
+export interface IngestionService {
+  name: string;
+  category: string;
+  status: IngestionServiceStatus;
+  tone: IngestionTone;
+  detail: string;
+  endpoint: string;
+  lastChecked: string;
+}
+
+export interface IngestionRuntimeIdentity {
+  hostName: string;
+  physicalPath: string;
+  dockerImage: string;
+  imageVersion: string;
+  containerName: string;
+  containerVersion: string;
+}
+
 export interface IngestionDashboardView {
   signals: IngestionSignal[];
   actions: IngestionAction[];
+  services: IngestionService[];
   instances: IngestionInstance[];
   targets: IngestionTarget[];
   events: IngestionEvent[];
@@ -94,6 +117,7 @@ export interface ControlInstanceRow {
   cursor: string;
   throughput: string;
   network: string;
+  runtime: ControlRuntimeIdentityRow;
 }
 
 export interface ControlTargetRow {
@@ -130,7 +154,27 @@ export interface ControlMetrics {
   liveCallsAvoided: number;
 }
 
+export interface ControlServiceRow {
+  name: string;
+  category: string;
+  status: IngestionServiceStatus;
+  detail: string;
+  endpoint: string;
+  /** Seconds since the last health probe. */
+  lastCheckedSecondsAgo: number;
+}
+
+export interface ControlRuntimeIdentityRow {
+  hostName: string;
+  physicalPath: string;
+  dockerImage: string;
+  imageVersion: string;
+  containerName: string;
+  containerVersion: string;
+}
+
 export interface ControlPlaneSnapshot {
+  services: ControlServiceRow[];
   instances: ControlInstanceRow[];
   targets: ControlTargetRow[];
   events: ControlEventRow[];
@@ -156,6 +200,13 @@ const VIEW_STATUS_TONE: Record<IngestionStatus, IngestionTone> = {
   paused: "watch",
   blocked: "danger",
   stopped: "danger"
+};
+
+const SERVICE_STATUS_TONE: Record<IngestionServiceStatus, IngestionTone> = {
+  online: "good",
+  degraded: "watch",
+  offline: "danger",
+  unknown: "neutral"
 };
 
 const VIEW_STATUS_NEXT_ACTION: Record<IngestionStatus, string> = {
@@ -211,6 +262,7 @@ const POLICY_LOCKS: string[] = [
 export function buildIngestionDashboardView(
   snapshot: ControlPlaneSnapshot
 ): IngestionDashboardView {
+  const services = snapshot.services.map(toViewService);
   const instances = snapshot.instances.map(toViewInstance);
   const targets = snapshot.targets.map(toViewTarget);
   const events = snapshot.events.map(toViewEvent);
@@ -218,6 +270,7 @@ export function buildIngestionDashboardView(
   return {
     signals: buildSignals(instances, targets, snapshot.metrics),
     actions: CLUSTER_ACTIONS,
+    services,
     instances,
     targets,
     events,
@@ -235,7 +288,20 @@ function toViewInstance(row: ControlInstanceRow): IngestionInstance {
     heartbeat: formatHeartbeat(row.heartbeatSecondsAgo),
     cursor: row.cursor,
     throughput: row.throughput,
-    network: row.network
+    network: row.network,
+    runtime: row.runtime
+  };
+}
+
+function toViewService(row: ControlServiceRow): IngestionService {
+  return {
+    name: row.name,
+    category: row.category,
+    status: row.status,
+    tone: SERVICE_STATUS_TONE[row.status],
+    detail: row.detail,
+    endpoint: row.endpoint,
+    lastChecked: formatHeartbeat(row.lastCheckedSecondsAgo)
   };
 }
 
@@ -375,6 +441,48 @@ function formatThousandsShort(value: number): string {
    read model before a live control API exists. Not authored by the UI. */
 
 export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
+  services: [
+    {
+      name: "Control Postgres",
+      category: "Supabase control plane",
+      status: "online",
+      detail: "Reads run state, leases, checkpoints, and audit events.",
+      endpoint: "supabase://vamo-control/ingestion_platform",
+      lastCheckedSecondsAgo: 12
+    },
+    {
+      name: "Docker Runtime",
+      category: "Worker host",
+      status: "online",
+      detail: "Container engine reachable on the dedicated ingestion PC.",
+      endpoint: "npipe://./pipe/docker_engine",
+      lastCheckedSecondsAgo: 18
+    },
+    {
+      name: "Snapshot Volume",
+      category: "Open dataset storage",
+      status: "online",
+      detail: "FSQ OS Places and imported Vamo contract fixtures mounted read-only.",
+      endpoint: "Z:\\vamo-web-dashboard\\web\\packages\\ingestion-platform\\fixtures",
+      lastCheckedSecondsAgo: 41
+    },
+    {
+      name: "Provider Budget Guard",
+      category: "External policy gate",
+      status: "degraded",
+      detail: "Wikimedia request budget is throttled; ingestion continues below cap.",
+      endpoint: "https://commons.wikimedia.org",
+      lastCheckedSecondsAgo: 96
+    },
+    {
+      name: "Staging Shipment",
+      category: "Supabase target",
+      status: "unknown",
+      detail: "Awaiting approved-write gate; dry-run diffs remain local.",
+      endpoint: "supabase://vamo-staging/public",
+      lastCheckedSecondsAgo: 180
+    }
+  ],
   instances: [
     {
       id: "worker-pc-01",
@@ -384,7 +492,15 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       heartbeatSecondsAgo: 15,
       cursor: "fsq.it.0048129",
       throughput: "1,840 rows/min",
-      network: "Fixed egress, no proxy rotation"
+      network: "Fixed egress, no proxy rotation",
+      runtime: {
+        hostName: "VAMO-INGEST-01",
+        physicalPath: "Z:\\vamo-web-dashboard\\web\\packages\\ingestion-platform",
+        dockerImage: "vamo/ingestion-worker",
+        imageVersion: "0.1.0-ip10",
+        containerName: "vamo-ingestion-worker-pc-01",
+        containerVersion: "sha256:8f022803"
+      }
     },
     {
       id: "worker-pc-02",
@@ -394,7 +510,15 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       heartbeatSecondsAgo: 19,
       cursor: "Q243.01872",
       throughput: "620 claims/min",
-      network: "Provider-compliant request budget"
+      network: "Provider-compliant request budget",
+      runtime: {
+        hostName: "VAMO-INGEST-01",
+        physicalPath: "Z:\\vamo-web-dashboard\\web\\packages\\ingestion-platform",
+        dockerImage: "vamo/ingestion-worker",
+        imageVersion: "0.1.0-ip10",
+        containerName: "vamo-ingestion-worker-pc-02",
+        containerVersion: "sha256:8f022803"
+      }
     },
     {
       id: "worker-pc-03",
@@ -404,7 +528,15 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       heartbeatSecondsAgo: 120,
       cursor: "observation.092114",
       throughput: "Paused by operator",
-      network: "Private Vamo data only"
+      network: "Private Vamo data only",
+      runtime: {
+        hostName: "VAMO-INGEST-01",
+        physicalPath: "Z:\\vamo-web-dashboard\\web\\packages\\ingestion-platform",
+        dockerImage: "vamo/ingestion-worker",
+        imageVersion: "0.1.0-ip10",
+        containerName: "vamo-ingestion-worker-pc-03",
+        containerVersion: "sha256:8f022803"
+      }
     },
     {
       id: "staging-export-01",
@@ -414,7 +546,15 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       heartbeatSecondsAgo: null,
       cursor: "delta.2026-06-26T08:00Z",
       throughput: "Waiting on promotion gate",
-      network: "Supabase staging writer"
+      network: "Supabase staging writer",
+      runtime: {
+        hostName: "VAMO-EXPORT-01",
+        physicalPath: "Z:\\vamo-web-dashboard\\web\\packages\\ingestion-platform",
+        dockerImage: "vamo/ingestion-exporter",
+        imageVersion: "0.1.0-ip10",
+        containerName: "vamo-staging-export-01",
+        containerVersion: "sha256:8f022803"
+      }
     }
   ],
   targets: [

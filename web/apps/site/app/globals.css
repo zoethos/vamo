@@ -720,6 +720,7 @@ a:hover {
 
 .admin-command-surface,
 .admin-instance-card,
+.admin-service-card,
 .admin-target-table-panel,
 .admin-failure-panel,
 .admin-panel,
@@ -899,8 +900,18 @@ a:hover {
   gap: 0.85rem;
 }
 
+.admin-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
 .admin-instance-card {
   padding: 1rem;
+}
+
+.admin-service-card {
+  padding: 0.95rem;
 }
 
 .admin-card-topline h3 {
@@ -908,6 +919,74 @@ a:hover {
   color: var(--ink);
   font-size: 1rem;
   letter-spacing: 0;
+}
+
+.admin-service-topline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.admin-service-topline h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.95rem;
+  letter-spacing: 0;
+}
+
+.admin-service-topline p,
+.admin-service-detail {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.58);
+  line-height: 1.45;
+}
+
+.admin-service-topline p {
+  margin-top: 0.12rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.admin-service-topline strong {
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 999px;
+  padding: 0.2rem 0.42rem;
+  background: #f8fafc;
+  color: rgba(12, 14, 22, 0.68);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.admin-service-detail {
+  margin-top: 0.75rem;
+  font-size: 0.86rem;
+}
+
+.admin-semaphore {
+  display: inline-block;
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(42, 46, 58, 0.14);
+  margin-top: 0.18rem;
+}
+
+.admin-semaphore-online {
+  background: #0f766e;
+}
+
+.admin-semaphore-degraded {
+  background: #d97706;
+}
+
+.admin-semaphore-offline {
+  background: #b91c1c;
+}
+
+.admin-semaphore-unknown {
+  background: #64748b;
 }
 
 .admin-status {
@@ -1000,6 +1079,11 @@ a:hover {
   word-break: break-word;
 }
 
+.admin-definition-grid.admin-service-meta {
+  grid-template-columns: 1fr;
+  margin-top: 0.85rem;
+}
+
 .admin-console code {
   display: inline-block;
   max-width: 100%;
@@ -1010,6 +1094,51 @@ a:hover {
   background: #f8fafc;
   color: #334155;
   font-size: 0.78rem;
+}
+
+.admin-runtime-panel {
+  margin-top: 1rem;
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: #f8fafc;
+}
+
+.admin-runtime-heading {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-runtime-heading span {
+  color: rgba(12, 14, 22, 0.54);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-runtime-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
+  margin: 0.75rem 0 0;
+}
+
+.admin-runtime-grid div {
+  min-width: 0;
+}
+
+.admin-runtime-grid dt {
+  margin-bottom: 0.16rem;
+  color: rgba(12, 14, 22, 0.46);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-runtime-grid dd {
+  margin: 0;
 }
 
 .admin-target-layout {
@@ -1218,6 +1347,7 @@ a:hover {
 
 @media (max-width: 1180px) {
   .admin-instance-grid,
+  .admin-service-grid,
   .admin-signal-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1256,6 +1386,7 @@ a:hover {
   }
 
   .admin-signal-grid,
+  .admin-service-grid,
   .admin-instance-grid {
     grid-template-columns: 1fr;
   }

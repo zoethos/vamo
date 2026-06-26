@@ -13,16 +13,18 @@ import {
   sampleControlPlaneSnapshot,
 } from "@vamo/ingestion-platform/read-model";
 import type {
+  IngestionServiceStatus,
   IngestionStatus,
   IngestionTone,
 } from "@vamo/ingestion-platform/read-model";
 
-export type { IngestionStatus, IngestionTone };
+export type { IngestionServiceStatus, IngestionStatus, IngestionTone };
 
 const view = buildIngestionDashboardView(sampleControlPlaneSnapshot);
 
 export const ingestionSignals = view.signals;
 export const ingestionActions = view.actions;
+export const ingestionServices = view.services;
 export const ingestionInstances = view.instances;
 export const ingestionTargets = view.targets;
 export const ingestionEvents = view.events;

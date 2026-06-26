@@ -29,12 +29,29 @@ describe("ingestion dashboard read model", () => {
     const view = buildIngestionDashboardView(sampleControlPlaneSnapshot);
 
     assert.equal(view.instances.length, 4);
+    assert.equal(view.services.length, 5);
     assert.equal(view.targets.length, 7);
     assert.equal(view.events.length, 5);
     assert.equal(view.stats.length, 6);
     assert.equal(view.signals.length, 4);
     assert.equal(view.actions.length, 4);
     assert.ok(view.policyLocks.length > 0);
+  });
+
+  it("maps connected-service semaphores and runtime identity", () => {
+    const view = buildIngestionDashboardView(sampleControlPlaneSnapshot);
+    const budgetGuard = view.services.find((service) => service.name === "Provider Budget Guard");
+    const dockerRuntime = view.services.find((service) => service.name === "Docker Runtime");
+    const worker = view.instances.find((instance) => instance.id === "worker-pc-01");
+
+    assert.equal(dockerRuntime?.status, "online");
+    assert.equal(dockerRuntime?.tone, "good");
+    assert.equal(budgetGuard?.status, "degraded");
+    assert.equal(budgetGuard?.tone, "watch");
+    assert.equal(worker?.runtime.hostName, "VAMO-INGEST-01");
+    assert.equal(worker?.runtime.dockerImage, "vamo/ingestion-worker");
+    assert.match(worker?.runtime.physicalPath ?? "", /ingestion-platform/);
+    assert.match(worker?.runtime.containerVersion ?? "", /^sha256:/);
   });
 
   it("maps task status to view status, tone, and next action", () => {
