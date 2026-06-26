@@ -1,5 +1,5 @@
 kind: ingestion.target
-version: 2
+version: 3
 id: vamo-place-intelligence-staging
 name: Vamo Place Intelligence Staging
 adapter: supabase_postgres
