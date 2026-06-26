@@ -2,20 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
-import {
-  ingestionActions,
-  ingestionEvents,
-  ingestionInstances,
-  ingestionPolicyLocks,
-  ingestionSignals,
-  ingestionStats,
-  ingestionTargets,
-} from "@/content/ingestion-dashboard";
 import type {
   IngestionStatus,
   IngestionTone,
 } from "@/content/ingestion-dashboard";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
+import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
 
 export const metadata: Metadata = {
   title: "Ingestion control · Vamo",
@@ -43,15 +35,25 @@ const toneLabels: Record<IngestionTone, string> = {
   neutral: "Info",
 };
 
-const selectedTarget =
-  ingestionTargets.find((target) => target.status === "blocked") ??
-  ingestionTargets[0];
-
 export default async function IngestionDashboardPage() {
   const principal = await requireIngestionDashboardAccess({
     projectKey: "vamo",
     nextPath: "/admin/ingestion",
   });
+
+  const { view, source } = await loadIngestionDashboard("vamo");
+  const {
+    signals: ingestionSignals,
+    actions: ingestionActions,
+    instances: ingestionInstances,
+    targets: ingestionTargets,
+    events: ingestionEvents,
+    stats: ingestionStats,
+    policyLocks: ingestionPolicyLocks,
+  } = view;
+  const selectedTarget =
+    ingestionTargets.find((target) => target.status === "blocked") ??
+    ingestionTargets[0];
 
   return (
     <main
@@ -113,7 +115,7 @@ export default async function IngestionDashboardPage() {
         <div className="admin-command-surface" aria-label="Global ingestion controls">
           <div className="admin-surface-header">
             <span>Cluster controls</span>
-            <strong>Read-model preview</strong>
+            <strong>{source === "live" ? "Live control plane" : "Sample preview"}</strong>
           </div>
           <div className="admin-command-grid">
             {ingestionActions.map((action) => (
@@ -246,6 +248,7 @@ export default async function IngestionDashboardPage() {
           </div>
         </div>
 
+        {selectedTarget ? (
         <aside className="admin-failure-panel" aria-label="Failure recovery detail">
           <p className="admin-kicker">Failure telemetry</p>
           <h2>{selectedTarget.name}</h2>
@@ -275,6 +278,13 @@ export default async function IngestionDashboardPage() {
             Resume from checkpoint
           </button>
         </aside>
+        ) : (
+          <aside className="admin-failure-panel" aria-label="Failure recovery detail">
+            <p className="admin-kicker">Failure telemetry</p>
+            <h2>No targets yet</h2>
+            <p>This project has no ingestion targets in the control plane yet.</p>
+          </aside>
+        )}
       </section>
 
       <section className="admin-section admin-two-column">
