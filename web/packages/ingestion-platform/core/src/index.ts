@@ -22,3 +22,16 @@ export {
   type RunFixturePipelineInput,
   type StagedCandidate
 } from "./pipeline-runner.js";
+export {
+  buildShipmentDiff,
+  recordIdentity,
+  stableChecksum,
+  type BuildShipmentDiffInput
+} from "./diff.js";
+export {
+  type ShipmentCandidateRow,
+  type ShipmentOperation,
+  type ShipmentPlan,
+  type ShipmentPlanIncompatibility,
+  type ShipmentPlanItem
+} from "./shipment-plan.js";

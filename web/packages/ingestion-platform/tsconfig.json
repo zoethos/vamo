@@ -21,7 +21,9 @@
     "policy/src/**/*.ts",
     "policy/test/**/*.ts",
     "adapters/source/src/**/*.ts",
-    "adapters/source/test/**/*.ts"
+    "adapters/source/test/**/*.ts",
+    "adapters/target/src/**/*.ts",
+    "adapters/target/test/**/*.ts"
   ],
   "exclude": ["dist", "node_modules"]
 }

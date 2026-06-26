@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./adapters/source": "./dist/adapters/source/src/fixture-source.js",
+    "./adapters/target": "./dist/adapters/target/src/postgres-dry-run.js",
     "./core": "./dist/core/src/index.js",
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
@@ -17,12 +18,12 @@
     "test": "npm run build && node scripts/run-spec-tests.mjs"
   },
   "dependencies": {
+    "pg": "8.22.0",
     "yaml": "2.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/pg": "^8.20.0",
-    "pg": "8.22.0",
     "typescript": "^5.7.0"
   }
 }

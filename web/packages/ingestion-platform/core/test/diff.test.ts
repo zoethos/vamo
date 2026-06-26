@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { buildShipmentDiff, stableChecksum } from "../src/diff.js";
+
+describe("shipment diff", () => {
+  it("creates deterministic insert/update/no-op shipment items", () => {
+    const candidateRows = [
+      {
+        recordKey: "new",
+        payload: {
+          source_id: "new",
+          display_name: "New Place"
+        }
+      },
+      {
+        recordKey: "same",
+        payload: {
+          source_id: "same",
+          display_name: "Same Place"
+        }
+      },
+      {
+        recordKey: "changed",
+        payload: {
+          source_id: "changed",
+          display_name: "Changed Place"
+        }
+      }
+    ];
+    const first = buildShipmentDiff({
+      targetTable: "public.generic_places",
+      upsertKeys: ["source_id"],
+      candidateRows,
+      existingRows: [
+        {
+          source_id: "same",
+          display_name: "Same Place"
+        },
+        {
+          source_id: "changed",
+          display_name: "Old Place"
+        }
+      ]
+    });
+    const second = buildShipmentDiff({
+      targetTable: "public.generic_places",
+      upsertKeys: ["source_id"],
+      candidateRows,
+      existingRows: [
+        {
+          source_id: "same",
+          display_name: "Same Place"
+        },
+        {
+          source_id: "changed",
+          display_name: "Old Place"
+        }
+      ]
+    });
+
+    assert.deepEqual(first, second);
+    assert.deepEqual(
+      first.map((item) => item.operation),
+      ["insert", "no_op", "update"]
+    );
+    assert.equal(first[0]?.idempotencyKey, "public.generic_places:source_id=new");
+  });
+
+  it("checksums objects with stable key ordering", () => {
+    assert.equal(
+      stableChecksum({
+        b: "two",
+        a: "one"
+      }),
+      stableChecksum({
+        a: "one",
+        b: "two"
+      })
+    );
+  });
+});

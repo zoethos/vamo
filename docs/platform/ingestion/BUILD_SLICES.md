@@ -269,6 +269,8 @@ Definition of done:
 
 ## Slice IP-04 - Postgres Dry-Run Target Adapter
 
+Status: done.
+
 Goal: compare promoted candidate records against a target schema without writing.
 
 Architecture decision: target adapter. Postgres is the first adapter, but core
