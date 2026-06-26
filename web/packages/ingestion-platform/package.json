@@ -13,6 +13,10 @@
       "types": "./dist/core/src/control-command-api.d.ts",
       "default": "./dist/core/src/control-command-api.js"
     },
+    "./admin-auth": {
+      "types": "./dist/core/src/admin-auth.d.ts",
+      "default": "./dist/core/src/admin-auth.js"
+    },
     "./read-model": {
       "types": "./dist/core/src/read-model.d.ts",
       "default": "./dist/core/src/read-model.js"

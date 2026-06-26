@@ -7,6 +7,7 @@ import {
   providerDashboardServices,
   providerDashboardSignals,
 } from "@/content/provider-dashboard";
+import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 
 export const metadata: Metadata = {
   title: "Provider dashboard · Vamo",
@@ -16,13 +17,20 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = "force-dynamic";
+
 const statusLabels = {
   live: "Live",
   planned: "Planned",
   watch: "Watch",
 };
 
-export default function ProviderDashboardPage() {
+export default async function ProviderDashboardPage() {
+  const principal = await requireIngestionDashboardAccess({
+    projectKey: "vamo",
+    nextPath: "/admin/providers",
+  });
+
   return (
     <main
       className="provider-dashboard"
@@ -89,7 +97,9 @@ export default function ProviderDashboardPage() {
             />
           </div>
           <span>Next unlock</span>
-          <strong>Live usage after admin auth</strong>
+          <strong>
+            {principal.role} · {principal.assuranceLevel}
+          </strong>
           <p>
             The control-plane tables are intentionally private. P1 adds a
             server-only admin boundary before live data appears here.

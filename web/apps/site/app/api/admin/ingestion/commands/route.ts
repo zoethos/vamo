@@ -6,6 +6,7 @@ import {
   type CommandScope,
   type IngestionCommandKind
 } from "@vamo/ingestion-platform/control-api";
+import { authorizeIngestionCommandRequest } from "@/lib/ingestion-admin-auth";
 
 export const runtime = "nodejs";
 
@@ -27,26 +28,6 @@ function bearerTokenMatches(header: string | null, token: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  const adminToken = process.env.INGESTION_ADMIN_API_TOKEN?.trim();
-  if (!adminToken) {
-    return NextResponse.json(
-      { ok: false, error: "Ingestion admin API token is not configured." },
-      { status: 503 }
-    );
-  }
-
-  if (!bearerTokenMatches(request.headers.get("authorization"), adminToken)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-  }
-
-  const connectionString = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
-  if (!connectionString) {
-    return NextResponse.json(
-      { ok: false, error: "Ingestion control database URL is not configured." },
-      { status: 503 }
-    );
-  }
-
   const body = await readJsonBody(request);
   if (!body.ok) {
     return NextResponse.json({ ok: false, error: body.error }, { status: 400 });
@@ -57,12 +38,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
+  const auth = await resolveCommandAuth(request, parsed.command, parsed.projectKey ?? "vamo");
+  if (!auth.ok) {
+    return NextResponse.json(auth.body, { status: auth.status });
+  }
+
+  const connectionString = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  if (!connectionString) {
+    return NextResponse.json(
+      { ok: false, error: "Ingestion control database URL is not configured." },
+      { status: 503 }
+    );
+  }
+
   const result = await applyCommand({
     connectionString,
     projectId: parsed.projectId,
     projectKey: parsed.projectKey ?? "vamo",
     command: parsed.command,
     scope: parsed.scope,
+    actor: auth.actor,
+    auditContext: auth.auditContext,
     claimedActorId: parsed.claimedActorId,
     reason: parsed.reason
   });
@@ -92,6 +88,8 @@ async function applyCommand(input: {
   projectKey: string;
   command: IngestionCommandKind;
   scope: CommandScope;
+  actor: { type: "operator" | "api"; id: string };
+  auditContext?: Record<string, unknown>;
   claimedActorId?: string;
   reason?: string;
 }): Promise<
@@ -107,13 +105,9 @@ async function applyCommand(input: {
         projectKey: input.projectKey,
         command: input.command,
         scope: input.scope,
-        // Trusted actor is the token holder, not anything the caller supplies.
-        // A self-declared operator label is recorded separately as claimedActorId.
-        actor: {
-          type: "api",
-          id: "admin-api"
-        },
+        actor: input.actor,
         claimedActorId: input.claimedActorId,
+        auditContext: input.auditContext,
         reason: input.reason
       })
     };
@@ -132,6 +126,53 @@ async function applyCommand(input: {
       }
     };
   }
+}
+
+async function resolveCommandAuth(
+  request: NextRequest,
+  command: IngestionCommandKind,
+  projectKey: string
+): Promise<
+  | {
+      ok: true;
+      actor: { type: "operator" | "api"; id: string };
+      auditContext?: Record<string, unknown>;
+    }
+  | { ok: false; status: number; body: { ok: false; error: string; code?: string } }
+> {
+  const authorization = request.headers.get("authorization");
+  if (authorization) {
+    const adminToken = process.env.INGESTION_ADMIN_API_TOKEN?.trim();
+    if (!adminToken) {
+      return {
+        ok: false,
+        status: 503,
+        body: {
+          ok: false,
+          code: "machine_token_not_configured",
+          error: "Ingestion admin API token is not configured."
+        }
+      };
+    }
+
+    if (!bearerTokenMatches(authorization, adminToken)) {
+      return {
+        ok: false,
+        status: 401,
+        body: { ok: false, code: "unauthorized", error: "Unauthorized." }
+      };
+    }
+
+    return {
+      ok: true,
+      actor: {
+        type: "api",
+        id: "admin-api"
+      }
+    };
+  }
+
+  return authorizeIngestionCommandRequest({ request, projectKey, command });
 }
 
 async function readJsonBody(

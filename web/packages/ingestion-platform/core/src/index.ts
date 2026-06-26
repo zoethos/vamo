@@ -65,6 +65,24 @@ export {
   type ControlCommandPgClientLike
 } from "./control-command-api.js";
 export {
+  adminPrincipalAuditContext,
+  authorizeAdminCommand,
+  authorizeAdminDashboard,
+  resolveAdminPrincipal,
+  resolvePostgresAdminPrincipal,
+  type AdminAssuranceLevel,
+  type AdminAuthFailureCode,
+  type AdminAuthPgClientLike,
+  type AdminCommandAuthorizationInput,
+  type AdminPrincipal,
+  type AdminPrincipalResolution,
+  type AdminPrincipalRow,
+  type AdminPrincipalSession,
+  type AdminPrincipalStatus,
+  type AdminRole,
+  type ResolvePostgresAdminPrincipalInput
+} from "./admin-auth.js";
+export {
   type ShipmentCandidateRow,
   type ShipmentOperation,
   type ShipmentPlan,

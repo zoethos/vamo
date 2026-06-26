@@ -38,6 +38,11 @@ export interface ApplyPostgresIngestionCommandInput {
    * identity is `actor`, set by the server-side caller.
    */
   claimedActorId?: string;
+  /**
+   * Non-sensitive, server-derived authorization context to preserve alongside
+   * command audit rows. Never include tokens, cookies, or raw JWTs.
+   */
+  auditContext?: Record<string, unknown>;
 }
 
 export interface AppliedPostgresIngestionCommandResult {
@@ -144,7 +149,8 @@ export async function applyPostgresIngestionCommand(
       appliedLeasePatchIds,
       staleTaskPatchIds,
       staleLeasePatchIds,
-      ...(input.claimedActorId ? { claimedActorId: input.claimedActorId } : {})
+      ...(input.claimedActorId ? { claimedActorId: input.claimedActorId } : {}),
+      ...(input.auditContext ? { adminPrincipal: input.auditContext } : {})
     });
 
     await client.query("commit");
