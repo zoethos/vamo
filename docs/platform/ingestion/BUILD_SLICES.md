@@ -434,6 +434,8 @@ Tests:
 
 ## Slice IP-08 - Containerized Worker Harness
 
+Status: done.
+
 Goal: run the fixture pipeline through a containerized worker locally.
 
 Architecture decision: runtime wrapper. Worker process wraps the already-tested

@@ -63,3 +63,11 @@ export {
   type ShipmentPlanIncompatibility,
   type ShipmentPlanItem
 } from "./shipment-plan.js";
+export {
+  configFromEnv,
+  runWorkerHarness,
+  type WorkerCommandFile,
+  type WorkerExitStatus,
+  type WorkerHarnessConfig,
+  type WorkerRunSummary
+} from "./worker-main.js";
