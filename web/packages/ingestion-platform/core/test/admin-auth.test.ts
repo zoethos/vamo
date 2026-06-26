@@ -5,12 +5,30 @@ import type { QueryResult } from "pg";
 import {
   authorizeAdminCommand,
   authorizeAdminDashboard,
+  authorizeMachineCommand,
   resolveAdminPrincipal,
   resolvePostgresAdminPrincipal,
   type AdminAuthPgClientLike,
   type AdminPrincipalRow,
   type AdminPrincipalSession
 } from "../src/admin-auth.js";
+
+describe("machine token command authorization", () => {
+  it("allows non-destructive operational commands on the token path", () => {
+    assert.equal(authorizeMachineCommand("start").ok, true);
+    assert.equal(authorizeMachineCommand("pause").ok, true);
+  });
+
+  it("forbids destructive commands so they require an MFA admin session", () => {
+    for (const command of ["reset", "shutdown"] as const) {
+      const decision = authorizeMachineCommand(command);
+      assert.equal(decision.ok, false);
+      if (!decision.ok) {
+        assert.equal(decision.code, "machine_command_forbidden");
+      }
+    }
+  });
+});
 
 const now = "2026-06-26T12:00:00.000Z";
 

@@ -90,6 +90,23 @@ interface AdminPrincipalDbRow extends Record<string, unknown> {
 const mutatingRoles = new Set<AdminRole>(["operator", "admin"]);
 const freshStepUpWindowMs = 5 * 60 * 1000;
 
+/**
+ * Commands a non-session machine principal (the static API token) may run.
+ * Destructive or high-impact commands (`reset`, `shutdown`) are deliberately
+ * excluded: those require an authenticated admin session with MFA, so the token
+ * can never bypass the human authorization path for them. Default-deny —
+ * anything not listed here is forbidden for the token.
+ */
+export const MACHINE_TOKEN_COMMANDS: readonly IngestionCommandKind[] = ["start", "pause"];
+
+export function authorizeMachineCommand(
+  command: IngestionCommandKind
+): { ok: true } | { ok: false; code: "machine_command_forbidden" } {
+  return MACHINE_TOKEN_COMMANDS.includes(command)
+    ? { ok: true }
+    : { ok: false, code: "machine_command_forbidden" };
+}
+
 export async function resolvePostgresAdminPrincipal(
   input: ResolvePostgresAdminPrincipalInput
 ): Promise<AdminPrincipalResolution> {

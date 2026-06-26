@@ -68,6 +68,8 @@ export {
   adminPrincipalAuditContext,
   authorizeAdminCommand,
   authorizeAdminDashboard,
+  authorizeMachineCommand,
+  MACHINE_TOKEN_COMMANDS,
   resolveAdminPrincipal,
   resolvePostgresAdminPrincipal,
   type AdminAssuranceLevel,

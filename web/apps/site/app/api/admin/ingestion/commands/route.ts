@@ -6,6 +6,7 @@ import {
   type CommandScope,
   type IngestionCommandKind
 } from "@vamo/ingestion-platform/control-api";
+import { authorizeMachineCommand } from "@vamo/ingestion-platform/admin-auth";
 import { authorizeIngestionCommandRequest } from "@/lib/ingestion-admin-auth";
 
 export const runtime = "nodejs";
@@ -160,6 +161,23 @@ async function resolveCommandAuth(
         ok: false,
         status: 401,
         body: { ok: false, code: "unauthorized", error: "Unauthorized." }
+      };
+    }
+
+    // The machine token is never a substitute for an MFA-gated admin session:
+    // destructive commands (reset, shutdown) are denied on the token path and
+    // require an authenticated admin with aal2 + fresh step-up.
+    const machine = authorizeMachineCommand(command);
+    if (!machine.ok) {
+      return {
+        ok: false,
+        status: 403,
+        body: {
+          ok: false,
+          code: machine.code,
+          error:
+            "The machine token cannot run this command. Reset and shutdown require an authenticated admin session with MFA."
+        }
       };
     }
 
