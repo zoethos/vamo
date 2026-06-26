@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import {
   providerDashboardGuardrails,
   providerDashboardServices,
@@ -23,11 +24,24 @@ const statusLabels = {
 
 export default function ProviderDashboardPage() {
   return (
-    <main className="provider-dashboard">
+    <main
+      className="provider-dashboard"
+      data-theme="dark"
+      id="provider-dashboard-theme-root"
+    >
       <nav className="provider-masthead admin-masthead" aria-label="Provider dashboard">
         <Link className="provider-brand" href="/">
           <Image
+            className="provider-brand-mark provider-brand-mark-dark"
             src="/brand/mark_white.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+          />
+          <Image
+            className="provider-brand-mark provider-brand-mark-light"
+            src="/brand/primary_mark.png"
             alt=""
             width={34}
             height={34}
@@ -35,16 +49,24 @@ export default function ProviderDashboardPage() {
           />
           <span>Vamo</span>
         </Link>
-        <div className="admin-nav admin-nav-dark" aria-label="Admin sections">
-          <Link
-            className="admin-nav-link admin-nav-link-active"
-            href="/admin/providers"
-          >
-            Providers
-          </Link>
-          <Link className="admin-nav-link" href="/admin/ingestion">
-            Ingestion
-          </Link>
+        <div className="admin-masthead-controls">
+          <div className="admin-nav admin-nav-dark" aria-label="Admin sections">
+            <Link
+              className="admin-nav-link admin-nav-link-active"
+              href="/admin/providers"
+            >
+              Providers
+            </Link>
+            <Link className="admin-nav-link" href="/admin/ingestion">
+              Ingestion
+            </Link>
+          </div>
+          <DashboardThemeToggle
+            defaultTheme="dark"
+            label="Provider dashboard theme"
+            rootId="provider-dashboard-theme-root"
+            storageKey="vamo-provider-dashboard-theme"
+          />
         </div>
       </nav>
       <section className="provider-hero">

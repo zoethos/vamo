@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import {
   ingestionActions,
   ingestionEvents,
@@ -45,28 +46,49 @@ const selectedTarget =
 
 export default function IngestionDashboardPage() {
   return (
-    <main className="provider-dashboard admin-console">
+    <main
+      className="provider-dashboard admin-console"
+      data-theme="light"
+      id="ingestion-dashboard-theme-root"
+    >
       <nav className="provider-masthead admin-masthead" aria-label="Admin dashboard">
-        <Link className="provider-brand admin-brand" href="/">
+        <Link className="provider-brand admin-brand" href="/admin/ingestion">
           <Image
+            className="provider-brand-mark provider-brand-mark-light"
             src="/brand/primary_mark.png"
             alt=""
             width={34}
             height={34}
             priority
           />
-          <span>Vamo</span>
+          <Image
+            className="provider-brand-mark provider-brand-mark-dark"
+            src="/brand/mark_white.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+          />
+          <span>Ingestion</span>
         </Link>
-        <div className="admin-nav" aria-label="Admin sections">
-          <Link className="admin-nav-link" href="/admin/providers">
-            Providers
-          </Link>
-          <Link
-            className="admin-nav-link admin-nav-link-active"
-            href="/admin/ingestion"
-          >
-            Ingestion
-          </Link>
+        <div className="admin-masthead-controls">
+          <div className="admin-nav" aria-label="Admin sections">
+            <Link className="admin-nav-link" href="/admin/providers">
+              Providers
+            </Link>
+            <Link
+              className="admin-nav-link admin-nav-link-active"
+              href="/admin/ingestion"
+            >
+              Ingestion
+            </Link>
+          </div>
+          <DashboardThemeToggle
+            defaultTheme="light"
+            label="Ingestion dashboard theme"
+            rootId="ingestion-dashboard-theme-root"
+            storageKey="ingestion-dashboard-theme"
+          />
         </div>
       </nav>
 
