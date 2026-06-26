@@ -48,6 +48,7 @@ interface InstanceRow extends Record<string, unknown> {
 }
 
 interface TargetRow extends Record<string, unknown> {
+  id: string;
   displayName: string;
   adapter: string;
   safetyMode: string;
@@ -170,6 +171,7 @@ async function loadTargets(
   const result = await client.query<TargetRow>(
     `
       select
+        targets.id::text as id,
         targets.display_name as "displayName",
         targets.adapter as adapter,
         targets.safety_mode as "safetyMode",
@@ -280,6 +282,7 @@ function toInstance(row: InstanceRow, now: string): ControlInstanceRow {
 
 function toTarget(row: TargetRow): ControlTargetRow {
   return {
+    id: row.id,
     name: row.displayName,
     source: row.adapter,
     scope: row.safetyMode === "approved_write" ? "Promotion stream" : "Source seed",

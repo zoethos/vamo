@@ -32,6 +32,7 @@ class StubControlClient implements ControlReadPgClientLike {
     if (sql.includes("from ingestion_platform.ingestion_targets targets")) {
       return this.result([
         {
+          id: "10",
           displayName: "FSQ OS Places - Italy",
           adapter: "snapshot",
           safetyMode: "dry_run",
@@ -41,6 +42,7 @@ class StubControlClient implements ControlReadPgClientLike {
           lastSignal: "checkpoint_committed"
         } as unknown as T,
         {
+          id: "11",
           displayName: "Staging export",
           adapter: "supabase_postgres",
           safetyMode: "approved_write",
@@ -101,6 +103,7 @@ describe("control-plane read loader", () => {
     assert.equal(snapshot.instances[0]?.heartbeatSecondsAgo, 15);
 
     assert.equal(snapshot.targets.length, 2);
+    assert.equal(snapshot.targets[0]?.id, "10");
     assert.equal(snapshot.targets[1]?.scope, "Promotion stream");
     assert.equal(snapshot.targets[1]?.instanceId, "unassigned");
 
