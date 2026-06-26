@@ -347,8 +347,8 @@ Tests:
 
 ## Slice IP-06 - Local Control API And Admin Read Model
 
-Status: done (read model + wiring). Browser visual QA at desktop/mobile
-breakpoints remains a manual gate.
+Status: done. Read model + wiring are implemented, and browser visual QA passed
+at desktop and mobile breakpoints after a clean local dev-server restart.
 
 Goal: expose read-only run/target/event/status data to the admin page from the
 platform model instead of hand-written static content.
