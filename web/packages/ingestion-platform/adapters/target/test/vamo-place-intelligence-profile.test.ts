@@ -42,6 +42,7 @@ describe("vamo place-intelligence consumer profile", () => {
     );
     assert.equal(canonical.source_provider, "fsq_os_places");
     assert.equal(canonical.promotion_state, "seeded");
+    assert.equal(canonical.feature_type, "poi");
     assert.equal(sourceRef.provider, "fsq_os_places");
     assert.equal(sourceRef.source_place_id, "fsq_colosseum");
     assert.equal(sourceRef.canonical_id, canonical.id);
@@ -262,6 +263,7 @@ function tablePayload(
   return value as Record<string, unknown>;
 }
 
+// Keep in sync with Z:\vamo\supabase\migrations\20260625155733_place_intelligence_cache.sql.
 const vamoPlaceColumns: Record<string, string[]> = {
   location_canonicals: [
     "id",

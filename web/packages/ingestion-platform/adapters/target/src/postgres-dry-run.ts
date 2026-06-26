@@ -30,6 +30,8 @@ export interface PgClientLike {
 
 interface TableColumnRow extends Record<string, unknown> {
   column_name: string;
+  data_type?: string;
+  udt_name?: string;
 }
 
 export async function planPostgresDryRun(input: PostgresDryRunInput): Promise<ShipmentPlan> {
@@ -121,7 +123,8 @@ async function buildPlan(
         targetTable: qualified.displayName,
         upsertKeys: tableSpec.upsertKeys,
         candidateRows: tableRows,
-        existingRows
+        existingRows,
+        columnTypes: Object.fromEntries(columns)
       })
     );
   }
@@ -184,7 +187,7 @@ function validateColumns(
   rows: ShipmentCandidateRow[],
   tableSpec: TargetTableSpec,
   qualified: QualifiedTableName,
-  columns: Set<string>,
+  columns: ReadonlyMap<string, string>,
   incompatibilities: ShipmentPlanIncompatibility[]
 ): void {
   for (const upsertKey of tableSpec.upsertKeys) {
@@ -264,10 +267,10 @@ async function hasTable(client: PgClientLike, qualified: QualifiedTableName): Pr
 async function listColumns(
   client: PgClientLike,
   qualified: QualifiedTableName
-): Promise<Set<string>> {
+): Promise<Map<string, string>> {
   const result = await client.query<TableColumnRow>(
     `
-      select column_name
+      select column_name, data_type, udt_name
       from information_schema.columns
       where table_schema = $1
         and table_name = $2
@@ -275,7 +278,9 @@ async function listColumns(
     [qualified.schema, qualified.table]
   );
 
-  return new Set(result.rows.map((row) => row.column_name));
+  return new Map(
+    result.rows.map((row) => [row.column_name, row.data_type ?? row.udt_name ?? ""])
+  );
 }
 
 function readTablePayload(

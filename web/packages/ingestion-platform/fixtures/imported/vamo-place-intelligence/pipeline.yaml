@@ -1,5 +1,5 @@
 kind: ingestion.pipeline
-version: 2
+version: 3
 id: vamo-place-intelligence
 name: Vamo Place Intelligence
 owner: vamo
@@ -43,7 +43,7 @@ mappings:
   - from: source.name
     to: location_canonicals.name_norm
     transform: lowercase
-  - value: landmark
+  - value: poi
     to: location_canonicals.feature_type
   - from: source.latitude
     to: location_canonicals.latitude

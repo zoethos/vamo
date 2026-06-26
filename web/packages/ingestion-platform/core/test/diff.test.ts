@@ -107,4 +107,35 @@ describe("shipment diff", () => {
 
     assert.equal(result[0]?.operation, "no_op");
   });
+
+  it("uses column type hints for numeric names outside the fallback list", () => {
+    const result = buildShipmentDiff({
+      targetTable: "public.geonames",
+      upsertKeys: ["geonames_id"],
+      candidateRows: [
+        {
+          recordKey: "rome",
+          payload: {
+            geonames_id: "3169070",
+            population: 2873000,
+            elevation: 21
+          }
+        }
+      ],
+      existingRows: [
+        {
+          geonames_id: "3169070",
+          population: "2873000",
+          elevation: "21"
+        }
+      ],
+      columnTypes: {
+        geonames_id: "text",
+        population: "integer",
+        elevation: "numeric"
+      }
+    });
+
+    assert.equal(result[0]?.operation, "no_op");
+  });
 });

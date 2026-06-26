@@ -7,7 +7,10 @@ export interface BuildShipmentDiffInput {
   upsertKeys: string[];
   candidateRows: ShipmentCandidateRow[];
   existingRows: Array<Record<string, unknown>>;
+  columnTypes?: ColumnTypeHints;
 }
+
+export type ColumnTypeHints = Record<string, string | undefined>;
 
 export function buildShipmentDiff(input: BuildShipmentDiffInput): ShipmentPlanItem[] {
   const existingByKey = new Map(
@@ -17,7 +20,7 @@ export function buildShipmentDiff(input: BuildShipmentDiffInput): ShipmentPlanIt
   return input.candidateRows.map((candidate) => {
     const identity = recordIdentity(candidate.payload, input.upsertKeys);
     const existing = existingByKey.get(identity);
-    const checksum = stableChecksum(candidate.payload);
+    const checksum = stableChecksum(candidate.payload, input.columnTypes);
 
     if (!existing) {
       return {
@@ -30,8 +33,12 @@ export function buildShipmentDiff(input: BuildShipmentDiffInput): ShipmentPlanIt
       };
     }
 
-    const previousPayload = pickComparableColumns(existing, Object.keys(candidate.payload));
-    const previousChecksum = stableChecksum(previousPayload);
+    const previousPayload = pickComparableColumns(
+      existing,
+      Object.keys(candidate.payload),
+      input.columnTypes
+    );
+    const previousChecksum = stableChecksum(previousPayload, input.columnTypes);
 
     return {
       targetTable: input.targetTable,
@@ -51,22 +58,30 @@ export function recordIdentity(record: Record<string, unknown>, upsertKeys: stri
     .join("|");
 }
 
-export function stableChecksum(record: Record<string, unknown>): string {
-  return createHash("sha256").update(stableStringify(record)).digest("hex");
+export function stableChecksum(
+  record: Record<string, unknown>,
+  columnTypes?: ColumnTypeHints
+): string {
+  return createHash("sha256").update(stableStringify(record, undefined, columnTypes)).digest("hex");
 }
 
 function pickComparableColumns(
   record: Record<string, unknown>,
-  columns: string[]
+  columns: string[],
+  columnTypes?: ColumnTypeHints
 ): Record<string, unknown> {
   return Object.fromEntries(
-    columns.map((column) => [column, normalizeValue(record[column], column)])
+    columns.map((column) => [column, normalizeValue(record[column], column, columnTypes)])
   );
 }
 
-function stableStringify(value: unknown, key?: string): string {
+function stableStringify(
+  value: unknown,
+  key?: string,
+  columnTypes?: ColumnTypeHints
+): string {
   if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item, key)).join(",")}]`;
+    return `[${value.map((item) => stableStringify(item, key, columnTypes)).join(",")}]`;
   }
 
   if (value instanceof Date) {
@@ -78,29 +93,42 @@ function stableStringify(value: unknown, key?: string): string {
     return `{${Object.keys(record)
       .sort()
       .map((recordKey) => {
-        const normalized = normalizeValue(record[recordKey], recordKey);
-        return `${JSON.stringify(recordKey)}:${stableStringify(normalized, recordKey)}`;
+        const normalized = normalizeValue(record[recordKey], recordKey, columnTypes);
+        return `${JSON.stringify(recordKey)}:${stableStringify(normalized, recordKey, columnTypes)}`;
       })
       .join(",")}}`;
   }
 
-  return JSON.stringify(normalizeValue(value, key));
+  return JSON.stringify(normalizeValue(value, key, columnTypes));
 }
 
-function normalizeValue(value: unknown, key?: string): unknown {
+function normalizeValue(
+  value: unknown,
+  key?: string,
+  columnTypes?: ColumnTypeHints
+): unknown {
   if (value instanceof Date) {
     return value.toISOString();
   }
 
   if (typeof value === "string") {
-    if (key && isTimestampKey(key) && isIsoLikeTimestamp(value)) {
+    const columnType = key ? readColumnType(key, columnTypes) : undefined;
+    if (
+      key &&
+      (isTemporalColumnType(columnType) || isTimestampKey(key)) &&
+      isIsoLikeTimestamp(value)
+    ) {
       const parsed = new Date(value);
       if (!Number.isNaN(parsed.getTime())) {
         return parsed.toISOString();
       }
     }
 
-    if (key && isNumericKey(key) && isNumericString(value)) {
+    if (
+      key &&
+      (isNumericColumnType(columnType) || isNumericKey(key)) &&
+      isNumericString(value)
+    ) {
       return Number(value);
     }
   }
@@ -114,6 +142,28 @@ function isNumericKey(key: string): boolean {
 
 function isTimestampKey(key: string): boolean {
   return /(^|_)(at|date|time)$/i.test(key);
+}
+
+function readColumnType(key: string, columnTypes?: ColumnTypeHints): string | undefined {
+  return columnTypes?.[key]?.toLowerCase();
+}
+
+function isNumericColumnType(columnType?: string): boolean {
+  if (!columnType) {
+    return false;
+  }
+
+  return /^(smallint|integer|bigint|numeric|decimal|real|double precision|float|int2|int4|int8|float4|float8|serial|bigserial)(\b|$)/.test(
+    columnType
+  );
+}
+
+function isTemporalColumnType(columnType?: string): boolean {
+  if (!columnType) {
+    return false;
+  }
+
+  return /^(timestamp|date|time)(\b|$)/.test(columnType);
 }
 
 function isIsoLikeTimestamp(value: string): boolean {
