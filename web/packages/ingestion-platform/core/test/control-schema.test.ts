@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { Client } from "pg";
 
+import { applyPostgresIngestionCommand } from "../src/control-command-api.js";
 import {
   CONTROL_SCHEMA_NAME,
   CONTROL_TABLES,
@@ -35,7 +36,7 @@ describe("ingestion control schema", () => {
   });
 
   it(
-    "applies to disposable Postgres and enforces checkpoint and shipment uniqueness",
+    "applies to disposable Postgres, enforces uniqueness, and applies command mutations",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
     async () => {
       assert.ok(databaseUrl);
@@ -186,6 +187,77 @@ describe("ingestion control schema", () => {
           `,
           [projectId, runId, taskId]
         );
+
+        const leaseId = await insertReturningId(
+          client,
+          `
+            insert into ingestion_platform.ingestion_worker_leases (
+              task_id,
+              worker_id,
+              lease_token,
+              expires_at
+            )
+            values ($1, 'worker-smoke', 'lease-token-smoke', now() + interval '1 minute')
+          `,
+          [taskId]
+        );
+
+        const commandResult = await applyPostgresIngestionCommand({
+          client,
+          projectKey: "demo",
+          command: "shutdown",
+          scope: { type: "target", targetId: String(targetId) },
+          actor: { type: "api", id: "db-smoke" },
+          claimedActorId: "operator-smoke",
+          now: "2026-06-26T12:00:00.000Z"
+        });
+
+        assert.equal(commandResult.ok, true);
+        assert.deepEqual(commandResult.appliedTaskPatchIds, [String(taskId)]);
+        assert.deepEqual(commandResult.appliedLeasePatchIds, [String(leaseId)]);
+
+        const commandRows = await client.query<{
+          task_status: string;
+          lease_status: string;
+          release_reason: string | null;
+          actor_type: string;
+          actor_id: string | null;
+          payload: {
+            accepted?: boolean;
+            claimedActorId?: string;
+            appliedTaskPatchIds?: string[];
+            appliedLeasePatchIds?: string[];
+          };
+        }>(
+          `
+            select
+              task.status as task_status,
+              lease.status as lease_status,
+              lease.release_reason,
+              audit.actor_type,
+              audit.actor_id,
+              audit.payload
+            from ingestion_platform.ingestion_tasks task
+            join ingestion_platform.ingestion_worker_leases lease
+              on lease.task_id = task.id
+            join ingestion_platform.ingestion_audit_log audit
+              on audit.project_id = task.project_id
+            where task.id = $1
+              and audit.action = 'ingestion.shutdown'
+          `,
+          [taskId]
+        );
+        const commandRow = commandRows.rows[0];
+        assert.ok(commandRow);
+        assert.equal(commandRow.task_status, "paused");
+        assert.equal(commandRow.lease_status, "released");
+        assert.equal(commandRow.release_reason, "operator_shutdown");
+        assert.equal(commandRow.actor_type, "api");
+        assert.equal(commandRow.actor_id, "db-smoke");
+        assert.equal(commandRow.payload.accepted, true);
+        assert.equal(commandRow.payload.claimedActorId, "operator-smoke");
+        assert.deepEqual(commandRow.payload.appliedTaskPatchIds, [String(taskId)]);
+        assert.deepEqual(commandRow.payload.appliedLeasePatchIds, [String(leaseId)]);
 
         const shipmentId = await insertReturningId(
           client,

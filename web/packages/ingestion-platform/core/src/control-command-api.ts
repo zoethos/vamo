@@ -137,7 +137,7 @@ export async function applyPostgresIngestionCommand(
       staleTaskPatchIds.length === 0 &&
       staleLeasePatchIds.length === 0;
 
-    await insertAuditEvent(client, plan.auditEvent, {
+    await insertAuditEvent(client, project.id, plan.auditEvent, {
       ...plan.auditEvent.payload,
       accepted: ok,
       appliedTaskPatchIds,
@@ -326,6 +326,7 @@ async function applyLeasePatch(
 
 async function insertAuditEvent(
   client: ControlCommandPgClientLike,
+  projectId: string,
   event: IngestionCommandAuditEvent,
   payload: Record<string, unknown>
 ): Promise<void> {
@@ -342,8 +343,8 @@ async function insertAuditEvent(
         payload,
         created_at
       )
-      select
-        projects.id,
+      values (
+        $1::bigint,
         $2,
         $3,
         $4,
@@ -352,11 +353,10 @@ async function insertAuditEvent(
         $7,
         $8::jsonb,
         $9::timestamptz
-      from ingestion_platform.ingestion_projects projects
-      where projects.project_key = $1
+      )
     `,
     [
-      event.projectId,
+      projectId,
       event.actorType,
       event.actorId ?? null,
       event.action,

@@ -118,12 +118,17 @@ async function applyCommand(input: {
       })
     };
   } catch (error) {
+    const isProjectNotFound = error instanceof Error && error.message.includes("project was not found");
+    if (!isProjectNotFound) {
+      console.error("Ingestion command API failed", error);
+    }
+
     return {
       ok: false,
-      status: error instanceof Error && error.message.includes("project was not found") ? 404 : 500,
+      status: isProjectNotFound ? 404 : 500,
       body: {
         ok: false,
-        error: error instanceof Error ? error.message : "Ingestion command failed."
+        error: isProjectNotFound ? "Ingestion project not found." : "Ingestion command failed."
       }
     };
   }
