@@ -126,6 +126,58 @@ describe("postgres ingestion command API", () => {
     assert.equal(client.audits[0]?.payload.accepted, false);
     assert.deepEqual(client.audits[0]?.payload.staleTaskPatchIds, ["100"]);
   });
+
+  it("accepts idempotent no-op commands and records skipped tasks", async () => {
+    const client = new MemoryControlClient({
+      tasks: [
+        task("100", "10", "running"),
+        task("101", "10", "running")
+      ]
+    });
+
+    const result = await applyPostgresIngestionCommand({
+      client,
+      projectKey: "vamo",
+      command: "start",
+      scope: { type: "target", targetId: "10" },
+      actor,
+      now
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.appliedTaskPatchIds.length, 0);
+    assert.equal(result.plan.skipped.length, 2);
+    assert.equal(client.task("100").status, "running");
+    assert.equal(client.audits[0]?.payload.accepted, true);
+    assert.equal(client.audits[0]?.payload.errors.length, 0);
+    assert.equal(client.audits[0]?.payload.skipped.length, 2);
+  });
+
+  it("applies partial success and leaves transition errors in the audit payload", async () => {
+    const client = new MemoryControlClient({
+      tasks: [
+        task("100", "10", "running"),
+        task("101", "10", "succeeded")
+      ]
+    });
+
+    const result = await applyPostgresIngestionCommand({
+      client,
+      projectKey: "vamo",
+      command: "pause",
+      scope: { type: "target", targetId: "10" },
+      actor,
+      now
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.appliedTaskPatchIds, ["100"]);
+    assert.equal(client.task("100").status, "paused");
+    assert.equal(client.task("101").status, "succeeded");
+    assert.equal(client.audits[0]?.payload.accepted, true);
+    assert.equal(client.audits[0]?.payload.errors[0]?.code, "invalid_transition");
+    assert.equal(client.audits[0]?.payload.errors[0]?.taskId, "101");
+  });
 });
 
 interface MemoryTask {

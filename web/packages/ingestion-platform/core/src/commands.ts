@@ -126,19 +126,21 @@ export function planIngestionCommand(
   const changedTaskIds = new Set(taskPatches.map((patch) => patch.taskId));
   const leasePatches = planLeasePatches(snapshot, input, selectedTaskIds, changedTaskIds);
 
-  if (taskPatches.length === 0 && leasePatches.length === 0 && errors.length === 0) {
+  if (
+    taskPatches.length === 0 &&
+    leasePatches.length === 0 &&
+    skipped.length === 0 &&
+    errors.length === 0
+  ) {
     errors.push({
       code: "no_eligible_tasks",
       message: "Command scope matched tasks, but none were eligible for the requested transition."
     });
   }
 
-  const blockingErrors = input.command === "reset"
-    ? errors.filter((error) => error.code === "reset_reason_required")
-    : errors.filter((error) => error.code !== "reset_required");
-  const ok = taskPatches.length > 0 || leasePatches.length > 0
-    ? blockingErrors.length === 0
-    : false;
+  const changed = taskPatches.length > 0 || leasePatches.length > 0;
+  const benignNoop = !changed && skipped.length > 0 && errors.length === 0;
+  const ok = changed || benignNoop;
 
   return buildPlan(snapshot, input, taskPatches, leasePatches, skipped, errors, ok);
 }
