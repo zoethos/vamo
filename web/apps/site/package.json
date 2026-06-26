@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm --workspace @vamo/ingestion-platform run build",
     "dev": "next dev --port 4373",
+    "prebuild": "npm --workspace @vamo/ingestion-platform run build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
