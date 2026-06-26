@@ -620,3 +620,158 @@ Keep the next implementation slice narrow:
 
 That gives us the platform spine without prematurely wiring real external
 sources, real provider traffic, or production target writes.
+
+## 17. Embeddable Product Strategy
+
+The larger product opportunity is not only a standalone ingestion app. It is an
+ingestion and caching control plane that can extend another product's existing
+admin dashboard.
+
+The platform should support three integration modes:
+
+1. **Embedded console package**: a React/Next module or web component that a
+   product team can mount inside its existing admin portal.
+2. **Hosted console**: a separate operator console for teams that do not have an
+   admin dashboard yet.
+3. **Headless control API**: APIs and webhooks for teams that want to build their
+   own console but reuse the worker, policy, checkpoint, and shipment engine.
+
+Commercial packaging should follow that boundary:
+
+| Package | Customer value |
+| --- | --- |
+| Open-core worker runtime | Trust, self-hosting, and local control of source/target credentials. |
+| Embedded admin console | Fast adoption inside an existing internal tool. |
+| Managed control plane | Hosted scheduling, audit, telemetry, and approval workflow. |
+| Premium adapters | High-value sources, target engines, policy packs, and vertical templates. |
+| Compliance/audit layer | Shipment approvals, immutable logs, attribution reports, and retention proof. |
+
+The product should feel like an installable subsystem:
+
+```text
+npm install @ingestion-platform/admin-console
+docker compose up worker control-api
+ingestion validate pipeline.yaml
+ingestion dry-run --target staging
+```
+
+The core promise:
+
+> Give us a schema and source policy, and we will build a governed product cache
+> into your database with checkpoints, telemetry, and safe shipment.
+
+## 18. Market Wedge
+
+The market is real, but the wedge is narrow. Do not compete head-on with broad
+data movement vendors.
+
+The giants and strong incumbents are already excellent at generic replication,
+ELT, warehouse ingestion, CDC, and connector catalogs:
+
+- Airbyte positions around moving data from hundreds of sources into warehouses,
+  lakes, databases, and AI contexts.
+- Fivetran positions around automated pipelines from hundreds of sources into
+  destinations.
+- Meltano positions around open-source DataOps and ELT project workflows.
+- Estuary positions around low-latency CDC, batch, streaming, ETL/ELT, and app
+  syncs.
+
+The white space is between those platforms and a startup's product backend:
+
+| Incumbent lane | White-space lane |
+| --- | --- |
+| Analytics replication | Product-ready operational cache |
+| Data warehouse/lake destination | App database destination |
+| Data team buyer | Founder/product/backend buyer |
+| Connector catalog first | Policy, promotion, and target shipment first |
+| External dashboard | Embeddable admin extension |
+| Move raw data reliably | Turn messy source facts into governed app records |
+| Sync state | Explainable checkpoints, attribution, and restart controls |
+
+The best starting segment is not enterprise data teams. It is teams building
+AI-heavy, marketplace, travel, local search, commerce, real estate, recruiting,
+or vertical SaaS products where their app needs external/public/provider data as
+a durable internal cache.
+
+Likely early buyers:
+
+- Startups using Supabase/Postgres that need external data in their product DB.
+- Teams building local/POI/search-like products that must respect source policy.
+- AI product teams that need curated product context, not a warehouse dump.
+- Marketplaces enriching supply, venues, listings, vendors, or geographies.
+- Internal tools teams that need ingestion visibility without buying a full data
+  platform.
+
+This product should not claim to replace Airbyte, Fivetran, Meltano, or Estuary.
+It should claim the thing they are not optimized for:
+
+> Governed ingestion into the product database, with cache policy, promotion,
+> attribution, checkpoints, and an embeddable operator console.
+
+## 19. Differentiation Requirements
+
+To make the wedge defensible, the first standalone version needs clear
+differentiators:
+
+1. **Schema-first product cache**: the user supplies a target product schema, not
+   only a destination warehouse.
+2. **Policy-aware storage**: cache rights, retention, attribution, media storage,
+   and live-only sources are executable gates.
+3. **Promotion workflow**: staged facts become canonical records only through
+   trusted-source, corroboration, collision, or review rules.
+4. **Target shipment ledger**: every row shipped to staging or production has an
+   idempotency key, checksum, result, and replay state.
+5. **Embeddable admin**: the control plane drops into the customer's existing
+   admin console.
+6. **Startup-native Postgres/Supabase path**: first-class support for the app
+   database patterns startups already use.
+7. **AI-assisted but policy-bound**: AI can map schemas, propose resolutions, and
+   enrich metadata, but cannot bypass source policy or promotion gates.
+
+## 20. Go-To-Market Shape
+
+The first sale should be a narrow template, not a generic platform pitch.
+
+Recommended beachhead:
+
+```text
+External/public data -> governed cache -> Postgres/Supabase app DB
+```
+
+Example vertical templates:
+
+- Places and POIs.
+- Vendor/listing enrichment.
+- Product catalog enrichment.
+- Job/company/location enrichment.
+- Public registry ingestion.
+- AI context cache for a vertical app.
+
+Pricing can start as:
+
+- Free self-hosted core.
+- Paid embedded console and managed control plane.
+- Paid premium source/target adapters.
+- Paid production shipment approvals and audit/compliance reports.
+- Later: managed workers priced by run volume, row volume, or target projects.
+
+The first public positioning should avoid "scraping" as the headline. Better:
+
+- "Embeddable ingestion control plane for product databases."
+- "Policy-aware product cache for Postgres and Supabase."
+- "Turn external data into governed app records."
+
+## 21. Product Risks
+
+The idea is marketable, but only if these risks are controlled:
+
+- **Too broad too early**: a connector marketplace would put us directly against
+  mature incumbents. Start with product-cache workflows.
+- **Compliance ambiguity**: no rotating proxy/evasion story. The product must
+  be explicit about source rights, attribution, retention, and policy blocks.
+- **Integration burden**: embedded admin only works if setup is easy: spec,
+  Docker, target adapter, one route/component.
+- **Trust boundary**: customers will be cautious with target DB credentials.
+  Self-hosted workers and customer-owned secrets should be the default.
+- **Hard-to-explain category**: the phrase "ETL" pulls buyers into the wrong
+  comparison set. Use "product cache" and "embeddable ingestion control plane."
