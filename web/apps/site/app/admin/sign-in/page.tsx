@@ -104,6 +104,8 @@ function readableError(error: string): string {
       return "The sign-in link could not be verified. Request a new link.";
     case "send_failed":
       return "The sign-in link could not be sent. Check the email address and try again.";
+    case "rate_limited":
+      return "Too many sign-in links were requested. Wait a little, then try again.";
     case "not_authenticated":
       return "Sign in before opening the admin console.";
     default:

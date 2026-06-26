@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return redirectToSignIn(request, { error: "send_failed", next });
+    const errorCode = signInRequestErrorCode(error);
+    console.warn("Admin magic-link request failed", summarizeAuthError(error));
+    return redirectToSignIn(request, { error: errorCode, next });
   }
 
   return redirectToSignIn(request, { sent: "1", email, next });
@@ -54,4 +56,50 @@ function normalizeNextPath(value: string | undefined): string {
     return "/admin/ingestion";
   }
   return value;
+}
+
+function signInRequestErrorCode(error: unknown): string {
+  if (isAuthRateLimit(error)) {
+    return "rate_limited";
+  }
+  return "send_failed";
+}
+
+function isAuthRateLimit(error: unknown): boolean {
+  const status = authErrorStatus(error);
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  const code = authErrorCode(error)?.toLowerCase() ?? "";
+  return (
+    status === 429 ||
+    code.includes("rate") ||
+    message.includes("rate limit") ||
+    message.includes("too many")
+  );
+}
+
+function summarizeAuthError(error: unknown): Record<string, string | number> {
+  const status = authErrorStatus(error);
+  const code = authErrorCode(error);
+  const message = error instanceof Error ? error.message : "Unknown auth error";
+  return {
+    ...(typeof status === "number" ? { status } : {}),
+    ...(code ? { code } : {}),
+    message,
+  };
+}
+
+function authErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const status = (error as { status?: unknown }).status;
+  return typeof status === "number" ? status : undefined;
+}
+
+function authErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
