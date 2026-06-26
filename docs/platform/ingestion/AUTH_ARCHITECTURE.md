@@ -151,6 +151,28 @@ TOTP is the preferred first factor type because it is widely supported and does
 not add SMS delivery cost or carrier risk. Phone MFA can be added later if
 needed for operator convenience.
 
+### Authenticator app compatibility
+
+TOTP is an open standard (RFC 6238), so there is nothing app-specific to build or
+integrate. A single Supabase MFA TOTP enrollment (an `otpauth://` QR plus a manual
+secret) is read by any authenticator app — Google Authenticator, Microsoft
+Authenticator, Authy, 1Password, Bitwarden, Apple Passwords, and others are
+interchangeable. The enrollment screen presents the QR and the manual key and
+names a few common apps rather than locking to one: we support the standard, the
+operator picks the app.
+
+### First-factor login vs. MFA (SSO note)
+
+"Sign in with Google/Microsoft" is OAuth/OIDC **login** — the first factor
+(`aal1`) — not MFA. Supabase supports Google and Azure (Microsoft) as OAuth
+providers, mostly by configuration. The load-bearing interaction: an external
+identity provider's own 2FA does **not** raise Supabase's AAL. A session that
+logged in via Google is still `aal1` to Supabase, so a Supabase-enrolled factor
+(TOTP) is still required to reach the `aal2` that mutation commands demand. SSO
+replaces the password, not the second factor. For P0, magic-link login is
+simplest; Google/Microsoft SSO is a later convenience, never a substitute for
+enrolled MFA.
+
 For destructive reset, `aal2` alone is not enough because the user may have
 completed MFA hours earlier. The reset flow should force a fresh challenge and
 accept it only within a short server-defined window, for example five minutes.
@@ -377,6 +399,8 @@ prefix.
   mode detection or moves to `/api/admin/ingestion/machine-commands`.
 - Whether the standalone platform ships a Supabase adapter first and generic
   OIDC/JWT adapters second, or defines the generic adapter before extraction.
+- Whether to offer Google/Microsoft SSO login as a first-factor convenience, and
+  when — deferred past the P0 gate, and never in place of enrolled MFA for `aal2`.
 
 ## References
 
