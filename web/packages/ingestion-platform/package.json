@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./core": "./dist/core/src/index.js",
     "./spec": "./dist/spec/src/index.js",
     "./package.json": "./package.json"
   },
@@ -17,6 +18,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.20.0",
+    "pg": "8.22.0",
     "typescript": "^5.7.0"
   }
 }

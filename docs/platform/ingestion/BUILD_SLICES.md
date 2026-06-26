@@ -122,6 +122,8 @@ Definition of done:
 
 ## Slice IP-02 - Platform Control Schema Draft
 
+Status: done.
+
 Goal: model the platform-control database without tying it to Vamo product
 tables.
 
