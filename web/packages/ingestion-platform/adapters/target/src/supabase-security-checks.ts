@@ -1,5 +1,6 @@
 import type { DataApiPrivilege, TargetProjectSpec } from "../../../spec/src/types.js";
 import type { PgClientLike } from "./postgres-dry-run.js";
+import { parseTableName, type QualifiedTableName } from "./table-name.js";
 
 export type SupabaseSecurityFindingCode =
   | "not_supabase_postgres_target"
@@ -23,12 +24,6 @@ export interface SupabaseSecurityFinding {
 export interface InspectSupabaseTargetSecurityInput {
   target: TargetProjectSpec;
   client: PgClientLike;
-}
-
-interface QualifiedTableName {
-  schema: string;
-  table: string;
-  displayName: string;
 }
 
 interface RlsStateRow extends Record<string, unknown> {
@@ -193,20 +188,4 @@ async function hasExplicitTableGrant(
   );
 
   return result.rows[0]?.hasGrant === true;
-}
-
-function parseTableName(table: string): QualifiedTableName {
-  const parts = table.split(".");
-  const schema = parts.length === 2 ? parts[0] : "public";
-  const tableName = parts.length === 2 ? parts[1] : parts[0];
-
-  if (!schema || !tableName) {
-    throw new Error(`Invalid target table name: ${table}`);
-  }
-
-  return {
-    schema,
-    table: tableName,
-    displayName: parts.length === 2 ? `${schema}.${tableName}` : tableName
-  };
 }

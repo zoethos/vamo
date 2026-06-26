@@ -222,10 +222,18 @@ function parseTable(
     errors.shape(`${path}.mode`, 'Expected "insert", "upsert", or "merge".');
   }
 
+  const upsertKeys = optionalStringArray(record, "upsertKeys", `${path}.upsertKeys`, errors);
+  if (upsertKeys.length === 0) {
+    errors.shape(
+      `${path}.upsertKeys`,
+      "At least one upsert key is required for deterministic dry-run identity."
+    );
+  }
+
   return {
     table: requireString(record, "table", `${path}.table`, errors) ?? "",
     mode: mode === "merge" ? "merge" : mode === "insert" ? "insert" : "upsert",
-    upsertKeys: optionalStringArray(record, "upsertKeys", `${path}.upsertKeys`, errors)
+    upsertKeys
   };
 }
 

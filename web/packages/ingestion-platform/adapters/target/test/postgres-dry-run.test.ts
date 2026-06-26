@@ -143,10 +143,63 @@ describe(
       assert.equal(plan.incompatibilities[0]?.code, "missing_upsert_key");
       assert.equal(await rowCount(client), 0);
     });
+
+    it("reports insert-only key collisions instead of planning updates", async () => {
+      await client.query(
+        `
+          insert into dry_run_target.generic_places (source_id, display_name, category)
+          values ('colosseum', 'Old Name', 'landmark')
+        `
+      );
+
+      const plan = await planPostgresDryRun({
+        client,
+        target: targetSpec({ mode: "insert" }),
+        candidates: [
+          candidate("colosseum", {
+            source_id: "colosseum",
+            display_name: "Colosseum",
+            category: "landmark"
+          })
+        ]
+      });
+
+      assert.equal(plan.compatible, false);
+      assert.equal(plan.items.length, 0);
+      assert.equal(plan.incompatibilities[0]?.code, "insert_conflict");
+      assert.equal(await rowCount(client), 1);
+    });
+
+    it("reports merge mode as unsupported until merge semantics exist", async () => {
+      const plan = await planPostgresDryRun({
+        client,
+        target: targetSpec({ mode: "merge" }),
+        candidates: [
+          candidate("colosseum", {
+            source_id: "colosseum",
+            display_name: "Colosseum"
+          })
+        ]
+      });
+
+      assert.equal(plan.compatible, false);
+      assert.equal(plan.items.length, 0);
+      assert.equal(plan.incompatibilities[0]?.code, "unsupported_table_mode");
+      assert.equal(await rowCount(client), 0);
+    });
   }
 );
 
-function targetSpec(table = "dry_run_target.generic_places"): TargetProjectSpec {
+interface TargetSpecOverrides {
+  table?: string;
+  mode?: "insert" | "upsert" | "merge";
+}
+
+function targetSpec(overrides: TargetSpecOverrides | string = {}): TargetProjectSpec {
+  const options = typeof overrides === "string" ? { table: overrides } : overrides;
+  const table = options.table ?? "dry_run_target.generic_places";
+  const mode = options.mode ?? "upsert";
+
   return {
     normalizedSpecVersion: 1,
     kind: "ingestion.target",
@@ -174,7 +227,7 @@ function targetSpec(table = "dry_run_target.generic_places"): TargetProjectSpec 
       tables: [
         {
           table,
-          mode: "upsert",
+          mode,
           upsertKeys: ["source_id"]
         }
       ]

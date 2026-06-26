@@ -1,6 +1,6 @@
 import { Client, type QueryResult } from "pg";
 
-import { buildShipmentDiff } from "../../../core/src/diff.js";
+import { buildShipmentDiff, recordIdentity } from "../../../core/src/diff.js";
 import type { StagedCandidate } from "../../../core/src/pipeline-runner.js";
 import type {
   ShipmentCandidateRow,
@@ -8,6 +8,11 @@ import type {
   ShipmentPlanIncompatibility
 } from "../../../core/src/shipment-plan.js";
 import type { TargetProjectSpec, TargetTableSpec } from "../../../spec/src/types.js";
+import {
+  parseTableName,
+  quoteIdentifier,
+  type QualifiedTableName
+} from "./table-name.js";
 
 export interface PostgresDryRunInput {
   target: TargetProjectSpec;
@@ -21,12 +26,6 @@ export interface PgClientLike {
     sql: string,
     values?: unknown[]
   ): Promise<QueryResult<T>>;
-}
-
-interface QualifiedTableName {
-  schema: string;
-  table: string;
-  displayName: string;
 }
 
 interface TableColumnRow extends Record<string, unknown> {
@@ -67,6 +66,15 @@ async function buildPlan(
 
   for (const tableSpec of target.shipment.tables) {
     const qualified = parseTableName(tableSpec.table);
+    if (tableSpec.mode === "merge") {
+      incompatibilities.push({
+        code: "unsupported_table_mode",
+        table: qualified.displayName,
+        message: `Target table "${qualified.displayName}" uses merge mode, which is not supported by dry-run shipment yet.`
+      });
+      continue;
+    }
+
     const tableExists = await hasTable(client, qualified);
     if (!tableExists) {
       incompatibilities.push({
@@ -87,6 +95,27 @@ async function buildPlan(
     }
 
     const existingRows = await loadExistingRows(client, qualified, tableSpec.upsertKeys, tableRows);
+    if (tableSpec.mode === "insert") {
+      const existingByKey = new Set(
+        existingRows.map((row) => recordIdentity(row, tableSpec.upsertKeys))
+      );
+      const conflictingRows = tableRows.filter((row) =>
+        existingByKey.has(recordIdentity(row.payload, tableSpec.upsertKeys))
+      );
+
+      if (conflictingRows.length > 0) {
+        incompatibilities.push(
+          ...conflictingRows.map((row) => ({
+            code: "insert_conflict" as const,
+            table: qualified.displayName,
+            recordKey: row.recordKey,
+            message: `Candidate "${row.recordKey}" already exists in insert-only target table "${qualified.displayName}".`
+          }))
+        );
+        continue;
+      }
+    }
+
     items.push(
       ...buildShipmentDiff({
         targetTable: qualified.displayName,
@@ -254,26 +283,6 @@ function readTablePayload(
   qualified: QualifiedTableName
 ): unknown {
   return payload[qualified.displayName] ?? payload[qualified.table];
-}
-
-function parseTableName(table: string): QualifiedTableName {
-  const parts = table.split(".");
-  const schema = parts.length === 2 ? parts[0] : "public";
-  const tableName = parts.length === 2 ? parts[1] : parts[0];
-
-  if (!schema || !tableName) {
-    throw new Error(`Invalid target table name: ${table}`);
-  }
-
-  return {
-    schema,
-    table: tableName,
-    displayName: parts.length === 2 ? `${schema}.${tableName}` : tableName
-  };
-}
-
-function quoteIdentifier(identifier: string): string {
-  return `"${identifier.replaceAll('"', '""')}"`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

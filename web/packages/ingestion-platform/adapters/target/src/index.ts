@@ -16,3 +16,8 @@ export {
   type SupabaseSecurityFinding,
   type SupabaseSecurityFindingCode
 } from "./supabase-security-checks.js";
+export {
+  parseTableName,
+  quoteIdentifier,
+  type QualifiedTableName
+} from "./table-name.js";

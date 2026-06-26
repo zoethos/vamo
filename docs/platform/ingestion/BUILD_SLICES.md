@@ -471,6 +471,11 @@ Files:
 Behavior:
 
 - Map source candidate fields into Vamo place-intelligence target tables.
+- Express required target keys that are not direct source fields, including the
+  provider `source` constant and a deterministic `canonical_key` derivation.
+- Dry-run against a Postgres schema fixture that mirrors the Vamo
+  `place_intelligence_cache` tables, including numeric latitude/longitude
+  columns.
 - Validate PII firewall rules.
 - Validate Google live-only policy.
 - Produce a dry-run shipment diff for Vamo staging shape.
@@ -480,6 +485,10 @@ Acceptance criteria:
 - Vamo profile can be validated by IP-01 spec parser.
 - Vamo profile can run through fixture source adapter.
 - Vamo profile produces a Postgres/Supabase dry-run plan.
+- Existing Vamo numeric/timestamp values compare as no-ops when semantically
+  equal to candidate values.
+- The imported Vamo contract fixture catches missing computed/constant upsert
+  keys before shipment.
 - No cloud staging write until explicit green light.
 
 ## Slice IP-10 - First Real Open Dataset Source

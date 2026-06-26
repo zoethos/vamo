@@ -16,6 +16,8 @@ export interface ShipmentPlanIncompatibility {
     | "missing_column"
     | "missing_upsert_key"
     | "invalid_table_payload"
+    | "insert_conflict"
+    | "unsupported_table_mode"
     | "target_query_failed";
   table: string;
   column?: string;

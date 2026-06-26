@@ -229,4 +229,36 @@ shipment:
       assert.deepEqual(result.value.security.dataApiPrivileges, ["select"]);
     }
   });
+
+  it("rejects target tables without deterministic upsert keys", () => {
+    const result = parseTargetProjectSpec(`
+kind: ingestion.target
+version: 1
+id: missing-keys-target
+name: Missing Keys Target
+adapter: postgres
+engine:
+  type: postgres
+  dsnEnv: DATABASE_URL
+  exposeServiceRoleToBrowser: false
+security:
+  serverSideOnly: true
+  forbidBrowserServiceRole: true
+  requireRlsOnExposedSchemas: false
+  exposedSchemas: []
+  writeMode: dry_run
+shipment:
+  defaultMode: dry_run
+  tables:
+    - table: public.generic_places
+      mode: upsert
+      upsertKeys: []
+`);
+
+    assert.equal(result.ok, false);
+    assert.equal(
+      result.errors.some((error) => error.path === "shipment.tables[0].upsertKeys"),
+      true
+    );
+  });
 });
