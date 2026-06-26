@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { readFixtureBatch, type FixtureSourceIssue } from "../../adapters/source/src/fixture-source.js";
+import { readSnapshotBatch, type SnapshotSourceIssue } from "../../adapters/source/src/snapshot-source.js";
 import { evaluateRecordPolicy, hasPolicyDenial, type PolicyEvaluation } from "../../policy/src/index.js";
 import type { FieldMappingSpec, PipelineSpec } from "../../spec/src/types.js";
 
@@ -54,6 +55,28 @@ export interface RunFixturePipelineInput {
   fixtureRoot?: string;
 }
 
+export interface RunSourcePipelineInput {
+  pipeline: PipelineSpec;
+  batchSize: number;
+  checkpoint?: PipelineCheckpoint;
+  sourceRoot?: string;
+}
+
+interface SourceBatchRecord {
+  lineNumber: number;
+  record: Record<string, unknown>;
+  recordKey: string;
+  cursorValue: string | number;
+}
+
+interface SourceBatch {
+  records: SourceBatchRecord[];
+  issues: Array<FixtureSourceIssue | SnapshotSourceIssue>;
+  lastCursorValue?: string | number;
+  sourceLabel: string;
+  checkpointScopeDefault: string;
+}
+
 interface MappingResult {
   payload: Record<string, unknown>;
   errors: Array<{
@@ -68,19 +91,17 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
     throw new Error(`Unsupported source adapter for fixture runner: ${input.pipeline.source.adapter}`);
   }
 
-  const fixturePath = input.pipeline.source.connection?.fixturePath;
-  if (typeof fixturePath !== "string" || fixturePath.trim().length === 0) {
-    throw new Error("Fixture pipeline source must define source.connection.fixturePath.");
-  }
-
-  const startAfter = input.checkpoint?.cursorValue.last;
-  const batch = readFixtureBatch({
-    fixturePath,
-    rootDir: input.fixtureRoot,
-    cursorField: input.pipeline.cursor.field,
-    startAfter,
-    limit: input.batchSize
+  return runSourcePipeline({
+    pipeline: input.pipeline,
+    batchSize: input.batchSize,
+    checkpoint: input.checkpoint,
+    sourceRoot: input.fixtureRoot
   });
+}
+
+export async function runSourcePipeline(input: RunSourcePipelineInput): Promise<PipelineRunResult> {
+  const startAfter = input.checkpoint?.cursorValue.last;
+  const batch = readPipelineBatch(input, startAfter);
   const candidates: StagedCandidate[] = [];
   const policyEvaluations: PolicyEvaluation[] = [];
   const deadLetters: DeadLetter[] = batch.issues.map(toDeadLetter);
@@ -88,9 +109,10 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
     {
       eventType: "batch_started",
       severity: "info",
-      message: "Fixture batch started.",
+      message: `${batch.sourceLabel} batch started.`,
       payload: {
         pipelineId: input.pipeline.id,
+        sourceAdapter: input.pipeline.source.adapter,
         batchSize: input.batchSize,
         startAfter
       }
@@ -122,10 +144,11 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
         eventType: "policy_blocked",
         severity: "warn",
         signal: evaluations.find((evaluation) => evaluation.decision === "deny")?.reasonCode,
-        message: "Fixture row was blocked by policy.",
+        message: `${batch.sourceLabel} row was blocked by policy.`,
         payload: {
           recordKey: row.recordKey,
-          lineNumber: row.lineNumber
+          lineNumber: row.lineNumber,
+          sourceAdapter: input.pipeline.source.adapter
         }
       });
       continue;
@@ -169,17 +192,18 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
     events.push({
       eventType: "candidate_staged",
       severity: "info",
-      message: "Fixture row staged as candidate.",
+      message: `${batch.sourceLabel} row staged as candidate.`,
       payload: {
         recordKey: row.recordKey,
-        lineNumber: row.lineNumber
+        lineNumber: row.lineNumber,
+        sourceAdapter: input.pipeline.source.adapter
       }
     });
   }
 
   const lastRecord = batch.records.at(-1);
   const checkpoint: PipelineCheckpoint = {
-    cursorScope: input.pipeline.cursor.field ?? "fixture_line",
+    cursorScope: input.pipeline.cursor.field ?? batch.checkpointScopeDefault,
     cursorStrategy: input.pipeline.cursor.strategy,
     cursorValue: {
       last: batch.lastCursorValue ?? input.checkpoint?.cursorValue.last
@@ -191,7 +215,7 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
   events.push({
     eventType: "checkpoint_committed",
     severity: "info",
-    message: "Fixture checkpoint committed.",
+    message: `${batch.sourceLabel} checkpoint committed.`,
     payload: {
       cursorScope: checkpoint.cursorScope,
       cursorValue: checkpoint.cursorValue,
@@ -201,7 +225,7 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
   events.push({
     eventType: "batch_completed",
     severity: "info",
-    message: "Fixture batch completed.",
+    message: `${batch.sourceLabel} batch completed.`,
     payload: {
       candidateCount: candidates.length,
       deadLetterCount: deadLetters.length,
@@ -216,6 +240,64 @@ export async function runFixturePipeline(input: RunFixturePipelineInput): Promis
     deadLetters,
     checkpoint
   };
+}
+
+function readPipelineBatch(
+  input: RunSourcePipelineInput,
+  startAfter?: string | number
+): SourceBatch {
+  const fixturePath = input.pipeline.source.connection?.fixturePath;
+  if (input.pipeline.source.adapter === "fixture") {
+    if (typeof fixturePath !== "string" || fixturePath.trim().length === 0) {
+      throw new Error("Fixture pipeline source must define source.connection.fixturePath.");
+    }
+
+    const batch = readFixtureBatch({
+      fixturePath,
+      rootDir: input.sourceRoot,
+      cursorField: input.pipeline.cursor.field,
+      startAfter,
+      limit: input.batchSize
+    });
+    return {
+      ...batch,
+      sourceLabel: "Fixture",
+      checkpointScopeDefault: "fixture_line"
+    };
+  }
+
+  if (input.pipeline.source.adapter === "snapshot") {
+    const connection = input.pipeline.source.connection ?? {};
+    const snapshotPath = connection.snapshotPath ?? connection.path;
+    if (typeof snapshotPath !== "string" || snapshotPath.trim().length === 0) {
+      throw new Error("Snapshot pipeline source must define source.connection.snapshotPath.");
+    }
+
+    const batch = readSnapshotBatch({
+      snapshotPath,
+      rootDir: input.sourceRoot,
+      format: readSnapshotFormat(connection.format),
+      connection,
+      cursorField: input.pipeline.cursor.field,
+      startAfter,
+      limit: input.batchSize,
+      metadata: {
+        datasetId: input.pipeline.source.id,
+        datasetName: input.pipeline.source.name,
+        licenseName: input.pipeline.source.license.name,
+        attribution: input.pipeline.source.license.attribution,
+        datasetUrl: input.pipeline.source.license.url,
+        downloadedAt: readOptionalString(connection.downloadedAt)
+      }
+    });
+    return {
+      ...batch,
+      sourceLabel: "Snapshot",
+      checkpointScopeDefault: "snapshot_line"
+    };
+  }
+
+  throw new Error(`Unsupported source adapter for pipeline runner: ${input.pipeline.source.adapter}`);
 }
 
 export function mapRecord(
@@ -261,7 +343,7 @@ export function mapRecord(
   };
 }
 
-function toDeadLetter(issue: FixtureSourceIssue): DeadLetter {
+function toDeadLetter(issue: FixtureSourceIssue | SnapshotSourceIssue): DeadLetter {
   return {
     sourceLineNumber: issue.lineNumber,
     reasonCode: issue.reasonCode,
@@ -270,6 +352,18 @@ function toDeadLetter(issue: FixtureSourceIssue): DeadLetter {
       rawLine: issue.rawLine
     }
   };
+}
+
+function readSnapshotFormat(value: unknown): string | undefined {
+  if (value === undefined || value === "jsonl") {
+    return value;
+  }
+
+  return String(value);
+}
+
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function applyTransform(

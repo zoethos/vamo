@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { parsePipelineSpec } from "../../spec/src/index.js";
 import {
-  runFixturePipeline,
+  runSourcePipeline,
   type IngestionEvent,
   type PipelineCheckpoint
 } from "./pipeline-runner.js";
@@ -18,7 +18,7 @@ export type WorkerExitStatus =
 
 export interface WorkerHarnessConfig {
   pipelinePath: string;
-  fixtureRoot?: string;
+  sourceRoot?: string;
   stateDir: string;
   workerId: string;
   batchSize: number;
@@ -97,7 +97,7 @@ export async function runWorkerHarness(
   await appendWorkerEvent(stateDir, config.workerId, now(), {
     eventType: "worker_started",
     severity: "info",
-    message: "Fixture worker started.",
+    message: "Ingestion worker started.",
     payload: {
       pipelineId: pipeline.id,
       batchSize: config.batchSize
@@ -107,7 +107,7 @@ export async function runWorkerHarness(
     eventType: "task_claimed",
     severity: "info",
     signal: "worker_lease_acquired",
-    message: "Fixture task lease acquired.",
+    message: "Ingestion task lease acquired.",
     payload: {
       taskId: pipeline.id,
       leaseToken: lease.leaseToken
@@ -166,11 +166,11 @@ export async function runWorkerHarness(
       }
 
       const previousCursor = checkpoint?.cursorValue.last;
-      const result = await runFixturePipeline({
+      const result = await runSourcePipeline({
         pipeline,
         batchSize: config.batchSize,
         checkpoint,
-        fixtureRoot: config.fixtureRoot ?? dirname(config.pipelinePath)
+        sourceRoot: config.sourceRoot ?? dirname(config.pipelinePath)
       });
 
       checkpoint = result.checkpoint;
@@ -192,8 +192,8 @@ export async function runWorkerHarness(
         await appendWorkerEvent(stateDir, config.workerId, now(), {
           eventType: "worker_completed",
           severity: "info",
-          signal: "fixture_exhausted",
-          message: "Fixture source produced no more rows.",
+          signal: "source_exhausted",
+          message: "Ingestion source produced no more rows.",
           payload: {
             checkpoint
           }
@@ -208,7 +208,7 @@ export async function runWorkerHarness(
           deadLetters,
           policyEvaluations,
           checkpoint,
-          exitReason: "fixture_exhausted",
+          exitReason: "source_exhausted",
           stateDir,
           updatedAt: now().toISOString()
         });
@@ -274,7 +274,7 @@ export function configFromEnv(env: Record<string, string | undefined>): WorkerHa
     pipelinePath:
       env.INGESTION_WORKER_PIPELINE ??
       "fixtures/imported/vamo-place-intelligence/pipeline.yaml",
-    fixtureRoot: env.INGESTION_WORKER_FIXTURE_ROOT,
+    sourceRoot: env.INGESTION_WORKER_SOURCE_ROOT ?? env.INGESTION_WORKER_FIXTURE_ROOT,
     stateDir,
     workerId: env.INGESTION_WORKER_ID ?? "fixture-worker-01",
     batchSize: parsePositiveInt(env.INGESTION_WORKER_BATCH_SIZE, 2),

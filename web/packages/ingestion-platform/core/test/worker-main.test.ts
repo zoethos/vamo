@@ -67,7 +67,7 @@ describe("container worker harness", () => {
     });
 
     assert.equal(resumed.status, "succeeded");
-    assert.equal(resumed.exitReason, "fixture_exhausted");
+    assert.equal(resumed.exitReason, "source_exhausted");
     assert.equal(resumed.checkpoint?.cursorValue.last, 5);
     assert.equal(resumed.checkpoint?.processedCount, 5);
     assert.equal(resumed.candidatesStaged, 1);
@@ -166,7 +166,7 @@ function runTestWorker(
 ): ReturnType<typeof runWorkerHarness> {
   return runWorkerHarness({
     pipelinePath,
-    fixtureRoot,
+    sourceRoot: fixtureRoot,
     workerId: "test-worker-01",
     batchSize: 2,
     ...overrides

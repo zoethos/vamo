@@ -513,6 +513,8 @@ Acceptance criteria:
 
 ## Slice IP-10 - First Real Open Dataset Source
 
+Status: done.
+
 Goal: introduce the first real, policy-safe source after the spine is proven.
 
 Recommended first source: a small public/open dataset subset or manually

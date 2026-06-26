@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { mapRecord, runFixturePipeline } from "../src/pipeline-runner.js";
+import { mapRecord, runFixturePipeline, runSourcePipeline } from "../src/pipeline-runner.js";
 import { parsePipelineSpec } from "../../spec/src/index.js";
 
 const fixtureRoot = "fixtures/imported/vamo-place-intelligence";
@@ -15,6 +15,64 @@ if (!parsedPipeline.ok) {
 }
 
 const pipeline = parsedPipeline.value;
+const parsedSnapshotPipeline = parsePipelineSpec(`
+kind: ingestion.pipeline
+version: 1
+id: fsq-os-places-open-snapshot
+name: FSQ OS Places Open Snapshot
+owner: platform
+source:
+  id: fsq_os_places
+  name: FSQ OS Places
+  adapter: snapshot
+  license:
+    name: FSQ Open Source Places
+    url: https://github.com/foursquare/os-places
+    attribution: FSQ Open Source Places, Apache-2.0
+    canStoreFacts: true
+    canStoreContent: true
+    canStoreMediaBytes: false
+    liveOnly: false
+  connection:
+    snapshotPath: fixtures/open/fsq-os-places/sample.jsonl
+    format: jsonl
+target:
+  id: vamo-place-intelligence-staging
+  adapter: supabase_postgres
+  project: vamo
+  profile: place-intelligence
+  dryRunOnly: true
+cursor:
+  strategy: monotonic_row_id
+  field: source_row_id
+policyRequests:
+  storeFacts: true
+  storeContent: true
+  storeMediaBytes: false
+mappings:
+  - from: source.id
+    to: location_source_refs.source_place_id
+  - value: fsq_os_places
+    to: location_source_refs.provider
+  - from: attribution
+    to: location_source_refs.attribution
+  - from: source.name
+    to: location_canonicals.display_name
+    transform: trim
+qualityGates:
+  - id: require-source-attribution
+    type: attribution_present
+    severity: block
+  - id: reject-live-only-sources
+    type: live_only_source_guard
+    severity: block
+`);
+
+if (!parsedSnapshotPipeline.ok) {
+  throw new Error(`Snapshot pipeline did not parse: ${JSON.stringify(parsedSnapshotPipeline.errors)}`);
+}
+
+const snapshotPipeline = parsedSnapshotPipeline.value;
 
 describe("fixture pipeline runner", () => {
   it("stages candidates, policy evaluations, events, and checkpoint output", async () => {
@@ -60,6 +118,36 @@ describe("fixture pipeline runner", () => {
     );
     assert.equal(resumed.checkpoint.cursorValue.last, 5);
     assert.equal(resumed.checkpoint.processedCount, 5);
+  });
+
+  it("runs a bounded open-dataset snapshot through policy and mapping", async () => {
+    const result = await runSourcePipeline({
+      pipeline: snapshotPipeline,
+      batchSize: 10
+    });
+
+    assert.equal(snapshotPipeline.target.dryRunOnly, true);
+    assert.deepEqual(
+      result.candidates.map((candidate) => candidate.recordKey),
+      ["fsq_colosseum", "fsq_eiffel_tower", "fsq_sagrada_familia"]
+    );
+    assert.equal(result.deadLetters.length, 1);
+    assert.equal(
+      result.events.some(
+        (event) =>
+          event.eventType === "policy_blocked" &&
+          event.signal === "media_bytes_not_cacheable"
+      ),
+      true
+    );
+    const sourceRef = result.candidates[0]?.payload.location_source_refs as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(
+      sourceRef?.attribution,
+      "FSQ Open Source Places, Apache-2.0"
+    );
+    assert.equal(result.checkpoint.cursorValue.last, 5);
   });
 
   it("applies transforms deterministically", () => {

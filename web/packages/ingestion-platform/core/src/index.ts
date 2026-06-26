@@ -15,11 +15,13 @@ export {
 export {
   mapRecord,
   runFixturePipeline,
+  runSourcePipeline,
   type DeadLetter,
   type IngestionEvent,
   type PipelineCheckpoint,
   type PipelineRunResult,
   type RunFixturePipelineInput,
+  type RunSourcePipelineInput,
   type StagedCandidate
 } from "./pipeline-runner.js";
 export {
