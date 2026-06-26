@@ -160,6 +160,92 @@ describe("ingestion command planner", () => {
     assert.equal(plan.auditEvent.payload.accepted, false);
     assert.equal(plan.auditEvent.targetId, "missing-target");
   });
+
+  it("accepts an idempotent no-op when every task is already in the desired state", () => {
+    const plan = planIngestionCommand(
+      {
+        projectId: "vamo",
+        tasks: [
+          task("task-running-a", "target-a", "running"),
+          task("task-running-b", "target-b", "running")
+        ],
+        leases: []
+      },
+      {
+        command: "start",
+        scope: { type: "cluster" },
+        actor,
+        now
+      }
+    );
+
+    assert.equal(plan.ok, true);
+    assert.equal(plan.taskPatches.length, 0);
+    assert.equal(plan.leasePatches.length, 0);
+    assert.equal(plan.errors.length, 0);
+    assert.deepEqual(
+      plan.skipped.map((skip) => [skip.taskId, skip.reason]),
+      [
+        ["task-running-a", "already_in_state"],
+        ["task-running-b", "already_in_state"]
+      ]
+    );
+    assert.equal(plan.auditEvent.payload.accepted, true);
+  });
+
+  it("accepts partial success while surfacing transition errors as warnings", () => {
+    const plan = planIngestionCommand(
+      {
+        projectId: "vamo",
+        tasks: [
+          task("task-running-a", "target-a", "running"),
+          task("task-succeeded-b", "target-b", "succeeded")
+        ],
+        leases: []
+      },
+      {
+        command: "pause",
+        scope: { type: "cluster" },
+        actor,
+        now
+      }
+    );
+
+    assert.equal(plan.ok, true);
+    assert.deepEqual(plan.taskPatches.map((patch) => patch.taskId), ["task-running-a"]);
+    assert.equal(plan.errors.length, 1);
+    assert.equal(plan.errors[0]?.code, "invalid_transition");
+    assert.equal(plan.errors[0]?.taskId, "task-succeeded-b");
+    assert.equal(plan.auditEvent.payload.accepted, true);
+  });
+
+  it("rejects commands that change nothing because every scoped task is blocked", () => {
+    const plan = planIngestionCommand(
+      {
+        projectId: "vamo",
+        tasks: [
+          task("task-succeeded-b", "target-b", "succeeded"),
+          task("task-failed-c", "target-c", "failed")
+        ],
+        leases: []
+      },
+      {
+        command: "pause",
+        scope: { type: "cluster" },
+        actor,
+        now
+      }
+    );
+
+    assert.equal(plan.ok, false);
+    assert.equal(plan.taskPatches.length, 0);
+    assert.equal(plan.errors.length, 2);
+    assert.deepEqual(
+      plan.errors.map((error) => error.code),
+      ["invalid_transition", "invalid_transition"]
+    );
+    assert.equal(plan.auditEvent.payload.accepted, false);
+  });
 });
 
 function snapshot(): CommandStateSnapshot {

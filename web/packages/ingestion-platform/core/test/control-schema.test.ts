@@ -122,7 +122,7 @@ describe("ingestion control schema", () => {
           `,
           [projectId, specId]
         );
-        const taskId = await insertReturningId(
+        const queuedTaskId = await insertReturningId(
           client,
           `
             insert into ingestion_platform.ingestion_tasks (
@@ -133,7 +133,39 @@ describe("ingestion control schema", () => {
               task_key,
               status
             )
-            values ($1, $2, $3, $4, 'task-1', 'running')
+            values ($1, $2, $3, $4, 'task-start', 'queued')
+          `,
+          [projectId, runId, sourceId, targetId]
+        );
+        const runningTaskId = await insertReturningId(
+          client,
+          `
+            insert into ingestion_platform.ingestion_tasks (
+              project_id,
+              run_id,
+              source_id,
+              target_id,
+              task_key,
+              status
+            )
+            values ($1, $2, $3, $4, 'task-shutdown', 'running')
+          `,
+          [projectId, runId, sourceId, targetId]
+        );
+        const failedTaskId = await insertReturningId(
+          client,
+          `
+            insert into ingestion_platform.ingestion_tasks (
+              project_id,
+              run_id,
+              source_id,
+              target_id,
+              task_key,
+              status,
+              error_code,
+              error_message
+            )
+            values ($1, $2, $3, $4, 'task-reset', 'failed', 'fixture_error', 'needs review')
           `,
           [projectId, runId, sourceId, targetId]
         );
@@ -185,10 +217,10 @@ describe("ingestion control schema", () => {
             )
             values ($1, $2, $3, 'task_stopped', 'warn', 'worker_exit', 'Worker exited.')
           `,
-          [projectId, runId, taskId]
+          [projectId, runId, runningTaskId]
         );
 
-        const leaseId = await insertReturningId(
+        const shutdownLeaseId = await insertReturningId(
           client,
           `
             insert into ingestion_platform.ingestion_worker_leases (
@@ -199,29 +231,74 @@ describe("ingestion control schema", () => {
             )
             values ($1, 'worker-smoke', 'lease-token-smoke', now() + interval '1 minute')
           `,
-          [taskId]
+          [runningTaskId]
+        );
+        const resetLeaseId = await insertReturningId(
+          client,
+          `
+            insert into ingestion_platform.ingestion_worker_leases (
+              task_id,
+              worker_id,
+              lease_token,
+              expires_at
+            )
+            values ($1, 'worker-reset-smoke', 'lease-token-reset-smoke', now() + interval '1 minute')
+          `,
+          [failedTaskId]
         );
 
-        const commandResult = await applyPostgresIngestionCommand({
+        const startResult = await applyPostgresIngestionCommand({
           client,
           projectKey: "demo",
-          command: "shutdown",
-          scope: { type: "target", targetId: String(targetId) },
+          command: "start",
+          scope: { type: "task", taskId: String(queuedTaskId) },
           actor: { type: "api", id: "db-smoke" },
           claimedActorId: "operator-smoke",
           now: "2026-06-26T12:00:00.000Z"
         });
 
-        assert.equal(commandResult.ok, true);
-        assert.deepEqual(commandResult.appliedTaskPatchIds, [String(taskId)]);
-        assert.deepEqual(commandResult.appliedLeasePatchIds, [String(leaseId)]);
+        assert.equal(startResult.ok, true);
+        assert.deepEqual(startResult.appliedTaskPatchIds, [String(queuedTaskId)]);
+
+        const shutdownResult = await applyPostgresIngestionCommand({
+          client,
+          projectKey: "demo",
+          command: "shutdown",
+          scope: { type: "task", taskId: String(runningTaskId) },
+          actor: { type: "api", id: "db-smoke" },
+          claimedActorId: "operator-smoke",
+          now: "2026-06-26T12:01:00.000Z"
+        });
+
+        assert.equal(shutdownResult.ok, true);
+        assert.deepEqual(shutdownResult.appliedTaskPatchIds, [String(runningTaskId)]);
+        assert.deepEqual(shutdownResult.appliedLeasePatchIds, [String(shutdownLeaseId)]);
+
+        const resetResult = await applyPostgresIngestionCommand({
+          client,
+          projectKey: "demo",
+          command: "reset",
+          scope: { type: "task", taskId: String(failedTaskId) },
+          actor: { type: "api", id: "db-smoke" },
+          claimedActorId: "operator-smoke",
+          now: "2026-06-26T12:02:00.000Z",
+          reason: "db smoke reset"
+        });
+
+        assert.equal(resetResult.ok, true);
+        assert.deepEqual(resetResult.appliedTaskPatchIds, [String(failedTaskId)]);
+        assert.deepEqual(resetResult.appliedLeasePatchIds, [String(resetLeaseId)]);
 
         const commandRows = await client.query<{
+          task_key: string;
           task_status: string;
           lease_status: string;
           release_reason: string | null;
+          error_code: string | null;
+          error_message: string | null;
           actor_type: string;
           actor_id: string | null;
+          action: string;
           payload: {
             accepted?: boolean;
             claimedActorId?: string;
@@ -231,33 +308,61 @@ describe("ingestion control schema", () => {
         }>(
           `
             select
+              task.task_key,
               task.status as task_status,
+              task.error_code,
+              task.error_message,
               lease.status as lease_status,
               lease.release_reason,
               audit.actor_type,
               audit.actor_id,
+              audit.action,
               audit.payload
             from ingestion_platform.ingestion_tasks task
-            join ingestion_platform.ingestion_worker_leases lease
+            left join ingestion_platform.ingestion_worker_leases lease
               on lease.task_id = task.id
             join ingestion_platform.ingestion_audit_log audit
               on audit.project_id = task.project_id
-            where task.id = $1
-              and audit.action = 'ingestion.shutdown'
+             and audit.payload->'appliedTaskPatchIds' ? task.id::text
+            where task.id in ($1, $2, $3)
+              and audit.action in ('ingestion.start', 'ingestion.shutdown', 'ingestion.reset')
+            order by task.task_key
           `,
-          [taskId]
+          [queuedTaskId, runningTaskId, failedTaskId]
         );
-        const commandRow = commandRows.rows[0];
-        assert.ok(commandRow);
-        assert.equal(commandRow.task_status, "paused");
-        assert.equal(commandRow.lease_status, "released");
-        assert.equal(commandRow.release_reason, "operator_shutdown");
-        assert.equal(commandRow.actor_type, "api");
-        assert.equal(commandRow.actor_id, "db-smoke");
-        assert.equal(commandRow.payload.accepted, true);
-        assert.equal(commandRow.payload.claimedActorId, "operator-smoke");
-        assert.deepEqual(commandRow.payload.appliedTaskPatchIds, [String(taskId)]);
-        assert.deepEqual(commandRow.payload.appliedLeasePatchIds, [String(leaseId)]);
+        const rowsByTaskKey = new Map(commandRows.rows.map((row) => [row.task_key, row]));
+        const startedRow = rowsByTaskKey.get("task-start");
+        const shutdownRow = rowsByTaskKey.get("task-shutdown");
+        const resetRow = rowsByTaskKey.get("task-reset");
+
+        assert.ok(startedRow);
+        assert.equal(startedRow.task_status, "running");
+        assert.equal(startedRow.action, "ingestion.start");
+        assert.equal(startedRow.actor_type, "api");
+        assert.equal(startedRow.actor_id, "db-smoke");
+        assert.equal(startedRow.payload.accepted, true);
+        assert.equal(startedRow.payload.claimedActorId, "operator-smoke");
+        assert.deepEqual(startedRow.payload.appliedTaskPatchIds, [String(queuedTaskId)]);
+
+        assert.ok(shutdownRow);
+        assert.equal(shutdownRow.task_status, "paused");
+        assert.equal(shutdownRow.lease_status, "released");
+        assert.equal(shutdownRow.release_reason, "operator_shutdown");
+        assert.equal(shutdownRow.action, "ingestion.shutdown");
+        assert.equal(shutdownRow.payload.accepted, true);
+        assert.deepEqual(shutdownRow.payload.appliedTaskPatchIds, [String(runningTaskId)]);
+        assert.deepEqual(shutdownRow.payload.appliedLeasePatchIds, [String(shutdownLeaseId)]);
+
+        assert.ok(resetRow);
+        assert.equal(resetRow.task_status, "queued");
+        assert.equal(resetRow.error_code, null);
+        assert.equal(resetRow.error_message, null);
+        assert.equal(resetRow.lease_status, "released");
+        assert.equal(resetRow.release_reason, "operator_reset");
+        assert.equal(resetRow.action, "ingestion.reset");
+        assert.equal(resetRow.payload.accepted, true);
+        assert.deepEqual(resetRow.payload.appliedTaskPatchIds, [String(failedTaskId)]);
+        assert.deepEqual(resetRow.payload.appliedLeasePatchIds, [String(resetLeaseId)]);
 
         const shipmentId = await insertReturningId(
           client,
