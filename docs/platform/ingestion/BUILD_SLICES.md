@@ -310,6 +310,8 @@ Tests:
 
 ## Slice IP-05 - Supabase/Postgres Target Adapter
 
+Status: done.
+
 Goal: add Supabase-specific target rules while still using the Postgres shipment
 contract.
 

@@ -1,5 +1,7 @@
 import {
+  DATA_API_PRIVILEGES,
   TARGET_ADAPTERS,
+  type DataApiPrivilege,
   type TargetEngineSpec,
   type TargetProjectSpec,
   type TargetSecuritySpec,
@@ -105,6 +107,21 @@ function parseSecurity(record: Record<string, unknown>, errors: ValidationBag): 
     errors.shape("security.writeMode", 'Expected "dry_run" or "approved_write".');
   }
 
+  const requireExplicitDataApiGrants = optionalBoolean(
+    record,
+    "requireExplicitDataApiGrants",
+    "security.requireExplicitDataApiGrants",
+    errors,
+    false
+  );
+  const dataApiRoles = optionalStringArray(
+    record,
+    "dataApiRoles",
+    "security.dataApiRoles",
+    errors
+  );
+  const dataApiPrivileges = optionalDataApiPrivileges(record, errors);
+
   return {
     serverSideOnly: optionalBoolean(record, "serverSideOnly", "security.serverSideOnly", errors, true),
     forbidBrowserServiceRole: optionalBoolean(
@@ -122,8 +139,54 @@ function parseSecurity(record: Record<string, unknown>, errors: ValidationBag): 
       true
     ),
     exposedSchemas: optionalStringArray(record, "exposedSchemas", "security.exposedSchemas", errors),
+    requireExplicitDataApiGrants,
+    dataApiRoles:
+      dataApiRoles.length > 0
+        ? dataApiRoles
+        : requireExplicitDataApiGrants
+          ? ["anon", "authenticated"]
+          : [],
+    dataApiPrivileges:
+      dataApiPrivileges.length > 0
+        ? dataApiPrivileges
+        : requireExplicitDataApiGrants
+          ? ["select"]
+          : [],
     writeMode: writeMode === "approved_write" ? "approved_write" : "dry_run"
   };
+}
+
+function optionalDataApiPrivileges(
+  record: Record<string, unknown>,
+  errors: ValidationBag
+): DataApiPrivilege[] {
+  const value = record.dataApiPrivileges;
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    errors.shape("security.dataApiPrivileges", "Expected an array of Data API privileges.");
+    return [];
+  }
+
+  return value.flatMap((item, index) => {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      errors.shape(`security.dataApiPrivileges[${index}]`, "Expected a non-empty string.");
+      return [];
+    }
+
+    const normalized = item.trim().toLowerCase();
+    if ((DATA_API_PRIVILEGES as readonly string[]).includes(normalized)) {
+      return [normalized as DataApiPrivilege];
+    }
+
+    errors.shape(
+      `security.dataApiPrivileges[${index}]`,
+      `Unknown Data API privilege "${item}". Allowed values: ${DATA_API_PRIVILEGES.join(", ")}.`
+    );
+    return [];
+  });
 }
 
 function parseShipment(record: Record<string, unknown>, errors: ValidationBag): TargetShipmentSpec {
@@ -224,6 +287,9 @@ function emptySecurity(): TargetSecuritySpec {
     forbidBrowserServiceRole: true,
     requireRlsOnExposedSchemas: true,
     exposedSchemas: [],
+    requireExplicitDataApiGrants: false,
+    dataApiRoles: [],
+    dataApiPrivileges: [],
     writeMode: "dry_run"
   };
 }

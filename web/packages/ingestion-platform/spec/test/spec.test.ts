@@ -197,4 +197,36 @@ shipment:
       true
     );
   });
+
+  it("parses Supabase Data API grant requirements with safe defaults", () => {
+    const result = parseTargetProjectSpec(`
+kind: ingestion.target
+version: 1
+id: supabase-grants
+name: Supabase Grants
+adapter: supabase_postgres
+engine:
+  type: supabase_postgres
+  dsnEnv: DATABASE_URL
+  exposeServiceRoleToBrowser: false
+security:
+  serverSideOnly: true
+  forbidBrowserServiceRole: true
+  requireRlsOnExposedSchemas: true
+  requireExplicitDataApiGrants: true
+  exposedSchemas:
+    - public
+  writeMode: dry_run
+shipment:
+  defaultMode: dry_run
+  tables: []
+`);
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.value.security.requireExplicitDataApiGrants, true);
+      assert.deepEqual(result.value.security.dataApiRoles, ["anon", "authenticated"]);
+      assert.deepEqual(result.value.security.dataApiPrivileges, ["select"]);
+    }
+  });
 });

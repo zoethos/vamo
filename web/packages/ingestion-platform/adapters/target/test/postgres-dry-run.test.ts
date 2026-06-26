@@ -164,6 +164,9 @@ function targetSpec(table = "dry_run_target.generic_places"): TargetProjectSpec 
       forbidBrowserServiceRole: true,
       requireRlsOnExposedSchemas: false,
       exposedSchemas: [],
+      requireExplicitDataApiGrants: false,
+      dataApiRoles: [],
+      dataApiPrivileges: [],
       writeMode: "dry_run"
     },
     shipment: {

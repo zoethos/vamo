@@ -3,11 +3,13 @@ export { parseTargetProjectSpec } from "./target.js";
 export { parseConsumerContractManifest } from "./consumer-contract.js";
 export {
   CURSOR_STRATEGIES,
+  DATA_API_PRIVILEGES,
   SOURCE_ADAPTERS,
   TARGET_ADAPTERS,
   type ConsumerContractExports,
   type ConsumerContractManifest,
   type CursorStrategy,
+  type DataApiPrivilege,
   type FieldMappingSpec,
   type PipelineCursorSpec,
   type PipelinePolicyRequests,

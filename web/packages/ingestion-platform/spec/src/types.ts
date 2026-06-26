@@ -9,6 +9,8 @@ export const SOURCE_ADAPTERS = [
 
 export const TARGET_ADAPTERS = ["postgres", "supabase_postgres"] as const;
 
+export const DATA_API_PRIVILEGES = ["select", "insert", "update", "delete"] as const;
+
 export const CURSOR_STRATEGIES = [
   "monotonic_row_id",
   "page_token",
@@ -19,6 +21,7 @@ export const CURSOR_STRATEGIES = [
 export type SourceAdapterName = (typeof SOURCE_ADAPTERS)[number];
 export type TargetAdapterName = (typeof TARGET_ADAPTERS)[number];
 export type CursorStrategy = (typeof CURSOR_STRATEGIES)[number];
+export type DataApiPrivilege = (typeof DATA_API_PRIVILEGES)[number];
 
 export interface SpecValidationError {
   code:
@@ -121,6 +124,9 @@ export interface TargetSecuritySpec {
   forbidBrowserServiceRole: boolean;
   requireRlsOnExposedSchemas: boolean;
   exposedSchemas: string[];
+  requireExplicitDataApiGrants: boolean;
+  dataApiRoles: string[];
+  dataApiPrivileges: DataApiPrivilege[];
   writeMode: "dry_run" | "approved_write";
 }
 

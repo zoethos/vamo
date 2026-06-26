@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     "./adapters/source": "./dist/adapters/source/src/fixture-source.js",
-    "./adapters/target": "./dist/adapters/target/src/postgres-dry-run.js",
+    "./adapters/target": "./dist/adapters/target/src/index.js",
+    "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
+    "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
     "./core": "./dist/core/src/index.js",
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
