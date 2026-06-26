@@ -32,6 +32,12 @@ export interface ApplyPostgresIngestionCommandInput {
   actor: CommandActor;
   now?: string;
   reason?: string;
+  /**
+   * Operator label the caller *claims*. Recorded in the audit payload for
+   * forensics only — never trusted as the authenticated actor. The trusted
+   * identity is `actor`, set by the server-side caller.
+   */
+  claimedActorId?: string;
 }
 
 export interface AppliedPostgresIngestionCommandResult {
@@ -137,7 +143,8 @@ export async function applyPostgresIngestionCommand(
       appliedTaskPatchIds,
       appliedLeasePatchIds,
       staleTaskPatchIds,
-      staleLeasePatchIds
+      staleLeasePatchIds,
+      ...(input.claimedActorId ? { claimedActorId: input.claimedActorId } : {})
     });
 
     await client.query("commit");

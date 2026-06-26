@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse, type NextRequest } from "next/server";
 import {
   applyPostgresIngestionCommand,
@@ -9,6 +11,21 @@ export const runtime = "nodejs";
 
 const commandKinds = new Set(["start", "pause", "shutdown", "reset"]);
 
+// Constant-time bearer comparison so request timing cannot leak the token.
+function bearerTokenMatches(header: string | null, token: string): boolean {
+  if (!header) {
+    return false;
+  }
+  const expected = Buffer.from(`Bearer ${token}`);
+  const provided = Buffer.from(header);
+  // Length is not the secret; the guard is required because timingSafeEqual
+  // throws on differing buffer lengths.
+  if (provided.length !== expected.length) {
+    return false;
+  }
+  return timingSafeEqual(provided, expected);
+}
+
 export async function POST(request: NextRequest) {
   const adminToken = process.env.INGESTION_ADMIN_API_TOKEN?.trim();
   if (!adminToken) {
@@ -18,7 +35,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (request.headers.get("authorization") !== `Bearer ${adminToken}`) {
+  if (!bearerTokenMatches(request.headers.get("authorization"), adminToken)) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
@@ -46,7 +63,7 @@ export async function POST(request: NextRequest) {
     projectKey: parsed.projectKey ?? "vamo",
     command: parsed.command,
     scope: parsed.scope,
-    actorId: parsed.actorId,
+    claimedActorId: parsed.claimedActorId,
     reason: parsed.reason
   });
 
@@ -75,7 +92,7 @@ async function applyCommand(input: {
   projectKey: string;
   command: IngestionCommandKind;
   scope: CommandScope;
-  actorId?: string;
+  claimedActorId?: string;
   reason?: string;
 }): Promise<
   | { ok: true; value: Awaited<ReturnType<typeof applyPostgresIngestionCommand>> }
@@ -90,10 +107,13 @@ async function applyCommand(input: {
         projectKey: input.projectKey,
         command: input.command,
         scope: input.scope,
+        // Trusted actor is the token holder, not anything the caller supplies.
+        // A self-declared operator label is recorded separately as claimedActorId.
         actor: {
-          type: "operator",
-          id: input.actorId ?? "admin-api"
+          type: "api",
+          id: "admin-api"
         },
+        claimedActorId: input.claimedActorId,
         reason: input.reason
       })
     };
@@ -128,7 +148,7 @@ function parseCommandRequest(
       projectKey?: string;
       command: IngestionCommandKind;
       scope: CommandScope;
-      actorId?: string;
+      claimedActorId?: string;
       reason?: string;
     }
   | { ok: false; error: string } {
@@ -151,7 +171,7 @@ function parseCommandRequest(
 
   const projectId = readStringOrNumber(value.projectId);
   const projectKey = readOptionalString(value.projectKey);
-  const actorId = readOptionalString(value.actorId);
+  const claimedActorId = readOptionalString(value.actorId);
   const reason = readOptionalString(value.reason);
 
   if (value.projectId !== undefined && projectId === undefined) {
@@ -164,7 +184,7 @@ function parseCommandRequest(
     ...(projectKey ? { projectKey } : {}),
     command,
     scope,
-    ...(actorId ? { actorId } : {}),
+    ...(claimedActorId ? { claimedActorId } : {}),
     ...(reason ? { reason } : {})
   };
 }

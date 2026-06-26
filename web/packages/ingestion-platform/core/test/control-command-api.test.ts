@@ -83,6 +83,28 @@ describe("postgres ingestion command API", () => {
     assert.deepEqual(client.audits[0]?.payload.appliedLeasePatchIds, ["200"]);
   });
 
+  it("records a claimed actor id in the payload but never as the trusted actor", async () => {
+    const client = new MemoryControlClient({
+      tasks: [task("100", "10", "queued")]
+    });
+
+    const result = await applyPostgresIngestionCommand({
+      client,
+      projectKey: "vamo",
+      command: "start",
+      scope: { type: "target", targetId: "10" },
+      actor: { type: "api", id: "admin-api" },
+      claimedActorId: "not-really-the-founder",
+      now
+    });
+
+    assert.equal(result.ok, true);
+    // Trusted actor on the audit row is the server identity, not the claim.
+    assert.equal(client.audits[0]?.actorId, "admin-api");
+    // The claim is preserved for forensics, clearly separated in the payload.
+    assert.equal(client.audits[0]?.payload.claimedActorId, "not-really-the-founder");
+  });
+
   it("does not clobber a stale task status and reports the stale patch in audit payload", async () => {
     const client = new MemoryControlClient({
       tasks: [task("100", "10", "queued")],
@@ -129,6 +151,7 @@ interface MemoryLease {
 
 interface MemoryAudit {
   action: string;
+  actorId: string | null;
   payload: Record<string, any>;
 }
 
@@ -175,6 +198,7 @@ class MemoryControlClient implements ControlCommandPgClientLike {
     if (sql.includes("insert into ingestion_platform.ingestion_audit_log")) {
       this.audits.push({
         action: String(values[3]),
+        actorId: values[2] == null ? null : String(values[2]),
         payload: JSON.parse(String(values[7])) as Record<string, any>
       });
       return this.result([]);
