@@ -1669,6 +1669,75 @@ a:hover {
   opacity: 0.58;
 }
 
+.admin-auth-primary-button {
+  min-height: 2.9rem;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--ink);
+  color: var(--warm-white);
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.admin-auth-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.admin-mfa-flow {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1.1rem 0;
+}
+
+.admin-mfa-qr {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 8px;
+  padding: 0.85rem;
+  background: #ffffff;
+}
+
+.admin-mfa-qr img {
+  display: block;
+  width: min(100%, 220px);
+  height: auto;
+}
+
+.admin-auth-form .admin-mfa-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.04em;
+}
+
+.admin-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-auth-actions a {
+  align-items: center;
+  border: 1px solid rgba(42, 52, 43, 0.16);
+  border-radius: 8px;
+  color: #1f3329;
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 760;
+  min-height: 42px;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.admin-auth-actions a:first-child {
+  background: #21392e;
+  border-color: #21392e;
+  color: #f9fbf6;
+}
+
 @media (max-width: 820px) {
   .provider-dashboard {
     padding-top: 1.5rem;

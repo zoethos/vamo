@@ -19,6 +19,37 @@ create table if not exists ingestion_platform.ingestion_projects (
   )
 );
 
+create table if not exists ingestion_platform.ingestion_admin_principals (
+  provider text not null default 'supabase',
+  provider_user_id text not null,
+  email text not null,
+  role text not null,
+  scopes text[] not null,
+  mfa_required boolean not null default true,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  created_by_provider text,
+  created_by_provider_user_id text,
+  expires_at timestamptz,
+  last_seen_at timestamptz,
+  constraint ingestion_admin_principals_pk primary key (provider, provider_user_id),
+  constraint ingestion_admin_principals_provider_check check (
+    provider ~ '^[a-z0-9][a-z0-9_:-]*$'
+  ),
+  constraint ingestion_admin_principals_email_nonempty check (
+    length(btrim(email)) > 0
+  ),
+  constraint ingestion_admin_principals_role_check check (
+    role in ('viewer', 'operator', 'admin')
+  ),
+  constraint ingestion_admin_principals_status_check check (
+    status in ('active', 'suspended')
+  ),
+  constraint ingestion_admin_principals_scopes_nonempty check (
+    array_length(scopes, 1) is not null
+  )
+);
+
 create table if not exists ingestion_platform.ingestion_specs (
   id bigint generated always as identity primary key,
   project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
@@ -356,6 +387,11 @@ create index if not exists ingestion_specs_project_id_idx
   on ingestion_platform.ingestion_specs (project_id);
 create index if not exists ingestion_specs_project_kind_status_idx
   on ingestion_platform.ingestion_specs (project_id, spec_kind, status);
+
+create index if not exists ingestion_admin_principals_email_idx
+  on ingestion_platform.ingestion_admin_principals (lower(email));
+create index if not exists ingestion_admin_principals_status_idx
+  on ingestion_platform.ingestion_admin_principals (status, expires_at);
 
 create index if not exists ingestion_sources_project_id_idx
   on ingestion_platform.ingestion_sources (project_id);

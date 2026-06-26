@@ -2,6 +2,7 @@ export const CONTROL_SCHEMA_NAME = "ingestion_platform" as const;
 
 export const CONTROL_TABLES = [
   "ingestion_projects",
+  "ingestion_admin_principals",
   "ingestion_specs",
   "ingestion_sources",
   "ingestion_targets",

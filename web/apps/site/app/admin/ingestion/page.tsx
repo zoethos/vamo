@@ -15,6 +15,7 @@ import type {
   IngestionStatus,
   IngestionTone,
 } from "@/content/ingestion-dashboard";
+import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 
 export const metadata: Metadata = {
   title: "Ingestion control · Vamo",
@@ -23,6 +24,8 @@ export const metadata: Metadata = {
     follow: false,
   },
 };
+
+export const dynamic = "force-dynamic";
 
 const statusLabels: Record<IngestionStatus, string> = {
   running: "Running",
@@ -44,7 +47,12 @@ const selectedTarget =
   ingestionTargets.find((target) => target.status === "blocked") ??
   ingestionTargets[0];
 
-export default function IngestionDashboardPage() {
+export default async function IngestionDashboardPage() {
+  const principal = await requireIngestionDashboardAccess({
+    projectKey: "vamo",
+    nextPath: "/admin/ingestion",
+  });
+
   return (
     <main
       className="provider-dashboard admin-console"
@@ -142,7 +150,9 @@ export default function IngestionDashboardPage() {
             <p className="admin-kicker">Instances</p>
             <h2>Containerized workers</h2>
           </div>
-          <span className="admin-readonly-pill">Controls disabled until admin auth</span>
+          <span className="admin-readonly-pill">
+            {principal.role} · {principal.assuranceLevel}
+          </span>
         </div>
         <div className="admin-instance-grid">
           {ingestionInstances.map((instance) => (

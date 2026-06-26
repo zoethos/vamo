@@ -44,7 +44,7 @@ export default async function AdminSignInPage({
           <h1 id="admin-sign-in-title">Sign in to continue</h1>
           <p>
             Admin dashboards require a verified Supabase session. Mutation
-            controls remain disabled until allowlist and MFA gates are layered in.
+            controls require an active platform allowlist row and MFA step-up.
           </p>
         </div>
 
@@ -104,6 +104,8 @@ function readableError(error: string): string {
       return "The sign-in link could not be verified. Request a new link.";
     case "send_failed":
       return "The sign-in link could not be sent. Check the email address and try again.";
+    case "not_authenticated":
+      return "Sign in before opening the admin console.";
     default:
       return "Sign-in failed. Try again.";
   }
