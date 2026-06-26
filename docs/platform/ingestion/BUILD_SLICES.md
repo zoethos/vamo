@@ -424,6 +424,10 @@ Acceptance criteria:
 - Target pause does not pause unrelated targets.
 - All command attempts emit audit events.
 
+Deferred before admin mutation controls: document the `ok` flag contract for
+idempotent no-ops and partial-success plans, including whether "already in the
+desired state" should surface as success with skipped metadata.
+
 Tests:
 
 - Run-state transition matrix.

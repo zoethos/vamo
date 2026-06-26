@@ -122,8 +122,9 @@ export function planIngestionCommand(
     }
   }
 
+  const selectedTaskIds = new Set(selectedTasks.map((task) => task.id));
   const changedTaskIds = new Set(taskPatches.map((patch) => patch.taskId));
-  const leasePatches = planLeasePatches(snapshot, input, changedTaskIds);
+  const leasePatches = planLeasePatches(snapshot, input, selectedTaskIds, changedTaskIds);
 
   if (taskPatches.length === 0 && leasePatches.length === 0 && errors.length === 0) {
     errors.push({
@@ -186,12 +187,13 @@ function selectScopedTasks(
 function planLeasePatches(
   snapshot: CommandStateSnapshot,
   input: IngestionCommandInput,
+  selectedTaskIds: ReadonlySet<string>,
   changedTaskIds: ReadonlySet<string>
 ): WorkerLeasePatch[] {
   if (input.command === "shutdown") {
     return releaseActiveLeasesForTasks(
       snapshot.leases,
-      changedTaskIds,
+      selectedTaskIds,
       input.now,
       "operator_shutdown"
     );

@@ -70,6 +70,43 @@ describe("ingestion command planner", () => {
     );
   });
 
+  it("shutdown releases a scoped worker lease even when the task is already paused", () => {
+    const base = snapshot();
+    const plan = planIngestionCommand(
+      {
+        ...base,
+        tasks: [
+          ...base.tasks,
+          task("task-paused-with-lease", "target-a", "paused", "worker-1")
+        ],
+        leases: [
+          ...base.leases,
+          lease("lease-paused-with-lease", "task-paused-with-lease", "worker-1")
+        ]
+      },
+      {
+        command: "shutdown",
+        scope: { type: "worker", workerId: "worker-1" },
+        actor,
+        now
+      }
+    );
+
+    assert.equal(plan.ok, true);
+    assert.deepEqual(plan.taskPatches.map((patch) => patch.taskId), ["task-running-a"]);
+    assert.deepEqual(
+      plan.leasePatches.map((patch) => [patch.leaseId, patch.status, patch.releaseReason]),
+      [
+        ["lease-running-a", "released", "operator_shutdown"],
+        ["lease-paused-with-lease", "released", "operator_shutdown"]
+      ]
+    );
+    assert.deepEqual(plan.auditEvent.payload.leaseIds, [
+      "lease-running-a",
+      "lease-paused-with-lease"
+    ]);
+  });
+
   it("blocks reset without an audit reason before touching tasks or leases", () => {
     const plan = planIngestionCommand(snapshot(), {
       command: "reset",
