@@ -13,6 +13,15 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["spec/src/**/*.ts", "spec/test/**/*.ts", "core/src/**/*.ts", "core/test/**/*.ts"],
+  "include": [
+    "spec/src/**/*.ts",
+    "spec/test/**/*.ts",
+    "core/src/**/*.ts",
+    "core/test/**/*.ts",
+    "policy/src/**/*.ts",
+    "policy/test/**/*.ts",
+    "adapters/source/src/**/*.ts",
+    "adapters/source/test/**/*.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }

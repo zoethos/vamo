@@ -3,24 +3,33 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const requestedSuites = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
-const suites = requestedSuites.length > 0 ? requestedSuites : ["spec", "core"];
-const allowedSuites = new Set(["spec", "core"]);
+const suiteDirectories = new Map([
+  ["spec", ["dist/spec/test"]],
+  ["core", ["dist/core/test"]],
+  ["policy", ["dist/policy/test"]],
+  ["source", ["dist/adapters/source/test"]],
+  ["adapters", ["dist/adapters/source/test"]]
+]);
+const suites = requestedSuites.length > 0 ? requestedSuites : ["spec", "core", "policy", "source"];
 
 const testFiles = suites.flatMap((suite) => {
-  if (!allowedSuites.has(suite)) {
-    console.error(`Unknown test suite "${suite}". Expected one of: spec, core.`);
+  const directories = suiteDirectories.get(suite);
+  if (!directories) {
+    console.error(`Unknown test suite "${suite}". Expected one of: ${[...suiteDirectories.keys()].join(", ")}.`);
     process.exit(1);
   }
 
-  const testDirectory = join(process.cwd(), "dist", suite, "test");
-  if (!existsSync(testDirectory)) {
-    console.error(`Compiled test directory does not exist: ${testDirectory}`);
-    process.exit(1);
-  }
+  return directories.flatMap((directory) => {
+    const testDirectory = join(process.cwd(), directory);
+    if (!existsSync(testDirectory)) {
+      console.error(`Compiled test directory does not exist: ${testDirectory}`);
+      process.exit(1);
+    }
 
-  return readdirSync(testDirectory)
-    .filter((file) => file.endsWith(".test.js"))
-    .map((file) => join(testDirectory, file));
+    return readdirSync(testDirectory)
+      .filter((file) => file.endsWith(".test.js"))
+      .map((file) => join(testDirectory, file));
+  });
 });
 
 if (testFiles.length === 0) {

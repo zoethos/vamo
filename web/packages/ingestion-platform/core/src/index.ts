@@ -12,3 +12,13 @@ export {
   type IngestionTaskStatus,
   type ShipmentItemIdentity
 } from "./control-models.js";
+export {
+  mapRecord,
+  runFixturePipeline,
+  type DeadLetter,
+  type IngestionEvent,
+  type PipelineCheckpoint,
+  type PipelineRunResult,
+  type RunFixturePipelineInput,
+  type StagedCandidate
+} from "./pipeline-runner.js";

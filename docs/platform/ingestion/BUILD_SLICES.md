@@ -180,6 +180,8 @@ Definition of done:
 
 ## Slice IP-03 - Fixture Source Adapter And Policy Engine
 
+Status: done.
+
 Goal: run a no-network ingestion pass from fixture data into staging candidates.
 
 Architecture decision: adapter/gateway. Source access goes through source
