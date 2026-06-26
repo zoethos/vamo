@@ -2,7 +2,7 @@
 
 Status: implementation slicing draft - 2026-06-26.
 
-This plan turns `docs/architecture/INGESTION_PLATFORM_ARCHITECTURE.md` into
+This plan turns `docs/platform/ingestion/ARCHITECTURE.md` into
 buildable slices. The platform is incubated in this repo, but it must stay
 portable. Vamo is customer zero, not the platform boundary.
 
@@ -28,14 +28,18 @@ Dart/Melos app and can be lifted into a standalone repo later.
 ```text
 web/
   packages/
-    ingestion-spec/
-    ingestion-core/
-    ingestion-policy/
-    ingestion-adapters-source/
-    ingestion-adapters-target/
-    ingestion-fixtures/
+    ingestion-platform/
+      README.md
+      spec/
+      core/
+      policy/
+      adapters/
+        source/
+        target/
+        transform/
+      fixtures/
   apps/
-    site/                         # current Vamo web/admin shell
+    site/                         # Vamo web/admin shell; consumer UI only
 ```
 
 Only create a new app or service when a slice needs it:
@@ -49,7 +53,7 @@ Vamo-specific profiles should live as examples/consumer specs, not inside core
 packages:
 
 ```text
-web/packages/ingestion-fixtures/examples/vamo-place-intelligence/
+web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/
 ```
 
 ## Slice IP-00 - Strategy And Visual Shell
@@ -68,18 +72,19 @@ No live controls, no target writes, no source access.
 
 Goal: define and validate the YAML contract before any database or worker code.
 
-Architecture decision: package boundary. Put strict schema parsing and
-normalization in `web/packages/ingestion-spec`; keep it pure and portable.
+Architecture decision: platform namespace boundary. Put strict schema parsing
+and normalization in `web/packages/ingestion-platform/spec`; keep it pure and
+portable.
 
 Files:
 
-- `web/packages/ingestion-spec/package.json`
-- `web/packages/ingestion-spec/src/index.ts`
-- `web/packages/ingestion-spec/src/pipeline.ts`
-- `web/packages/ingestion-spec/src/target.ts`
-- `web/packages/ingestion-spec/src/validation.ts`
-- `web/packages/ingestion-spec/test/*.test.ts`
-- `web/packages/ingestion-fixtures/examples/vamo-place-intelligence/*.yaml`
+- `web/packages/ingestion-platform/package.json`
+- `web/packages/ingestion-platform/spec/src/index.ts`
+- `web/packages/ingestion-platform/spec/src/pipeline.ts`
+- `web/packages/ingestion-platform/spec/src/target.ts`
+- `web/packages/ingestion-platform/spec/src/validation.ts`
+- `web/packages/ingestion-platform/spec/test/*.test.ts`
+- `web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/*.yaml`
 
 Behavior:
 
@@ -111,8 +116,8 @@ Tests:
 
 Definition of done:
 
-- `npm --workspace @vamo/ingestion-spec test` passes.
-- `npm --workspace @vamo/ingestion-spec build` passes.
+- `npm --workspace @vamo/ingestion-platform test -- spec` passes.
+- `npm --workspace @vamo/ingestion-platform build` passes.
 - Static admin mock data can optionally import generated fixture JSON.
 
 ## Slice IP-02 - Platform Control Schema Draft
@@ -125,9 +130,9 @@ do not push it to Vamo staging until reviewed.
 
 Files:
 
-- `web/packages/ingestion-core/sql/control_schema.sql`
-- `web/packages/ingestion-core/src/control-models.ts`
-- `web/packages/ingestion-core/test/control-schema.test.ts`
+- `web/packages/ingestion-platform/core/sql/control_schema.sql`
+- `web/packages/ingestion-platform/core/src/control-models.ts`
+- `web/packages/ingestion-platform/core/test/control-schema.test.ts`
 
 Tables:
 
@@ -180,10 +185,10 @@ adapter interfaces; policy evaluation is a separate pure module.
 
 Files:
 
-- `web/packages/ingestion-core/src/pipeline-runner.ts`
-- `web/packages/ingestion-policy/src/index.ts`
-- `web/packages/ingestion-adapters-source/src/fixture-source.ts`
-- `web/packages/ingestion-fixtures/examples/vamo-place-intelligence/source.jsonl`
+- `web/packages/ingestion-platform/core/src/pipeline-runner.ts`
+- `web/packages/ingestion-platform/policy/src/index.ts`
+- `web/packages/ingestion-platform/adapters/source/src/fixture-source.ts`
+- `web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/source.jsonl`
 - tests across the three packages
 
 Behavior:
@@ -221,9 +226,9 @@ shipment stays target-neutral.
 
 Files:
 
-- `web/packages/ingestion-adapters-target/src/postgres-dry-run.ts`
-- `web/packages/ingestion-core/src/shipment-plan.ts`
-- `web/packages/ingestion-core/src/diff.ts`
+- `web/packages/ingestion-platform/adapters/target/src/postgres-dry-run.ts`
+- `web/packages/ingestion-platform/core/src/shipment-plan.ts`
+- `web/packages/ingestion-platform/core/src/diff.ts`
 - tests with local Postgres fixtures
 
 Behavior:
@@ -261,8 +266,8 @@ with extra security checks, not a separate core path.
 
 Files:
 
-- `web/packages/ingestion-adapters-target/src/supabase-postgres.ts`
-- `web/packages/ingestion-adapters-target/src/supabase-security-checks.ts`
+- `web/packages/ingestion-platform/adapters/target/src/supabase-postgres.ts`
+- `web/packages/ingestion-platform/adapters/target/src/supabase-security-checks.ts`
 - tests with local or sandbox Supabase/Postgres where available
 
 Behavior:
@@ -298,7 +303,7 @@ Files:
 
 - `web/apps/site/app/admin/ingestion/page.tsx`
 - `web/apps/site/content/ingestion-dashboard.ts`
-- `web/packages/ingestion-core/src/read-model.ts`
+- `web/packages/ingestion-platform/core/src/read-model.ts`
 - optional `web/apps/ingestion-control-api/`
 
 Behavior:
@@ -332,9 +337,9 @@ pure and tested; persistence is adapter-backed.
 
 Files:
 
-- `web/packages/ingestion-core/src/commands.ts`
-- `web/packages/ingestion-core/src/leases.ts`
-- `web/packages/ingestion-core/src/run-state.ts`
+- `web/packages/ingestion-platform/core/src/commands.ts`
+- `web/packages/ingestion-platform/core/src/leases.ts`
+- `web/packages/ingestion-platform/core/src/run-state.ts`
 - tests
 
 Behavior:
@@ -372,7 +377,7 @@ Files:
 
 - `tool/ingestion/docker-compose.yml`
 - `tool/ingestion/worker.Dockerfile`
-- `web/packages/ingestion-core/src/worker-main.ts`
+- `web/packages/ingestion-platform/core/src/worker-main.ts`
 - scripts in `web/package.json`
 
 Behavior:
@@ -404,8 +409,8 @@ names live in profile/spec files, not core packages.
 
 Files:
 
-- `web/packages/ingestion-fixtures/examples/vamo-place-intelligence/*.yaml`
-- `docs/architecture/INGESTION_PLATFORM_ARCHITECTURE.md` updates if needed
+- `web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/*.yaml`
+- `docs/platform/ingestion/ARCHITECTURE.md` updates if needed
 - optional Vamo target schema compatibility fixtures
 
 Behavior:

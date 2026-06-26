@@ -1,0 +1,35 @@
+# Ingestion Platform Code
+
+This is the code namespace for the reusable ingestion platform while it is
+incubated inside the Vamo repo.
+
+The platform must stay portable. Vamo is the first consumer profile, not the
+platform boundary.
+
+## Directory Map
+
+| Path | Purpose |
+| --- | --- |
+| `spec/` | YAML/JSON spec parsing, validation, normalization, and structured errors. |
+| `core/` | Pipeline run state, checkpoints, read models, shipment plans, leases, and command policy. |
+| `policy/` | Source rights, retention, attribution, media-storage, and live-only gates. |
+| `adapters/source/` | Source adapter implementations such as fixtures, snapshots, APIs, and SQL sources. |
+| `adapters/target/` | Target adapters such as Postgres and Supabase/Postgres. |
+| `adapters/transform/` | Reusable mapping/normalization transforms. |
+| `fixtures/` | Example pipelines, target specs, and no-network fixture data. |
+
+## Boundary Rules
+
+- Do not import Flutter, Vamo feature packages, Vamo product repositories, or
+  Vamo Supabase edge functions from this namespace.
+- Vamo-specific mappings belong in `fixtures/examples/vamo-*` or a future
+  consumer-profile folder, never in `core/`.
+- Browser/admin code must not receive service-role keys, target DSNs, provider
+  secrets, or worker credentials.
+- Real source adapters must go through the policy engine before any durable
+  staging or shipment output.
+- Production target writes remain disabled until the shipment/audit/approval
+  slices are explicitly implemented.
+
+When this becomes a standalone repo, this folder is the intended extraction
+root.

@@ -65,16 +65,23 @@ ingestion-platform/
 Temporary in-repo shape while incubating inside Vamo:
 
 ```text
-docs/architecture/INGESTION_PLATFORM_ARCHITECTURE.md
-docs/architecture/PROVIDER_CONTROL_PLANE.md
-web/apps/site/app/admin/ingestion/
+docs/platform/ingestion/
+  README.md
+  ARCHITECTURE.md
+  BUILD_SLICES.md
+web/packages/ingestion-platform/
+  spec/
+  core/
+  policy/
+  adapters/
+  fixtures/
+web/apps/site/app/admin/ingestion/   # Vamo admin consumer shell only
 ```
 
-When implementation starts, use a clearly independent root such as
-`tool/ingestion/` or `packages/ingestion_*` only if the slice needs real code
-before the standalone repo exists. Do not mix ingestion platform code into Vamo
-Flutter screens, Vamo feature packages, or Vamo Supabase edge functions unless
-it is a thin consumer adapter.
+Implementation code belongs under `web/packages/ingestion-platform/` until the
+standalone repo split. Do not mix ingestion platform code into Vamo Flutter
+screens, Vamo feature packages, Vamo Supabase edge functions, or the Vamo web
+admin route unless it is a thin consumer adapter/read model.
 
 ## 3. Architecture Overview
 

@@ -44,4 +44,4 @@ Wave-1 slices S1–S14: shipped and verified (v0.1.0). Gate check after S22.
 
 | Slice | Implements | Status | Notes |
 |---|---|---|---|
-| IP-01+ | Ingestion platform spine | 📋 sliced | See `INGESTION_PLATFORM_BUILD_SLICES.md`. Starts with YAML spec validation + fixture contract; no provider calls, no target writes. |
+| IP-01+ | Ingestion platform spine | 📋 sliced | See `../platform/ingestion/BUILD_SLICES.md`. Starts with YAML spec validation + fixture contract; no provider calls, no target writes. |
