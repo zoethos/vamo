@@ -5,6 +5,7 @@ This is the documentation home for the reusable ingestion platform.
 | File | Purpose |
 | --- | --- |
 | `ARCHITECTURE.md` | Product, runtime, policy, target-shipment, and market architecture. |
+| `AUTH_ARCHITECTURE.md` | Admin authentication, authorization, audit actor, and secret-boundary design. |
 | `BUILD_SLICES.md` | Implementation slices from spec kernel through Vamo consumer profile. |
 
 Boundary rules:
