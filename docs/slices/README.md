@@ -39,3 +39,9 @@ Updated: 2026-06-19.
 | S46 | Notifications primitive + inbox | ✅ merged / ✅ activation gate passed | record-first notification table/RPC, lifecycle job decoupled from push, Drift pull sync, bell badge + inbox. Guarded manual invoke and 2-device FCM verification passed; daily lifecycle cron enabled. |
 
 Wave-1 slices S1–S14: shipped and verified (v0.1.0). Gate check after S22.
+
+## Strategic platform slices
+
+| Slice | Implements | Status | Notes |
+|---|---|---|---|
+| IP-01+ | Ingestion platform spine | 📋 sliced | See `INGESTION_PLATFORM_BUILD_SLICES.md`. Starts with YAML spec validation + fixture contract; no provider calls, no target writes. |
