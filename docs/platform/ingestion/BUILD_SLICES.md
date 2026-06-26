@@ -393,6 +393,8 @@ Tests:
 
 ## Slice IP-07 - Worker Leases And Command Semantics
 
+Status: done.
+
 Goal: implement start/pause/shutdown/reset semantics against local tasks and
 leases before real external ingestion.
 

@@ -29,6 +29,34 @@ export {
   type BuildShipmentDiffInput
 } from "./diff.js";
 export {
+  expireStaleLeases,
+  releaseActiveLeasesForTasks,
+  type WorkerLeasePatch,
+  type WorkerLeaseRow,
+  type WorkerLeaseStatus
+} from "./leases.js";
+export {
+  planTaskCommandTransition,
+  type CommandTaskRow,
+  type IngestionCommandKind,
+  type PlanTaskTransitionInput,
+  type TaskStatusPatch,
+  type TaskTransitionError,
+  type TaskTransitionOutcome,
+  type TaskTransitionSkipped
+} from "./run-state.js";
+export {
+  planIngestionCommand,
+  type CommandActor,
+  type CommandActorType,
+  type CommandScope,
+  type CommandStateSnapshot,
+  type IngestionCommandAuditEvent,
+  type IngestionCommandError,
+  type IngestionCommandInput,
+  type IngestionCommandPlan
+} from "./commands.js";
+export {
   type ShipmentCandidateRow,
   type ShipmentOperation,
   type ShipmentPlan,
