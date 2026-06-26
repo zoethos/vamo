@@ -83,7 +83,7 @@ export default function IngestionDashboardPage() {
         <div className="admin-command-surface" aria-label="Global ingestion controls">
           <div className="admin-surface-header">
             <span>Cluster controls</span>
-            <strong>Static mockup</strong>
+            <strong>Read-model preview</strong>
           </div>
           <div className="admin-command-grid">
             {ingestionActions.map((action) => (

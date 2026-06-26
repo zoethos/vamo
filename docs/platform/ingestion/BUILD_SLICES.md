@@ -347,18 +347,28 @@ Tests:
 
 ## Slice IP-06 - Local Control API And Admin Read Model
 
+Status: done (read model + wiring). Browser visual QA at desktop/mobile
+breakpoints remains a manual gate.
+
 Goal: expose read-only run/target/event/status data to the admin page from the
 platform model instead of hand-written static content.
 
 Architecture decision: service boundary. Admin UI reads through an API/read
-model; it does not read/write control tables directly.
+model; it does not read/write control tables directly. The read model is a pure
+transform exposed on its own package subpath (`@vamo/ingestion-platform/read-model`)
+so the Next bundle never pulls `pg`/`node:fs` and there is no control-table or
+service-role access in browser-reachable code. A live control API can later feed
+the same transform real rows; only the snapshot source changes.
 
 Files:
 
-- `web/apps/site/app/admin/ingestion/page.tsx`
-- `web/apps/site/content/ingestion-dashboard.ts`
-- `web/packages/ingestion-platform/core/src/read-model.ts`
-- optional `web/apps/ingestion-control-api/`
+- `web/apps/site/app/admin/ingestion/page.tsx` (unchanged shell; label only)
+- `web/apps/site/content/ingestion-dashboard.ts` (now reads through the read model)
+- `web/packages/ingestion-platform/core/src/read-model.ts` (transform + view/domain
+  types + sample control-plane snapshot)
+- `web/packages/ingestion-platform/core/test/read-model.test.ts`
+- `@vamo/ingestion-platform` added as a `@vamo/site` workspace dependency
+- optional `web/apps/ingestion-control-api/` (deferred — no live API yet)
 
 Behavior:
 

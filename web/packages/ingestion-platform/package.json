@@ -9,6 +9,10 @@
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
     "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
     "./core": "./dist/core/src/index.js",
+    "./read-model": {
+      "types": "./dist/core/src/read-model.d.ts",
+      "default": "./dist/core/src/read-model.js"
+    },
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
     "./package.json": "./package.json"
