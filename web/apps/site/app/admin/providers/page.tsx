@@ -24,7 +24,7 @@ const statusLabels = {
 export default function ProviderDashboardPage() {
   return (
     <main className="provider-dashboard">
-      <nav className="provider-masthead" aria-label="Provider dashboard">
+      <nav className="provider-masthead admin-masthead" aria-label="Provider dashboard">
         <Link className="provider-brand" href="/">
           <Image
             src="/brand/mark_white.png"
@@ -35,7 +35,17 @@ export default function ProviderDashboardPage() {
           />
           <span>Vamo</span>
         </Link>
-        <span className="provider-product-label">Provider Control Plane</span>
+        <div className="admin-nav admin-nav-dark" aria-label="Admin sections">
+          <Link
+            className="admin-nav-link admin-nav-link-active"
+            href="/admin/providers"
+          >
+            Providers
+          </Link>
+          <Link className="admin-nav-link" href="/admin/ingestion">
+            Ingestion
+          </Link>
+        </div>
       </nav>
       <section className="provider-hero">
         <div>

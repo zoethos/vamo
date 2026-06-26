@@ -1,0 +1,309 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  ingestionActions,
+  ingestionEvents,
+  ingestionInstances,
+  ingestionPolicyLocks,
+  ingestionSignals,
+  ingestionStats,
+  ingestionTargets,
+} from "@/content/ingestion-dashboard";
+import type {
+  IngestionStatus,
+  IngestionTone,
+} from "@/content/ingestion-dashboard";
+
+export const metadata: Metadata = {
+  title: "Ingestion control · Vamo",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
+const statusLabels: Record<IngestionStatus, string> = {
+  running: "Running",
+  paused: "Paused",
+  stopped: "Stopped",
+  blocked: "Blocked",
+  queued: "Queued",
+  complete: "Complete",
+};
+
+const toneLabels: Record<IngestionTone, string> = {
+  good: "Healthy",
+  watch: "Watch",
+  danger: "Needs action",
+  neutral: "Info",
+};
+
+const selectedTarget =
+  ingestionTargets.find((target) => target.status === "blocked") ??
+  ingestionTargets[0];
+
+export default function IngestionDashboardPage() {
+  return (
+    <main className="provider-dashboard admin-console">
+      <nav className="provider-masthead admin-masthead" aria-label="Admin dashboard">
+        <Link className="provider-brand admin-brand" href="/">
+          <Image
+            src="/brand/primary_mark.png"
+            alt=""
+            width={34}
+            height={34}
+            priority
+          />
+          <span>Vamo</span>
+        </Link>
+        <div className="admin-nav" aria-label="Admin sections">
+          <Link className="admin-nav-link" href="/admin/providers">
+            Providers
+          </Link>
+          <Link
+            className="admin-nav-link admin-nav-link-active"
+            href="/admin/ingestion"
+          >
+            Ingestion
+          </Link>
+        </div>
+      </nav>
+
+      <section className="admin-hero">
+        <div className="admin-hero-copy">
+          <p className="admin-kicker">Place intelligence · operator draft</p>
+          <h1>Ingestion control</h1>
+          <p>
+            Visual shell for managing cache loaders, enrichment workers, target
+            checkpoints, and promotion telemetry before any live control API is
+            connected.
+          </p>
+        </div>
+        <div className="admin-command-surface" aria-label="Global ingestion controls">
+          <div className="admin-surface-header">
+            <span>Cluster controls</span>
+            <strong>Static mockup</strong>
+          </div>
+          <div className="admin-command-grid">
+            {ingestionActions.map((action) => (
+              <button
+                className={`admin-command admin-command-${action.tone}`}
+                type="button"
+                disabled
+                key={action.label}
+              >
+                <span>{action.label}</span>
+                <small>{action.detail}</small>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="admin-signal-grid" aria-label="Ingestion summary">
+        {ingestionSignals.map((signal) => (
+          <article
+            className={`admin-signal admin-tone-${signal.tone}`}
+            key={signal.label}
+          >
+            <span>{signal.label}</span>
+            <strong>{signal.value}</strong>
+            <p>{signal.detail}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="admin-section">
+        <div className="admin-section-heading">
+          <div>
+            <p className="admin-kicker">Instances</p>
+            <h2>Containerized workers</h2>
+          </div>
+          <span className="admin-readonly-pill">Controls disabled until service wiring</span>
+        </div>
+        <div className="admin-instance-grid">
+          {ingestionInstances.map((instance) => (
+            <article className="admin-instance-card" key={instance.id}>
+              <div className="admin-card-topline">
+                <div>
+                  <h3>{instance.id}</h3>
+                  <p>{instance.role}</p>
+                </div>
+                <span className={`admin-status admin-status-${instance.status}`}>
+                  {statusLabels[instance.status]}
+                </span>
+              </div>
+              <dl className="admin-definition-grid">
+                <div>
+                  <dt>Target</dt>
+                  <dd>{instance.currentTarget}</dd>
+                </div>
+                <div>
+                  <dt>Heartbeat</dt>
+                  <dd>{instance.heartbeat}</dd>
+                </div>
+                <div>
+                  <dt>Cursor</dt>
+                  <dd>{instance.cursor}</dd>
+                </div>
+                <div>
+                  <dt>Throughput</dt>
+                  <dd>{instance.throughput}</dd>
+                </div>
+                <div className="admin-definition-wide">
+                  <dt>Network stance</dt>
+                  <dd>{instance.network}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="admin-section admin-target-layout">
+        <div className="admin-target-table-panel">
+          <div className="admin-section-heading admin-section-heading-compact">
+            <div>
+              <p className="admin-kicker">Targets</p>
+              <h2>One board for every source</h2>
+            </div>
+            <span className="admin-table-count">{ingestionTargets.length} targets</span>
+          </div>
+          <div className="admin-table-wrap">
+            <table className="admin-target-table">
+              <thead>
+                <tr>
+                  <th>Target</th>
+                  <th>Source</th>
+                  <th>Instance</th>
+                  <th>Status</th>
+                  <th>Checkpoint</th>
+                  <th>Signal</th>
+                  <th>Control</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ingestionTargets.map((target) => (
+                  <tr key={target.name}>
+                    <td>
+                      <strong>{target.name}</strong>
+                      <span>{target.scope}</span>
+                    </td>
+                    <td>{target.source}</td>
+                    <td>{target.instance}</td>
+                    <td>
+                      <span className={`admin-status admin-status-${target.status}`}>
+                        {statusLabels[target.status]}
+                      </span>
+                    </td>
+                    <td>
+                      <code>{target.checkpoint}</code>
+                      <span>{target.throughput}</span>
+                    </td>
+                    <td>{target.lastSignal}</td>
+                    <td>
+                      <button className="admin-row-control" type="button" disabled>
+                        {target.nextAction}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside className="admin-failure-panel" aria-label="Failure recovery detail">
+          <p className="admin-kicker">Failure telemetry</p>
+          <h2>{selectedTarget.name}</h2>
+          <span className={`admin-status admin-status-${selectedTarget.status}`}>
+            {statusLabels[selectedTarget.status]}
+          </span>
+          <dl className="admin-definition-grid admin-definition-stack">
+            <div>
+              <dt>Signal</dt>
+              <dd>{selectedTarget.lastSignal}</dd>
+            </div>
+            <div>
+              <dt>Restart point</dt>
+              <dd>
+                <code>{selectedTarget.checkpoint}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Recovery rule</dt>
+              <dd>
+                Resume only after the policy guard confirms the payload can be
+                stored or the target is marked live-only.
+              </dd>
+            </div>
+          </dl>
+          <button className="admin-wide-control" type="button" disabled>
+            Resume from checkpoint
+          </button>
+        </aside>
+      </section>
+
+      <section className="admin-section admin-two-column">
+        <div className="admin-panel">
+          <div className="admin-section-heading admin-section-heading-compact">
+            <div>
+              <p className="admin-kicker">Stats</p>
+              <h2>Current cache posture</h2>
+            </div>
+          </div>
+          <div className="admin-stat-grid">
+            {ingestionStats.map((stat) => (
+              <article className="admin-stat" key={stat.label}>
+                <span>{stat.label}</span>
+                <strong>{stat.value}</strong>
+                <p>{stat.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-panel">
+          <div className="admin-section-heading admin-section-heading-compact">
+            <div>
+              <p className="admin-kicker">Signals</p>
+              <h2>Recent events</h2>
+            </div>
+          </div>
+          <ol className="admin-event-list">
+            {ingestionEvents.map((event) => (
+              <li className={`admin-event admin-tone-${event.tone}`} key={`${event.time}-${event.signal}`}>
+                <time>{event.time}</time>
+                <div>
+                  <div className="admin-event-title">
+                    <strong>{event.signal}</strong>
+                    <span>{toneLabels[event.tone]}</span>
+                  </div>
+                  <p>{event.target}</p>
+                  <small>{event.detail}</small>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="admin-section admin-policy-panel">
+        <div>
+          <p className="admin-kicker">Policy locks</p>
+          <h2>Efficient without poisoning the cache</h2>
+        </div>
+        <ul>
+          {ingestionPolicyLocks.map((policy) => (
+            <li key={policy}>{policy}</li>
+          ))}
+        </ul>
+      </section>
+
+      <p className="provider-backlink admin-backlink">
+        <Link href="/admin/providers">Back to provider control</Link>
+      </p>
+    </main>
+  );
+}
