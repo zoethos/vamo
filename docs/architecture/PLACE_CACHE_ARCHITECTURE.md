@@ -141,5 +141,6 @@ from Wikidata, or promoted through ingestion.
 ## Related Docs
 
 - [Place Enrichment](../design/PLACE_ENRICHMENT.md)
+- [Ingestion Control Architecture](INGESTION_CONTROL_ARCHITECTURE.md)
 - [Provider Control Plane](PROVIDER_CONTROL_PLANE.md)
 - [Provider Resilience](../design/PROVIDER_RESILIENCE.md)
