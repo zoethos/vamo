@@ -9,6 +9,7 @@ Architecture, provider-governance, and dependency-risk documents live here.
 | `Vamo_Architecture.docx` | Founder-level architecture overview. |
 | `ARCHITECTURE_BOUNDARIES.md` | Agent-facing architecture boundaries and extraction discipline. |
 | `DEPENDENCIES.md` | Provider and package dependency register, blast radius, lock-in, and cost watch. |
+| `INGESTION_PLATFORM_ARCHITECTURE.md` | Reusable ingestion platform architecture; Vamo is the first consumer target. |
 | `PROVIDER_CONTROL_PLANE.md` | Provider registry/control-plane notes. |
 
 Feature prompts may still mention older paths historically; new work should
