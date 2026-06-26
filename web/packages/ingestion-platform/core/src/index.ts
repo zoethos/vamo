@@ -59,6 +59,12 @@ export {
   type IngestionCommandPlan
 } from "./commands.js";
 export {
+  applyPostgresIngestionCommand,
+  type AppliedPostgresIngestionCommandResult,
+  type ApplyPostgresIngestionCommandInput,
+  type ControlCommandPgClientLike
+} from "./control-command-api.js";
+export {
   type ShipmentCandidateRow,
   type ShipmentOperation,
   type ShipmentPlan,

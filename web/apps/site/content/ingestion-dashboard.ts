@@ -2,9 +2,9 @@
 //
 // This module no longer hand-authors the dashboard. It reads through the
 // platform read model: a control-plane snapshot is transformed into view state
-// by `@vamo/ingestion-platform`. The page renders the result. When a live
-// control API exists, the same read model runs server-side against real rows;
-// only the snapshot source changes.
+// by `@vamo/ingestion-platform`. The page renders the result. The server-only
+// control API owns mutations; the browser shell stays read-only until admin auth
+// and UI command wiring are connected.
 //
 // No service-role secrets, DSNs, or control-table access live here.
 

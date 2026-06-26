@@ -76,8 +76,8 @@ export default function IngestionDashboardPage() {
           <h1>Ingestion control</h1>
           <p>
             Visual shell for managing cache loaders, enrichment workers, target
-            checkpoints, and promotion telemetry before any live control API is
-            connected.
+            checkpoints, and promotion telemetry while command controls wait for
+            admin auth and UI wiring.
           </p>
         </div>
         <div className="admin-command-surface" aria-label="Global ingestion controls">
@@ -120,7 +120,7 @@ export default function IngestionDashboardPage() {
             <p className="admin-kicker">Instances</p>
             <h2>Containerized workers</h2>
           </div>
-          <span className="admin-readonly-pill">Controls disabled until service wiring</span>
+          <span className="admin-readonly-pill">Controls disabled until admin auth</span>
         </div>
         <div className="admin-instance-grid">
           {ingestionInstances.map((instance) => (
