@@ -1,0 +1,36 @@
+{
+  "kind": "ingestion.import_metadata",
+  "consumer": "vamo",
+  "profile": "place-intelligence",
+  "contractVersion": 3,
+  "source": {
+    "repo": "vamo",
+    "commit": "50870e4868197c4fb619b20644447a5b2565c065",
+    "dirty": false,
+    "contractPath": "contracts/ingestion/vamo-place-intelligence"
+  },
+  "importedAt": "2026-06-26T15:15:25.144Z",
+  "validation": {
+    "manifest": "ok",
+    "pipeline": "ok",
+    "target": "ok"
+  },
+  "files": [
+    {
+      "path": "manifest.yaml",
+      "sha256": "c06869b380ba001c0b8f0c768dfe987b4f462f6abc3570ff43f37209818c102d"
+    },
+    {
+      "path": "pipeline.yaml",
+      "sha256": "59be67866099d0bbea3b571146c70c47e8a71d7cdcec5f0cf9b587c224f37a0c"
+    },
+    {
+      "path": "target.yaml",
+      "sha256": "03540331246db5326841d9cf125445d520031a810cc8916f935b2ad766a394f4"
+    },
+    {
+      "path": "fixtures/source.jsonl",
+      "sha256": "2d6ac56b6e4dea8107815875093530def307179e6bddee5704b37a9b8fe32b36"
+    }
+  ]
+}

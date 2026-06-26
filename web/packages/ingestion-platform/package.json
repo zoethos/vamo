@@ -1,0 +1,40 @@
+{
+  "name": "@vamo/ingestion-platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./adapters/source": "./dist/adapters/source/src/index.js",
+    "./adapters/target": "./dist/adapters/target/src/index.js",
+    "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
+    "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
+    "./core": "./dist/core/src/index.js",
+    "./control-api": {
+      "types": "./dist/core/src/control-command-api.d.ts",
+      "default": "./dist/core/src/control-command-api.js"
+    },
+    "./read-model": {
+      "types": "./dist/core/src/read-model.d.ts",
+      "default": "./dist/core/src/read-model.js"
+    },
+    "./policy": "./dist/policy/src/index.js",
+    "./spec": "./dist/spec/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "import:contract": "npm run build && node scripts/import-consumer-contract.mjs",
+    "test": "npm run build && node scripts/run-spec-tests.mjs",
+    "worker": "node dist/core/src/worker-main.js"
+  },
+  "dependencies": {
+    "pg": "8.22.0",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.20.0",
+    "typescript": "^5.7.0"
+  }
+}

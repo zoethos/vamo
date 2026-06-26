@@ -29,6 +29,11 @@ key.properties
 # npm (supabase CLI dev-dependency)
 node_modules/
 
+# Local ingestion worker state
+.ingestion-worker-state/
+**/.ingestion-worker-state/
+tool/ingestion/state/
+
 # Dart / Flutter
 .dart_tool/
 .packages

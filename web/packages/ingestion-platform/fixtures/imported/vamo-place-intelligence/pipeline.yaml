@@ -1,0 +1,77 @@
+kind: ingestion.pipeline
+version: 3
+id: vamo-place-intelligence
+name: Vamo Place Intelligence
+owner: vamo
+source:
+  id: fsq-os-places-sample
+  name: FSQ Open Source Places Sample
+  adapter: fixture
+  license:
+    name: FSQ Open Source Places
+    url: https://github.com/foursquare/os-places
+    attribution: FSQ Open Source Places, Apache-2.0
+    canStoreFacts: true
+    canStoreContent: true
+    canStoreMediaBytes: false
+    liveOnly: false
+  connection:
+    fixturePath: fixtures/source.jsonl
+target:
+  id: vamo-place-intelligence-staging
+  adapter: supabase_postgres
+  project: vamo
+  profile: place-intelligence
+  dryRunOnly: true
+cursor:
+  strategy: monotonic_row_id
+  field: source_row_id
+policyRequests:
+  storeFacts: true
+  storeContent: true
+  storeMediaBytes: false
+mappings:
+  - from: source.id
+    to: location_canonicals.id
+    transform: deterministic_uuid
+  - from: source.id
+    to: location_canonicals.canonical_key
+    transform: stable_key
+  - from: source.name
+    to: location_canonicals.display_name
+    transform: trim
+  - from: source.name
+    to: location_canonicals.name_norm
+    transform: lowercase
+  - value: poi
+    to: location_canonicals.feature_type
+  - from: source.latitude
+    to: location_canonicals.latitude
+    transform: to_number
+  - from: source.longitude
+    to: location_canonicals.longitude
+    transform: to_number
+  - value: fsq_os_places
+    to: location_canonicals.source_provider
+  - from: source.id
+    to: location_canonicals.source_place_id
+  - from: attribution
+    to: location_canonicals.attribution
+  - value: seeded
+    to: location_canonicals.promotion_state
+  - from: source.id
+    to: location_source_refs.canonical_id
+    transform: deterministic_uuid
+  - value: fsq_os_places
+    to: location_source_refs.provider
+  - from: source.id
+    to: location_source_refs.source_place_id
+  - from: attribution
+    to: location_source_refs.attribution
+qualityGates:
+  - id: require-source-attribution
+    type: attribution_present
+    severity: block
+  - id: reject-google-reusable-payloads
+    type: live_only_source_guard
+    severity: block

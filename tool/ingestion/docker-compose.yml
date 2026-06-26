@@ -1,0 +1,12 @@
+services:
+  worker:
+    build:
+      context: ../..
+      dockerfile: tool/ingestion/worker.Dockerfile
+    environment:
+      INGESTION_WORKER_BATCH_SIZE: "2"
+      INGESTION_WORKER_FIXTURE_ROOT: /app/web/packages/ingestion-platform/fixtures/imported/vamo-place-intelligence
+      INGESTION_WORKER_PIPELINE: /app/web/packages/ingestion-platform/fixtures/imported/vamo-place-intelligence/pipeline.yaml
+      INGESTION_WORKER_STATE_DIR: /state
+    volumes:
+      - ./state:/state

@@ -13,3 +13,9 @@ Architecture, provider-governance, and dependency-risk documents live here.
 
 Feature prompts may still mention older paths historically; new work should
 link to this folder.
+
+Reusable platform docs live outside this Vamo architecture folder:
+
+| Platform area | Purpose |
+| --- | --- |
+| `../platform/ingestion/` | Reusable ingestion/product-cache platform; Vamo is the first consumer target. |
