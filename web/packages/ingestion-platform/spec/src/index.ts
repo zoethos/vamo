@@ -1,9 +1,12 @@
 export { parsePipelineSpec } from "./pipeline.js";
 export { parseTargetProjectSpec } from "./target.js";
+export { parseConsumerContractManifest } from "./consumer-contract.js";
 export {
   CURSOR_STRATEGIES,
   SOURCE_ADAPTERS,
   TARGET_ADAPTERS,
+  type ConsumerContractExports,
+  type ConsumerContractManifest,
   type CursorStrategy,
   type FieldMappingSpec,
   type PipelineCursorSpec,

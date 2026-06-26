@@ -15,10 +15,10 @@ function paths(result: { errors: Array<{ path: string }> }): string[] {
 describe("ingestion spec kernel", () => {
   it("parses the valid Vamo place-intelligence fixture", () => {
     const pipeline = parsePipelineSpec(
-      fixture("fixtures/examples/vamo-place-intelligence/pipeline.yaml")
+      fixture("fixtures/imported/vamo-place-intelligence/pipeline.yaml")
     );
     const target = parseTargetProjectSpec(
-      fixture("fixtures/examples/vamo-place-intelligence/target.yaml")
+      fixture("fixtures/imported/vamo-place-intelligence/target.yaml")
     );
 
     assert.equal(pipeline.ok, true);

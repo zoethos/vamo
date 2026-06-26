@@ -146,3 +146,20 @@ export interface TargetProjectSpec {
   security: TargetSecuritySpec;
   shipment: TargetShipmentSpec;
 }
+
+export interface ConsumerContractExports {
+  pipeline: string;
+  target: string;
+  fixtures: string[];
+}
+
+export interface ConsumerContractManifest {
+  normalizedSpecVersion: 1;
+  kind: "ingestion.consumer_contract";
+  consumer: string;
+  profile: string;
+  version: number;
+  title?: string;
+  description?: string;
+  exports: ConsumerContractExports;
+}

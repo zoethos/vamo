@@ -1,7 +1,7 @@
 kind: ingestion.pipeline
 version: 1
-id: vamo-place-intelligence-fixture
-name: Vamo Place Intelligence Fixture
+id: vamo-place-intelligence
+name: Vamo Place Intelligence
 owner: vamo
 source:
   id: fsq-os-places-sample
@@ -16,7 +16,7 @@ source:
     canStoreMediaBytes: false
     liveOnly: false
   connection:
-    fixturePath: fixtures/examples/vamo-place-intelligence/source.jsonl
+    fixturePath: fixtures/source.jsonl
 target:
   id: vamo-place-intelligence-staging
   adapter: supabase_postgres

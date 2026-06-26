@@ -5,8 +5,9 @@ import { describe, it } from "node:test";
 import { mapRecord, runFixturePipeline } from "../src/pipeline-runner.js";
 import { parsePipelineSpec } from "../../spec/src/index.js";
 
+const fixtureRoot = "fixtures/imported/vamo-place-intelligence";
 const parsedPipeline = parsePipelineSpec(
-  readFileSync("fixtures/examples/vamo-place-intelligence/pipeline.yaml", "utf8")
+  readFileSync(`${fixtureRoot}/pipeline.yaml`, "utf8")
 );
 
 if (!parsedPipeline.ok) {
@@ -19,7 +20,8 @@ describe("fixture pipeline runner", () => {
   it("stages candidates, policy evaluations, events, and checkpoint output", async () => {
     const result = await runFixturePipeline({
       pipeline,
-      batchSize: 2
+      batchSize: 2,
+      fixtureRoot
     });
 
     assert.equal(result.candidates.length, 2);
@@ -36,12 +38,14 @@ describe("fixture pipeline runner", () => {
   it("resumes from checkpoint and advances through dead-lettered and blocked rows", async () => {
     const first = await runFixturePipeline({
       pipeline,
-      batchSize: 2
+      batchSize: 2,
+      fixtureRoot
     });
     const resumed = await runFixturePipeline({
       pipeline,
       batchSize: 10,
-      checkpoint: first.checkpoint
+      checkpoint: first.checkpoint,
+      fixtureRoot
     });
 
     assert.deepEqual(

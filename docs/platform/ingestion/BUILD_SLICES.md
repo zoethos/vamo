@@ -49,11 +49,13 @@ web/apps/ingestion-control-api/    # later, when mutation boundary exists
 tool/ingestion/                    # optional local CLI/dev harness
 ```
 
-Vamo-specific profiles should live as examples/consumer specs, not inside core
-packages:
+Vamo-specific profiles are consumer-owned and imported, not authored inside core
+packages (see IP-03.5). The consumer publishes the contract in its own repo; the
+platform keeps a pinned snapshot:
 
 ```text
-web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/
+Z:\vamo/contracts/ingestion/vamo-place-intelligence/            # consumer-owned source of truth
+web/packages/ingestion-platform/fixtures/imported/vamo-place-intelligence/   # pinned snapshot
 ```
 
 ## Slice IP-00 - Strategy And Visual Shell
@@ -220,6 +222,50 @@ Tests:
 - Policy allow/deny.
 - Dead-letter classification.
 - Transform output determinism.
+
+## Slice IP-03.5 - Consumer Contract Export/Import
+
+Status: done.
+
+Goal: make consumers own their requirements. A consumer (Vamo first) publishes a
+YAML contract bundle in its own repo; the platform imports a pinned snapshot and
+runs against that copy. The platform must not read a consumer repo at runtime.
+
+Architecture decision: consumer boundary by import, not by reference. Vamo is
+customer zero, so its profile stops being a platform-authored example and becomes
+an imported artifact with recorded provenance.
+
+Files:
+
+- `Z:\vamo/contracts/ingestion/vamo-place-intelligence/` (consumer repo): `manifest.yaml`,
+  `pipeline.yaml`, `target.yaml`, `fixtures/source.jsonl`.
+- `web/packages/ingestion-platform/spec/src/consumer-contract.ts` - manifest parser.
+- `web/packages/ingestion-platform/scripts/import-consumer-contract.mjs` - snapshot importer.
+- `web/packages/ingestion-platform/fixtures/imported/vamo-place-intelligence/` - generated snapshot.
+- `web/packages/ingestion-platform/fixtures/platform/` - platform-owned test fixtures.
+- tests: `spec/test/consumer-contract.test.ts`, `core/test/consumer-contract-import.test.ts`.
+
+Behavior:
+
+- Validate a consumer `manifest.yaml` (kind, consumer, profile, version, exports)
+  with the spec kernel, rejecting export paths that escape the bundle.
+- Copy a snapshot into `fixtures/imported/<consumer>-<profile>/`.
+- Re-validate the imported pipeline/target with the IP-01 kernel.
+- Record provenance: source repo, commit SHA, per-file content hashes, in
+  `IMPORT_METADATA.json`.
+
+Acceptance criteria:
+
+- The platform never reads the consumer repo at runtime; tests run against the
+  committed snapshot.
+- Import fails if the manifest, pipeline, or target is invalid.
+- Snapshot carries source commit SHA and content hashes.
+- The imported Vamo profile parses (IP-01) and dry-runs (IP-03).
+
+Definition of done:
+
+- `npm --workspace @vamo/ingestion-platform run import:contract -- --from <dir>` regenerates the snapshot.
+- `npm --workspace @vamo/ingestion-platform test` passes.
 
 ## Slice IP-04 - Postgres Dry-Run Target Adapter
 
@@ -413,7 +459,8 @@ names live in profile/spec files, not core packages.
 
 Files:
 
-- `web/packages/ingestion-platform/fixtures/examples/vamo-place-intelligence/*.yaml`
+- `Z:\vamo/contracts/ingestion/vamo-place-intelligence/*.yaml` (consumer-owned; imported via IP-03.5)
+- `web/packages/ingestion-platform/fixtures/imported/vamo-place-intelligence/` (pinned snapshot)
 - `docs/platform/ingestion/ARCHITECTURE.md` updates if needed
 - optional Vamo target schema compatibility fixtures
 

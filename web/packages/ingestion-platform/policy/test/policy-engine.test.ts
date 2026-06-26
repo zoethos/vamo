@@ -6,7 +6,7 @@ import { evaluateRecordPolicy, hasPolicyDenial } from "../src/index.js";
 import { parsePipelineSpec } from "../../spec/src/index.js";
 
 const parsedPipeline = parsePipelineSpec(
-  readFileSync("fixtures/examples/vamo-place-intelligence/pipeline.yaml", "utf8")
+  readFileSync("fixtures/imported/vamo-place-intelligence/pipeline.yaml", "utf8")
 );
 
 if (!parsedPipeline.ok) {

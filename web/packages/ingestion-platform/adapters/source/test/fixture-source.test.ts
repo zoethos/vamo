@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { readFixtureBatch } from "../src/fixture-source.js";
 
-const fixturePath = "fixtures/examples/vamo-place-intelligence/source.jsonl";
+const fixturePath = "fixtures/platform/source-sample.jsonl";
 
 describe("fixture source adapter", () => {
   it("reads bounded fixture batches without network access", () => {
@@ -36,7 +36,7 @@ describe("fixture source adapter", () => {
 
   it("classifies invalid JSON lines as source issues", () => {
     const batch = readFixtureBatch({
-      fixturePath: "fixtures/examples/vamo-place-intelligence/source-invalid-json.jsonl",
+      fixturePath: "fixtures/platform/source-invalid-json.jsonl",
       cursorField: "source_row_id",
       limit: 5
     });

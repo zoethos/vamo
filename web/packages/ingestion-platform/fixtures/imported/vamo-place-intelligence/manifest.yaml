@@ -1,0 +1,15 @@
+kind: ingestion.consumer_contract
+consumer: vamo
+profile: place-intelligence
+version: 1
+title: Vamo Place Intelligence Ingestion Contract
+description: >-
+  What Vamo asks the ingestion platform to ingest into its place cache: the source
+  to read, the dry-run target shape, the policy gates that must hold, and a fixture
+  sample for no-network validation. The platform imports a pinned snapshot of this
+  bundle; it must not read the Vamo repo at runtime.
+exports:
+  pipeline: pipeline.yaml
+  target: target.yaml
+  fixtures:
+    - fixtures/source.jsonl
