@@ -11,6 +11,10 @@ import {
 } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
+const confluendoBootstrapSql = readFileSync(
+  "core/sql/control_bootstrap_confluendo.sql",
+  "utf8"
+);
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 
 describe("ingestion control schema", () => {
@@ -33,6 +37,15 @@ describe("ingestion control schema", () => {
     assert.doesNotMatch(controlSchemaSql, /\btrips?\b/i);
     assert.doesNotMatch(controlSchemaSql, /\blocation_canonicals\b/i);
     assert.doesNotMatch(controlSchemaSql, /\blocation_source_refs\b/i);
+  });
+
+  it("keeps the Confluendo bootstrap scoped to runtime grants", () => {
+    assert.match(confluendoBootstrapSql, /\bconfluendo_app\b/);
+    assert.match(confluendoBootstrapSql, /\bgrant select on all tables\b/i);
+    assert.match(confluendoBootstrapSql, /\bgrant insert on ingestion_platform\.ingestion_audit_log\b/i);
+    assert.doesNotMatch(confluendoBootstrapSql, /\bgrant all privileges\b/i);
+    assert.doesNotMatch(confluendoBootstrapSql, /\bservice_role\b/i);
+    assert.doesNotMatch(confluendoBootstrapSql, /\bcreate role\b/i);
   });
 
   it(
