@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { readFixtureBatch, type FixtureSourceIssue } from "../../adapters/source/src/fixture-source.js";
 import { evaluateRecordPolicy, hasPolicyDenial, type PolicyEvaluation } from "../../policy/src/index.js";
 import type { FieldMappingSpec, PipelineSpec } from "../../spec/src/types.js";
@@ -224,11 +226,17 @@ export function mapRecord(
   const errors: MappingResult["errors"] = [];
 
   for (const mapping of mappings) {
-    const rawValue = getPath(record, mapping.from);
+    const rawValue =
+      mapping.from !== undefined
+        ? getPath(record, mapping.from)
+        : mapping.value;
     if (rawValue === undefined || rawValue === null || rawValue === "") {
       errors.push({
         reasonCode: "missing_mapped_field",
-        reasonMessage: `Required mapping source "${mapping.from}" is missing.`,
+        reasonMessage:
+          mapping.from !== undefined
+            ? `Required mapping source "${mapping.from}" is missing.`
+            : `Required mapping literal for "${mapping.to}" is missing.`,
         mapping
       });
       continue;
@@ -308,11 +316,52 @@ function applyTransform(
     }
   }
 
+  if (transform === "stable_key") {
+    return {
+      ok: true,
+      value: stableKey(value)
+    };
+  }
+
+  if (transform === "deterministic_uuid") {
+    return {
+      ok: true,
+      value: deterministicUuid(value)
+    };
+  }
+
   return {
     ok: false,
     reasonCode: "unsupported_transform",
     reasonMessage: `Unsupported or failed transform "${transform}".`
   };
+}
+
+function stableKey(value: unknown): string {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function deterministicUuid(value: unknown): string {
+  const bytes = createHash("sha256")
+    .update(`ingestion-platform:${String(value)}`)
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
+  bytes[12] = "5";
+  bytes[16] = ((Number.parseInt(bytes[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+  const hex = bytes.join("");
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32)
+  ].join("-");
 }
 
 function getPath(record: Record<string, unknown>, path: string): unknown {

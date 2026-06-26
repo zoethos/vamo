@@ -59,12 +59,14 @@ function pickComparableColumns(
   record: Record<string, unknown>,
   columns: string[]
 ): Record<string, unknown> {
-  return Object.fromEntries(columns.map((column) => [column, normalizeValue(record[column])]));
+  return Object.fromEntries(
+    columns.map((column) => [column, normalizeValue(record[column], column)])
+  );
 }
 
-function stableStringify(value: unknown): string {
+function stableStringify(value: unknown, key?: string): string {
   if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+    return `[${value.map((item) => stableStringify(item, key)).join(",")}]`;
   }
 
   if (value instanceof Date) {
@@ -75,17 +77,49 @@ function stableStringify(value: unknown): string {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record)
       .sort()
-      .map((key) => `${JSON.stringify(key)}:${stableStringify(normalizeValue(record[key]))}`)
+      .map((recordKey) => {
+        const normalized = normalizeValue(record[recordKey], recordKey);
+        return `${JSON.stringify(recordKey)}:${stableStringify(normalized, recordKey)}`;
+      })
       .join(",")}}`;
   }
 
-  return JSON.stringify(normalizeValue(value));
+  return JSON.stringify(normalizeValue(value, key));
 }
 
-function normalizeValue(value: unknown): unknown {
+function normalizeValue(value: unknown, key?: string): unknown {
   if (value instanceof Date) {
     return value.toISOString();
   }
 
+  if (typeof value === "string") {
+    if (key && isTimestampKey(key) && isIsoLikeTimestamp(value)) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+
+    if (key && isNumericKey(key) && isNumericString(value)) {
+      return Number(value);
+    }
+  }
+
   return value;
+}
+
+function isNumericKey(key: string): boolean {
+  return /(^|_)(lat|lng|latitude|longitude|confidence|rank|score|weight)$/i.test(key);
+}
+
+function isTimestampKey(key: string): boolean {
+  return /(^|_)(at|date|time)$/i.test(key);
+}
+
+function isIsoLikeTimestamp(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/.test(value);
+}
+
+function isNumericString(value: string): boolean {
+  return /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value.trim());
 }

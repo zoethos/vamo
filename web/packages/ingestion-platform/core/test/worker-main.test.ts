@@ -71,7 +71,7 @@ describe("container worker harness", () => {
     assert.equal(resumed.checkpoint?.cursorValue.last, 5);
     assert.equal(resumed.checkpoint?.processedCount, 5);
     assert.equal(resumed.candidatesStaged, 1);
-    assert.equal(resumed.deadLetters, 1);
+    assert.equal(resumed.deadLetters, 2);
     assert.equal(resumed.policyEvaluations > 0, true);
 
     const events = await readEvents(stateDir);

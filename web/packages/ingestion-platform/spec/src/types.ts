@@ -86,7 +86,8 @@ export interface PipelinePolicyRequests {
 }
 
 export interface FieldMappingSpec {
-  from: string;
+  from?: string;
+  value?: string | number | boolean | null;
   to: string;
   transform?: string;
 }

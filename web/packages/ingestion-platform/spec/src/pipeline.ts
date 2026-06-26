@@ -207,14 +207,44 @@ function parseMappings(root: Record<string, unknown>, errors: ValidationBag): Fi
       return [];
     }
 
+    const from = optionalString(record, "from", `${path}.from`, errors);
+    const hasValue = Object.prototype.hasOwnProperty.call(record, "value");
+    if (!from && !hasValue) {
+      errors.shape(`${path}.from`, 'Expected either "from" or "value".');
+    }
+    if (from && hasValue) {
+      errors.shape(`${path}.value`, 'Expected only one of "from" or "value".');
+    }
+
+    const transform = optionalString(record, "transform", `${path}.transform`, errors);
+
     return [
       {
-        from: requireString(record, "from", `${path}.from`, errors) ?? "",
+        ...(from ? { from } : {}),
+        ...(hasValue ? { value: readLiteralValue(record.value, `${path}.value`, errors) } : {}),
         to: requireString(record, "to", `${path}.to`, errors) ?? "",
-        transform: optionalString(record, "transform", `${path}.transform`, errors)
+        ...(transform ? { transform } : {})
       }
     ];
   });
+}
+
+function readLiteralValue(
+  value: unknown,
+  path: string,
+  errors: ValidationBag
+): string | number | boolean | null {
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  errors.shape(path, "Expected a string, number, boolean, or null literal.");
+  return null;
 }
 
 function parseQualityGates(

@@ -1,5 +1,5 @@
 kind: ingestion.target
-version: 1
+version: 2
 id: vamo-place-intelligence-staging
 name: Vamo Place Intelligence Staging
 adapter: supabase_postgres
@@ -25,5 +25,5 @@ shipment:
     - table: location_source_refs
       mode: upsert
       upsertKeys:
-        - source
-        - source_id
+        - provider
+        - source_place_id

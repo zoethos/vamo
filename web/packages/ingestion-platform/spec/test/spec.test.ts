@@ -163,6 +163,80 @@ mappings: []
     );
   });
 
+  it("parses literal value mappings for derived target fields", () => {
+    const result = parsePipelineSpec(`
+kind: ingestion.pipeline
+version: 1
+id: literal-mapping
+name: Literal Mapping
+owner: test
+source:
+  id: local
+  name: Local
+  adapter: fixture
+  license:
+    name: Local
+    attribution: Local
+    canStoreFacts: true
+    canStoreContent: false
+    canStoreMediaBytes: false
+target:
+  id: local
+  adapter: postgres
+  project: demo
+  profile: places
+cursor:
+  strategy: snapshot
+mappings:
+  - value: fsq_os_places
+    to: location_canonicals.source_provider
+  - from: source.id
+    to: location_canonicals.canonical_key
+    transform: stable_key
+`);
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.deepEqual(result.value.mappings[0], {
+        value: "fsq_os_places",
+        to: "location_canonicals.source_provider"
+      });
+      assert.equal(result.value.mappings[1]?.transform, "stable_key");
+    }
+  });
+
+  it("rejects mappings without a source field or literal value", () => {
+    const result = parsePipelineSpec(`
+kind: ingestion.pipeline
+version: 1
+id: bad-mapping
+name: Bad Mapping
+owner: test
+source:
+  id: local
+  name: Local
+  adapter: fixture
+  license:
+    name: Local
+    attribution: Local
+    canStoreFacts: true
+    canStoreContent: false
+    canStoreMediaBytes: false
+target:
+  id: local
+  adapter: postgres
+  project: demo
+  profile: places
+cursor:
+  strategy: snapshot
+mappings:
+  - to: location_canonicals.source_provider
+`);
+
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.path === "mappings[0].from"), true);
+  });
+
   it("rejects Supabase service-role exposure to browser/admin code", () => {
     const result = parseTargetProjectSpec(`
 kind: ingestion.target

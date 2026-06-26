@@ -79,4 +79,32 @@ describe("shipment diff", () => {
       })
     );
   });
+
+  it("treats numeric and timestamp column equivalents as no-ops", () => {
+    const result = buildShipmentDiff({
+      targetTable: "public.location_canonicals",
+      upsertKeys: ["canonical_key"],
+      candidateRows: [
+        {
+          recordKey: "colosseum",
+          payload: {
+            canonical_key: "fsq-colosseum",
+            latitude: 41.8902,
+            longitude: 12.4922,
+            updated_at: "2026-06-26T12:00:00.000Z"
+          }
+        }
+      ],
+      existingRows: [
+        {
+          canonical_key: "fsq-colosseum",
+          latitude: "41.890200",
+          longitude: "12.492200",
+          updated_at: new Date("2026-06-26T12:00:00.000Z")
+        }
+      ]
+    });
+
+    assert.equal(result[0]?.operation, "no_op");
+  });
 });

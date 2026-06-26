@@ -52,7 +52,7 @@ describe("fixture pipeline runner", () => {
       resumed.candidates.map((candidate) => candidate.recordKey),
       ["fsq_sagrada_familia"]
     );
-    assert.equal(resumed.deadLetters.length, 1);
+    assert.equal(resumed.deadLetters.length, 2);
     assert.equal(resumed.deadLetters[0]?.reasonCode, "missing_mapped_field");
     assert.equal(
       resumed.events.some((event) => event.eventType === "policy_blocked"),
@@ -115,5 +115,40 @@ describe("fixture pipeline runner", () => {
         latitude: 41.1
       }
     });
+  });
+
+  it("maps literal values, stable keys, and deterministic UUIDs", () => {
+    const mapped = mapRecord(
+      {
+        source: {
+          id: "FSQ Eiffel Tower"
+        }
+      },
+      [
+        {
+          from: "source.id",
+          to: "location_canonicals.id",
+          transform: "deterministic_uuid"
+        },
+        {
+          from: "source.id",
+          to: "location_canonicals.canonical_key",
+          transform: "stable_key"
+        },
+        {
+          value: "fsq_os_places",
+          to: "location_canonicals.source_provider"
+        }
+      ]
+    );
+
+    assert.equal(mapped.errors.length, 0);
+    const canonical = mapped.payload.location_canonicals as Record<string, unknown>;
+    assert.match(
+      canonical.id as string,
+      /^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/
+    );
+    assert.equal(canonical.canonical_key, "fsq-eiffel-tower");
+    assert.equal(canonical.source_provider, "fsq_os_places");
   });
 });

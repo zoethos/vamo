@@ -473,6 +473,8 @@ Tests/smokes:
 
 ## Slice IP-09 - Vamo Place Intelligence Consumer Profile
 
+Status: done.
+
 Goal: add the first real consumer profile while keeping it outside platform
 core.
 

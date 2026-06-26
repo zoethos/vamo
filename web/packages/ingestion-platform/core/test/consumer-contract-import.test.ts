@@ -52,13 +52,13 @@ describe("imported vamo consumer contract", () => {
       fixtureRoot: bundleDir
     });
 
-    // rows 1,2,5 stage; row 3 dead-letters (missing mapped name); row 4 is
-    // policy-blocked (media bytes without storage rights).
+    // rows 1,2,5 stage; row 3 dead-letters for each missing mapped name field;
+    // row 4 is policy-blocked (media bytes without storage rights).
     assert.deepEqual(
       result.candidates.map((candidate) => candidate.recordKey),
       ["fsq_colosseum", "fsq_eiffel_tower", "fsq_sagrada_familia"]
     );
-    assert.equal(result.deadLetters.length, 1);
+    assert.equal(result.deadLetters.length, 2);
     assert.equal(result.deadLetters[0]?.reasonCode, "missing_mapped_field");
     assert.equal(
       result.events.some((event) => event.eventType === "policy_blocked"),
