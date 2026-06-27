@@ -631,7 +631,7 @@ Dashboard requirement:
 
 ## Slice IP-13 - DB-Backed CI Smoke For Control SQL
 
-Status: done when CI is green.
+Status: done.
 
 Goal: make the SQL-backed control-plane read/write path run in CI against a
 real Postgres service instead of relying only on mock clients.
@@ -650,6 +650,149 @@ Acceptance criteria:
   start/shutdown/reset command mutations apply against SQL.
 - No external providers or consumer staging/production databases are contacted.
 
+## Slice IP-14 - First Vamo Progressive Dry Run
+
+Status: next.
+
+Goal: prove the full consumer loop without staging or production writes:
+Vamo-owned contract -> Confluendo import -> target scorecard -> preflight ->
+scout -> sample dry-run -> dashboard review.
+
+Architecture decision: consumer contract plus platform planning policy. Vamo
+selects the desired product-cache target through its contract; Confluendo
+validates, schedules, checkpoints, and reports the dry run through platform
+adapters. The platform must not import Vamo runtime code.
+
+Behavior:
+
+- Select one open, cacheable place source and one narrow Vamo target scope.
+- Run preflight, scout, sample dry-run, and review-required stages.
+- Produce a shipment diff, policy report, dead-letter report, checkpoint report,
+  and next-approval requirement.
+- Show the run in the operator dashboard with rationale, progress, blockers,
+  and next action.
+- Keep staging and production writes disabled.
+
+Acceptance criteria:
+
+- The target-selection scorecard chooses a safe bounded target and rejects
+  unsafe or uncacheable options.
+- The schedule proposal is deterministic and includes scope, batch size,
+  checkpoint interval, quota budget, stop conditions, safety mode, and approval
+  requirement.
+- No source adapter performs live provider scraping.
+- No target adapter writes to Vamo staging or production.
+- Dashboard read-model surfaces the run tier, rationale, row counts, policy
+  blocks, dead letters, checkpoint, and required approval.
+
+## Slice IP-15 - Confluendo Repo Split Prep
+
+Status: planned after IP-14.
+
+Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
+repo, while making Vamo an importing consumer instead of the platform host.
+
+Do not extract before IP-14. IP-14 proves the real boundary:
+
+```text
+Vamo contract -> Confluendo import -> schedule/preflight -> dry-run -> dashboard review
+```
+
+Extracting before that risks moving scaffolding. Extracting after staging or
+production writes risks letting Vamo-specific operational shortcuts leak deeper
+into platform code.
+
+Architecture decision: provider repo plus consumer contracts. Confluendo owns
+platform code, docs, auth templates, control SQL, worker runtime, adapters, and
+admin surfaces. Vamo owns only its consumer contract, target credentials, product
+schema, and integration notes.
+
+Target Confluendo tree:
+
+```text
+confluendo/
+  apps/
+    console/
+    control-api/
+    worker/
+  packages/
+    core/
+    spec/
+    policy/
+    adapters/
+      source/
+      target/
+      transform/
+    admin-ui/
+    telemetry/
+  examples/
+    consumers/
+      vamo-place-intelligence/
+  docs/
+    architecture/
+    operations/
+    auth/
+  sql/
+    control_schema.sql
+    bootstrap_template.sql
+```
+
+Target Vamo tree:
+
+```text
+vamo/
+  contracts/
+    ingestion/
+      vamo-place-intelligence/
+        manifest.yaml
+        pipeline.yaml
+        target.yaml
+        fixtures/
+  docs/
+    ingestion/
+      vamo-confluendo-integration.md
+  app/
+  packages/
+  supabase/
+```
+
+Allowed dependency direction:
+
+- Vamo may depend on Confluendo packages, CLI, hosted APIs, embedded admin UI,
+  and contract schemas.
+- Confluendo must not depend on Vamo app code, Flutter packages, Vamo web
+  routes, Vamo Supabase edge functions, or Vamo migrations.
+- Confluendo may carry Vamo only as an example/imported consumer fixture with
+  pinned provenance.
+
+Split-prep tasks:
+
+- Rename package identity from `@vamo/ingestion-platform` to a Confluendo-owned
+  namespace.
+- Move Vamo-specific imported fixtures into `examples/consumers/` or an explicit
+  test fixture namespace.
+- Convert `control_bootstrap_confluendo.sql` into a platform bootstrap template
+  plus a Vamo example seed.
+- Replace hard-coded `projectKey = "vamo"` defaults in platform-facing APIs with
+  host-provided configuration.
+- Keep Vamo-specific cache metrics in the Vamo host adapter, not platform core.
+- Separate Confluendo auth/domain templates from Vamo auth/email templates.
+- Ensure CI can run platform tests, site/console build, and disposable Postgres
+  smoke without the Vamo repo.
+- Define the Vamo import path: git path, package artifact, tarball, or CLI
+  import command.
+
+Acceptance criteria:
+
+- A clean dependency scan shows no platform imports from Vamo runtime modules.
+- The platform package, docs, and SQL are branded Confluendo, not Vamo.
+- Vamo's contract bundle remains consumer-owned and can be imported into the
+  platform from outside the platform repo.
+- Vamo can still run its customer-zero dashboard/integration against the
+  extracted Confluendo package/API.
+- The new repo can run the ingestion-platform test suite with disposable
+  Postgres.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
@@ -657,7 +800,8 @@ Acceptance criteria:
 - No production target writes.
 - No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
-- No standalone repo split until the spec/core/adapter boundaries are proven.
+- No standalone repo split until IP-14 proves the dry-run loop and IP-15 split
+  prep is complete.
 
 ## Recommended Immediate Next Slice
 
@@ -676,3 +820,6 @@ IP-14 should:
   report.
 - Require explicit admin approval before any staging write.
 - Keep production shipment disabled.
+
+After IP-14, run **IP-15 - Confluendo Repo Split Prep** before any broad staging
+canary or production shipment.
