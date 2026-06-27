@@ -28,6 +28,7 @@ export default async function AdminSignInPage({
   const isConfigured = Boolean(getSupabasePublicConfig());
   const next = normalizeNextPath(params.next);
   const sentEmail = params.email?.trim();
+  const showOtpForm = params.sent === "1" && Boolean(sentEmail);
   const showMissingConfig = !isConfigured || params.reason === "auth_not_configured";
   const error = showMissingConfig && params.error === "auth_not_configured" ? undefined : params.error;
 
@@ -62,7 +63,8 @@ export default async function AdminSignInPage({
 
         {params.sent === "1" ? (
           <div className="admin-auth-message" role="status">
-            Magic link sent{sentEmail ? ` to ${sentEmail}` : ""}. Open it in this browser to continue.
+            Sign-in email sent{sentEmail ? ` to ${sentEmail}` : ""}. Open the link in this
+            browser or enter the one-time code below.
           </div>
         ) : null}
 
@@ -79,9 +81,35 @@ export default async function AdminSignInPage({
             disabled={!isConfigured}
           />
           <button type="submit" disabled={!isConfigured}>
-            Send magic link
+            Send sign-in email
           </button>
         </form>
+
+        {showOtpForm ? (
+          <form
+            className="admin-auth-form admin-auth-form-secondary"
+            action="/admin/sign-in/verify"
+            method="post"
+          >
+            <input type="hidden" name="next" value={next} />
+            <input type="hidden" name="email" value={sentEmail} />
+            <label htmlFor="admin-email-otp">One-time code</label>
+            <input
+              id="admin-email-otp"
+              name="otp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={12}
+              required
+              placeholder="123456"
+              disabled={!isConfigured}
+            />
+            <button type="submit" disabled={!isConfigured}>
+              Verify code
+            </button>
+          </form>
+        ) : null}
       </section>
     </main>
   );
@@ -106,6 +134,10 @@ function readableError(error: string): string {
       return "The sign-in link could not be sent. Check the email address and try again.";
     case "rate_limited":
       return "Too many sign-in links were requested. Wait a little, then try again.";
+    case "otp_missing":
+      return "Enter the one-time code from your email.";
+    case "otp_failed":
+      return "The one-time code could not be verified. Request a new code and try again.";
     case "not_authenticated":
       return "Sign in before opening the admin console.";
     default:
