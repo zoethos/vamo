@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   createContext,
   useContext,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -138,51 +139,64 @@ function CommandSurface({
   compact?: boolean;
 }) {
   const [result, setResult] = useState<CommandResult>({ status: "idle" });
+  const inFlightRef = useRef(false);
   const router = useRouter();
+  const pending = result.status === "running";
 
   async function runCommand(request: CommandRequest, reason?: string) {
-    setResult({ status: "running", label: request.label });
-
-    const response = await fetch("/api/admin/ingestion/commands", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        projectKey: "vamo",
-        command: request.command,
-        scope: request.scope,
-        ...(reason ? { reason } : {}),
-      }),
-    });
-    const payload = (await response.json().catch(() => null)) as CommandPayload | null;
-
-    if (!response.ok || !payload || !isCommandResultPayload(payload)) {
-      const failure = payload && isCommandFailurePayload(payload) ? payload : undefined;
-      const handled = maybeRedirectForAuth(failure);
-      if (handled) {
-        return;
-      }
-      setResult({
-        status: "error",
-        message: failure?.error ?? "Command failed.",
-        detail: failure?.code,
-      });
+    // Guard against double-submit: ignore re-entry while a command is in flight.
+    if (inFlightRef.current) {
       return;
     }
+    inFlightRef.current = true;
+    setResult({ status: "running", label: request.label });
 
-    const applied = payload.appliedTaskPatchIds.length + payload.appliedLeasePatchIds.length;
-    const stale = payload.staleTaskPatchIds.length + payload.staleLeasePatchIds.length;
-    const warningCount = payload.skipped.length + payload.errors.length + stale;
-    setResult({
-      status: "done",
-      message: payload.ok
-        ? `${request.label} accepted`
-        : `${request.label} completed with warnings`,
-      detail: `${applied} applied, ${payload.skipped.length} skipped, ${payload.errors.length + stale} warnings`,
-    });
-    router.refresh();
+    try {
+      const response = await fetch("/api/admin/ingestion/commands", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectKey: "vamo",
+          command: request.command,
+          scope: request.scope,
+          ...(reason ? { reason } : {}),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as CommandPayload | null;
 
-    if (warningCount === 0) {
-      window.setTimeout(() => setResult({ status: "idle" }), 3200);
+      if (!response.ok || !payload || !isCommandResultPayload(payload)) {
+        const failure = payload && isCommandFailurePayload(payload) ? payload : undefined;
+        const handled = maybeRedirectForAuth(failure);
+        if (handled) {
+          return;
+        }
+        setResult({
+          status: "error",
+          message: failure?.error ?? "Command failed.",
+          detail: failure?.code,
+        });
+        return;
+      }
+
+      const applied = payload.appliedTaskPatchIds.length + payload.appliedLeasePatchIds.length;
+      const stale = payload.staleTaskPatchIds.length + payload.staleLeasePatchIds.length;
+      const warningCount = payload.skipped.length + payload.errors.length + stale;
+      setResult({
+        status: "done",
+        message: payload.ok
+          ? `${request.label} accepted`
+          : `${request.label} completed with warnings`,
+        detail: `${applied} applied, ${payload.skipped.length} skipped, ${payload.errors.length + stale} warnings`,
+      });
+      router.refresh();
+
+      if (warningCount === 0) {
+        window.setTimeout(() => setResult({ status: "idle" }), 3200);
+      }
+    } catch {
+      setResult({ status: "error", message: "Command request failed to send." });
+    } finally {
+      inFlightRef.current = false;
     }
   }
 
@@ -191,7 +205,7 @@ function CommandSurface({
   }
 
   return (
-    <CommandSurfaceContext.Provider value={{ runCommand, requestConfirmation }}>
+    <CommandSurfaceContext.Provider value={{ runCommand, requestConfirmation, pending }}>
       <div className={compact ? "admin-command-shell admin-command-shell-compact" : "admin-command-shell"}>
         {children}
         <CommandResultView result={result} setResult={setResult} />
@@ -215,13 +229,14 @@ function CommandButton({
 }) {
   const surface = CommandSurfaceContext.useValue();
   const disabledReason = request ? disabledReasonFor(context, request) : "No command is available for this state.";
+  const blockedTitle = disabledReason ?? (surface.pending ? "A command is in progress." : undefined);
 
   return (
     <button
       className={className}
       type="button"
-      disabled={Boolean(disabledReason)}
-      title={disabledReason}
+      disabled={Boolean(disabledReason) || surface.pending}
+      title={blockedTitle}
       onClick={() => {
         if (!request) {
           return;
@@ -439,6 +454,7 @@ function createCommandSurfaceContext() {
   const context = createContext<{
     runCommand: (request: CommandRequest, reason?: string) => Promise<void>;
     requestConfirmation: (request: CommandRequest) => void;
+    pending: boolean;
   } | null>(null);
 
   return {
