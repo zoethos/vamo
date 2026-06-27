@@ -38,7 +38,10 @@ if (testFiles.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ["--test", ...testFiles], {
+// Run test files one at a time. Several DB-smoke suites recreate the shared
+// disposable `ingestion_platform` schema; the default parallel file runner lets
+// them deadlock on the schema lock when INGESTION_TEST_DATABASE_URL is set.
+const result = spawnSync(process.execPath, ["--test", "--test-concurrency=1", ...testFiles], {
   stdio: "inherit"
 });
 

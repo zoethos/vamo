@@ -7,13 +7,9 @@ import type {
   IngestionStatus,
   IngestionTone,
 } from "@/content/ingestion-dashboard";
-import {
-  progressiveNextAction,
-  progressiveRows,
-  progressiveSummary,
-} from "@/content/ip14-progressive-run";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
+import { loadIp14ProgressiveBoard } from "@/lib/ip14-progressive-data";
 import {
   ClusterCommandControls,
   RecoveryCommandButton,
@@ -53,6 +49,13 @@ export default async function IngestionDashboardPage() {
   });
 
   const { view, source } = await loadIngestionDashboard("vamo");
+  const { view: progressiveView, source: progressiveSource } =
+    await loadIp14ProgressiveBoard("vamo");
+  const {
+    rows: progressiveRows,
+    summary: progressiveSummary,
+    nextAction: progressiveNextAction,
+  } = progressiveView;
   const {
     signals: ingestionSignals,
     actions: ingestionActions,
@@ -348,6 +351,7 @@ export default async function IngestionDashboardPage() {
             <h2>Target backlog and dry-run review</h2>
           </div>
           <span className="admin-table-count">
+            {progressiveSource === "live" ? "Live control plane" : "Sample preview"} ·{" "}
             {progressiveSummary.reviewRequired} review · {progressiveSummary.blocked} blocked
           </span>
         </div>

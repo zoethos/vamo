@@ -383,6 +383,41 @@ create table if not exists ingestion_platform.ingestion_audit_log (
   )
 );
 
+-- Progressive scheduling backlog: one row per target candidate/proposal. Stores
+-- the deterministic scorecard, the bounded schedule proposal, and the latest
+-- progressive dry-run report as JSONB produced by platform-core policy. This is
+-- a read surface for the dashboard; no scheduling mutation path writes it yet.
+create table if not exists ingestion_platform.ingestion_schedule_proposals (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  target_key text not null,
+  source_key text,
+  work_status text not null default 'proposed',
+  tier text not null,
+  safety_mode text not null default 'dry_run',
+  scorecard jsonb not null,
+  proposal jsonb,
+  run_report jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_schedule_proposals_work_status_check check (
+    work_status in ('proposed', 'scheduled', 'running', 'review_required', 'blocked')
+  ),
+  constraint ingestion_schedule_proposals_safety_mode_check check (
+    safety_mode in ('dry_run', 'staging_write', 'production_write')
+  ),
+  constraint ingestion_schedule_proposals_scorecard_object check (
+    jsonb_typeof(scorecard) = 'object'
+  ),
+  constraint ingestion_schedule_proposals_proposal_object check (
+    proposal is null or jsonb_typeof(proposal) = 'object'
+  ),
+  constraint ingestion_schedule_proposals_run_report_object check (
+    run_report is null or jsonb_typeof(run_report) = 'object'
+  ),
+  constraint ingestion_schedule_proposals_target_key_unique unique (project_id, target_key)
+);
+
 create index if not exists ingestion_specs_project_id_idx
   on ingestion_platform.ingestion_specs (project_id);
 create index if not exists ingestion_specs_project_kind_status_idx
@@ -498,5 +533,8 @@ create index if not exists ingestion_audit_log_project_created_idx
   on ingestion_platform.ingestion_audit_log (project_id, created_at desc);
 create index if not exists ingestion_audit_log_action_target_idx
   on ingestion_platform.ingestion_audit_log (action, target_type, created_at desc);
+
+create index if not exists ingestion_schedule_proposals_project_status_idx
+  on ingestion_platform.ingestion_schedule_proposals (project_id, work_status, created_at desc);
 
 commit;

@@ -73,6 +73,8 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
   rowsStaged: number;
   policyBlockCount: number;
   deadLetterCount: number;
+  /** Dry-run invariant surfaced to the console: a run never wrote to its target. */
+  wroteToTarget: boolean;
   blockers: string[];
   policyBlocks: string[];
   deadLetters: string[];
@@ -146,6 +148,7 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     rowsStaged: report?.rowCounts.staged ?? 0,
     policyBlockCount: report?.rowCounts.policyBlocked ?? 0,
     deadLetterCount: report?.rowCounts.deadLettered ?? 0,
+    wroteToTarget: report?.wroteToTarget ?? false,
     blockers: scorecard.blockingGates.slice(),
     policyBlocks: report?.policyBlocks.slice() ?? [],
     deadLetters: report?.deadLetters.slice() ?? [],
