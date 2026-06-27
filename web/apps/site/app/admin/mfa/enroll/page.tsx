@@ -9,7 +9,7 @@ import {
 import { MfaEnrollForm } from "./mfa-enroll-form";
 
 export const metadata: Metadata = {
-  title: "Admin MFA enrollment · Vamo",
+  title: "Confluendo MFA enrollment",
   robots: {
     index: false,
     follow: false,
@@ -41,7 +41,7 @@ export default async function AdminMfaEnrollPage({
       <section className="admin-auth-panel" aria-labelledby="admin-mfa-enroll-title">
         <Link className="admin-auth-brand" href="/">
           <Image src="/brand/primary_mark.png" alt="" width={36} height={36} priority />
-          <span>Vamo admin</span>
+          <span>Confluendo admin</span>
         </Link>
 
         <div className="admin-auth-copy">

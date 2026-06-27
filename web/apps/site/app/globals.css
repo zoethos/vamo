@@ -2458,6 +2458,13 @@ a:hover {
   height: auto;
 }
 
+.admin-mfa-helper {
+  color: rgba(31, 51, 41, 0.72);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: -0.15rem 0 0;
+}
+
 .admin-auth-form .admin-mfa-secret {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   letter-spacing: 0.04em;
