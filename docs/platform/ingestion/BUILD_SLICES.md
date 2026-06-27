@@ -1,6 +1,6 @@
 # Ingestion Platform Build Slices
 
-Status: implementation slicing draft - 2026-06-26.
+Status: implementation slicing record - updated 2026-06-28.
 
 This plan turns `docs/platform/ingestion/ARCHITECTURE.md` into
 buildable slices. The platform is incubated in this repo, but it must stay
@@ -17,8 +17,8 @@ portable. Vamo is customer zero, not the platform boundary.
   and live-only rules are gates, not notes.
 - Treat Postgres and Supabase/Postgres as first target adapters, not the whole
   abstraction.
-- Keep the admin dashboard non-mutating until auth, control API, leases, audit
-  logs, and target guards exist.
+- Keep production target writes disabled until auth, control API, leases, audit
+  logs, target guards, CI smokes, and operator approvals exist.
 
 ## Incubation Layout
 
@@ -538,28 +538,141 @@ Acceptance criteria:
 - Policy blocks are visible in telemetry.
 - Shipment remains dry-run until review.
 
+## Slice IP-11 - Authenticated Live Control Mutation API
+
+Status: done.
+
+Goal: turn the operator controls from a read-only shell into authenticated,
+audited control-plane mutations while preserving the no-production-write guard.
+
+Architecture decision: server-side API boundary plus pure command policy. The
+browser posts commands to a Next route; the route resolves the authenticated
+admin principal and calls the platform control API. The platform package owns
+state planning and SQL mutation logic; UI code never writes control tables
+directly.
+
+Implemented:
+
+- `web/apps/site/app/api/admin/ingestion/commands/route.ts`
+- `web/apps/site/app/admin/ingestion/ingestion-command-controls.tsx`
+- `web/apps/site/lib/ingestion-admin-auth.ts`
+- `web/packages/ingestion-platform/core/src/control-command-api.ts`
+- `web/packages/ingestion-platform/core/src/admin-auth.ts`
+- command planner, idempotent no-op, partial-success, stale-patch, audit, and
+  machine-token tests.
+
+Behavior:
+
+- Session-authenticated admins can issue `start`, `pause`, `shutdown`, and
+  `reset` through the command API when role, scope, MFA, and fresh-step-up rules
+  allow it.
+- A machine token can run only non-destructive operational commands; destructive
+  commands require an MFA-gated admin session.
+- Every accepted, rejected, partial, stale, and no-op command writes an audit
+  record.
+- Commands mutate only control-plane tasks and leases. They do not ship rows to
+  consumer production databases.
+
+Acceptance criteria:
+
+- Browser code has no database credentials or service-role secrets.
+- Admin identity is derived from Supabase session plus the platform allowlist,
+  not from caller-supplied request fields.
+- `reset` requires a reason and a fresh MFA step-up.
+- The `ok` contract is explicit: idempotent no-ops are accepted, partial
+  success applies valid patches and reports warnings, and stale patches fail the
+  apply result.
+- Audit payload records applied, stale, skipped, and rejected work.
+
+Validation:
+
+- `npm --workspace @vamo/ingestion-platform test`
+- `npm --workspace @vamo/site run build`
+
+## Slice IP-12 - Target Selection And Progressive Scheduling
+
+Status: spec documented.
+
+Goal: define how Confluendo chooses ingestion targets and how AI can assist
+progressive scheduling without becoming an uncontrolled source of truth.
+
+Architecture decision: pure planning policy plus adapter-backed execution.
+Target scoring and scheduling rules belong in platform core as pure, testable
+policy. Source reads, target writes, AI calls, and dashboard mutations remain
+adapter/API boundaries.
+
+Source of truth:
+
+- `docs/platform/ingestion/TARGET_SELECTION_AND_SCHEDULING.md`
+
+Selection criteria:
+
+- Consumer value.
+- Source rights, retention, and attribution.
+- Target DB readiness, schema compatibility, RLS, grants, and upsert keys.
+- Data quality and collision risk.
+- Checkpointability and replayability.
+- Cost, quota, runtime, and stop conditions.
+- Dashboard observability.
+
+AI role:
+
+- AI can rank targets, propose source partitions, estimate schedules, summarize
+  dry-run diffs, classify dead letters, and explain why a target should run.
+- AI cannot bypass policy, source terms, operator approval, MFA, target schema
+  review, or production shipment gates.
+
+Dashboard requirement:
+
+- The operator console must show proposed, scheduled, running, blocked, and
+  completed work; AI rationale; checkpoints; quota; policy blocks; dead
+  letters; collision risk; shipment diffs; and the exact approval needed to
+  move to the next tier.
+
+## Slice IP-13 - DB-Backed CI Smoke For Control SQL
+
+Status: done when CI is green.
+
+Goal: make the SQL-backed control-plane read/write path run in CI against a
+real Postgres service instead of relying only on mock clients.
+
+Architecture decision: CI safety net, not product logic. The existing
+`INGESTION_TEST_DATABASE_URL` smoke remains in the platform test suite; GitHub
+Actions supplies a disposable Postgres service so the smoke is no longer skipped
+in pull requests.
+
+Acceptance criteria:
+
+- CI starts a disposable Postgres service.
+- `npm --workspace @vamo/ingestion-platform test` runs with
+  `INGESTION_TEST_DATABASE_URL`.
+- The control schema creates, uniqueness constraints hold, and real
+  start/shutdown/reset command mutations apply against SQL.
+- No external providers or consumer staging/production databases are contacted.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
 - No Google reusable content cache.
 - No production target writes.
-- No admin mutation controls in browser.
+- No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
 - No standalone repo split until the spec/core/adapter boundaries are proven.
 
 ## Recommended Immediate Next Slice
 
-Start with **IP-01 - Spec Kernel And Fixture Contract**.
+After IP-13 is green, start **IP-14 - First Vamo Progressive Dry Run**.
 
-Reason: it is the smallest slice that creates real platform value without any
-security, provider, or database blast radius. It also forces the YAML contract to
-become executable before the UI and workers depend on it.
+Reason: the platform spine, auth, live read, live command controls, and SQL
+smoke are in place. The next value step is not more scaffolding; it is a bounded
+Vamo dry run selected through the target scorecard, visible in the dashboard,
+and still blocked from production writes.
 
-Once IP-01 is green, IP-02 and IP-03 can proceed in parallel:
+IP-14 should:
 
-- IP-02: database/control-plane schema.
-- IP-03: no-network fixture ingestion and policy engine.
-
-That gives us a spine: spec -> fixture source -> policy -> candidate output ->
-checkpoint/events. Everything after that becomes wiring, adapters, and
-operational hardening.
+- Select one open, cacheable place source and one narrow Vamo target scope.
+- Run preflight, scout, and sample dry-run stages.
+- Produce a shipment diff, policy report, dead-letter report, and checkpoint
+  report.
+- Require explicit admin approval before any staging write.
+- Keep production shipment disabled.

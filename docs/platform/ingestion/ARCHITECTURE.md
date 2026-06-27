@@ -405,9 +405,13 @@ Recommended next features:
 - Per-target circuit breaker.
 - Production shipment approval workflow.
 
-The current Vamo web mockup at `/admin/ingestion` is a visual shell for this
-operator console. It must remain non-mutating until the control API, auth,
-leases, audit log, and target adapter are implemented.
+The current Vamo web admin at `/admin/ingestion` is the first consumer-hosted
+operator console. Auth, MFA, live read, and audited control-plane mutations are
+implemented; production target writes remain gated behind dry-run, staging
+approval, and shipment policy.
+
+Target selection, AI-assisted scheduling, and progressive run tiers are defined
+in `TARGET_SELECTION_AND_SCHEDULING.md`.
 
 ## 8. Source Strategy
 
@@ -562,7 +566,7 @@ Vamo-specific rules:
 ### Phase 0 - Architecture And Mockup
 
 - Draft architecture.
-- Keep `/admin/ingestion` as static visual shell.
+- Start `/admin/ingestion` as a static visual shell.
 - Decide platform-control schema names and YAML spec shape.
 - Decide repo boundary for incubation code.
 
@@ -593,7 +597,8 @@ Vamo-specific rules:
 
 - Add Vamo consumer profile.
 - Add open dataset source adapters needed for place cache.
-- Ship first staged place deltas to Vamo staging.
+- Select a bounded target through the scorecard and run a progressive dry run.
+- Ship first staged place deltas to Vamo staging after approval.
 - Promote to production after validation.
 
 ### Phase 5 - Standalone Repo Fork
@@ -617,16 +622,17 @@ Vamo-specific rules:
 
 ## 16. Immediate Recommendation
 
-Keep the next implementation slice narrow:
+Before the first real Vamo ingestion run:
 
-1. Add the platform-control schema draft as SQL, but under platform names.
-2. Add the YAML spec validator with one fixture pipeline.
-3. Add a dry-run Postgres target adapter that writes nothing but produces a
-   shipment diff.
-4. Wire the admin mockup to static JSON generated from the same fixture shape.
+1. Merge the current Confluendo auth/control-console fixes.
+2. Keep the target-selection and AI-scheduling criteria explicit in
+   `TARGET_SELECTION_AND_SCHEDULING.md`.
+3. Run the control-plane SQL smoke in CI against disposable Postgres.
+4. Then execute a bounded Vamo progressive dry run: preflight, scout, sample
+   dry-run, dashboard review, and only then staging canary approval.
 
-That gives us the platform spine without prematurely wiring real external
-sources, real provider traffic, or production target writes.
+That gives us live operational confidence without prematurely enabling broad
+provider traffic or production target writes.
 
 ## 17. Embeddable Product Strategy
 

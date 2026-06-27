@@ -8,8 +8,38 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ingestion_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ingestion_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web workspace dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Test ingestion platform with Postgres smoke
+        working-directory: web
+        env:
+          INGESTION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ingestion_test
+        run: npm --workspace @vamo/ingestion-platform test
 
       - name: Install Deno
         shell: bash
