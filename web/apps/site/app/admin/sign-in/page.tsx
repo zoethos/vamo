@@ -59,13 +59,13 @@ export default async function AdminSignInPage({
           </p>
           <h2>Secure access to every operation you run.</h2>
           <p>
-            Every operator session is verified, time-boxed, and logged. Sign in
-            with your work email to continue.
+            Every operator session is verified, time-boxed, and logged. Only
+            provisioned admin accounts can request access.
           </p>
         </div>
 
         <div className="admin-sign-in-trust-list" aria-label="Security guarantees">
-          <TrustRow icon={<LockIcon />} label="Encrypted operator sessions" />
+          <TrustRow icon={<LockIcon />} label="Provisioned admin accounts only" />
           <TrustRow icon={<VerifiedIcon />} label="MFA enforced with authenticator step-up" />
           <TrustRow icon={<AuditIcon />} label="Full audit trail on every action" />
         </div>
@@ -89,9 +89,9 @@ export default async function AdminSignInPage({
           <div className="admin-sign-in-copy">
             <h1 id="admin-sign-in-title">Sign in to continue</h1>
             <p>
-              Verify your email session first. If MFA is required and your
-              account is not enrolled, the next screen walks you through
-              authenticator setup.
+              Use an existing admin account. This console never creates accounts
+              from sign-in requests; MFA setup happens after email verification
+              if your account needs it.
             </p>
           </div>
 
@@ -189,7 +189,7 @@ function readableError(error: string): string {
     case "callback_failed":
       return "The sign-in link could not be verified. Request a new link.";
     case "send_failed":
-      return "The sign-in link could not be sent. Check the email address and try again.";
+      return "The sign-in email could not be sent. Use a provisioned admin account and try again.";
     case "rate_limited":
       return "Too many sign-in links were requested. Wait a little, then try again.";
     case "otp_missing":

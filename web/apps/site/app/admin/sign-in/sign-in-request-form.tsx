@@ -21,13 +21,13 @@ const signInMethods: Array<{
     id: "link",
     icon: "link",
     title: "Email sign-in link",
-    description: "We send a one-tap secure link to your inbox.",
+    description: "Send a secure link only if this email is already provisioned.",
   },
   {
     id: "code",
     icon: "pin",
     title: "Email one-time code",
-    description: "Enter a 6-digit code from the same email. No authenticator app needed yet.",
+    description: "Send an email code only if this admin account already exists.",
   },
 ];
 

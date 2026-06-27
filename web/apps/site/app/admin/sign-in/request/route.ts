@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
+      // Admin console access is provisioned-only; sign-in requests must never
+      // create Supabase Auth users.
       shouldCreateUser: false,
       emailRedirectTo: callbackUrl.toString(),
     },
