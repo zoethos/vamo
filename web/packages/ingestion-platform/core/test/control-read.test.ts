@@ -80,6 +80,27 @@ class StubControlClient implements ControlReadPgClientLike {
   }
 }
 
+class RejectingConcurrentControlClient implements ControlReadPgClientLike {
+  private readonly inner = new StubControlClient(true);
+  private inFlight = false;
+
+  async query<T extends Record<string, unknown> = Record<string, unknown>>(
+    sql: string
+  ): Promise<QueryResult<T>> {
+    if (this.inFlight) {
+      throw new Error("concurrent client query");
+    }
+
+    this.inFlight = true;
+    try {
+      await delay(1);
+      return await this.inner.query<T>(sql);
+    } finally {
+      this.inFlight = false;
+    }
+  }
+}
+
 describe("control-plane read loader", () => {
   it("returns null when the project key does not exist", async () => {
     const snapshot = await loadControlPlaneSnapshot({
@@ -117,4 +138,19 @@ describe("control-plane read loader", () => {
     // Cache-business metrics stay zero — the host fills them.
     assert.equal(snapshot.metrics.canonicalsPromoted, 0);
   });
+
+  it("does not issue overlapping queries on a single pg client", async () => {
+    const snapshot = await loadControlPlaneSnapshot({
+      client: new RejectingConcurrentControlClient(),
+      projectKey: "vamo",
+      now
+    });
+
+    assert.ok(snapshot);
+    assert.equal(snapshot.targets.length, 2);
+  });
 });
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

@@ -113,12 +113,10 @@ export async function loadControlPlaneSnapshot(
     const now = input.now ?? new Date().toISOString();
     const eventLimit = input.eventLimit ?? DEFAULT_EVENT_LIMIT;
 
-    const [instances, targets, events, metrics] = await Promise.all([
-      loadInstances(client, projectId),
-      loadTargets(client, projectId),
-      loadEvents(client, projectId, eventLimit),
-      loadOperationalMetrics(client, projectId)
-    ]);
+    const instances = await loadInstances(client, projectId);
+    const targets = await loadTargets(client, projectId);
+    const events = await loadEvents(client, projectId, eventLimit);
+    const metrics = await loadOperationalMetrics(client, projectId);
 
     return {
       instances: instances.map((row) => toInstance(row, now)),
