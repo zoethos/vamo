@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 
 type Enrollment = {
   factorId: string;
-  qrCodeSvg: string;
+  qrCode: string;
   secret: string;
   uri: string;
 };
@@ -45,7 +45,7 @@ export function MfaEnrollForm({ next }: { next: string }) {
       status: "ready",
       enrollment: {
         factorId: response.factorId,
-        qrCodeSvg: response.qrCodeSvg,
+        qrCode: response.qrCode,
         secret: response.secret,
         uri: response.uri,
       },
@@ -90,11 +90,13 @@ export function MfaEnrollForm({ next }: { next: string }) {
       {enrollment ? (
         <form className="admin-auth-form" onSubmit={verifyEnrollment}>
           <div className="admin-mfa-qr" aria-label="Authenticator app QR code">
-            <img
-              src={`data:image/svg+xml;utf-8,${encodeURIComponent(enrollment.qrCodeSvg)}`}
-              alt=""
-            />
+            <img src={qrImageSrc(enrollment.qrCode)} alt="Authenticator setup QR code" />
           </div>
+
+          <p className="admin-mfa-helper">
+            Scan the QR code with your authenticator app. If your app cannot scan it,
+            use the manual setup key below.
+          </p>
 
           <label htmlFor="admin-mfa-secret">Manual setup key</label>
           <input
@@ -143,7 +145,7 @@ async function postJson(
       ok: true;
       next: string;
       factorId: string;
-      qrCodeSvg: string;
+      qrCode: string;
       secret: string;
       uri: string;
     }
@@ -169,7 +171,7 @@ async function postJson(
     ok: true;
     next: string;
     factorId: string;
-    qrCodeSvg: string;
+    qrCode: string;
     secret: string;
     uri: string;
   };
@@ -177,5 +179,13 @@ async function postJson(
 
 function deviceFriendlyName(): string {
   const platform = navigator.platform || "device";
-  return `Vamo admin ${platform}`.slice(0, 64);
+  return `Confluendo operator ${platform}`.slice(0, 64);
+}
+
+function qrImageSrc(value: string): string {
+  if (value.startsWith("data:image/")) {
+    return value;
+  }
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(value)}`;
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import {
   providerDashboardGuardrails,
@@ -69,6 +70,7 @@ export default async function ProviderDashboardPage() {
               Ingestion
             </Link>
           </div>
+          <AdminSessionActions principal={principal} />
           <DashboardThemeToggle
             defaultTheme="dark"
             label="Provider dashboard theme"

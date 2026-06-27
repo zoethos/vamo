@@ -23,12 +23,12 @@ export async function POST(request: NextRequest) {
   }
 
   const next = normalizeAdminNextPath(body.next);
-  const friendlyName = readJsonString(body.friendlyName) ?? "Vamo admin console";
+  const friendlyName = readJsonString(body.friendlyName) ?? "Confluendo operator console";
 
   const { data, error } = await context.supabase.auth.mfa.enroll({
     factorType: "totp",
     friendlyName,
-    issuer: "Vamo admin",
+    issuer: "Confluendo",
   });
 
   if (error || !data?.totp) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     next,
     factorId: data.id,
-    qrCodeSvg: data.totp.qr_code,
+    qrCode: data.totp.qr_code,
     secret: data.totp.secret,
     uri: data.totp.uri,
   });
