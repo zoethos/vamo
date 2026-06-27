@@ -15,6 +15,8 @@
 
 import {
   buildScheduleProposal,
+  deriveAdvisoryRationale,
+  type AiConfidence,
   type SafetyMode,
   type TargetTier
 } from "./schedule-proposal.js";
@@ -58,8 +60,12 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
   safetyMode: SafetyMode;
   score: number;
   eligible: boolean;
+  /** Scorecard rationale: why the target is (not) schedulable. */
   rationale: string;
-  confidence: string;
+  /** Advisory, deterministic AI rationale (placeholder, never a live LLM). */
+  aiSummary: string;
+  aiConfidence: AiConfidence;
+  aiRecommendedTier: TargetTier;
   /** Current progressive stage when a run report exists. */
   stage: ProgressiveStage | "not_started";
   checkpoint: string;
@@ -116,6 +122,9 @@ export function buildProgressiveRunView(snapshot: ProgressiveRunSnapshot): Progr
 function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
   const { scorecard, report } = entry;
   const shipment = report?.shipmentDiff;
+  // Prefer the rationale carried by an executed run; otherwise derive the same
+  // deterministic advisory rationale the proposal would use for this tier.
+  const aiRationale = report?.aiRationale ?? deriveAdvisoryRationale(scorecard, entry.tier);
   return {
     targetId: scorecard.targetId,
     projectKey: scorecard.projectKey,
@@ -125,10 +134,10 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     safetyMode: entry.safetyMode,
     score: scorecard.score,
     eligible: scorecard.eligibleForScheduling,
-    rationale: report?.stages.length
-      ? scorecard.rationale
-      : scorecard.rationale,
-    confidence: report ? "evidence-backed" : scorecard.eligibleForScheduling ? "medium" : "low",
+    rationale: scorecard.rationale,
+    aiSummary: aiRationale.summary,
+    aiConfidence: aiRationale.confidence,
+    aiRecommendedTier: aiRationale.recommendedTier,
     stage: report?.currentStage ?? "not_started",
     checkpoint: report
       ? `${report.checkpoint.cursorScope}=${report.checkpoint.cursorValue ?? "none"} (n=${report.checkpoint.processedCount})`
@@ -255,9 +264,10 @@ const sampleReport: ProgressiveRunReport = {
     { stage: "preflight", status: "passed", detail: "Preflight passed.", signal: "preflight_passed" },
     { stage: "scout", status: "passed", detail: "Scouted 3 rows.", signal: "scout_sampled" },
     {
+      // 3 staged candidates x 2 target tables = 6 insert operations.
       stage: "sample_dry_run",
       status: "passed",
-      detail: "Dry-run diff: 3 insert, 0 update, 0 no-op (no target writes).",
+      detail: "Dry-run diff: 6 insert, 0 update, 0 no-op (no target writes).",
       signal: "sample_dry_run_diff_ready"
     },
     {
@@ -270,16 +280,19 @@ const sampleReport: ProgressiveRunReport = {
   currentStage: "review_required",
   preflight: { passed: true, checks: [], failures: [] },
   scout: {
+    // Preview of the first 3 rows: 2 staged, 1 dead-lettered (missing name), 0 policy blocks.
     sampleRowCount: 3,
-    candidateCount: 3,
+    candidateCount: 2,
     deadLetterCount: 1,
-    policyBlockCount: 1,
-    detail: "Scouted 3 sample rows."
+    policyBlockCount: 0,
+    detail: "Scouted 3 sample rows (preview): 2 staged, 1 dead-lettered, 0 policy-blocked."
   },
-  rowCounts: { read: 5, staged: 3, policyBlocked: 1, deadLettered: 1 },
+  // Full bounded sample (5 rows): 3 staged, row 4 media policy-blocked, row 3 missing name
+  // emits 2 mapping dead letters.
+  rowCounts: { read: 5, staged: 3, policyBlocked: 1, deadLettered: 2 },
   shipmentDiff: {
     compatible: true,
-    insert: 3,
+    insert: 6,
     update: 0,
     noOp: 0,
     delete: 0,
@@ -293,8 +306,13 @@ const sampleReport: ProgressiveRunReport = {
     processedCount: 5
   },
   policyBlocks: ["source.storage_rights: media bytes blocked by policy"],
-  deadLetters: ["missing_mapped_field: Required mapping source \"source.name\" is missing."],
+  deadLetters: [
+    'missing_mapped_field: Required mapping source "source.name" is missing.',
+    'missing_mapped_field: Required mapping source "source.name" is missing.'
+  ],
   wroteToTarget: false,
+  reachedReview: true,
+  aiRationale: deriveAdvisoryRationale(sampleVamoScorecard, "sample_dry_run"),
   nextApproval: {
     required: true,
     role: "ingestion_admin",

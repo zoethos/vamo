@@ -193,9 +193,9 @@ async function main() {
 
   console.log("Score and rationale");
   bullet("score", String(scorecard.score));
-  bullet("confidence", proposal.aiRationale.confidence);
+  bullet("ai confidence", report.aiRationale.confidence);
   bullet("rationale", scorecard.rationale);
-  bullet("ai (advisory)", proposal.aiRationale.summary);
+  bullet("ai (advisory)", report.aiRationale.summary);
   console.log("");
 
   console.log("Tier and stage");
@@ -250,6 +250,28 @@ async function main() {
 
   if (report.wroteToTarget !== false) {
     console.error("Invariant violated: dry run reported a target write.");
+    process.exit(1);
+  }
+
+  // Treat a blocked or incomplete dry run as a failure so CI/operators do not
+  // read a rejected run as success.
+  const blockedStages = report.stages.filter((stage) => stage.status === "blocked");
+  const succeeded =
+    report.preflight.passed &&
+    report.reachedReview &&
+    report.currentStage === "review_required" &&
+    report.shipmentDiff.compatible &&
+    blockedStages.length === 0;
+
+  if (!succeeded) {
+    console.error(
+      `IP-14 dry run did not complete cleanly (stage: ${report.currentStage}, ` +
+        `preflight: ${report.preflight.passed}, compatible: ${report.shipmentDiff.compatible}` +
+        (blockedStages.length > 0
+          ? `, blocked: ${blockedStages.map((stage) => stage.stage).join(", ")}`
+          : "") +
+        "). Resolve blockers before any promotion."
+    );
     process.exit(1);
   }
 

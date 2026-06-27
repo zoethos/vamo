@@ -1230,6 +1230,10 @@ a:hover {
   color: rgba(42, 46, 58, 0.66);
 }
 
+.admin-rationale p {
+  margin: 0 0 0.25rem;
+}
+
 .admin-instance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

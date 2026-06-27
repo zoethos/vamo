@@ -16,7 +16,7 @@
  */
 
 import type { PipelineRunResult, RunFixturePipelineInput, StagedCandidate } from "./pipeline-runner.js";
-import type { ScheduleProposal } from "./schedule-proposal.js";
+import type { AiRationale, ApprovalRequirement, ScheduleProposal } from "./schedule-proposal.js";
 import type { ShipmentPlan } from "./shipment-plan.js";
 import type { TargetScorecard } from "./target-scorecard.js";
 import type { PipelineSpec, TargetProjectSpec } from "../../spec/src/types.js";
@@ -101,7 +101,11 @@ export interface ProgressiveRunReport {
   deadLetters: string[];
   /** True only when no write of any kind occurred. */
   wroteToTarget: false;
-  nextApproval: ScheduleProposal["approval"];
+  /** True when the run reached review_required (preflight passed and diff compatible). */
+  reachedReview: boolean;
+  /** Advisory, deterministic AI rationale carried from the proposal. */
+  aiRationale: AiRationale;
+  nextApproval: ApprovalRequirement;
 }
 
 export interface DryRunPlanRequest {
@@ -253,7 +257,9 @@ export async function runProgressiveDryRun(
     return assembleReport(input, stages, preflight, emptyScout(), emptyDiff(), emptyCheckpoint(), [], []);
   }
 
-  // Scout: read a tiny bounded sample, then stop.
+  // Scout: read a tiny bounded preview, then stop. This is intentionally a
+  // strict prefix of the sample_dry_run slice, so its preview counts may be
+  // smaller than the full sample row counts reported below.
   const scoutBatch = Math.min(input.proposal.batchSize, input.proposal.scope.rowLimit);
   const scoutRun = await deps.runPipeline({
     pipeline: input.pipeline,
@@ -302,13 +308,18 @@ export async function runProgressiveDryRun(
     processedCount: sampleRun.checkpoint.processedCount
   };
 
-  stages.push({
-    stage: "review_required",
-    status: "review_required",
-    detail:
-      "Dry run complete. Operator review required before any staging canary; no write occurred.",
-    signal: "review_required"
-  });
+  // Only advance to review when the dry-run diff is compatible. An incompatible
+  // diff leaves the run blocked at sample_dry_run with no promotion path, so
+  // operators are never offered a staging-canary approval for a failed diff.
+  if (shipmentDiff.compatible) {
+    stages.push({
+      stage: "review_required",
+      status: "review_required",
+      detail:
+        "Dry run complete. Operator review required before any staging canary; no write occurred.",
+      signal: "review_required"
+    });
+  }
 
   return assembleReport(
     input,
@@ -335,6 +346,9 @@ function assembleReport(
   sampleRun?: PipelineRunResult
 ): ProgressiveRunReport {
   const currentStage = stages[stages.length - 1]?.stage ?? "preflight";
+  const reachedReview = stages.some(
+    (stage) => stage.stage === "review_required" && stage.status === "review_required"
+  );
   const rowCounts: RowCounts = {
     read: sampleRun?.checkpoint.processedCount ?? 0,
     staged: sampleRun?.candidates.length ?? 0,
@@ -358,7 +372,37 @@ function assembleReport(
     policyBlocks,
     deadLetters,
     wroteToTarget: false,
-    nextApproval: input.proposal.approval
+    reachedReview,
+    aiRationale: input.proposal.aiRationale,
+    nextApproval: deriveNextApproval(input, reachedReview, preflight, shipmentDiff)
+  };
+}
+
+/**
+ * The next approval only offers a staging-canary promotion when the dry run
+ * actually reached review. A blocked run instead instructs the operator to
+ * resolve the blocker; it never presents a promotion path.
+ */
+function deriveNextApproval(
+  input: RunProgressiveDryRunInput,
+  reachedReview: boolean,
+  preflight: PreflightReport,
+  shipmentDiff: ShipmentDiffSummary
+): ApprovalRequirement {
+  if (reachedReview) {
+    return input.proposal.approval;
+  }
+
+  const reason = !preflight.passed
+    ? `Resolve preflight blockers (${preflight.failures.join(", ")}) before scheduling; no promotion path until the dry run passes.`
+    : `Resolve ${shipmentDiff.incompatibilities} shipment schema/upsert-key incompatibility(ies) before any promotion; no staging canary path until the dry-run diff is compatible.`;
+
+  return {
+    required: true,
+    role: "ingestion_admin",
+    requireMfa: true,
+    requireAuditReason: true,
+    description: reason
   };
 }
 

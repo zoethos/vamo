@@ -407,7 +407,17 @@ export default async function IngestionDashboardPage() {
             </tbody>
           </table>
         </div>
-        <p className="admin-rationale">{progressiveRows[0]?.rationale}</p>
+        {progressiveRows[0] ? (
+          <div className="admin-rationale">
+            <p>
+              <strong>Rationale:</strong> {progressiveRows[0].rationale}
+            </p>
+            <p>
+              <strong>AI (advisory, {progressiveRows[0].aiConfidence}):</strong>{" "}
+              {progressiveRows[0].aiSummary}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="admin-section admin-policy-panel">

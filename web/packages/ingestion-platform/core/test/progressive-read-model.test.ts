@@ -21,6 +21,12 @@ describe("progressive run dashboard read model", () => {
     assert.ok(vamo!.score > 0);
     assert.equal(vamo!.eligible, true);
 
+    // Advisory AI rationale is surfaced (deterministic placeholder, not an LLM).
+    assert.ok(vamo!.aiSummary.length > 0);
+    assert.match(vamo!.aiSummary, /Advisory/);
+    assert.equal(vamo!.aiConfidence, "high");
+    assert.equal(vamo!.aiRecommendedTier, "sample_dry_run");
+
     // Progress, checkpoint, and shipment diff are visible.
     assert.equal(vamo!.rowsRead, 5);
     assert.equal(vamo!.rowsStaged, 3);

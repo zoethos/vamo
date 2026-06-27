@@ -115,6 +115,35 @@ describe("progressive dry run", () => {
     assert.match(report.nextApproval.description, /staging canary/i);
   });
 
+  it("blocks at sample_dry_run and offers no promotion path when the diff is incompatible", async () => {
+    const { pipeline, target } = readSpecs();
+    const { scorecard, proposal } = buildIp14Proposal();
+
+    const report = await runProgressiveDryRun(
+      { proposal, scorecard, pipeline, target, fixtureRoot: bundleDir },
+      {
+        runPipeline: (input) => runFixturePipeline(input),
+        // Target tables do not exist -> incompatible dry-run diff.
+        planDryRun: ({ target: dryRunTarget, candidates }) =>
+          planPostgresDryRun({ client: new MissingTableClient(), target: dryRunTarget, candidates })
+      }
+    );
+
+    assert.equal(report.shipmentDiff.compatible, false);
+    assert.equal(report.reachedReview, false);
+    assert.equal(report.currentStage, "sample_dry_run");
+    assert.ok(!report.stages.some((stage) => stage.stage === "review_required"));
+    assert.equal(
+      report.stages.find((stage) => stage.stage === "sample_dry_run")?.status,
+      "blocked"
+    );
+    // No promotion is offered for a failed diff: the approval differs from the
+    // proposal's staging-canary approval and instructs the operator to resolve it.
+    assert.notEqual(report.nextApproval.description, proposal.approval.description);
+    assert.match(report.nextApproval.description, /^Resolve/);
+    assert.match(report.nextApproval.description, /incompatibilit/i);
+  });
+
   it("refuses any non-dry-run safety mode", async () => {
     const { pipeline, target } = readSpecs();
     const { scorecard, proposal } = buildIp14Proposal();
@@ -178,6 +207,27 @@ class VamoPlaceSchemaClient implements PgClientLike {
       return this.result(
         (vamoPlaceColumns[table] ?? []).map((column) => ({ column_name: column }) as unknown as T)
       );
+    }
+    return this.result([]);
+  }
+
+  private result<T extends Record<string, unknown>>(rows: T[]): QueryResult<T> {
+    return {
+      rows,
+      rowCount: rows.length,
+      command: "SELECT",
+      oid: 0,
+      fields: []
+    } as QueryResult<T>;
+  }
+}
+
+class MissingTableClient implements PgClientLike {
+  async query<T extends Record<string, unknown> = Record<string, unknown>>(
+    sql: string
+  ): Promise<QueryResult<T>> {
+    if (sql.includes("information_schema.tables")) {
+      return this.result([{ exists: false } as unknown as T]);
     }
     return this.result([]);
   }
