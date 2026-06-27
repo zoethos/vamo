@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Image from "next/image";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { getSupabasePublicConfig } from "@/lib/supabase-config";
+import { SignInRequestForm } from "./sign-in-request-form";
 
 export const metadata: Metadata = {
   title: "Admin sign-in · Vamo",
@@ -20,7 +21,7 @@ type SearchParams = {
   reason?: string;
 };
 
-type SignInMethod = "link" | "code";
+export type SignInMethod = "link" | "code";
 
 export default async function AdminSignInPage({
   searchParams,
@@ -38,111 +39,120 @@ export default async function AdminSignInPage({
   const error = showMissingConfig && params.error === "auth_not_configured" ? undefined : params.error;
 
   return (
-    <main className="admin-auth-page">
-      <section className="admin-auth-panel" aria-labelledby="admin-sign-in-title">
-        <Link className="admin-auth-brand" href="/">
-          <Image src="/brand/primary_mark.png" alt="" width={36} height={36} priority />
-          <span>Vamo admin</span>
+    <main className="admin-sign-in-page">
+      <section className="admin-sign-in-brand-panel" aria-label="Vamo operator security">
+        <RouteMotif />
+
+        <Link className="admin-sign-in-brand" href="/">
+          <VamoMark />
+          <span className="admin-sign-in-brand-name">Vamo</span>
+          <span className="admin-sign-in-brand-badge">Admin</span>
         </Link>
 
-        <div className="admin-auth-copy">
-          <p className="admin-kicker">Protected operator console</p>
-          <h1 id="admin-sign-in-title">Sign in to continue</h1>
+        <div className="admin-sign-in-brand-copy">
+          <p className="admin-sign-in-status-kicker">
+            <span aria-hidden="true" />
+            Operator console · EU-West
+          </p>
+          <h2>Secure access to every operation you run.</h2>
           <p>
-            First verify your email session. If MFA is required and your account
-            is not enrolled yet, the next screen will guide you through the
-            authenticator QR-code setup.
+            Every operator session is verified, time-boxed, and logged. Sign in
+            with your work email to continue.
           </p>
         </div>
 
-        {showMissingConfig ? (
-          <div className="admin-auth-message admin-auth-message-danger" role="alert">
-            Admin auth env vars are missing, so the dashboard is locked.
-          </div>
-        ) : null}
+        <div className="admin-sign-in-trust-list" aria-label="Security guarantees">
+          <TrustRow icon={<LockIcon />} label="Encrypted operator sessions" />
+          <TrustRow icon={<VerifiedIcon />} label="MFA enforced with authenticator step-up" />
+          <TrustRow icon={<AuditIcon />} label="Full audit trail on every action" />
+        </div>
 
-        {error ? (
-          <div className="admin-auth-message admin-auth-message-danger" role="alert">
-            {readableError(error)}
-          </div>
-        ) : null}
+        <div className="admin-sign-in-panel-footer">
+          <span>
+            <i aria-hidden="true" />
+            All systems operational
+          </span>
+          <span>© 2026 Vamo</span>
+        </div>
+      </section>
 
-        {hasSentEmail ? (
-          <div className="admin-auth-message" role="status">
-            {sentMessage(signInMethod, sentEmail)}
-          </div>
-        ) : null}
+      <section className="admin-sign-in-form-column" aria-labelledby="admin-sign-in-title">
+        <div className="admin-sign-in-form-wrap">
+          <p className="admin-sign-in-console-label">
+            <ShieldIcon />
+            Protected operator console
+          </p>
 
-        <form className="admin-auth-form" action="/admin/sign-in/request" method="post">
-          <input type="hidden" name="next" value={next} />
-          <label htmlFor="admin-email">Email</label>
-          <input
-            id="admin-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            placeholder="you@company.com"
-            defaultValue={sentEmail ?? ""}
-            disabled={!isConfigured}
+          <div className="admin-sign-in-copy">
+            <h1 id="admin-sign-in-title">Sign in to continue</h1>
+            <p>
+              Verify your email session first. If MFA is required and your
+              account is not enrolled, the next screen walks you through
+              authenticator setup.
+            </p>
+          </div>
+
+          {showMissingConfig ? (
+            <div className="admin-auth-message admin-auth-message-danger" role="alert">
+              Admin auth env vars are missing, so the dashboard is locked.
+            </div>
+          ) : null}
+
+          {error ? (
+            <div className="admin-auth-message admin-auth-message-danger" role="alert">
+              {readableError(error)}
+            </div>
+          ) : null}
+
+          {hasSentEmail ? (
+            <div className="admin-auth-message" role="status">
+              {sentMessage(signInMethod, sentEmail)}
+            </div>
+          ) : null}
+
+          <SignInRequestForm
+            initialEmail={sentEmail ?? ""}
+            initialMethod={signInMethod}
+            isConfigured={isConfigured}
+            hasSentEmail={hasSentEmail}
+            next={next}
           />
-          <fieldset className="admin-auth-methods" disabled={!isConfigured}>
-            <legend>Choose sign-in method</legend>
-            <label className="admin-auth-method">
-              <input
-                type="radio"
-                name="method"
-                value="link"
-                defaultChecked={signInMethod === "link"}
-              />
-              <span>
-                <strong>Email link</strong>
-                <small>Open the secure link from the email.</small>
-              </span>
-            </label>
-            <label className="admin-auth-method">
-              <input
-                type="radio"
-                name="method"
-                value="code"
-                defaultChecked={signInMethod === "code"}
-              />
-              <span>
-                <strong>Email one-time code</strong>
-                <small>Enter the code from the same email. No authenticator app required yet.</small>
-              </span>
-            </label>
-          </fieldset>
-          <button type="submit" disabled={!isConfigured}>
-            {hasSentEmail ? "Send another sign-in email" : "Send sign-in email"}
-          </button>
-        </form>
 
-        {showOtpForm ? (
-          <form
-            className="admin-auth-form admin-auth-form-secondary"
-            action="/admin/sign-in/verify"
-            method="post"
-          >
-            <input type="hidden" name="next" value={next} />
-            <input type="hidden" name="email" value={sentEmail} />
-            <label htmlFor="admin-email-otp">Email one-time code</label>
-            <input
-              id="admin-email-otp"
-              name="otp"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={12}
-              required
-              placeholder="123456"
-              disabled={!isConfigured}
-            />
-            <button type="submit" disabled={!isConfigured}>
-              Verify code
-            </button>
-          </form>
-        ) : null}
+          {showOtpForm ? (
+            <form
+              className="admin-sign-in-verify-form"
+              action="/admin/sign-in/verify"
+              method="post"
+            >
+              <input type="hidden" name="next" value={next} />
+              <input type="hidden" name="email" value={sentEmail} />
+              <label htmlFor="admin-email-otp">Email one-time code</label>
+              <div className="admin-sign-in-input-shell">
+                <PinIcon />
+                <input
+                  id="admin-email-otp"
+                  name="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={12}
+                  required
+                  placeholder="123456"
+                  disabled={!isConfigured}
+                />
+              </div>
+              <button type="submit" disabled={!isConfigured}>
+                Verify code
+                <ArrowIcon />
+              </button>
+            </form>
+          ) : null}
+
+          <p className="admin-sign-in-session-note">
+            <LockIcon />
+            Encrypted session · expires after 10 minutes of inactivity
+          </p>
+        </div>
       </section>
     </main>
   );
@@ -188,4 +198,107 @@ function readableError(error: string): string {
     default:
       return "Sign-in failed. Try again.";
   }
+}
+
+function TrustRow({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <div className="admin-sign-in-trust-row">
+      <span aria-hidden="true">{icon}</span>
+      <p>{label}</p>
+    </div>
+  );
+}
+
+function RouteMotif() {
+  return (
+    <svg
+      className="admin-sign-in-route-motif"
+      viewBox="0 0 520 820"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <path d="M-20 640 C120 560 90 420 250 380 C400 344 410 210 540 150" />
+      <circle cx="70" cy="600" r="4" />
+      <circle cx="250" cy="380" r="5" />
+      <circle cx="430" cy="188" r="4" />
+    </svg>
+  );
+}
+
+function VamoMark() {
+  return (
+    <svg className="admin-sign-in-vamo-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <linearGradient id="admin-sign-in-vamo-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#ff5b4d" />
+          <stop offset="1" stopColor="#6a2d6f" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M6 7 L15 25 L20 12 L26 6"
+        fill="none"
+        stroke="url(#admin-sign-in-vamo-gradient)"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3 19 6v5c0 4.4-2.8 8.5-7 10-4.2-1.5-7-5.6-7-10V6l7-3Z" />
+      <path d="m9 12 2 2 4-5" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V8a4 4 0 0 1 8 0v2" />
+    </svg>
+  );
+}
+
+function VerifiedIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m12 3 2 2.2 3-.4.8 2.9 2.7 1.3-1.3 2.7 1.3 2.7-2.7 1.3-.8 2.9-3-.4L12 21l-2-2.2-3 .4-.8-2.9-2.7-1.3 1.3-2.7-1.3-2.7 2.7-1.3.8-2.9 3 .4L12 3Z" />
+      <path d="m8.7 12 2.1 2.1 4.5-4.6" />
+    </svg>
+  );
+}
+
+function AuditIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 5h9" />
+      <path d="M5 10h7" />
+      <path d="M5 15h5" />
+      <circle cx="16" cy="15" r="3" />
+      <path d="m18.2 17.2 2.3 2.3" />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <path d="M8 9h.01M12 9h.01M16 9h.01M8 15h.01M12 15h.01M16 15h.01" />
+    </svg>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
 }

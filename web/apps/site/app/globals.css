@@ -1674,6 +1674,572 @@ a:hover {
   color: var(--go-lime);
 }
 
+.admin-sign-in-page + .site-footer {
+  display: none;
+}
+
+.admin-sign-in-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(420px, 44%) minmax(0, 1fr);
+  width: 100%;
+  color: #0c0e16;
+  background: #f4f4f2;
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.admin-sign-in-brand-panel {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 44px 52px;
+  color: #ffffff;
+  background:
+    radial-gradient(70% 55% at 12% 8%, rgba(106, 45, 111, 0.34), transparent 60%),
+    radial-gradient(60% 50% at 92% 100%, rgba(255, 91, 77, 0.2), transparent 55%),
+    linear-gradient(165deg, #0c0e16 0%, #12121c 55%, #15101e 100%);
+}
+
+.admin-sign-in-route-motif {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+}
+
+.admin-sign-in-route-motif path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 9;
+  animation: admin-sign-in-dash 6s linear infinite;
+}
+
+.admin-sign-in-route-motif circle {
+  fill: rgba(255, 255, 255, 0.32);
+}
+
+.admin-sign-in-route-motif circle:nth-of-type(2) {
+  fill: #c6ff00;
+}
+
+.admin-sign-in-brand {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.admin-sign-in-vamo-mark {
+  width: 30px;
+  height: 30px;
+}
+
+.admin-sign-in-brand-name {
+  font-size: 19px;
+  font-weight: 760;
+}
+
+.admin-sign-in-brand-badge {
+  border: 1px solid rgba(198, 255, 0, 0.42);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #c6ff00;
+  font-size: 10px;
+  font-weight: 820;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.admin-sign-in-brand-copy {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+}
+
+.admin-sign-in-status-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 18px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 780;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-sign-in-status-kicker span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #c6ff00;
+  animation: admin-sign-in-pulse 2.4s ease-in-out infinite;
+}
+
+.admin-sign-in-brand-copy h2 {
+  max-width: 420px;
+  margin: 0;
+  color: #ffffff;
+  font-size: 37px;
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.admin-sign-in-brand-copy p:not(.admin-sign-in-status-kicker) {
+  max-width: 380px;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.admin-sign-in-trust-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.admin-sign-in-trust-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-sign-in-trust-row > span {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c6ff00;
+}
+
+.admin-sign-in-trust-row svg,
+.admin-sign-in-console-label svg,
+.admin-sign-in-session-note svg,
+.admin-sign-in-primary-button svg,
+.admin-sign-in-verify-form button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-sign-in-trust-row p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.admin-sign-in-panel-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 36px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 20px;
+}
+
+.admin-sign-in-panel-footer span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+
+.admin-sign-in-panel-footer span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.admin-sign-in-panel-footer i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #00e0a8;
+  box-shadow: 0 0 8px #00e0a8;
+}
+
+.admin-sign-in-form-column {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  background: #f7f7f5;
+}
+
+.admin-sign-in-form-wrap {
+  width: 100%;
+  max-width: 430px;
+}
+
+.admin-sign-in-console-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 16px;
+  color: #8a93a0;
+  font-size: 11.5px;
+  font-weight: 780;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-sign-in-console-label svg {
+  width: 15px;
+  height: 15px;
+  color: #6a2d6f;
+}
+
+.admin-sign-in-copy h1 {
+  margin: 0;
+  color: #0c0e16;
+  font-size: 31px;
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.admin-sign-in-copy p {
+  margin: 13px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-sign-in-page .admin-auth-message {
+  margin: 18px 0 0;
+  border: 1px solid rgba(0, 168, 146, 0.2);
+  border-radius: 14px;
+  padding: 13px 15px;
+  background: rgba(0, 168, 146, 0.08);
+  color: #087f70;
+  font-size: 13px;
+}
+
+.admin-sign-in-page .admin-auth-message-danger {
+  border-color: rgba(185, 28, 28, 0.22);
+  background: rgba(254, 242, 242, 0.92);
+  color: #991b1b;
+}
+
+.admin-sign-in-request-form,
+.admin-sign-in-verify-form {
+  display: grid;
+  gap: 11px;
+  margin-top: 24px;
+}
+
+.admin-sign-in-request-form label,
+.admin-sign-in-request-form legend,
+.admin-sign-in-verify-form label {
+  display: block;
+  margin: 0 0 9px;
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 780;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.admin-sign-in-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1.5px solid #e2e4ea;
+  border-radius: 14px;
+  padding: 14px 15px;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-sign-in-input-shell:focus-within {
+  border-color: #6a2d6f;
+  box-shadow: 0 0 0 3px rgba(106, 45, 111, 0.12);
+}
+
+.admin-sign-in-input-shell > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: #9aa0ac;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-sign-in-input-shell > svg:last-child {
+  color: #00a892;
+}
+
+.admin-sign-in-input-shell input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  color: #0c0e16;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+}
+
+.admin-sign-in-input-shell input::placeholder {
+  color: #9aa0ac;
+}
+
+.admin-sign-in-methods {
+  margin: 11px 0 0;
+  border: 0;
+  padding: 0;
+}
+
+.admin-sign-in-methods > div {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-sign-in-request-form .admin-sign-in-method {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  color: inherit;
+  border: 1.5px solid #e6e7eb;
+  border-radius: 14px;
+  padding: 14px 15px;
+  background: #fcfcfb;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-sign-in-request-form .admin-sign-in-method[data-selected="true"] {
+  border-color: #0c0e16;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(12, 14, 22, 0.05);
+}
+
+.admin-sign-in-request-form .admin-sign-in-method input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-sign-in-radio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 2px solid #c4c8d0;
+  border-radius: 999px;
+  transition: border-color 0.15s ease;
+}
+
+.admin-sign-in-radio i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.admin-sign-in-request-form .admin-sign-in-method[data-selected="true"] .admin-sign-in-radio {
+  border-color: #0c0e16;
+}
+
+.admin-sign-in-request-form .admin-sign-in-method[data-selected="true"] .admin-sign-in-radio i {
+  background: #0c0e16;
+}
+
+.admin-sign-in-method-copy {
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-sign-in-method-copy b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0c0e16;
+  font-size: 14px;
+  font-weight: 780;
+  text-transform: none;
+}
+
+.admin-sign-in-method-copy svg {
+  width: 18px;
+  height: 18px;
+  color: #9aa0ac;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-sign-in-request-form .admin-sign-in-method[data-selected="true"] .admin-sign-in-method-copy svg {
+  color: #0c0e16;
+}
+
+.admin-sign-in-method-copy small {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+.admin-sign-in-primary-button,
+.admin-sign-in-verify-form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 16px;
+  color: #0c0e16;
+  background: #c6ff00;
+  box-shadow: 0 8px 22px rgba(198, 255, 0, 0.42);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 840;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+
+.admin-sign-in-primary-button:hover:not(:disabled),
+.admin-sign-in-verify-form button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(198, 255, 0, 0.5);
+}
+
+.admin-sign-in-primary-button:disabled,
+.admin-sign-in-verify-form button:disabled,
+.admin-sign-in-input-shell:has(input:disabled),
+.admin-sign-in-methods:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.admin-sign-in-verify-form {
+  border-top: 1px solid #e6e7eb;
+  padding-top: 18px;
+}
+
+.admin-sign-in-session-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 18px 0 0;
+  color: #9aa0ac;
+  font-size: 12px;
+}
+
+.admin-sign-in-session-note svg {
+  width: 15px;
+  height: 15px;
+  color: #00a892;
+}
+
+@keyframes admin-sign-in-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes admin-sign-in-dash {
+  to {
+    stroke-dashoffset: -120;
+  }
+}
+
+@media (max-width: 940px) {
+  .admin-sign-in-page {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sign-in-brand-panel {
+    min-height: auto;
+    padding: 28px 24px;
+  }
+
+  .admin-sign-in-brand-copy {
+    margin-top: 56px;
+  }
+
+  .admin-sign-in-brand-copy h2 {
+    max-width: 540px;
+    font-size: 30px;
+  }
+
+  .admin-sign-in-trust-list,
+  .admin-sign-in-panel-footer {
+    display: none;
+  }
+
+  .admin-sign-in-form-column {
+    min-height: auto;
+    padding: 40px 20px 48px;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-sign-in-brand-panel {
+    padding: 22px 18px;
+  }
+
+  .admin-sign-in-brand-copy {
+    margin-top: 42px;
+  }
+
+  .admin-sign-in-brand-copy h2 {
+    font-size: 26px;
+  }
+
+  .admin-sign-in-form-column {
+    padding: 32px 16px 42px;
+  }
+
+  .admin-sign-in-copy h1 {
+    font-size: 28px;
+  }
+}
+
 .admin-auth-page {
   min-height: 100vh;
   display: grid;
