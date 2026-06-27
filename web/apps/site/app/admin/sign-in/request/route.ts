@@ -4,15 +4,16 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const email = readString(formData.get("email"));
+  const method = normalizeSignInMethod(readString(formData.get("method")));
   const next = normalizeNextPath(readString(formData.get("next")));
 
   if (!email) {
-    return redirectToSignIn(request, { error: "missing_email", next });
+    return redirectToSignIn(request, { error: "missing_email", method, next });
   }
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return redirectToSignIn(request, { error: "auth_not_configured", next });
+    return redirectToSignIn(request, { error: "auth_not_configured", method, next });
   }
 
   const callbackUrl = new URL("/admin/auth/callback", request.url);
@@ -28,11 +29,11 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     const errorCode = signInRequestErrorCode(error);
-    console.warn("Admin magic-link request failed", summarizeAuthError(error));
-    return redirectToSignIn(request, { error: errorCode, next });
+    console.warn("Admin sign-in email request failed", summarizeAuthError(error));
+    return redirectToSignIn(request, { error: errorCode, method, next });
   }
 
-  return redirectToSignIn(request, { sent: "1", email, next });
+  return redirectToSignIn(request, { sent: "1", email, method, next });
 }
 
 function redirectToSignIn(
@@ -57,6 +58,10 @@ function normalizeNextPath(value: string | undefined): string {
     return "/admin/ingestion";
   }
   return value;
+}
+
+function normalizeSignInMethod(value: string | undefined): "link" | "code" {
+  return value === "code" ? "code" : "link";
 }
 
 function signInRequestErrorCode(error: unknown): string {

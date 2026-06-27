@@ -1757,6 +1757,61 @@ a:hover {
   padding-top: 1rem;
 }
 
+.admin-auth-methods {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.admin-auth-methods legend {
+  margin-bottom: 0.15rem;
+  color: rgba(12, 14, 22, 0.64);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-auth-form .admin-auth-method {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: start;
+  color: inherit;
+  border: 1px solid rgba(42, 46, 58, 0.16);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.admin-auth-method input {
+  width: 1rem;
+  min-height: 1rem;
+  margin-top: 0.2rem;
+  accent-color: #0f766e;
+}
+
+.admin-auth-method span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-auth-method strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.admin-auth-method small {
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .admin-auth-form label {
   color: rgba(12, 14, 22, 0.64);
   font-size: 0.78rem;
@@ -1764,7 +1819,7 @@ a:hover {
   text-transform: uppercase;
 }
 
-.admin-auth-form input {
+.admin-auth-form input:not([type="radio"]) {
   min-height: 2.8rem;
   width: 100%;
   border: 1px solid rgba(42, 46, 58, 0.18);
@@ -1775,7 +1830,7 @@ a:hover {
   font: inherit;
 }
 
-.admin-auth-form input:focus {
+.admin-auth-form input:not([type="radio"]):focus {
   outline: 3px solid rgba(0, 194, 168, 0.18);
   border-color: #0f766e;
 }

@@ -15,9 +15,12 @@ type SearchParams = {
   sent?: string;
   email?: string;
   error?: string;
+  method?: string;
   next?: string;
   reason?: string;
 };
+
+type SignInMethod = "link" | "code";
 
 export default async function AdminSignInPage({
   searchParams,
@@ -28,7 +31,9 @@ export default async function AdminSignInPage({
   const isConfigured = Boolean(getSupabasePublicConfig());
   const next = normalizeNextPath(params.next);
   const sentEmail = params.email?.trim();
-  const showOtpForm = params.sent === "1" && Boolean(sentEmail);
+  const signInMethod = normalizeSignInMethod(params.method);
+  const hasSentEmail = params.sent === "1" && Boolean(sentEmail);
+  const showOtpForm = hasSentEmail && signInMethod === "code";
   const showMissingConfig = !isConfigured || params.reason === "auth_not_configured";
   const error = showMissingConfig && params.error === "auth_not_configured" ? undefined : params.error;
 
@@ -44,8 +49,9 @@ export default async function AdminSignInPage({
           <p className="admin-kicker">Protected operator console</p>
           <h1 id="admin-sign-in-title">Sign in to continue</h1>
           <p>
-            Admin dashboards require a verified Supabase session. Mutation
-            controls require an active platform allowlist row and MFA step-up.
+            First verify your email session. If MFA is required and your account
+            is not enrolled yet, the next screen will guide you through the
+            authenticator QR-code setup.
           </p>
         </div>
 
@@ -61,10 +67,9 @@ export default async function AdminSignInPage({
           </div>
         ) : null}
 
-        {params.sent === "1" ? (
+        {hasSentEmail ? (
           <div className="admin-auth-message" role="status">
-            Sign-in email sent{sentEmail ? ` to ${sentEmail}` : ""}. Open the link in this
-            browser or enter the one-time code below.
+            {sentMessage(signInMethod, sentEmail)}
           </div>
         ) : null}
 
@@ -78,10 +83,38 @@ export default async function AdminSignInPage({
             autoComplete="email"
             required
             placeholder="you@company.com"
+            defaultValue={sentEmail ?? ""}
             disabled={!isConfigured}
           />
+          <fieldset className="admin-auth-methods" disabled={!isConfigured}>
+            <legend>Choose sign-in method</legend>
+            <label className="admin-auth-method">
+              <input
+                type="radio"
+                name="method"
+                value="link"
+                defaultChecked={signInMethod === "link"}
+              />
+              <span>
+                <strong>Email link</strong>
+                <small>Open the secure link from the email.</small>
+              </span>
+            </label>
+            <label className="admin-auth-method">
+              <input
+                type="radio"
+                name="method"
+                value="code"
+                defaultChecked={signInMethod === "code"}
+              />
+              <span>
+                <strong>Email one-time code</strong>
+                <small>Enter the code from the same email. No authenticator app required yet.</small>
+              </span>
+            </label>
+          </fieldset>
           <button type="submit" disabled={!isConfigured}>
-            Send sign-in email
+            {hasSentEmail ? "Send another sign-in email" : "Send sign-in email"}
           </button>
         </form>
 
@@ -93,7 +126,7 @@ export default async function AdminSignInPage({
           >
             <input type="hidden" name="next" value={next} />
             <input type="hidden" name="email" value={sentEmail} />
-            <label htmlFor="admin-email-otp">One-time code</label>
+            <label htmlFor="admin-email-otp">Email one-time code</label>
             <input
               id="admin-email-otp"
               name="otp"
@@ -122,6 +155,18 @@ function normalizeNextPath(value: string | undefined): string {
   return value;
 }
 
+function normalizeSignInMethod(value: string | undefined): SignInMethod {
+  return value === "code" ? "code" : "link";
+}
+
+function sentMessage(method: SignInMethod, email: string | undefined): string {
+  const suffix = email ? ` to ${email}` : "";
+  if (method === "code") {
+    return `Email code sent${suffix}. Enter the email one-time code below. Authenticator app setup happens after this email step, if required.`;
+  }
+  return `Email link sent${suffix}. Open the secure link in this browser. Authenticator app setup happens after this email step, if required.`;
+}
+
 function readableError(error: string): string {
   switch (error) {
     case "missing_email":
@@ -135,9 +180,9 @@ function readableError(error: string): string {
     case "rate_limited":
       return "Too many sign-in links were requested. Wait a little, then try again.";
     case "otp_missing":
-      return "Enter the one-time code from your email.";
+      return "Enter the email one-time code from your sign-in email.";
     case "otp_failed":
-      return "The one-time code could not be verified. Request a new code and try again.";
+      return "The email one-time code could not be verified. Request a new sign-in email and try again.";
     case "not_authenticated":
       return "Sign in before opening the admin console.";
     default:

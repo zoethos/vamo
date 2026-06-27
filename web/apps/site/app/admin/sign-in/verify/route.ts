@@ -6,13 +6,14 @@ export async function POST(request: NextRequest) {
   const email = readString(formData.get("email"));
   const token = normalizeOtpCode(readString(formData.get("otp")));
   const next = normalizeNextPath(readString(formData.get("next")));
+  const method = "code";
 
   if (!email) {
-    return redirectToSignIn(request, { error: "missing_email", sent: "1", next });
+    return redirectToSignIn(request, { error: "missing_email", sent: "1", method, next });
   }
 
   if (!token) {
-    return redirectToSignIn(request, { error: "otp_missing", sent: "1", email, next });
+    return redirectToSignIn(request, { error: "otp_missing", sent: "1", email, method, next });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
       error: "auth_not_configured",
       sent: "1",
       email,
+      method,
       next,
     });
   }
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.warn("Admin email OTP verification failed", summarizeAuthError(error));
-    return redirectToSignIn(request, { error: "otp_failed", sent: "1", email, next });
+    return redirectToSignIn(request, { error: "otp_failed", sent: "1", email, method, next });
   }
 
   return NextResponse.redirect(new URL(next, request.url));
