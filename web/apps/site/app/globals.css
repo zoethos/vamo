@@ -802,6 +802,120 @@ a:hover {
   box-shadow: 0 1px 2px rgba(12, 14, 22, 0.12);
 }
 
+.admin-session-actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.admin-user-chip {
+  display: inline-flex;
+  min-width: 0;
+  max-width: min(21rem, 34vw);
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(250, 250, 251, 0.14);
+  border-radius: 999px;
+  padding: 0.38rem 0.65rem 0.38rem 0.46rem;
+  background: rgba(250, 250, 251, 0.08);
+  color: rgba(250, 250, 251, 0.9);
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.1);
+}
+
+.admin-user-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--jade-teal);
+  box-shadow: 0 0 0 4px rgba(0, 194, 168, 0.14);
+}
+
+.admin-user-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.02rem;
+  line-height: 1.05;
+}
+
+.admin-user-copy span,
+.admin-user-copy small {
+  overflow: hidden;
+  color: rgba(250, 250, 251, 0.54);
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-user-copy strong {
+  overflow: hidden;
+  max-width: 100%;
+  color: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-logout-button {
+  display: inline-flex;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(250, 250, 251, 0.14);
+  border-radius: 999px;
+  padding: 0.45rem 0.75rem;
+  background: rgba(250, 250, 251, 0.08);
+  color: rgba(250, 250, 251, 0.9);
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.admin-logout-button:hover {
+  border-color: rgba(250, 250, 251, 0.28);
+  background: rgba(250, 250, 251, 0.12);
+  color: var(--warm-white);
+}
+
+.admin-logout-button:focus-visible {
+  outline: 3px solid rgba(0, 194, 168, 0.35);
+  outline-offset: 3px;
+}
+
+.admin-console .admin-user-chip,
+.provider-dashboard:not(.admin-console)[data-theme="light"] .admin-user-chip {
+  border-color: rgba(42, 46, 58, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+}
+
+.admin-console .admin-user-copy span,
+.admin-console .admin-user-copy small,
+.provider-dashboard:not(.admin-console)[data-theme="light"] .admin-user-copy span,
+.provider-dashboard:not(.admin-console)[data-theme="light"] .admin-user-copy small {
+  color: rgba(12, 14, 22, 0.54);
+}
+
+.admin-console .admin-logout-button,
+.provider-dashboard:not(.admin-console)[data-theme="light"] .admin-logout-button {
+  border-color: rgba(42, 46, 58, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
+}
+
+.admin-console .admin-logout-button:hover,
+.provider-dashboard:not(.admin-console)[data-theme="light"] .admin-logout-button:hover {
+  border-color: rgba(15, 118, 110, 0.28);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+}
+
 .dashboard-theme-toggle {
   display: inline-flex;
   min-height: 2.75rem;
@@ -1531,6 +1645,29 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-nav-link-active {
   color: var(--ink);
   background: var(--warm-white);
+}
+
+.admin-console[data-theme="dark"] .admin-user-chip {
+  border-color: rgba(250, 250, 251, 0.14);
+  background: rgba(250, 250, 251, 0.08);
+  color: rgba(250, 250, 251, 0.9);
+}
+
+.admin-console[data-theme="dark"] .admin-user-copy span,
+.admin-console[data-theme="dark"] .admin-user-copy small {
+  color: rgba(250, 250, 251, 0.54);
+}
+
+.admin-console[data-theme="dark"] .admin-logout-button {
+  border-color: rgba(250, 250, 251, 0.14);
+  background: rgba(250, 250, 251, 0.08);
+  color: rgba(250, 250, 251, 0.9);
+}
+
+.admin-console[data-theme="dark"] .admin-logout-button:hover {
+  border-color: rgba(250, 250, 251, 0.28);
+  background: rgba(250, 250, 251, 0.12);
+  color: var(--warm-white);
 }
 
 .admin-console[data-theme="dark"] .admin-hero-copy,
@@ -2566,6 +2703,15 @@ a:hover {
   .admin-masthead-controls {
     width: 100%;
     justify-content: stretch;
+  }
+
+  .admin-session-actions {
+    width: 100%;
+  }
+
+  .admin-user-chip {
+    flex: 1;
+    max-width: none;
   }
 
   .admin-nav-link {
