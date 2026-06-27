@@ -188,6 +188,8 @@ function readableError(error: string): string {
       return "Supabase auth is not configured for this environment.";
     case "callback_failed":
       return "The sign-in link could not be verified. Request a new link.";
+    case "link_session_mismatch":
+      return "That sign-in link was opened after its browser session expired or in a different browser. Request an email one-time code, or open a fresh link in this same browser.";
     case "send_failed":
       return "The sign-in email could not be sent. Use a provisioned admin account and try again.";
     case "rate_limited":
