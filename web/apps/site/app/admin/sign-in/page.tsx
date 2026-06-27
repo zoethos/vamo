@@ -35,8 +35,11 @@ export default async function AdminSignInPage({
   const signInMethod = normalizeSignInMethod(params.method);
   const hasSentEmail = params.sent === "1" && Boolean(sentEmail);
   const showOtpForm = hasSentEmail && signInMethod === "code";
-  const showMissingConfig = !isConfigured || params.reason === "auth_not_configured";
-  const error = showMissingConfig && params.error === "auth_not_configured" ? undefined : params.error;
+  const showMissingConfig = !isConfigured;
+  const error =
+    params.error === "auth_not_configured" || params.reason === "auth_not_configured"
+      ? undefined
+      : params.error;
 
   return (
     <main className="admin-sign-in-page">
