@@ -5,6 +5,7 @@ import { getSupabasePublicConfig } from "./supabase-config";
 const openAdminPaths = new Set([
   "/admin/sign-in",
   "/admin/sign-in/request",
+  "/admin/sign-in/verify",
   "/admin/auth/callback",
   "/admin/sign-out",
 ]);

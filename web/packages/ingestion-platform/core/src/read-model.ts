@@ -45,6 +45,7 @@ export interface IngestionInstance {
 }
 
 export interface IngestionTarget {
+  id: string;
   name: string;
   source: string;
   scope: string;
@@ -97,6 +98,7 @@ export interface ControlInstanceRow {
 }
 
 export interface ControlTargetRow {
+  id: string;
   name: string;
   source: string;
   scope: string;
@@ -242,6 +244,7 @@ function toViewInstance(row: ControlInstanceRow): IngestionInstance {
 function toViewTarget(row: ControlTargetRow): IngestionTarget {
   const status = STATUS_TO_VIEW[row.status];
   return {
+    id: row.id,
     name: row.name,
     source: row.source,
     scope: row.scope,
@@ -419,6 +422,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
   ],
   targets: [
     {
+      id: "fsq-os-places-it",
       name: "FSQ OS Places - Italy",
       source: "FSQ OS Places",
       scope: "POIs, coordinates, categories",
@@ -429,6 +433,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "checkpoint_committed"
     },
     {
+      id: "geonames-populated-places-eu",
       name: "GeoNames populated places - EU",
       source: "GeoNames",
       scope: "Settlements, country, population",
@@ -439,6 +444,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "waiting_for_slot"
     },
     {
+      id: "rome-monuments-enrichment",
       name: "Rome monuments enrichment",
       source: "Wikidata + Wikimedia Commons",
       scope: "Descriptions, image license candidates",
@@ -449,6 +455,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "claim_batch_ok"
     },
     {
+      id: "venice-visual-candidates",
       name: "Venice visual candidates",
       source: "Wikimedia Commons",
       scope: "Licensed images, attribution rows",
@@ -459,6 +466,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "license_review_required"
     },
     {
+      id: "user-alias-corroboration",
       name: "User alias corroboration",
       source: "Vamo observations",
       scope: "Cross-user alias promotion only",
@@ -469,6 +477,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "operator_pause"
     },
     {
+      id: "google-visual-rehearsal",
       name: "Google visual rehearsal",
       source: "Google live resolver",
       scope: "Live-only validation, no reusable cache",
@@ -479,6 +488,7 @@ export const sampleControlPlaneSnapshot: ControlPlaneSnapshot = {
       lastSignal: "policy_guard_blocked_storage"
     },
     {
+      id: "staging-incremental-export",
       name: "Staging incremental export",
       source: "Promoted Vamo cache",
       scope: "Canonicals, source refs, attribution",

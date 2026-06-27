@@ -29,13 +29,13 @@ Your Vamo code: {{ .Token }}
   <p>Type it into the app.</p>
   <p style="color: #666; font-size: 14px;">
     Opened this email on a different device than where you entered your email?
-    Use the code above — it works everywhere. The tap-to-sign-in link only works
-    on the same device where you started sign-in.
+    Use the code above — it works everywhere. The tap-to-sign-in link below uses
+    a server-verified token hash and works without a PKCE browser cookie.
   </p>
 
   <p style="margin-top: 24px; color: #666;">
     Reading this on your phone? You can also
-    <a href="{{ .ConfirmationURL }}" style="color: #0d7377;">tap here to sign in directly</a>.
+    <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="color: #0d7377;">tap here to sign in directly</a>.
   </p>
 
   <p style="color: #999; font-size: 12px; margin-top: 32px;">
@@ -47,11 +47,16 @@ Your Vamo code: {{ .Token }}
 
 ## Notes
 
-- The **code path** is the reliable one: immune to SafeLinks, device mismatch,
-  and link prefetching. PKCE magic links are bound to the device that requested
-  them — the 6-digit code is the only cross-device sign-in path. The link stays
-  as a convenience when you read email on the same device where you started
-  sign-in.
+- The **code path** is still the most reliable one: immune to SafeLinks, device
+  mismatch, and link prefetching.
+- The direct link intentionally uses `{{ .RedirectTo }}` plus
+  `token_hash={{ .TokenHash }}&type=email` instead of `{{ .ConfirmationURL }}`.
+  `{{ .ConfirmationURL }}` can return a PKCE `code` that requires the same
+  browser-side verifier cookie that requested the email. The admin callback
+  route supports token-hash verification directly, which is less fragile for
+  Outlook, link scanners, and multi-browser workflows.
+- The app passes `emailRedirectTo` as a callback URL that already contains the
+  desired `next` path, so appending `&token_hash=...&type=email` is expected.
 - Same `{{ .Token }}` approach applies to the **Confirm signup** and **Email
   change** templates if those flows are enabled later.
 - Before testers arrive: configure **custom SMTP** (Settings → Auth → SMTP;

@@ -12,6 +12,7 @@ import {
 
 function snapshotWithTargetStatus(status: IngestionTaskStatus): ControlPlaneSnapshot {
   const target: ControlTargetRow = {
+    id: "target-probe",
     name: "Probe",
     source: "Fixture",
     scope: "test",
@@ -30,6 +31,7 @@ describe("ingestion dashboard read model", () => {
 
     assert.equal(view.instances.length, 4);
     assert.equal(view.targets.length, 7);
+    assert.equal(view.targets[0]?.id, "fsq-os-places-it");
     assert.equal(view.events.length, 5);
     assert.equal(view.stats.length, 6);
     assert.equal(view.signals.length, 4);

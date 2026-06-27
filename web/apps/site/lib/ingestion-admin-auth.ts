@@ -78,18 +78,29 @@ export async function getIngestionAdminPrincipal(
     aalResult.data.currentLevel === "aal2" ? "aal2" : "aal1";
   const hasVerifiedMfaFactor = factorsResult.data.totp.length > 0;
 
-  return resolvePostgresAdminPrincipal({
-    connectionString,
-    provider: "supabase",
-    providerUserId: user.id,
-    email: user.email ?? "",
-    assuranceLevel,
-    hasVerifiedMfaFactor,
-    stepUpSatisfiedAt: latestMfaAuthenticationAt(
-      aalResult.data.currentAuthenticationMethods
-    ),
-    projectKey
-  });
+  try {
+    return await resolvePostgresAdminPrincipal({
+      connectionString,
+      provider: "supabase",
+      providerUserId: user.id,
+      email: user.email ?? "",
+      assuranceLevel,
+      hasVerifiedMfaFactor,
+      stepUpSatisfiedAt: latestMfaAuthenticationAt(
+        aalResult.data.currentAuthenticationMethods
+      ),
+      projectKey
+    });
+  } catch (error) {
+    if (isAdminPrincipalStoreUnavailable(error)) {
+      console.warn(
+        "Ingestion admin allowlist is unavailable; verify the control schema, grants, and DB env.",
+        summarizePostgresError(error)
+      );
+      return { ok: false, code: "allowlist_not_configured" };
+    }
+    throw error;
+  }
 }
 
 export async function requireIngestionAdminPrincipal(input: {
@@ -347,4 +358,34 @@ function normalizeNextPath(value: string): string {
     return "/admin/ingestion";
   }
   return value;
+}
+
+function isAdminPrincipalStoreUnavailable(error: unknown): boolean {
+  const code = postgresErrorCode(error);
+  return (
+    code === "28P01" ||
+    code === "3F000" ||
+    code === "42501" ||
+    code === "42P01" ||
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT"
+  );
+}
+
+function summarizePostgresError(error: unknown): Record<string, string> {
+  const code = postgresErrorCode(error);
+  const message = error instanceof Error ? error.message : "Unknown error";
+  return {
+    ...(code ? { code } : {}),
+    message
+  };
+}
+
+function postgresErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }

@@ -8,6 +8,11 @@ import type {
 } from "@/content/ingestion-dashboard";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
+import {
+  ClusterCommandControls,
+  RecoveryCommandButton,
+  TargetCommandButton,
+} from "./ingestion-command-controls";
 
 export const metadata: Metadata = {
   title: "Ingestion control · Vamo",
@@ -54,6 +59,11 @@ export default async function IngestionDashboardPage() {
   const selectedTarget =
     ingestionTargets.find((target) => target.status === "blocked") ??
     ingestionTargets[0];
+  const commandContext = {
+    role: principal.role,
+    assuranceLevel: principal.assuranceLevel,
+    source,
+  };
 
   return (
     <main
@@ -108,8 +118,8 @@ export default async function IngestionDashboardPage() {
           <h1>Ingestion control</h1>
           <p>
             Visual shell for managing cache loaders, enrichment workers, target
-            checkpoints, and promotion telemetry while command controls wait for
-            admin auth and UI wiring.
+            checkpoints, and promotion telemetry with session-authenticated
+            operator controls.
           </p>
         </div>
         <div className="admin-command-surface" aria-label="Global ingestion controls">
@@ -117,19 +127,10 @@ export default async function IngestionDashboardPage() {
             <span>Cluster controls</span>
             <strong>{source === "live" ? "Live control plane" : "Sample preview"}</strong>
           </div>
-          <div className="admin-command-grid">
-            {ingestionActions.map((action) => (
-              <button
-                className={`admin-command admin-command-${action.tone}`}
-                type="button"
-                disabled
-                key={action.label}
-              >
-                <span>{action.label}</span>
-                <small>{action.detail}</small>
-              </button>
-            ))}
-          </div>
+          <ClusterCommandControls
+            actions={ingestionActions}
+            context={commandContext}
+          />
         </div>
       </section>
 
@@ -237,9 +238,10 @@ export default async function IngestionDashboardPage() {
                     </td>
                     <td>{target.lastSignal}</td>
                     <td>
-                      <button className="admin-row-control" type="button" disabled>
-                        {target.nextAction}
-                      </button>
+                      <TargetCommandButton
+                        context={commandContext}
+                        target={target}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -274,9 +276,10 @@ export default async function IngestionDashboardPage() {
               </dd>
             </div>
           </dl>
-          <button className="admin-wide-control" type="button" disabled>
-            Resume from checkpoint
-          </button>
+          <RecoveryCommandButton
+            context={commandContext}
+            target={selectedTarget}
+          />
         </aside>
         ) : (
           <aside className="admin-failure-panel" aria-label="Failure recovery detail">
