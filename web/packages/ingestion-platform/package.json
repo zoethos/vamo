@@ -21,6 +21,10 @@
       "types": "./dist/core/src/read-model.d.ts",
       "default": "./dist/core/src/read-model.js"
     },
+    "./progressive-read-model": {
+      "types": "./dist/core/src/progressive-read-model.d.ts",
+      "default": "./dist/core/src/progressive-read-model.js"
+    },
     "./control-read": {
       "types": "./dist/core/src/control-read.d.ts",
       "default": "./dist/core/src/control-read.js"
