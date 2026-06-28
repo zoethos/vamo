@@ -21,6 +21,11 @@ export interface StagedCandidate {
   sourceCursor: string | number;
   targetProject: string;
   targetProfile: string;
+  /** Optional source-side scope used by progressive canary bounds. */
+  sourceScope?: {
+    geography?: string;
+    category?: string;
+  };
   payload: Record<string, unknown>;
 }
 
@@ -187,6 +192,7 @@ export async function runSourcePipeline(input: RunSourcePipelineInput): Promise<
       sourceCursor: row.cursorValue,
       targetProject: input.pipeline.target.project,
       targetProfile: input.pipeline.target.profile,
+      sourceScope: readSourceScope(row.record),
       payload: mapped.payload
     });
     events.push({
@@ -364,6 +370,21 @@ function readSnapshotFormat(value: unknown): string | undefined {
 
 function readOptionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readSourceScope(record: Record<string, unknown>): StagedCandidate["sourceScope"] {
+  const geography = readOptionalString(
+    getPath(record, "scope.geography") ?? getPath(record, "source.geography")
+  );
+  const category = readOptionalString(
+    getPath(record, "scope.category") ?? getPath(record, "source.category")
+  );
+
+  if (!geography && !category) {
+    return undefined;
+  }
+
+  return { geography, category };
 }
 
 function applyTransform(

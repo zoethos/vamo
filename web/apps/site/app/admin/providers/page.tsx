@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@vamo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
@@ -31,6 +32,8 @@ export default async function ProviderDashboardPage() {
     projectKey: "vamo",
     nextPath: "/admin/providers",
   });
+  const serverNowMs = Date.now();
+  const freshStepUpExpiresAt = freshStepUpExpiry(principal.stepUpSatisfiedAt);
 
   return (
     <main
@@ -55,7 +58,12 @@ export default async function ProviderDashboardPage() {
               Ingestion
             </Link>
           </div>
-          <AdminSessionActions principal={principal} />
+          <AdminSessionActions
+            principal={principal}
+            freshStepUpExpiresAt={freshStepUpExpiresAt}
+            mfaChallengeHref="/admin/mfa/challenge?reason=fresh_step_up_required&next=%2Fadmin%2Fproviders"
+            serverNowMs={serverNowMs}
+          />
           <DashboardThemeToggle
             defaultTheme="dark"
             label="Provider dashboard theme"
@@ -161,4 +169,15 @@ export default async function ProviderDashboardPage() {
       </p>
     </main>
   );
+}
+
+function freshStepUpExpiry(stepUpSatisfiedAt: string | undefined): string | undefined {
+  if (!stepUpSatisfiedAt) {
+    return undefined;
+  }
+  const satisfiedMs = Date.parse(stepUpSatisfiedAt);
+  if (!Number.isFinite(satisfiedMs)) {
+    return undefined;
+  }
+  return new Date(satisfiedMs + STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS).toISOString();
 }

@@ -6,6 +6,7 @@ import type {
   ProgressiveRunSnapshot,
   ProgressiveWorkStatus
 } from "./progressive-read-model.js";
+import { deriveReviewedCanaryBounds } from "./progressive-read-model.js";
 import type { SafetyMode, ScheduleProposal, TargetTier } from "./schedule-proposal.js";
 import type { TargetScorecard } from "./target-scorecard.js";
 
@@ -110,6 +111,7 @@ function toEntry(row: ProposalRow): ProgressiveBacklogEntryInput {
     scorecard: row.scorecard,
     tier: row.tier as TargetTier,
     safetyMode: row.safetyMode as SafetyMode,
+    canaryBounds: deriveReviewedCanaryBounds({ proposal: row.proposal, report }),
     report,
     scheduledApprovalDescription: report ? undefined : row.proposal?.approval.description
   };

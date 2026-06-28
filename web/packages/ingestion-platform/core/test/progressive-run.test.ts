@@ -92,12 +92,12 @@ describe("progressive dry run", () => {
     );
     assert.equal(report.currentStage, "review_required");
 
-    // Shipment diff produced, all inserts against an empty target, no writes.
+    // Shipment diff produced, scoped to the reviewed Rome/POI canary, no writes.
     assert.equal(report.wroteToTarget, false);
     assert.equal(report.shipmentDiff.compatible, true);
-    assert.equal(report.shipmentDiff.insert, 6);
+    assert.equal(report.shipmentDiff.insert, 2);
     assert.equal(report.shipmentDiff.update, 0);
-    assert.equal(report.shipmentDiff.total, 6);
+    assert.equal(report.shipmentDiff.total, 2);
 
     // Checkpoint report reflects the full bounded sample.
     assert.equal(report.checkpoint.processedCount, 5);
@@ -106,9 +106,10 @@ describe("progressive dry run", () => {
 
     // Row counts, policy blocks, and dead letters are surfaced.
     assert.equal(report.rowCounts.read, 5);
-    assert.equal(report.rowCounts.staged, 3);
+    assert.equal(report.rowCounts.staged, 1);
     assert.ok(report.deadLetters.length >= 1);
     assert.ok(report.policyBlocks.length >= 1);
+    assert.ok(report.policyBlocks.some((block) => block.includes("scope_mismatch")));
 
     // The next required approval is explicit.
     assert.equal(report.nextApproval.requireMfa, true);

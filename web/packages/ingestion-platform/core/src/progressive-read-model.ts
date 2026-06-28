@@ -18,6 +18,7 @@ import {
   deriveAdvisoryRationale,
   type AiConfidence,
   type SafetyMode,
+  type ScheduleProposal,
   type TargetTier
 } from "./schedule-proposal.js";
 import type { ProgressiveRunReport, ProgressiveStage } from "./progressive-run.js";
@@ -39,12 +40,20 @@ export interface ProgressiveBacklogEntryInput {
   scorecard: TargetScorecard;
   tier: TargetTier;
   safetyMode: SafetyMode;
+  canaryBounds?: ReviewedCanaryBounds;
   scheduledApprovalDescription?: string;
   report?: ProgressiveRunReport;
 }
 
 export interface ProgressiveRunSnapshot {
   entries: ProgressiveBacklogEntryInput[];
+}
+
+export interface ReviewedCanaryBounds {
+  geography: string;
+  category: string;
+  /** Exact reviewed write count, not an operator-entered upper bound. */
+  maxRows: number;
 }
 
 export interface ProgressiveTone {
@@ -75,6 +84,8 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
   deadLetterCount: number;
   /** Dry-run invariant surfaced to the console: a run never wrote to its target. */
   wroteToTarget: boolean;
+  /** Reviewed, immutable bounds for a staging-canary approval. */
+  canaryBounds?: ReviewedCanaryBounds;
   blockers: string[];
   policyBlocks: string[];
   deadLetters: string[];
@@ -149,6 +160,7 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     policyBlockCount: report?.rowCounts.policyBlocked ?? 0,
     deadLetterCount: report?.rowCounts.deadLettered ?? 0,
     wroteToTarget: report?.wroteToTarget ?? false,
+    canaryBounds: entry.canaryBounds,
     blockers: scorecard.blockingGates.slice(),
     policyBlocks: report?.policyBlocks.slice() ?? [],
     deadLetters: report?.deadLetters.slice() ?? [],
@@ -158,6 +170,22 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     nextApproval: report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
     tone: WORK_STATUS_TONE[entry.workStatus]
   };
+}
+
+export function deriveReviewedCanaryBounds(input: {
+  proposal?: ScheduleProposal | null;
+  report?: ProgressiveRunReport | null;
+}): ReviewedCanaryBounds | undefined {
+  const geography = input.proposal?.scope.geography?.trim();
+  const category = input.proposal?.scope.category?.trim();
+  const diff = input.report?.shipmentDiff;
+  const maxRows = diff ? diff.insert + diff.update : 0;
+
+  if (!geography || !category || maxRows <= 0) {
+    return undefined;
+  }
+
+  return { geography, category, maxRows };
 }
 
 function count(rows: ProgressiveBacklogRow[], status: ProgressiveWorkStatus): number {
@@ -267,10 +295,10 @@ const sampleReport: ProgressiveRunReport = {
     { stage: "preflight", status: "passed", detail: "Preflight passed.", signal: "preflight_passed" },
     { stage: "scout", status: "passed", detail: "Scouted 3 rows.", signal: "scout_sampled" },
     {
-      // 3 staged candidates x 2 target tables = 6 insert operations.
+      // 1 in-scope staged candidate x 2 target tables = 2 insert operations.
       stage: "sample_dry_run",
       status: "passed",
-      detail: "Dry-run diff: 6 insert, 0 update, 0 no-op (no target writes).",
+      detail: "Dry-run diff: 2 insert, 0 update, 0 no-op (no target writes).",
       signal: "sample_dry_run_diff_ready"
     },
     {
@@ -283,23 +311,23 @@ const sampleReport: ProgressiveRunReport = {
   currentStage: "review_required",
   preflight: { passed: true, checks: [], failures: [] },
   scout: {
-    // Preview of the first 3 rows: 2 staged, 1 dead-lettered (missing name), 0 policy blocks.
+    // Preview of the first 3 rows: 1 in-scope staged, 1 dead-lettered (missing name).
     sampleRowCount: 3,
-    candidateCount: 2,
+    candidateCount: 1,
     deadLetterCount: 1,
     policyBlockCount: 0,
-    detail: "Scouted 3 sample rows (preview): 2 staged, 1 dead-lettered, 0 policy-blocked."
+    detail: "Scouted 3 sample rows (preview): 1 staged, 1 dead-lettered, 0 policy-blocked."
   },
-  // Full bounded sample (5 rows): 3 staged, row 4 media policy-blocked, row 3 missing name
-  // emits 2 mapping dead letters.
-  rowCounts: { read: 5, staged: 3, policyBlocked: 1, deadLettered: 2 },
+  // Full bounded sample (5 rows): 1 staged in-scope, row 4 media policy-blocked,
+  // rows 2/5 excluded by scope, row 3 missing name emits 2 mapping dead letters.
+  rowCounts: { read: 5, staged: 1, policyBlocked: 3, deadLettered: 2 },
   shipmentDiff: {
     compatible: true,
-    insert: 6,
+    insert: 2,
     update: 0,
     noOp: 0,
     delete: 0,
-    total: 6,
+    total: 2,
     incompatibilities: 0
   },
   checkpoint: {
@@ -308,7 +336,11 @@ const sampleReport: ProgressiveRunReport = {
     lastRecordKey: "fsq_sagrada_familia",
     processedCount: 5
   },
-  policyBlocks: ["source.storage_rights: media bytes blocked by policy"],
+  policyBlocks: [
+    "source.storage_rights: media bytes blocked by policy",
+    "scope_mismatch: fsq_eiffel_tower outside rome-italy/poi",
+    "scope_mismatch: fsq_sagrada_familia outside rome-italy/poi"
+  ],
   deadLetters: [
     'missing_mapped_field: Required mapping source "source.name" is missing.',
     'missing_mapped_field: Required mapping source "source.name" is missing.'
@@ -333,6 +365,7 @@ export const sampleProgressiveRunSnapshot: ProgressiveRunSnapshot = {
       scorecard: sampleVamoScorecard,
       tier: "sample_dry_run",
       safetyMode: "dry_run",
+      canaryBounds: { geography: "rome-italy", category: "poi", maxRows: 2 },
       report: sampleReport
     },
     {

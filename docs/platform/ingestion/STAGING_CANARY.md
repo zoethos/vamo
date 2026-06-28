@@ -87,7 +87,7 @@ mirror the `ApprovalRequirement` already returned by `schedule-proposal.ts` and
 | MFA step-up | A fresh MFA step-up, reusing the IP-11 `reset` step-up contract (recent, not a stale session claim). |
 | Audit reason | A non-empty operator reason string, recorded verbatim in `ingestion_audit_log`. |
 | Explicit transition | The request explicitly promotes `review_required -> staging_write`; there is no implicit or batch promotion, and no "approve all". |
-| Bounds attested | The operator confirms the canary bounds in §4; the server re-validates them and does not trust client-supplied counts. |
+| Bounds attested | The server derives canary bounds from the reviewed `ScheduleScope` + shipment diff in the control plane. The browser may display them, but client-supplied geography/category/counts are not trusted. |
 
 Machine tokens (IP-11) may run non-destructive operational commands but **must
 not** promote a canary. Promotion is a destructive, human-gated action.

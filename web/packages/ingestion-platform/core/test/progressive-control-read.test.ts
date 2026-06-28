@@ -9,7 +9,8 @@ import {
 } from "../src/progressive-control-read.js";
 import {
   buildProgressiveRunView,
-  sampleProgressiveRunSnapshot
+  sampleProgressiveRunSnapshot,
+  sampleVamoProposal
 } from "../src/progressive-read-model.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -17,12 +18,16 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 
 // Rows as the control DB would return them: scorecard/proposal/run_report are the
 // exact JSONB the platform core produced, round-tripped back as parsed objects.
+const sampleProposalResult = sampleVamoProposal();
+assert.equal(sampleProposalResult.ok, true);
+const sampleProposal = sampleProposalResult.ok ? sampleProposalResult.proposal : null;
+
 const stubRows = sampleProgressiveRunSnapshot.entries.map((entry) => ({
   workStatus: entry.workStatus,
   tier: entry.tier,
   safetyMode: entry.safetyMode,
   scorecard: entry.scorecard,
-  proposal: null,
+  proposal: entry.workStatus === "review_required" ? sampleProposal : null,
   runReport: entry.report ?? null
 }));
 
@@ -66,6 +71,11 @@ describe("progressive control read", () => {
     assert.equal(review.report.wroteToTarget, false);
     assert.equal(review.tier, "sample_dry_run");
     assert.equal(review.safetyMode, "dry_run");
+    assert.deepEqual(review.canaryBounds, {
+      geography: "rome-italy",
+      category: "poi",
+      maxRows: 2
+    });
   });
 
   it("falls back gracefully when no progressive rows exist", async () => {
@@ -103,6 +113,11 @@ describe("progressive control read", () => {
     assert.match(review.nextApproval, /approve/i);
     // Dry-run invariant: a progressive run never wrote to its target.
     assert.equal(review.wroteToTarget, false);
+    assert.deepEqual(review.canaryBounds, {
+      geography: "rome-italy",
+      category: "poi",
+      maxRows: 2
+    });
 
     const blocked = view.rows.find((row) => row.workStatus === "blocked");
     assert.ok(blocked);
@@ -160,7 +175,7 @@ describe("progressive control read", () => {
             sampleEntry.tier,
             sampleEntry.safetyMode,
             sampleEntry.scorecard,
-            null,
+            sampleProposal,
             sampleEntry.report
           ]
         );
@@ -175,6 +190,11 @@ describe("progressive control read", () => {
         assert.equal(row.workStatus, "review_required");
         assert.equal(row.stage, "review_required");
         assert.equal(row.wroteToTarget, false);
+        assert.deepEqual(row.canaryBounds, {
+          geography: "rome-italy",
+          category: "poi",
+          maxRows: 2
+        });
         assert.ok(row.aiSummary.length > 0);
 
         // Unknown project still falls back (null), exercising the join filter.

@@ -223,7 +223,12 @@ Gates enforced, in order:
    `succeeded`/`shipping`/`approved` shipment already exists, the run refuses.
    One recorded approval ships at most once; record a fresh approval for another
    run.
-9. The target adapter independently **proves staging**: it refuses unless the
+9. **Exact reviewed bounds** — the dashboard approval uses the stored
+   `ScheduleScope` and reviewed shipment diff from the control plane, not
+   operator-entered geography/category/row counts. The CLI re-computes the same
+   scoped candidate set and refuses if the approval's `geography`, `category`,
+   `maxRows`, or insert/update/no-op counts differ from the reviewed run.
+10. The target adapter independently **proves staging**: it refuses unless the
    target DB returns `value='staging'` from
    `confluendo_guard.environment_sentinel` where `key='environment'`. A missing
    schema/table/row, a non-`staging` value, or a role lacking SELECT all fail
@@ -231,7 +236,7 @@ Gates enforced, in order:
    if the DSN matches the production host pattern (`VAMO_PRODUCTION_HOST_PATTERN`,
    default `prod`).
 
-The write is bounded (`maxRows` 50 by default), idempotent (re-running is a
+The write is bounded to the reviewed write count, idempotent (re-running is a
 no-op), single-transaction, and refuses any diff that drifts from the recorded
 approval or contains a `delete`. After a successful write, the CLI records a
 control-plane shipment row, item rows, and a `ship_staging_canary` audit row

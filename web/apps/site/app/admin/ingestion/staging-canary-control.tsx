@@ -11,12 +11,14 @@ type CanaryContext = {
   source: DashboardSource;
 };
 
+type CanaryBounds = { maxRows: number; geography: string; category: string };
+
 type PlanSummary = {
   environment: string;
   safetyMode: string;
   shipmentMode: string;
   write: { insert: number; update: number; noOp: number; writeCount: number };
-  bounds: { maxRows: number; geography: string; category: string };
+  bounds: CanaryBounds;
   approvedBy: { email: string; role: string; assuranceLevel: string };
 };
 
@@ -49,45 +51,42 @@ const blockLabels: Record<string, string> = {
 export function StagingCanaryControl({
   targetId,
   context,
+  bounds,
 }: {
   targetId: string;
   context: CanaryContext;
+  bounds?: CanaryBounds;
 }) {
-  const [geography, setGeography] = useState("");
-  const [category, setCategory] = useState("");
-  const [maxRows, setMaxRows] = useState("");
   const [reason, setReason] = useState("");
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
 
-  const disabledReason = disabledReasonFor(context);
+  const disabledReason = disabledReasonFor(context, bounds);
   const pending = decision.state === "running";
 
   async function submit() {
     if (inFlightRef.current) {
       return;
     }
-    if (!geography.trim() || !category.trim() || !reason.trim()) {
-      setDecision({ state: "error", message: "Geography, category, and audit reason are required." });
+    if (!bounds) {
+      setDecision({ state: "error", message: "Reviewed canary bounds are unavailable." });
+      return;
+    }
+    if (!reason.trim()) {
+      setDecision({ state: "error", message: "Audit reason is required." });
       return;
     }
     inFlightRef.current = true;
     setDecision({ state: "running" });
 
     try {
-      const maxRowsValue = Number.parseInt(maxRows, 10);
       const response = await fetch("/api/admin/ingestion/staging-canary", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           projectKey: "vamo",
           targetId,
-          auditReason: reason.trim(),
-          bounds: {
-            geography: geography.trim(),
-            category: category.trim(),
-            ...(Number.isInteger(maxRowsValue) && maxRowsValue > 0 ? { maxRows: maxRowsValue } : {}),
-          },
+          auditReason: reason.trim()
         }),
       });
       const payload = (await response.json().catch(() => null)) as
@@ -130,31 +129,30 @@ export function StagingCanaryControl({
           <span>Geography</span>
           <input
             type="text"
-            value={geography}
-            onChange={(event) => setGeography(event.target.value)}
-            placeholder="Rome"
-            disabled={Boolean(disabledReason) || pending}
+            value={bounds?.geography ?? ""}
+            readOnly
+            placeholder="Unavailable"
+            disabled={true}
           />
         </label>
         <label>
           <span>Category</span>
           <input
             type="text"
-            value={category}
-            onChange={(event) => setCategory(event.target.value)}
-            placeholder="landmark"
-            disabled={Boolean(disabledReason) || pending}
+            value={bounds?.category ?? ""}
+            readOnly
+            placeholder="Unavailable"
+            disabled={true}
           />
         </label>
         <label>
-          <span>Max rows</span>
+          <span>Reviewed writes</span>
           <input
-            type="number"
-            min={1}
-            value={maxRows}
-            onChange={(event) => setMaxRows(event.target.value)}
-            placeholder="50"
-            disabled={Boolean(disabledReason) || pending}
+            type="text"
+            value={bounds ? String(bounds.maxRows) : ""}
+            readOnly
+            placeholder="Unavailable"
+            disabled={true}
           />
         </label>
       </div>
@@ -231,9 +229,12 @@ function DecisionView({ decision }: { decision: Decision }) {
   );
 }
 
-function disabledReasonFor(context: CanaryContext): string | undefined {
+function disabledReasonFor(context: CanaryContext, bounds?: CanaryBounds): string | undefined {
   if (context.source !== "live") {
     return "Staging-canary approval requires a live control plane.";
+  }
+  if (!bounds) {
+    return "Reviewed canary bounds are missing from the control plane.";
   }
   if (context.role !== "admin") {
     return "Staging-canary promotion requires the admin role.";
