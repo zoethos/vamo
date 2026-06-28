@@ -34,6 +34,10 @@
       "types": "./dist/core/src/progressive-control-read.d.ts",
       "default": "./dist/core/src/progressive-control-read.js"
     },
+    "./staging-canary-control": {
+      "types": "./dist/core/src/staging-canary-control.d.ts",
+      "default": "./dist/core/src/staging-canary-control.js"
+    },
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
     "./package.json": "./package.json"

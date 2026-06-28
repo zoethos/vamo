@@ -184,3 +184,9 @@ export {
   type StagingCanaryPlan,
   type StagingCanaryWriteSummary
 } from "./staging-canary-policy.js";
+export {
+  recordStagingCanaryApproval,
+  type RecordStagingCanaryApprovalInput,
+  type RecordStagingCanaryApprovalResult,
+  type StagingCanaryControlPgClientLike
+} from "./staging-canary-control.js";
