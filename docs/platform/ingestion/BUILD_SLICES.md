@@ -652,55 +652,108 @@ Acceptance criteria:
 
 ## Slice IP-14 - First Vamo Progressive Dry Run
 
-Status: next.
+Status: done. Merged to `main` via PR #95 with CI green (build/test, DB-backed
+control smoke, secret and dependency scans).
 
-Goal: prove the full consumer loop without staging or production writes:
-Vamo-owned contract -> Confluendo import -> target scorecard -> preflight ->
-scout -> sample dry-run -> dashboard review.
+Goal: a bounded, observable, dry-run-only Vamo ingestion selected through the
+target scorecard and visible in the dashboard, with production and staging
+writes impossible.
 
-Architecture decision: consumer contract plus platform planning policy. Vamo
-selects the desired product-cache target through its contract; Confluendo
-validates, schedules, checkpoints, and reports the dry run through platform
-adapters. The platform must not import Vamo runtime code.
+Architecture decision: pure policy in platform core, Vamo as a consumer.
+Scorecard, schedule proposal, progressive run orchestration, and the dashboard
+read model are pure, dependency-free modules. Vamo specifics enter only as
+declarative fixtures and injected adapters. The live control read is the
+platform-owned, consumer-generic half (reads `ingestion_platform.*` only). No
+Vamo runtime coupling lives in core.
 
-Behavior:
+Implemented components:
 
-- Select one open, cacheable place source and one narrow Vamo target scope.
-- Run preflight, scout, sample dry-run, and review-required stages.
-- Produce a shipment diff, policy report, dead-letter report, checkpoint report,
-  and next-approval requirement.
-- Show the run in the operator dashboard with rationale, progress, blockers,
-  and next action.
-- Keep staging and production writes disabled.
+- Target scorecard policy (`core/src/target-scorecard.ts`): deterministic
+  weighted scoring across nine hard gates.
+- Schedule proposal policy (`core/src/schedule-proposal.ts`): bounded proposal
+  with scope, batch size, checkpoint interval, quota budget, stop conditions,
+  safety mode, advisory AI rationale (deterministic, no live LLM), and the
+  required approval. `production_write`/`staging_write` are rejected for this
+  slice.
+- Progressive run orchestration (`core/src/progressive-run.ts`): `preflight`,
+  `scout`, `sample_dry_run`, and `review_required` stages; it only reaches
+  `review_required` when preflight passes and the shipment diff is compatible,
+  otherwise it stays blocked at `sample_dry_run` with a resolve-blockers
+  approval.
+- Dashboard read model (`core/src/progressive-read-model.ts`): browser-safe
+  transform surfacing work status, score, AI advisory, tier, stage, checkpoint,
+  row counts, policy blocks, dead letters, blockers, shipment diff, the
+  `wroteToTarget` dry-run invariant, and the exact next approval.
+- CLI harness (`scripts/run-ip14-dry-run.mjs`, `ip14:dry-run`): runs the dry run
+  end-to-end against bundled fixtures, prints a readable summary, hard-fails on
+  any non-`dry_run` safety mode, needs no secrets, and exits non-zero when the
+  run is blocked or incomplete.
+- Live control read (`core/src/progressive-control-read.ts`) and the dashboard
+  section: the admin console renders real/proposed progressive work from the
+  control plane when present, and falls back to the bundled sample otherwise.
 
-Acceptance criteria:
+Durable schema addition:
 
-- The target-selection scorecard chooses a safe bounded target and rejects
-  unsafe or uncacheable options.
-- The schedule proposal is deterministic and includes scope, batch size,
-  checkpoint interval, quota budget, stop conditions, safety mode, and approval
-  requirement.
-- No source adapter performs live provider scraping.
-- No target adapter writes to Vamo staging or production.
-- Dashboard read-model surfaces the run tier, rationale, row counts, policy
-  blocks, dead letters, checkpoint, and required approval.
+- `ingestion_platform.ingestion_schedule_proposals` (registered in
+  `CONTROL_TABLES`, now 18). One row per target candidate/proposal, storing the
+  deterministic scorecard, the bounded proposal, and the latest progressive-run
+  report as JSONB, plus a `(project_id, work_status, created_at)` index. This is
+  a read surface; no scheduling-mutation path writes it yet.
+
+Dry-run-only guardrails:
+
+- `safety_mode` is `dry_run`; `staging_write` and `production_write` are
+  rejected by proposal policy and the harness hard-fails on anything else.
+- No real provider scraping, no VPN/proxy/evasion, no live AI calls.
+- No production or staging writes; `wroteToTarget` is always false.
+- No service-role secrets in browser code; the live read is server-only.
+- No direct Vamo product coupling in platform core.
+
+Operator approval required before any staging canary:
+
+- Promotion out of `review_required` requires an `ingestion_admin` principal
+  with an MFA step-up and an audit reason, plus an explicit promotion from
+  `review_required` to `staging_write`. That promotion path is intentionally not
+  built in this slice; it is deferred to a future staging-canary slice.
+
+Validation (local, all green):
+
+- `npm --workspace @vamo/ingestion-platform test` - 114 pass, 2 DB smokes
+  skipped without a database URL, 0 fail.
+- `npm --workspace @vamo/ingestion-platform run ip14:dry-run` - exit 0,
+  `dry_run`, no writes.
+- `npm --workspace @vamo/site run build` - succeeds; `/admin/ingestion` renders.
+- Disposable Postgres with `INGESTION_TEST_DATABASE_URL` - core suite 86/86,
+  including the `ingestion_schedule_proposals` round-trip and the 18-table
+  schema smoke. The spec test runner now uses `--test-concurrency=1` so DB
+  smokes that recreate the shared disposable schema cannot deadlock.
+
+Remaining follow-ups:
+
+- Optionally produce a real `ingestion_schedule_proposals` row in the control DB
+  so the dashboard shows live progressive work instead of the sample.
+- Add a scheduling mutation endpoint (operator-driven proposal/schedule writes).
+- Add the staging-canary slice that implements the `review_required` ->
+  `staging_write` promotion with the approval gate above.
+- Prepare the Confluendo repo split (IP-15 below), now that IP-14 has landed.
 
 ## Slice IP-15 - Confluendo Repo Split Prep
 
-Status: planned after IP-14.
+Status: next (IP-14 merged).
 
 Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
 repo, while making Vamo an importing consumer instead of the platform host.
 
-Do not extract before IP-14. IP-14 proves the real boundary:
+IP-14 has landed and proves the real boundary:
 
 ```text
 Vamo contract -> Confluendo import -> schedule/preflight -> dry-run -> dashboard review
 ```
 
-Extracting before that risks moving scaffolding. Extracting after staging or
-production writes risks letting Vamo-specific operational shortcuts leak deeper
-into platform code.
+Extracting before that would have risked moving scaffolding. Extracting after
+staging or production writes risks letting Vamo-specific operational shortcuts
+leak deeper into platform code, so do the split prep before the staging-canary
+slice.
 
 Architecture decision: provider repo plus consumer contracts. Confluendo owns
 platform code, docs, auth templates, control SQL, worker runtime, adapters, and
@@ -800,26 +853,19 @@ Acceptance criteria:
 - No production target writes.
 - No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
-- No standalone repo split until IP-14 proves the dry-run loop and IP-15 split
-  prep is complete.
+- No standalone repo split until IP-15 split prep is complete (IP-14 has proven
+  the dry-run loop).
 
 ## Recommended Immediate Next Slice
 
-After IP-13 is green, start **IP-14 - First Vamo Progressive Dry Run**.
+**IP-14 - First Vamo Progressive Dry Run** has merged to `main` (PR #95, CI
+green). The dry-run loop is proven end to end: Vamo contract -> Confluendo
+import -> target scorecard -> preflight -> scout -> sample dry-run -> dashboard
+review, with staging and production writes still disabled.
 
-Reason: the platform spine, auth, live read, live command controls, and SQL
-smoke are in place. The next value step is not more scaffolding; it is a bounded
-Vamo dry run selected through the target scorecard, visible in the dashboard,
-and still blocked from production writes.
-
-IP-14 should:
-
-- Select one open, cacheable place source and one narrow Vamo target scope.
-- Run preflight, scout, and sample dry-run stages.
-- Produce a shipment diff, policy report, dead-letter report, and checkpoint
-  report.
-- Require explicit admin approval before any staging write.
-- Keep production shipment disabled.
-
-After IP-14, run **IP-15 - Confluendo Repo Split Prep** before any broad staging
-canary or production shipment.
+Next, run **IP-15 - Confluendo Repo Split Prep** (slice above) before any broad
+staging canary or production shipment. The follow-on **staging-canary slice**
+then adds the operator-driven promotion from `review_required` to
+`staging_write`, gated by an `ingestion_admin` MFA step-up and an audit reason,
+with a scheduling mutation endpoint (writing real `ingestion_schedule_proposals`
+rows) as the supporting piece.

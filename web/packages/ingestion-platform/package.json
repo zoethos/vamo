@@ -21,9 +21,17 @@
       "types": "./dist/core/src/read-model.d.ts",
       "default": "./dist/core/src/read-model.js"
     },
+    "./progressive-read-model": {
+      "types": "./dist/core/src/progressive-read-model.d.ts",
+      "default": "./dist/core/src/progressive-read-model.js"
+    },
     "./control-read": {
       "types": "./dist/core/src/control-read.d.ts",
       "default": "./dist/core/src/control-read.js"
+    },
+    "./progressive-control-read": {
+      "types": "./dist/core/src/progressive-control-read.d.ts",
+      "default": "./dist/core/src/progressive-control-read.js"
     },
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
@@ -33,6 +41,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "import:contract": "npm run build && node scripts/import-consumer-contract.mjs",
+    "ip14:dry-run": "npm run build && node scripts/run-ip14-dry-run.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

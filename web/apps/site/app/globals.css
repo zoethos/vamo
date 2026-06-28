@@ -1218,6 +1218,22 @@ a:hover {
   white-space: nowrap;
 }
 
+.admin-next-action {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+  color: rgba(42, 46, 58, 0.86);
+}
+
+.admin-rationale {
+  margin: 0.75rem 0 0;
+  font-size: 0.84rem;
+  color: rgba(42, 46, 58, 0.66);
+}
+
+.admin-rationale p {
+  margin: 0 0 0.25rem;
+}
+
 .admin-instance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

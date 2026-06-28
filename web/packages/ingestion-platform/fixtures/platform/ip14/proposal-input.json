@@ -1,0 +1,183 @@
+{
+  "_comment": "IP-14 first Vamo progressive dry-run inputs. Platform-owned test fixture: declared facts about candidate targets plus the bounded schedule parameters. The dry-run source data is the pinned Vamo snapshot at fixtures/imported/vamo-place-intelligence. safety_mode stays dry_run; production writes are impossible.",
+  "projectKey": "vamo",
+  "primaryTargetId": "vamo-place-intelligence-staging",
+  "tier": "sample_dry_run",
+  "safetyMode": "dry_run",
+  "scope": {
+    "geography": "rome-italy",
+    "category": "poi",
+    "rowLimit": 3,
+    "sourcePartition": "fsq-os-places-sample"
+  },
+  "batchSize": 2,
+  "checkpointEveryRows": 2,
+  "quotaBudget": {
+    "maxRows": 3,
+    "maxSourceCalls": 1,
+    "maxRuntimeSeconds": 30,
+    "maxFailures": 1
+  },
+  "runWindow": {
+    "earliestStart": "2026-06-28T00:00:00Z",
+    "latestStop": "2026-06-28T23:59:59Z",
+    "quietHours": "none"
+  },
+  "stopConditions": {
+    "maxPolicyBlockRate": 0.5,
+    "maxDeadLetterRate": 0.5,
+    "maxCollisionRate": 0.2,
+    "stopOnSchemaMismatch": true,
+    "stopOnTargetWriteFailure": true,
+    "honorOperatorPause": true
+  },
+  "candidates": [
+    {
+      "targetId": "vamo-place-intelligence-staging",
+      "projectKey": "vamo",
+      "sourceId": "fsq-os-places-sample",
+      "safetyMode": "dry_run",
+      "consumerValue": {
+        "useCase": "Seed Vamo place cache to cut live Places calls on trip creation.",
+        "reducesLiveCalls": true
+      },
+      "sourceRights": {
+        "canStoreFacts": true,
+        "attributionPresent": true,
+        "retentionDeclared": true,
+        "liveOnly": false
+      },
+      "targetReadiness": {
+        "schemaCompatible": true,
+        "upsertKeysDeclared": true,
+        "rlsPostureOk": true,
+        "stagingEnvironmentExists": true
+      },
+      "dataQuality": {
+        "requiredFieldsPresent": true,
+        "coordinatesValid": true,
+        "sampleRowCount": 3
+      },
+      "checkpointability": {
+        "cursorStrategyDeclared": true,
+        "resumeTested": true
+      },
+      "costAndQuota": {
+        "rowLimitDeclared": true,
+        "stopConditionsDeclared": true,
+        "withinBudget": true
+      },
+      "collision": {
+        "policy": "review"
+      },
+      "blastRadius": {
+        "bounded": true,
+        "firstShipmentStagingOnly": true
+      },
+      "observability": {
+        "eventsAvailable": true,
+        "checkpointsAvailable": true,
+        "deadLettersAvailable": true,
+        "statsAvailable": true
+      }
+    },
+    {
+      "targetId": "wikidata-rome-no-attribution",
+      "projectKey": "vamo",
+      "sourceId": "wikidata-rome",
+      "safetyMode": "dry_run",
+      "consumerValue": {
+        "useCase": "Enrich monument descriptions.",
+        "reducesLiveCalls": true
+      },
+      "sourceRights": {
+        "canStoreFacts": true,
+        "attributionPresent": false,
+        "retentionDeclared": false,
+        "liveOnly": false
+      },
+      "targetReadiness": {
+        "schemaCompatible": true,
+        "upsertKeysDeclared": true,
+        "rlsPostureOk": true,
+        "stagingEnvironmentExists": true
+      },
+      "dataQuality": {
+        "requiredFieldsPresent": true,
+        "coordinatesValid": true,
+        "sampleRowCount": 2
+      },
+      "checkpointability": {
+        "cursorStrategyDeclared": true,
+        "resumeTested": false
+      },
+      "costAndQuota": {
+        "rowLimitDeclared": true,
+        "stopConditionsDeclared": true,
+        "withinBudget": true
+      },
+      "collision": {
+        "policy": "review"
+      },
+      "blastRadius": {
+        "bounded": true,
+        "firstShipmentStagingOnly": true
+      },
+      "observability": {
+        "eventsAvailable": true,
+        "checkpointsAvailable": true,
+        "deadLettersAvailable": true,
+        "statsAvailable": true
+      }
+    },
+    {
+      "targetId": "google-live-rehearsal",
+      "projectKey": "vamo",
+      "sourceId": "google-places-live",
+      "safetyMode": "production_write",
+      "consumerValue": {
+        "useCase": "Live visual validation only.",
+        "reducesLiveCalls": false
+      },
+      "sourceRights": {
+        "canStoreFacts": false,
+        "attributionPresent": true,
+        "retentionDeclared": false,
+        "liveOnly": true
+      },
+      "targetReadiness": {
+        "schemaCompatible": true,
+        "upsertKeysDeclared": true,
+        "rlsPostureOk": true,
+        "stagingEnvironmentExists": true
+      },
+      "dataQuality": {
+        "requiredFieldsPresent": true,
+        "coordinatesValid": true,
+        "sampleRowCount": 1
+      },
+      "checkpointability": {
+        "cursorStrategyDeclared": false,
+        "resumeTested": false
+      },
+      "costAndQuota": {
+        "rowLimitDeclared": false,
+        "stopConditionsDeclared": false,
+        "withinBudget": true
+      },
+      "collision": {
+        "policy": "none"
+      },
+      "blastRadius": {
+        "bounded": false,
+        "firstShipmentStagingOnly": false
+      },
+      "observability": {
+        "eventsAvailable": true,
+        "checkpointsAvailable": false,
+        "deadLettersAvailable": true,
+        "statsAvailable": true
+      }
+    }
+  ]
+}

@@ -17,7 +17,8 @@ export const CONTROL_TABLES = [
   "ingestion_promotions",
   "ingestion_shipments",
   "ingestion_shipment_items",
-  "ingestion_audit_log"
+  "ingestion_audit_log",
+  "ingestion_schedule_proposals"
 ] as const;
 
 export type ControlTableName = (typeof CONTROL_TABLES)[number];
