@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
+import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import {
   providerDashboardGuardrails,
@@ -11,7 +11,7 @@ import {
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 
 export const metadata: Metadata = {
-  title: "Provider dashboard · Vamo",
+  title: "Provider control · Confluendo",
   robots: {
     index: false,
     follow: false,
@@ -39,24 +39,9 @@ export default async function ProviderDashboardPage() {
       id="provider-dashboard-theme-root"
     >
       <nav className="provider-masthead admin-masthead" aria-label="Provider dashboard">
-        <Link className="provider-brand" href="/">
-          <Image
-            className="provider-brand-mark provider-brand-mark-dark"
-            src="/brand/mark_white.png"
-            alt=""
-            width={34}
-            height={34}
-            priority
-          />
-          <Image
-            className="provider-brand-mark provider-brand-mark-light"
-            src="/brand/primary_mark.png"
-            alt=""
-            width={34}
-            height={34}
-            priority
-          />
-          <span>Vamo</span>
+        <Link className="provider-brand" href="/admin/ingestion">
+          <ConfluendoMark className="provider-brand-mark" size={34} />
+          <span>Confluendo</span>
         </Link>
         <div className="admin-masthead-controls">
           <div className="admin-nav admin-nav-dark" aria-label="Admin sections">
@@ -75,7 +60,7 @@ export default async function ProviderDashboardPage() {
             defaultTheme="dark"
             label="Provider dashboard theme"
             rootId="provider-dashboard-theme-root"
-            storageKey="vamo-provider-dashboard-theme"
+            storageKey="confluendo-provider-dashboard-theme"
           />
         </div>
       </nav>
@@ -91,12 +76,7 @@ export default async function ProviderDashboardPage() {
         </div>
         <div className="provider-hero-card">
           <div className="provider-card-mark">
-            <Image
-              src="/brand/mark_white.png"
-              alt=""
-              width={52}
-              height={52}
-            />
+            <ConfluendoMark size={52} />
           </div>
           <span>Next unlock</span>
           <strong>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import {
   readableAdminAccessFailure,
   requireIngestionAdminPrincipal,
@@ -39,9 +39,9 @@ export default async function AdminMfaEnrollPage({
   return (
     <main className="admin-auth-page">
       <section className="admin-auth-panel" aria-labelledby="admin-mfa-enroll-title">
-        <Link className="admin-auth-brand" href="/">
-          <Image src="/brand/primary_mark.png" alt="" width={36} height={36} priority />
-          <span>Confluendo admin</span>
+        <Link className="admin-auth-brand" href="/admin/ingestion">
+          <ConfluendoMark size={34} />
+          <span>Confluendo</span>
         </Link>
 
         <div className="admin-auth-copy">

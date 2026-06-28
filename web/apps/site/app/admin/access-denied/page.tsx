@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
+import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { readableAdminAccessFailure } from "@/lib/ingestion-admin-auth";
 
 export const metadata: Metadata = {
-  title: "Admin access denied · Vamo",
+  title: "Operator access denied · Confluendo",
   robots: {
     index: false,
     follow: false,
@@ -26,9 +26,9 @@ export default async function AdminAccessDeniedPage({
   return (
     <main className="admin-auth-page">
       <section className="admin-auth-panel" aria-labelledby="admin-access-title">
-        <Link className="admin-auth-brand" href="/">
-          <Image src="/brand/primary_mark.png" alt="" width={36} height={36} priority />
-          <span>Vamo admin</span>
+        <Link className="admin-auth-brand" href="/admin/ingestion">
+          <ConfluendoMark size={34} />
+          <span>Confluendo</span>
         </Link>
 
         <div className="admin-auth-copy">

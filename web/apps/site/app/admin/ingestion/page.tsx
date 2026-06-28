@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
+import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import type {
   IngestionStatus,
@@ -17,7 +17,7 @@ import {
 } from "./ingestion-command-controls";
 
 export const metadata: Metadata = {
-  title: "Ingestion control · Vamo",
+  title: "Ingestion control · Confluendo",
   robots: {
     index: false,
     follow: false,
@@ -82,23 +82,8 @@ export default async function IngestionDashboardPage() {
     >
       <nav className="provider-masthead admin-masthead" aria-label="Admin dashboard">
         <Link className="provider-brand admin-brand" href="/admin/ingestion">
-          <Image
-            className="provider-brand-mark provider-brand-mark-light"
-            src="/brand/primary_mark.png"
-            alt=""
-            width={34}
-            height={34}
-            priority
-          />
-          <Image
-            className="provider-brand-mark provider-brand-mark-dark"
-            src="/brand/mark_white.png"
-            alt=""
-            width={34}
-            height={34}
-            priority
-          />
-          <span>Ingestion</span>
+          <ConfluendoMark className="provider-brand-mark" size={34} />
+          <span>Confluendo</span>
         </Link>
         <div className="admin-masthead-controls">
           <div className="admin-nav" aria-label="Admin sections">
@@ -124,7 +109,7 @@ export default async function IngestionDashboardPage() {
 
       <section className="admin-hero">
         <div className="admin-hero-copy">
-          <p className="admin-kicker">Place intelligence · operator draft</p>
+          <p className="admin-kicker">Vamo project · place intelligence</p>
           <h1>Ingestion control</h1>
           <p>
             Visual shell for managing cache loaders, enrichment workers, target

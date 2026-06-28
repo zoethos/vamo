@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { getSupabasePublicConfig } from "@/lib/supabase-config";
 import { SignInRequestForm } from "./sign-in-request-form";
 
 export const metadata: Metadata = {
-  title: "Admin sign-in · Vamo",
+  title: "Operator sign-in · Confluendo",
   robots: {
     index: false,
     follow: false,
@@ -43,13 +44,13 @@ export default async function AdminSignInPage({
 
   return (
     <main className="admin-sign-in-page">
-      <section className="admin-sign-in-brand-panel" aria-label="Vamo operator security">
+      <section className="admin-sign-in-brand-panel" aria-label="Confluendo operator security">
         <RouteMotif />
 
-        <Link className="admin-sign-in-brand" href="/">
-          <VamoMark />
-          <span className="admin-sign-in-brand-name">Vamo</span>
-          <span className="admin-sign-in-brand-badge">Admin</span>
+        <Link className="admin-sign-in-brand" href="/admin/ingestion">
+          <ConfluendoMark className="admin-sign-in-brand-mark" variant="spectrum" />
+          <span className="admin-sign-in-brand-name">Confluendo</span>
+          <span className="admin-sign-in-brand-badge">Operator</span>
         </Link>
 
         <div className="admin-sign-in-brand-copy">
@@ -57,8 +58,9 @@ export default async function AdminSignInPage({
             <span aria-hidden="true" />
             Operator console · EU-West
           </p>
-          <h2>Secure access to every operation you run.</h2>
+          <h2>Every source, one current — governed end to end.</h2>
           <p>
+            Confluendo turns external data into operational, governed ingestion.
             Every operator session is verified, time-boxed, and logged. Only
             provisioned admin accounts can request access.
           </p>
@@ -75,7 +77,7 @@ export default async function AdminSignInPage({
             <i aria-hidden="true" />
             All systems operational
           </span>
-          <span>© 2026 Vamo</span>
+          <span>© 2026 Confluendo</span>
         </div>
       </section>
 
@@ -226,27 +228,6 @@ function RouteMotif() {
       <circle cx="70" cy="600" r="4" />
       <circle cx="250" cy="380" r="5" />
       <circle cx="430" cy="188" r="4" />
-    </svg>
-  );
-}
-
-function VamoMark() {
-  return (
-    <svg className="admin-sign-in-vamo-mark" viewBox="0 0 32 32" aria-hidden="true">
-      <defs>
-        <linearGradient id="admin-sign-in-vamo-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ff5b4d" />
-          <stop offset="1" stopColor="#6a2d6f" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M6 7 L15 25 L20 12 L26 6"
-        fill="none"
-        stroke="url(#admin-sign-in-vamo-gradient)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </svg>
   );
 }
