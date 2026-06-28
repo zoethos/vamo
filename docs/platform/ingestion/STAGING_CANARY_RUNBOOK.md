@@ -10,10 +10,10 @@ checklist.
 > policy can reject it, while durable target/shipment write modes and the target
 > adapter permit only an approved staging canary.
 
-For full instance bootstrap and disaster-recovery sequencing, start with the
-Confluendo bootstrap docs in the platform tree. This runbook assumes the
-Confluendo control DB, Vamo proposal seed, Vamo target schema, staging sentinel,
-and `vamo_canary_app` role have already been provisioned in that order.
+For full instance bootstrap and disaster-recovery sequencing, start with
+`bootstrap/README.md` in the platform tree. This runbook assumes the Confluendo
+control DB, Vamo proposal seed, Vamo target schema, staging sentinel, and
+`vamo_canary_app` role have already been provisioned in that order.
 
 ## Preconditions
 
@@ -60,15 +60,26 @@ Rules — these are load-bearing for the whole staging guarantee:
 - **Production must never carry this sentinel.** Do not create
   `confluendo_guard.environment_sentinel` (or do not set its value to `staging`)
   on a production or production-like database. With the table/row absent, a
-  non-`staging` value, or no SELECT grant, the adapter fails closed.
+  non-`staging` value, or no SELECT grant, the adapter fails closed, so it stays
+  safe even if a wrong DSN is supplied by mistake.
 - Verify with the read query above on a fresh staging session before a canary.
 
 ## Vamo staging DBA SQL (out-of-band, staging only)
 
 Run the following **on the Vamo staging database only**, as the DBA/owner. The
-steps are idempotent. Do not run any of this against production.
+steps are split and idempotent. Do not run any of this against production.
 
-**a. Create the staging sentinel table and row:**
+**a. Apply the place-intelligence cache migration** (creates
+`public.location_canonicals` and `public.location_source_refs`):
+
+```bash
+# From the Vamo app repo, against the staging DB only:
+psql "$VAMO_STAGING_DATABASE_URL" \
+  -f supabase/migrations/20260625155733_place_intelligence_cache.sql
+# (or: supabase db push targeting the staging project)
+```
+
+**b. Create the staging sentinel table and row:**
 
 ```sql
 create schema if not exists confluendo_guard;
@@ -83,7 +94,7 @@ values ('environment', 'staging')
 on conflict (key) do update set value = excluded.value;
 ```
 
-**b. Create or alter the least-privilege canary role.** This is a staging-only
+**c. Create or alter the least-privilege canary role.** This is a staging-only
 login role for the canary DSN, with no `BYPASSRLS`, no superuser, and no delete
 power:
 
@@ -100,16 +111,27 @@ begin
 end $$;
 
 grant usage on schema confluendo_guard, public to vamo_canary_app;
-grant select on confluendo_guard.environment_sentinel to vamo_canary_app;
-grant select, insert, update on public.location_canonicals to vamo_canary_app;
-grant select, insert, update on public.location_source_refs to vamo_canary_app;
--- Deliberately NO grant of delete, truncate, table ownership, or bypassrls.
 ```
 
-**c. Add role-scoped RLS policies for SELECT/INSERT/UPDATE** on the two cache
-tables. RLS is already enabled by the migration; add no DELETE policy:
+**d. Grant SELECT only on the sentinel:**
 
 ```sql
+grant select on confluendo_guard.environment_sentinel to vamo_canary_app;
+```
+
+**e. Grant SELECT/INSERT/UPDATE only (no DELETE) on the two cache tables:**
+
+```sql
+grant select, insert, update on public.location_canonicals  to vamo_canary_app;
+grant select, insert, update on public.location_source_refs to vamo_canary_app;
+-- Deliberately NO grant of delete, truncate, or table ownership.
+```
+
+**f. Role-scoped RLS policies for SELECT/INSERT/UPDATE on those two tables.**
+RLS is already enabled by the migration; add canary policies (no DELETE policy):
+
+```sql
+-- location_canonicals
 create policy vamo_canary_select on public.location_canonicals
   for select to vamo_canary_app using (true);
 create policy vamo_canary_insert on public.location_canonicals
@@ -117,6 +139,7 @@ create policy vamo_canary_insert on public.location_canonicals
 create policy vamo_canary_update on public.location_canonicals
   for update to vamo_canary_app using (true) with check (true);
 
+-- location_source_refs
 create policy vamo_canary_select on public.location_source_refs
   for select to vamo_canary_app using (true);
 create policy vamo_canary_insert on public.location_source_refs
@@ -125,9 +148,11 @@ create policy vamo_canary_update on public.location_source_refs
   for update to vamo_canary_app using (true) with check (true);
 ```
 
-**d. Confirm the guardrails:**
+**g. Guardrails to confirm after running:** `vamo_canary_app` has **no DELETE**
+grant on either table, **no BYPASSRLS**, and **SELECT-only** on the sentinel.
 
 ```sql
+-- Expect only select/insert/update for the two tables, select for the sentinel:
 select table_schema, table_name, privilege_type
 from information_schema.role_table_grants
 where grantee = 'vamo_canary_app'
