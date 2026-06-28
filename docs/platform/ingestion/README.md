@@ -9,6 +9,7 @@ This is the documentation home for the reusable ingestion platform.
 | `BUILD_SLICES.md` | Implementation slices from spec kernel through Vamo consumer profile. |
 | `TARGET_SELECTION_AND_SCHEDULING.md` | Target-selection criteria and AI-assisted progressive ingestion plan. |
 | `STAGING_CANARY.md` | IP-16 design: promoting one reviewed dry run to a tiny, reversible, staging-only Vamo write. |
+| `STAGING_CANARY_RUNBOOK.md` | IP-16 operational runbook: confirmation-gated live staging-canary execution and rollback. |
 
 Boundary rules:
 
