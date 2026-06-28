@@ -251,10 +251,14 @@ must be explicit and one-directional:
   and has no durable target/shipment write representation.
 
 Implementation choice: the target database must expose a positive staging
-sentinel (`ingestion.environment = 'staging'`) before the target adapter writes.
+sentinel ROW before the target adapter writes — a DBA-provisioned
+`confluendo_guard.environment_sentinel` table with `key='environment'` and
+`value='staging'`. (Supabase rejects `ALTER DATABASE ... SET` custom GUCs, so a
+table is used instead of `current_setting`. Ingestion code only ever reads it.)
 The control shipment ledger also records `environment: "staging"` in target and
 shipment metadata so the canary is queryable after the fact. Absence of the DB
-sentinel is a hard block, not a warning.
+sentinel row — or a missing table, a non-`staging` value, or the role lacking
+SELECT — is a hard, fail-closed block, not a warning.
 
 ## 10. Explicit Stop Conditions
 

@@ -6,7 +6,10 @@
  * validate the diff, then applies a bounded, idempotent upsert inside a single
  * transaction. It refuses to write unless:
  *
- * - the target DB positively declares `ingestion.environment = 'staging'`,
+ * - the target DB exposes a positive staging sentinel ROW: a
+ *   `confluendo_guard.environment_sentinel` table with `key='environment'` and
+ *   `value='staging'` (DBA-provisioned out-of-band; Supabase rejects
+ *   `ALTER DATABASE ... SET` custom GUCs, so a table replaces `current_setting`),
  * - the caller's `proveStaging` guard confirms any host/operator-side staging
  *   intent,
  * - the re-planned diff is compatible,
@@ -68,8 +71,9 @@ export interface ApplyPostgresStagingCanaryInput {
   connectionString?: string;
   /**
    * MANDATORY extra staging guard. The adapter also requires the target DB
-   * sentinel `ingestion.environment = 'staging'`; this callback is only an
-   * additional caller-side proof such as host allowlist or operator intent.
+   * sentinel row in `confluendo_guard.environment_sentinel`; this callback is
+   * only an additional caller-side proof such as host allowlist or operator
+   * intent.
    */
   proveStaging: (client: PgClientLike) => boolean | Promise<boolean>;
   /** Hard upper bound on written rows. Defaults to STAGING_CANARY_MAX_ROWS. */
@@ -305,13 +309,23 @@ export async function rollbackPostgresStagingCanary(
   });
 }
 
+/**
+ * Positive staging proof via a DBA-provisioned sentinel row, not a session GUC.
+ *
+ * Supabase rejects `ALTER DATABASE ... SET <custom>` parameters, so the durable
+ * proof that a connection is staging is a row in `confluendo_guard.environment_sentinel`
+ * (`key='environment'`, `value='staging'`) the DBA seeds out-of-band on staging
+ * only. Ingestion code only ever READS it. This fails CLOSED on every failure
+ * mode: missing schema/table, missing row, a non-`staging` value, or the role
+ * lacking SELECT (the query throws and is caught) all return false.
+ */
 async function hasPositiveStagingSentinel(client: PgClientLike): Promise<boolean> {
   try {
-    const result = await client.query<{ env: string | null }>(
-      "select current_setting('ingestion.environment', true) as env"
+    const result = await client.query<{ value: string | null }>(
+      "select value from confluendo_guard.environment_sentinel where key = 'environment' limit 1"
     );
-    const env = result.rows[0]?.env;
-    return typeof env === "string" && env.trim().toLowerCase() === "staging";
+    const value = result.rows[0]?.value;
+    return typeof value === "string" && value.trim().toLowerCase() === "staging";
   } catch {
     return false;
   }

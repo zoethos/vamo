@@ -17,7 +17,9 @@
 //      AND single-use: if a succeeded/shipping/approved shipment already exists
 //      for the approval id, the run refuses before touching the target DB.
 //   4. Even then, the target adapter independently proves the target DB itself
-//      declares `ingestion.environment = 'staging'` before any write.
+//      via the DBA-provisioned sentinel row
+//      `confluendo_guard.environment_sentinel` (key='environment',
+//      value='staging') before any write, and fails closed if it is absent.
 //
 // Guarantees:
 //   - No production writes. There is no production code path or enum.
@@ -171,7 +173,8 @@ async function buildReviewedRun() {
 }
 
 /** Extra operator/host-side staging proof; the adapter also requires the DB
- *  sentinel `ingestion.environment = 'staging'` and fails closed if absent. */
+ *  sentinel row `confluendo_guard.environment_sentinel` (key='environment',
+ *  value='staging') and fails closed if absent. */
 function makeProveStaging(connectionString) {
   return async () => {
     if (process.env.VAMO_STAGING_CANARY_ENVIRONMENT !== "staging") {
