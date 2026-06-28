@@ -88,7 +88,20 @@ interface AdminPrincipalDbRow extends Record<string, unknown> {
 }
 
 const mutatingRoles = new Set<AdminRole>(["operator", "admin"]);
-const freshStepUpWindowMs = 5 * 60 * 1000;
+
+/**
+ * Human operator window after an MFA challenge. This is intentionally longer
+ * than the live canary approval TTL: the step-up proves the current operator,
+ * while the recorded canary approval still has to be consumed quickly.
+ */
+export const ADMIN_FRESH_STEP_UP_WINDOW_MS = 30 * 60 * 1000;
+
+/**
+ * Supabase signs the MFA authentication method timestamp, while the command
+ * route compares it to the app server clock. Allow small clock skew so a fresh
+ * challenge cannot fail because the app host is a few seconds behind.
+ */
+export const ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS = 60 * 1000;
 
 /**
  * Commands a non-session machine principal (the static API token) may run.
@@ -288,8 +301,9 @@ function hasFreshStepUp(input: AdminCommandAuthorizationInput): boolean {
   if (!Number.isFinite(nowMs) || !Number.isFinite(satisfiedMs)) {
     return false;
   }
-  const windowMs = input.freshStepUpWindowMs ?? freshStepUpWindowMs;
-  return nowMs - satisfiedMs >= 0 && nowMs - satisfiedMs <= windowMs;
+  const windowMs = input.freshStepUpWindowMs ?? ADMIN_FRESH_STEP_UP_WINDOW_MS;
+  const ageMs = nowMs - satisfiedMs;
+  return ageMs >= -ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS && ageMs <= windowMs;
 }
 
 function hasProjectScope(scopes: string[], projectKey: string): boolean {

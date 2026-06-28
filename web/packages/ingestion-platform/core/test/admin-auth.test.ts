@@ -166,6 +166,12 @@ describe("admin auth policy", () => {
   it("requires a fresh aal2 step-up for admin reset", () => {
     const oldStepUp = resolveAdminPrincipal({
       row: adminRow,
+      session: { ...aal2Session, stepUpSatisfiedAt: "2026-06-26T11:20:00.000Z" },
+      projectKey: "vamo",
+      now
+    });
+    const operatorUsableStepUp = resolveAdminPrincipal({
+      row: adminRow,
       session: { ...aal2Session, stepUpSatisfiedAt: "2026-06-26T11:40:00.000Z" },
       projectKey: "vamo",
       now
@@ -173,6 +179,12 @@ describe("admin auth policy", () => {
     const freshStepUp = resolveAdminPrincipal({
       row: adminRow,
       session: aal2Session,
+      projectKey: "vamo",
+      now
+    });
+    const smallClockSkewStepUp = resolveAdminPrincipal({
+      row: adminRow,
+      session: { ...aal2Session, stepUpSatisfiedAt: "2026-06-26T12:00:30.000Z" },
       projectKey: "vamo",
       now
     });
@@ -188,10 +200,32 @@ describe("admin auth policy", () => {
       { ok: false, code: "fresh_step_up_required" }
     );
 
+    assert.equal(operatorUsableStepUp.ok, true);
+    assert.deepEqual(
+      authorizeAdminCommand({
+        principal: operatorUsableStepUp.principal,
+        projectKey: "vamo",
+        command: "reset",
+        now
+      }),
+      { ok: true }
+    );
+
     assert.equal(freshStepUp.ok, true);
     assert.deepEqual(
       authorizeAdminCommand({
         principal: freshStepUp.principal,
+        projectKey: "vamo",
+        command: "reset",
+        now
+      }),
+      { ok: true }
+    );
+
+    assert.equal(smallClockSkewStepUp.ok, true);
+    assert.deepEqual(
+      authorizeAdminCommand({
+        principal: smallClockSkewStepUp.principal,
         projectKey: "vamo",
         command: "reset",
         now
