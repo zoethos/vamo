@@ -91,8 +91,11 @@ Before merging to `main`:
 1. Run `melos run ci`.
 2. For native Android/iOS, platform channels, manifests, Gradle, R8, or app
    signing changes, also run the relevant native build.
-3. For Supabase migrations/RPC/RLS changes, run cloud RLS smoke after
-   `supabase db push`.
+3. For Supabase migrations/RPC/RLS changes, follow
+   `docs/operations/MIGRATION_PROMOTION_POLICY.md`: apply to staging first, run
+   cloud RLS/targeted smoke, then either promote the same migration batch to
+   production in the same release window or record a named blocker/owner/date.
+   A schema-affecting slice is not complete with staging green only.
 4. For realtime/offline features, test the cross-device propagation path.
 5. For platform features that depend on OS behavior, do the real-device pass
    before merge. Compile is not enough. Examples:
@@ -164,6 +167,11 @@ Every agent handoff must include:
 - Current branch and clean/dirty state.
 - Commit SHA(s) created.
 - Tests/smokes/device checks run.
+- Migration promotion checkpoint for any Supabase/schema-affecting work:
+  migration files changed, staging apply/verification, production
+  apply/verification, current drift, blocker/owner/date if production is not
+  promoted, and any staging-only objects intentionally excluded from
+  production.
 - Stash names and exact contents if any stash remains.
 - Branches deleted or still open.
 - Any GitHub warnings or failed checks.

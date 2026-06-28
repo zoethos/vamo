@@ -11,9 +11,9 @@ checklist.
 > adapter permit only an approved staging canary.
 
 For full instance bootstrap and disaster-recovery sequencing, start with
-`bootstrap/README.md`. This runbook assumes the Confluendo control DB, Vamo
-proposal seed, Vamo target schema, staging sentinel, and `vamo_canary_app` role
-have already been provisioned in that order.
+`bootstrap/README.md` in the platform tree. This runbook assumes the Confluendo
+control DB, Vamo proposal seed, Vamo target schema, staging sentinel, and
+`vamo_canary_app` role have already been provisioned in that order.
 
 ## Preconditions
 
@@ -24,20 +24,20 @@ have already been provisioned in that order.
    with a verified AAL2 MFA factor, a fresh step-up, and a non-empty audit
    reason. See the staging-canary control on `/admin/ingestion`.
 3. You have a **staging** Postgres DSN. Never a production DSN.
-4. The target database has a positive sentinel ROW:
+4. The target database has a positive sentinel row:
    `confluendo_guard.environment_sentinel` with `key='environment'` and
-   `value='staging'`. Absence of the row (or table, or SELECT privilege) blocks
-   the write. See **Provisioning the staging sentinel** below.
+   `value='staging'`. Absence of the row, table, or SELECT privilege blocks the
+   write. See **Provisioning the staging sentinel** below.
 5. You have an explicit green light to perform a live staging write.
 
 ## Provisioning the staging sentinel (DBA, out-of-band)
 
 The adapter's "prove staging" check reads a **DBA-provisioned table row** and
 fails closed if it is missing. This row is the durable proof that a connection
-is actually a staging database; it must be provisioned **out-of-band by a DBA or
-operator on the Vamo staging database only**, never by ingestion code.
+is actually a staging database; it must be provisioned **out-of-band by a DBA
+or operator on the Vamo staging database only**, never by ingestion code.
 
-> Why a table and not a GUC? Supabase rejects `ALTER DATABASE … SET <custom>`
+> Why a table and not a GUC? Supabase rejects `ALTER DATABASE ... SET <custom>`
 > parameters, so the previous `current_setting('ingestion.environment')`
 > approach is no longer usable. The sentinel is a row instead.
 
@@ -59,8 +59,8 @@ Rules — these are load-bearing for the whole staging guarantee:
   adapter only ever *reads* the row.
 - **Production must never carry this sentinel.** Do not create
   `confluendo_guard.environment_sentinel` (or do not set its value to `staging`)
-  on a production (or production-like) database. With the table/row absent — or a
-  non-`staging` value, or no SELECT grant — the adapter fails closed, so it stays
+  on a production or production-like database. With the table/row absent, a
+  non-`staging` value, or no SELECT grant, the adapter fails closed, so it stays
   safe even if a wrong DSN is supplied by mistake.
 - Verify with the read query above on a fresh staging session before a canary.
 
@@ -85,7 +85,7 @@ psql "$VAMO_STAGING_DATABASE_URL" \
 create schema if not exists confluendo_guard;
 
 create table if not exists confluendo_guard.environment_sentinel (
-  key   text primary key,
+  key text primary key,
   value text not null
 );
 
@@ -94,8 +94,9 @@ values ('environment', 'staging')
 on conflict (key) do update set value = excluded.value;
 ```
 
-**c. Create (or alter) the least-privilege canary role.** No `BYPASSRLS`, no
-superuser, login role for the canary DSN:
+**c. Create or alter the least-privilege canary role.** This is a staging-only
+login role for the canary DSN, with no `BYPASSRLS`, no superuser, and no delete
+power:
 
 ```sql
 do $$
@@ -157,15 +158,19 @@ from information_schema.role_table_grants
 where grantee = 'vamo_canary_app'
 order by table_schema, table_name, privilege_type;
 
--- Expect rolbypassrls = false:
-select rolname, rolsuper, rolbypassrls from pg_roles where rolname = 'vamo_canary_app';
+select rolname, rolsuper, rolbypassrls
+from pg_roles
+where rolname = 'vamo_canary_app';
 ```
 
-> Note: because the canary role has no `DELETE`, programmatic rollback of
-> *inserted* rows (which issues `delete`) cannot run under `vamo_canary_app`.
-> Rollback of inserts requires a separately-authorized role; update-restoring
-> rollback works under the canary role. Plan rollback accordingly before a live
-> run.
+Expected: `vamo_canary_app` has SELECT/INSERT/UPDATE on the two cache tables,
+SELECT only on the sentinel, no DELETE, `rolsuper = false`, and
+`rolbypassrls = false`.
+
+> Because the canary role has no `DELETE`, programmatic rollback of inserted
+> rows cannot run under `vamo_canary_app`. Rollback of updates can still restore
+> prior values. Insert rollback requires a separately authorized owner/operator
+> action using the Confluendo shipment ledger.
 
 ## Dry preview (safe, CI-runnable)
 
