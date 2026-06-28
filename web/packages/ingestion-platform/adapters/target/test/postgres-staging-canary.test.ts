@@ -16,7 +16,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 // planning or write SQL is issued.
 describe("staging canary guard (no database)", () => {
   it("refuses to write when staging is not proven, issuing no write SQL", async () => {
-    const fake = new FakeClient();
+    const fake = new FakeClient("staging");
     const result = await applyPostgresStagingCanary({
       client: fake,
       target: targetSpec(),
@@ -29,6 +29,25 @@ describe("staging canary guard (no database)", () => {
     assert.equal(result.code, "staging_not_proven");
     assert.ok(fake.sql.some((sql) => /^begin/i.test(sql)));
     assert.ok(fake.sql.some((sql) => /^rollback/i.test(sql)));
+    assert.ok(
+      !fake.sql.some((sql) => /insert\s+into|update\s+|delete\s+from/i.test(sql)),
+      `no write SQL expected, saw: ${fake.sql.join(" | ")}`
+    );
+  });
+
+  it("refuses when the caller proof is true but the database sentinel is absent", async () => {
+    const fake = new FakeClient();
+    const result = await applyPostgresStagingCanary({
+      client: fake,
+      target: targetSpec(),
+      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
+      proveStaging: () => true
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.code, "staging_not_proven");
+    assert.ok(fake.sql.some((sql) => /current_setting\('ingestion\.environment'/.test(sql)));
     assert.ok(
       !fake.sql.some((sql) => /insert\s+into|update\s+|delete\s+from/i.test(sql)),
       `no write SQL expected, saw: ${fake.sql.join(" | ")}`
@@ -55,6 +74,7 @@ describe(
 
     beforeEach(async () => {
       await client.query("drop schema if exists canary_target cascade");
+      await client.query("select set_config('ingestion.environment', 'staging', false)");
       await client.query("create schema canary_target");
       await client.query(`
         create table canary_target.generic_places (
@@ -212,10 +232,21 @@ describe(
 class FakeClient implements PgClientLike {
   readonly sql: string[] = [];
 
+  constructor(private readonly env?: string) {}
+
   async query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string
   ): Promise<QueryResult<T>> {
     this.sql.push(sql.trim());
+    if (sql.includes("current_setting('ingestion.environment'")) {
+      return {
+        rows: [{ env: this.env ?? null }],
+        rowCount: 1,
+        command: "SELECT",
+        oid: 0,
+        fields: []
+      } as unknown as QueryResult<T>;
+    }
     return { rows: [], rowCount: 0, command: "", oid: 0, fields: [] } as unknown as QueryResult<T>;
   }
 }

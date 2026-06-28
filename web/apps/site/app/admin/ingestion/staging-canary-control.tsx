@@ -23,7 +23,7 @@ type PlanSummary = {
 type Decision =
   | { state: "idle" }
   | { state: "running" }
-  | { state: "approved"; plan: PlanSummary }
+  | { state: "approved"; auditId: string; plan: PlanSummary }
   | { state: "blocked"; blocks: string[] }
   | { state: "error"; message: string };
 
@@ -91,7 +91,7 @@ export function StagingCanaryControl({
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { ok: true; decision: "approved"; plan: PlanSummary }
+        | { ok: true; decision: "approved"; auditId: string; plan: PlanSummary }
         | { ok: false; decision?: "blocked"; blocks?: { code: string }[]; error?: string; code?: string }
         | null;
 
@@ -100,7 +100,7 @@ export function StagingCanaryControl({
         return;
       }
       if (payload.ok) {
-        setDecision({ state: "approved", plan: payload.plan });
+        setDecision({ state: "approved", auditId: payload.auditId, plan: payload.plan });
         return;
       }
       if (payload.decision === "blocked" && Array.isArray(payload.blocks)) {
@@ -193,7 +193,7 @@ function DecisionView({ decision }: { decision: Decision }) {
   }
 
   if (decision.state === "approved") {
-    const { plan } = decision;
+    const { auditId, plan } = decision;
     return (
       <div className="admin-command-result admin-command-result-ok" role="status">
         <strong>Approved · {plan.environment} canary plan</strong>
@@ -205,7 +205,8 @@ function DecisionView({ decision }: { decision: Decision }) {
           {plan.safetyMode} → {plan.shipmentMode} · approved by {plan.approvedBy.email} (
           {plan.approvedBy.role}/{plan.approvedBy.assuranceLevel})
         </span>
-        <span>Run the confirmation-gated runbook to execute the live staging write.</span>
+        <span>Approval audit id: {auditId}</span>
+        <span>Run the confirmation-gated runbook with this audit id to execute the live staging write.</span>
       </div>
     );
   }

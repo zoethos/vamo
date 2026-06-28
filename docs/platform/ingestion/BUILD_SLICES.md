@@ -858,7 +858,8 @@ live Vamo staging credentials.
 Goal: promote exactly one reviewed dry run (a target at `review_required` with a
 compatible diff and `wroteToTarget === false`) to a tiny, bounded, reversible
 write into Vamo staging only. This is Confluendo's first write to a consumer
-database; production stays structurally impossible.
+database; production shipment remains blocked by policy, durable write modes,
+and a positive staging proof at the adapter.
 
 Architecture decision: pure approval/shipment policy in platform core; target
 writes happen only through the `adapters/target` boundary; Vamo remains a
@@ -877,9 +878,10 @@ Defines:
 - Goal: promote one reviewed dry run to a tiny Vamo staging write.
 - Source: open/cacheable snapshot only (no live scraping, no VPN/proxy/evasion).
 - Target: Vamo staging only, resolved from consumer config.
-- Hard production block at three layers: policy rejects `production_write`, the
-  schema has no `production_write`/production enum, and no production adapter is
-  wired.
+- Hard production block at three layers: policy rejects `production_write`,
+  durable target/shipment write modes only allow `dry_run`/`approved_write`, and
+  the adapter refuses unless the target DB positively declares
+  `ingestion.environment = 'staging'`.
 - Approval requirement: `ingestion_admin` + fresh MFA step-up + audit reason +
   explicit `review_required -> staging_write` transition; machine tokens cannot
   promote.
@@ -888,19 +890,20 @@ Defines:
 - Rollback: every written row is traceable by `shipment_id`/`run_id`; inserts
   are removable and updates are reversible via captured prior state; one audited
   operator action; idempotent.
-- Telemetry: shipment ledger (`ingestion_shipments`/`_items`), checkpoint, dead
-  letters, policy blocks, attribution, events, and audit log.
+- Telemetry: approval audit, shipment ledger (`ingestion_shipments`/`_items`),
+  checkpoint, dead letters, policy blocks, attribution, events, and audit log.
 - Operator dashboard state transitions: `review_required ->
   staging_canary_pending -> staging_canary_shipped | staging_canary_blocked`,
   with `staging_canary_rolled_back`; no production node.
 - Explicit stop conditions that always leave a no-write or fully-rolled-back
   state.
 - Safety-mode mapping: policy `staging_write` + environment `staging` maps to an
-  `approved_write` shipment; `production_write` has no durable representation.
+  `approved_write` shipment; `production_write` is rejected before durable
+  target/shipment write.
 
 Guardrails (carried from IP-14, unchanged):
 
-- No production writes; no `production_write` enum widening.
+- No production writes; no durable target/shipment write enum widening.
 - No live provider scraping, no VPN/proxy/evasion, no live AI calls (AI stays
   advisory per `TARGET_SELECTION_AND_SCHEDULING.md` §3).
 - No service-role secrets, DSNs, or write credentials in browser code.
@@ -919,7 +922,8 @@ Implementation phases:
    deterministic; no DB, no network, browser-safe.
 3. **Shipment apply path** (`adapters/target/src/postgres-staging-canary.ts`):
    extend the proven dry-run planner with a transactional, idempotent
-   apply/rollback. It first proves a staging connection (injected guard), then
+   apply/rollback. It first proves a staging connection using the target DB
+   sentinel `ingestion.environment = 'staging'` plus the injected guard, then
    re-plans the diff, refuses to write if the diff drifted from review or the
    plan exceeds bounds or contains `delete`, applies bounded upserts in one
    transaction, captures prior row state for reversibility, and records shipment
@@ -934,11 +938,12 @@ Implementation phases:
 5. **Live runbook + hard confirmation gate**
    (`scripts/run-ip16-staging-canary.mjs`, `docs/platform/ingestion/STAGING_CANARY_RUNBOOK.md`):
    a server-side CLI that runs the full gated path against a real staging DSN
-   only when `CONFIRM_VAMO_STAGING_CANARY=YES` (or equivalent explicit manual
-   confirmation) is set, the safety mode maps to a staging `approved_write`, and
-   the environment is proven staging. Absent the confirmation it hard-fails and
-   writes nothing. The runbook documents the manual, separately-approved live
-   procedure and the rollback command.
+   only when `CONFIRM_VAMO_STAGING_CANARY=YES`, a recorded dashboard approval
+   audit id, the Confluendo control DB, a staging DSN/environment, and
+   `--execute` are all present; the target DB must also expose
+   `ingestion.environment = 'staging'`. Absent any gate it hard-fails and writes
+   nothing. The runbook documents the manual, separately-approved live procedure
+   and the rollback command.
 6. **No live Vamo staging write** is executed in this slice. The live canary
    waits for an explicit operator green light.
 
@@ -967,12 +972,14 @@ Acceptance criteria:
   refuses to run unless the connection is proven staging, and rolls back fully
   on any failure or bound violation. Rollback removes inserts and reverts
   updates and is itself idempotent.
-- `production_write` is rejected by policy and unrepresentable in the schema; no
-  production environment/DSN/enum is added.
+- `production_write` is rejected by policy before any durable target/shipment
+  write; no production environment/DSN/adapter is added.
 - The dashboard control cannot promote without admin + AAL2 + audit reason, and
   the browser bundle contains no DB credentials.
 - Tests and CI pass without any live Vamo staging credentials; the live CLI
-  hard-fails unless `CONFIRM_VAMO_STAGING_CANARY=YES`.
+  hard-fails unless `CONFIRM_VAMO_STAGING_CANARY=YES`, a recorded approval id,
+  the Confluendo control DB, staging DSN/environment, the target DB staging
+  sentinel, and `--execute` are all present.
 
 Validation:
 
@@ -992,8 +999,8 @@ Validation:
 - No connector marketplace.
 - No standalone repo split until IP-15 split prep is complete (IP-14 has proven
   the dry-run loop).
-- For IP-16, no "promote to production" control, no production environment/DSN,
-  and no `production_write` enum value.
+- For IP-16, no "promote to production" control and no production
+  environment/DSN/adapter.
 
 ## Recommended Immediate Next Slice
 

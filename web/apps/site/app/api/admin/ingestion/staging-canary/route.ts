@@ -82,10 +82,12 @@ export async function POST(request: NextRequest) {
     bounds: parsed.bounds
   });
 
-  // Record the decision (accepted or blocked) for forensics. Never fatal to the
-  // response: a missing project or audit failure should not hide the decision.
+  let auditId: string | null = null;
+  // Record the decision (accepted or blocked) for forensics. Accepted
+  // approvals are authoritative only once the audit row exists; otherwise the
+  // live CLI has nothing durable to bind to.
   try {
-    await recordStagingCanaryApproval({
+    const audit = await recordStagingCanaryApproval({
       connectionString,
       projectKey: parsed.projectKey,
       targetId: parsed.targetId,
@@ -96,15 +98,29 @@ export async function POST(request: NextRequest) {
         ? { plan: decision.plan, principal: auth.auditContext }
         : { blocks: decision.blocks.map((block) => block.code), principal: auth.auditContext }
     });
+    auditId = audit.auditId;
   } catch (error) {
     console.error("Staging-canary approval audit failed", error);
+    if (decision.ok) {
+      return NextResponse.json(
+        { ok: false, error: "Staging-canary approval could not be recorded." },
+        { status: 500 }
+      );
+    }
   }
 
   if (!decision.ok) {
     return NextResponse.json({ ok: false, decision: "blocked", blocks: decision.blocks });
   }
 
-  return NextResponse.json({ ok: true, decision: "approved", plan: decision.plan });
+  if (!auditId) {
+    return NextResponse.json(
+      { ok: false, error: "Staging-canary approval audit id was not returned." },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, decision: "approved", auditId, plan: decision.plan });
 }
 
 async function readJsonBody(

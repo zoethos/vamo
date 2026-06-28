@@ -12,7 +12,8 @@ Vamo contract -> Confluendo import -> scorecard -> preflight -> scout
 
 IP-16 takes exactly one target that already reached `review_required` and lets
 an operator promote it to a **tiny, bounded, reversible write into Vamo staging
-only**. Production stays structurally impossible. This is the first time
+only**. Production shipment remains blocked by policy, durable write modes, and
+adapter proof. This is the first time
 Confluendo writes to a consumer database, so the slice is deliberately small,
 heavily gated, fully audited, and trivially rollback-able.
 
@@ -59,11 +60,12 @@ ship to production:
    `production_write` (`production_write_forbidden`). IP-16 must keep that and
    additionally reject any promotion whose resolved target environment is not
    `staging`.
-2. **Schema layer**: `ingestion_targets.safety_mode` and
-   `ingestion_shipments.mode` only allow `('dry_run', 'approved_write')`. There
-   is **no `production_write` enum value at all**, so a production shipment row
-   cannot be represented in the control plane. IP-16 must not widen these
-   enums.
+2. **Schema layer**: `ingestion_schedule_proposals.safety_mode` may carry
+   `production_write` as a proposal/planning intent so policy can reject it
+   explicitly. Durable write tables (`ingestion_targets.safety_mode` and
+   `ingestion_shipments.mode`) only allow `('dry_run', 'approved_write')`, so a
+   production shipment cannot be represented as a target/shipment write. IP-16
+   must not widen those durable write enums.
 3. **Adapter layer**: the staging target adapter must refuse to execute against
    a connection it cannot prove is staging, and there is no production target
    adapter wired in this slice.
@@ -245,16 +247,14 @@ must be explicit and one-directional:
 
 - `staging_write` (policy) + environment `staging` -> `approved_write`
   (shipment). Allowed.
-- `production_write` (policy) -> has **no** durable representation. Rejected at
-  the policy layer and unrepresentable at the schema layer.
+- `production_write` (policy/proposal intent) -> rejected at the policy layer
+  and has no durable target/shipment write representation.
 
-Open modeling decision for the IP-16 code slice (do not pre-empt here): whether
-to record the resolved environment (`staging`) on the shipment/target row
-explicitly (e.g. a dedicated `environment` column or metadata field) so the
-"staging-only" guarantee is queryable, rather than implied by the absence of a
-production enum. The implementation slice must choose and justify this; the
-default recommendation is to store the environment explicitly in target/shipment
-metadata so audits can prove staging without external context.
+Implementation choice: the target database must expose a positive staging
+sentinel (`ingestion.environment = 'staging'`) before the target adapter writes.
+The control shipment ledger also records `environment: "staging"` in target and
+shipment metadata so the canary is queryable after the fact. Absence of the DB
+sentinel is a hard block, not a warning.
 
 ## 10. Explicit Stop Conditions
 

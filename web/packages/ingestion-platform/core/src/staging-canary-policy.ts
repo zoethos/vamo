@@ -7,8 +7,9 @@
  * node/pg/fs, so it is browser-safe and unit-testable without a database.
  *
  * Authority boundaries (see docs/platform/ingestion/STAGING_CANARY.md):
- * - Production is unrepresentable: `production_write` is rejected here, and the
- *   durable schema has no production enum.
+ * - Production shipment is unrepresentable: `production_write` is rejected
+ *   here, while durable target/shipment write modes only allow dry-run or
+ *   approved staging writes.
  * - The only accepted safety mode is `staging_write`, mapped to an
  *   `approved_write` shipment against a target whose resolved environment is
  *   `staging`.
@@ -144,7 +145,7 @@ export function evaluateStagingCanaryPromotion(
   if (transition.to === "production_write") {
     blocks.push({
       code: "production_write_forbidden",
-      message: "production_write is forbidden and has no durable representation; production is blocked."
+      message: "production_write is forbidden for staging canaries; production shipment is blocked."
     });
   } else if (transition.to !== "staging_write") {
     blocks.push({

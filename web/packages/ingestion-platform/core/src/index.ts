@@ -186,7 +186,11 @@ export {
 } from "./staging-canary-policy.js";
 export {
   recordStagingCanaryApproval,
+  recordStagingCanaryShipment,
   type RecordStagingCanaryApprovalInput,
   type RecordStagingCanaryApprovalResult,
+  type RecordStagingCanaryShipmentInput,
+  type RecordStagingCanaryShipmentResult,
+  type StagingCanaryShipmentItemForLedger,
   type StagingCanaryControlPgClientLike
 } from "./staging-canary-control.js";

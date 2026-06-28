@@ -6,8 +6,9 @@ staging only**. It is the live execution arm of the IP-16 slice. Design and
 invariants live in `STAGING_CANARY.md`; this document is the operational
 checklist.
 
-> Production is structurally impossible: there is no production safety mode,
-> enum, environment, or adapter. Do not attempt to add one.
+> Production shipment is blocked: proposals may name `production_write` only so
+> policy can reject it, while durable target/shipment write modes and the target
+> adapter permit only an approved staging canary.
 
 ## Preconditions
 
@@ -18,7 +19,10 @@ checklist.
    with a verified AAL2 MFA factor, a fresh step-up, and a non-empty audit
    reason. See the staging-canary control on `/admin/ingestion`.
 3. You have a **staging** Postgres DSN. Never a production DSN.
-4. You have an explicit green light to perform a live staging write.
+4. The target database has a positive sentinel:
+   `ingestion.environment = 'staging'`. Absence of this setting blocks the
+   write.
+5. You have an explicit green light to perform a live staging write.
 
 ## Dry preview (safe, CI-runnable)
 
@@ -30,8 +34,9 @@ npm --workspace @vamo/ingestion-platform run ip16:staging-canary
 ```
 
 Expected: a printed plan (environment `staging`, `staging_write -> approved_write`,
-write count within bound), `Policy decision: APPROVED`, then a `NO WRITE
-PERFORMED` gate summary and a non-zero exit. This is the expected, safe outcome.
+write count within bound), confirmation that the reviewed dry run is eligible
+for operator approval, then a `NO WRITE PERFORMED` gate summary and a non-zero
+exit. This is the expected, safe outcome.
 
 ## Live staging canary (manual, gated)
 
@@ -42,8 +47,9 @@ mandatory; a missing gate hard-fails with no write.
 CONFIRM_VAMO_STAGING_CANARY=YES \
 VAMO_STAGING_CANARY_ENVIRONMENT=staging \
 VAMO_STAGING_DATABASE_URL="postgres://…staging…" \
+VAMO_STAGING_CANARY_APPROVAL_ID="<approve_staging_canary audit id>" \
+INGESTION_CONTROL_DATABASE_URL="postgres://…confluendo-control…" \
 VAMO_STAGING_CANARY_REASON="<the approved audit reason>" \
-VAMO_STAGING_CANARY_OPERATOR="<your id>" \
 node scripts/run-ip16-staging-canary.mjs --execute
 ```
 
@@ -54,14 +60,21 @@ Gates enforced, in order:
 3. `VAMO_STAGING_CANARY_ENVIRONMENT=staging` — anything else (notably
    `production`) is refused.
 4. `--execute` — without it, the CLI previews and stops.
-5. The target adapter independently **proves staging**: it refuses if the
-   environment env is not `staging`, if the DSN matches the production host
-   pattern (`VAMO_PRODUCTION_HOST_PATTERN`, default `prod`), or if the database
-   reports `current_setting('ingestion.environment') = 'production'`.
+5. `VAMO_STAGING_CANARY_APPROVAL_ID` — the accepted dashboard approval audit
+   row to bind this run to.
+6. `INGESTION_CONTROL_DATABASE_URL` — used to verify the approval and record
+   the shipment ledger.
+7. The target adapter independently **proves staging**: it refuses unless the
+   target DB reports `current_setting('ingestion.environment') = 'staging'`.
+   The CLI also refuses if the operator environment is not `staging` or if the
+   DSN matches the production host pattern (`VAMO_PRODUCTION_HOST_PATTERN`,
+   default `prod`).
 
 The write is bounded (`maxRows` 50 by default), idempotent (re-running is a
-no-op), single-transaction, and refuses any diff that drifts from review or
-contains a `delete`.
+no-op), single-transaction, and refuses any diff that drifts from the recorded
+approval or contains a `delete`. After a successful write, the CLI records a
+control-plane shipment row, item rows, and a `ship_staging_canary` audit row
+linked to the approval audit id.
 
 ## Rollback
 

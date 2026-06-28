@@ -6,7 +6,9 @@
  * validate the diff, then applies a bounded, idempotent upsert inside a single
  * transaction. It refuses to write unless:
  *
- * - the caller's `proveStaging` guard confirms the connection is staging,
+ * - the target DB positively declares `ingestion.environment = 'staging'`,
+ * - the caller's `proveStaging` guard confirms any host/operator-side staging
+ *   intent,
  * - the re-planned diff is compatible,
  * - the diff has no `delete` and does not drift from the reviewed diff, and
  * - the write count is within the canary bound.
@@ -65,9 +67,9 @@ export interface ApplyPostgresStagingCanaryInput {
   client?: PgClientLike;
   connectionString?: string;
   /**
-   * MANDATORY staging guard. The canary refuses to write unless this resolves
-   * to `true`. There is intentionally no default: a missing guard means no
-   * write. For tests, pass `async () => true` against a disposable target.
+   * MANDATORY extra staging guard. The adapter also requires the target DB
+   * sentinel `ingestion.environment = 'staging'`; this callback is only an
+   * additional caller-side proof such as host allowlist or operator intent.
    */
   proveStaging: (client: PgClientLike) => boolean | Promise<boolean>;
   /** Hard upper bound on written rows. Defaults to STAGING_CANARY_MAX_ROWS. */
@@ -112,7 +114,7 @@ export async function applyPostgresStagingCanary(
     await client.query("begin");
     await client.query("set local statement_timeout = '15s'");
     try {
-      if (!(await input.proveStaging(client))) {
+      if (!(await hasPositiveStagingSentinel(client)) || !(await input.proveStaging(client))) {
         await client.query("rollback");
         return {
           ok: false,
@@ -267,7 +269,7 @@ export async function rollbackPostgresStagingCanary(
     await client.query("begin");
     await client.query("set local statement_timeout = '15s'");
     try {
-      if (!(await input.proveStaging(client))) {
+      if (!(await hasPositiveStagingSentinel(client)) || !(await input.proveStaging(client))) {
         await client.query("rollback");
         throw new Error("Refusing to roll back: the target connection was not proven to be staging.");
       }
@@ -301,6 +303,18 @@ export async function rollbackPostgresStagingCanary(
       throw error;
     }
   });
+}
+
+async function hasPositiveStagingSentinel(client: PgClientLike): Promise<boolean> {
+  try {
+    const result = await client.query<{ env: string | null }>(
+      "select current_setting('ingestion.environment', true) as env"
+    );
+    const env = result.rows[0]?.env;
+    return typeof env === "string" && env.trim().toLowerCase() === "staging";
+  } catch {
+    return false;
+  }
 }
 
 async function withClient<T>(

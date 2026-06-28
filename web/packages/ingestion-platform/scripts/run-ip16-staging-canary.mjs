@@ -9,9 +9,11 @@
 //        - CONFIRM_VAMO_STAGING_CANARY=YES                (explicit confirmation)
 //        - VAMO_STAGING_DATABASE_URL is set               (staging DSN)
 //        - VAMO_STAGING_CANARY_ENVIRONMENT=staging         (never "production")
+//        - VAMO_STAGING_CANARY_APPROVAL_ID is set          (dashboard approval)
+//        - INGESTION_CONTROL_DATABASE_URL is set           (approval + ledger)
 //        - the --execute flag is passed
-//   3. Even then, the target adapter independently proves the connection is
-//      staging (and refuses anything production-like) before any write.
+//   3. Even then, the target adapter independently proves the target DB itself
+//      declares `ingestion.environment = 'staging'` before any write.
 //
 // Guarantees:
 //   - No production writes. There is no production code path or enum.
@@ -29,16 +31,18 @@
 //     CONFIRM_VAMO_STAGING_CANARY=YES \
 //     VAMO_STAGING_CANARY_ENVIRONMENT=staging \
 //     VAMO_STAGING_DATABASE_URL=postgres://... \
+//     VAMO_STAGING_CANARY_APPROVAL_ID=123 \
 //     VAMO_STAGING_CANARY_REASON="..." \
 //     node scripts/run-ip16-staging-canary.mjs --execute
 
 import { readFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Client } from "pg";
 
 import {
   buildScheduleProposal,
-  evaluateStagingCanaryPromotion,
+  recordStagingCanaryShipment,
   runFixturePipeline,
   runProgressiveDryRun,
   scoreTargetCandidate,
@@ -160,46 +164,15 @@ async function buildReviewedRun() {
   return { proposal, scorecard, target, report, candidates: pipelineRun.candidates };
 }
 
-/** Operator-asserted approval context. The authoritative human gate is the
- *  dashboard approval (recorded to the audit log) plus the env confirmation
- *  below; this context lets the pure policy re-check bounds/diff here. */
-function approvalContext() {
-  const now = new Date().toISOString();
-  return {
-    principal: {
-      provider: "supabase",
-      userId: process.env.VAMO_STAGING_CANARY_OPERATOR ?? "operator",
-      email: process.env.VAMO_STAGING_CANARY_OPERATOR_EMAIL ?? "operator@confluendo.dev",
-      role: "admin",
-      scopes: ["*"],
-      assuranceLevel: "aal2",
-      hasVerifiedMfaFactor: true,
-      mfaRequired: true,
-      stepUpSatisfiedAt: now
-    },
-    auditReason:
-      process.env.VAMO_STAGING_CANARY_REASON?.trim() || "[preview] staging-canary gate check",
-    now
-  };
-}
-
-/** Layered staging proof; refuses anything production-like before a write. */
+/** Extra operator/host-side staging proof; the adapter also requires the DB
+ *  sentinel `ingestion.environment = 'staging'` and fails closed if absent. */
 function makeProveStaging(connectionString) {
-  return async (client) => {
+  return async () => {
     if (process.env.VAMO_STAGING_CANARY_ENVIRONMENT !== "staging") {
       return false;
     }
     if (PRODUCTION_HOST_PATTERN.test(connectionString)) {
       return false;
-    }
-    try {
-      const result = await client.query("select current_setting('ingestion.environment', true) as env");
-      const env = result.rows?.[0]?.env;
-      if (typeof env === "string" && env.toLowerCase() === "production") {
-        return false;
-      }
-    } catch {
-      // Setting may be absent on a fresh staging DB; rely on the env + DSN proof.
     }
     return true;
   };
@@ -210,27 +183,20 @@ async function main() {
   const confirmed = process.env.CONFIRM_VAMO_STAGING_CANARY === "YES";
   const stagingDsn = process.env.VAMO_STAGING_DATABASE_URL?.trim();
   const environment = process.env.VAMO_STAGING_CANARY_ENVIRONMENT?.trim();
+  const controlDsn = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const approvalId = process.env.VAMO_STAGING_CANARY_APPROVAL_ID?.trim();
 
   const { proposal, report, target, candidates } = await buildReviewedRun();
   const bounds = {
     geography: proposal.scope.geography,
     category: proposal.scope.category
   };
-  const approval = approvalContext();
-
-  const decision = evaluateStagingCanaryPromotion({
-    runReport: report,
-    transition: { from: "review_required", to: "staging_write" },
-    targetEnvironment: "staging",
-    approval,
-    bounds
-  });
 
   const write = summarizeWrite({ runReport: report });
 
   console.log("");
   console.log("=== IP-16 First Vamo Staging Canary (runbook) ===");
-  console.log("(bundled reviewed dry run · staging only · production is impossible)");
+  console.log("(bundled reviewed dry run · staging only · production shipment blocked)");
   console.log("");
   console.log("Reviewed run");
   bullet("project", report.projectKey);
@@ -249,27 +215,44 @@ async function main() {
   bullet("candidates staged", String(candidates.length));
   console.log("");
 
-  if (!decision.ok) {
-    console.error("Promotion is BLOCKED by policy; nothing can be shipped:");
-    for (const block of decision.blocks) {
-      console.error(`  - [${block.code}] ${block.message}`);
-    }
+  if (!report.reachedReview || report.wroteToTarget !== false || !report.shipmentDiff.compatible) {
+    console.error("Reviewed run is not eligible for canary execution; nothing can be shipped.");
     process.exit(1);
   }
 
-  console.log("Policy decision: APPROVED (bounds + diff + approval context valid).");
+  console.log("Reviewed dry run is eligible for operator approval.");
+  console.log("Live execution requires a recorded dashboard approval id; the CLI does not fabricate admin/MFA context.");
   console.log("");
 
-  const gatesSatisfied = confirmed && Boolean(stagingDsn) && environment === "staging";
+  const gatesSatisfied =
+    confirmed &&
+    Boolean(stagingDsn) &&
+    environment === "staging" &&
+    Boolean(controlDsn) &&
+    Boolean(approvalId);
   if (!gatesSatisfied || !execute) {
     console.log("Confirmation gate");
     bullet("CONFIRM_VAMO_STAGING_CANARY=YES", confirmed ? "yes" : "MISSING");
     bullet("VAMO_STAGING_DATABASE_URL", stagingDsn ? "set" : "MISSING");
     bullet("VAMO_STAGING_CANARY_ENVIRONMENT", environment === "staging" ? "staging" : `INVALID (${environment ?? "unset"})`);
+    bullet("INGESTION_CONTROL_DATABASE_URL", controlDsn ? "set" : "MISSING");
+    bullet("VAMO_STAGING_CANARY_APPROVAL_ID", approvalId ? approvalId : "MISSING");
     bullet("--execute flag", execute ? "yes" : "MISSING");
     console.log("");
     console.error("NO WRITE PERFORMED. The live staging canary requires every gate above plus --execute.");
     process.exit(1);
+  }
+
+  const recordedApproval = await loadRecordedApproval({
+    connectionString: controlDsn,
+    approvalId,
+    projectKey: report.projectKey,
+    targetId: report.targetId
+  });
+  assertApprovalMatchesReviewedRun(recordedApproval, { report, bounds, write });
+  const auditReason = String(recordedApproval.reason || process.env.VAMO_STAGING_CANARY_REASON || "").trim();
+  if (!auditReason) {
+    throw new Error("Recorded approval has no audit reason; refusing to execute.");
   }
 
   // Live, fully-gated execution. Not run in CI or without an explicit green light.
@@ -288,7 +271,20 @@ async function main() {
     process.exit(1);
   }
 
+  const shipment = await recordStagingCanaryShipment({
+    connectionString: controlDsn,
+    projectKey: report.projectKey,
+    targetId: report.targetId,
+    targetAdapter: target.adapter,
+    approvalAuditId: approvalId,
+    actor: recordedApproval.actor,
+    reason: auditReason,
+    counts: result.counts,
+    items: result.items
+  });
+
   console.log("Staging canary shipped (staging only).");
+  bullet("shipment id", shipment.shipmentId);
   bullet("wrote to target", String(result.wroteToTarget));
   bullet("insert/update/no-op", `${result.counts.insert} / ${result.counts.update} / ${result.counts.noOp}`);
   bullet("write count", String(result.counts.writeCount));
@@ -302,3 +298,83 @@ main().catch((error) => {
   console.error(error instanceof Error ? error.stack ?? error.message : error);
   process.exit(1);
 });
+
+async function loadRecordedApproval({ connectionString, approvalId, projectKey, targetId }) {
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `
+        select a.id::text as id,
+               a.actor_type as "actorType",
+               a.actor_id as "actorId",
+               a.reason,
+               a.payload,
+               p.project_key as "projectKey",
+               a.target_id as "targetId",
+               a.action
+        from ingestion_platform.ingestion_audit_log a
+        join ingestion_platform.ingestion_projects p on p.id = a.project_id
+        where a.id = $1::bigint
+        limit 1
+      `,
+      [approvalId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error(`Recorded staging-canary approval ${approvalId} was not found.`);
+    }
+    if (row.action !== "approve_staging_canary") {
+      throw new Error(`Audit row ${approvalId} is not an approve_staging_canary action.`);
+    }
+    if (row.projectKey !== projectKey || row.targetId !== targetId) {
+      throw new Error(
+        `Recorded approval targets ${row.projectKey}/${row.targetId}, not ${projectKey}/${targetId}.`
+      );
+    }
+    if (row.payload?.accepted !== true) {
+      throw new Error(`Recorded approval ${approvalId} is not accepted.`);
+    }
+    return {
+      approvalId: row.id,
+      reason: row.reason,
+      payload: row.payload,
+      actor: { type: row.actorType, id: row.actorId }
+    };
+  } finally {
+    await client.end();
+  }
+}
+
+function assertApprovalMatchesReviewedRun(approval, { report, bounds, write }) {
+  const plan = approval.payload?.plan;
+  if (!plan || typeof plan !== "object") {
+    throw new Error(`Recorded approval ${approval.approvalId} has no plan payload.`);
+  }
+
+  const mismatches = [];
+  compare(mismatches, "projectKey", plan.projectKey, report.projectKey);
+  compare(mismatches, "targetId", plan.targetId, report.targetId);
+  compare(mismatches, "sourceId", plan.sourceId, report.sourceId);
+  compare(mismatches, "environment", plan.environment, "staging");
+  compare(mismatches, "safetyMode", plan.safetyMode, "staging_write");
+  compare(mismatches, "shipmentMode", plan.shipmentMode, "approved_write");
+  compare(mismatches, "bounds.geography", plan.bounds?.geography, bounds.geography);
+  compare(mismatches, "bounds.category", plan.bounds?.category, bounds.category);
+  compare(mismatches, "write.insert", plan.write?.insert, write.insert);
+  compare(mismatches, "write.update", plan.write?.update, write.update);
+  compare(mismatches, "write.noOp", plan.write?.noOp, write.noOp);
+  compare(mismatches, "write.writeCount", plan.write?.writeCount, write.writeCount);
+
+  if (mismatches.length > 0) {
+    throw new Error(
+      `Recorded approval ${approval.approvalId} does not match the reviewed run: ${mismatches.join("; ")}`
+    );
+  }
+}
+
+function compare(mismatches, label, actual, expected) {
+  if (actual !== expected) {
+    mismatches.push(`${label} expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
+  }
+}
