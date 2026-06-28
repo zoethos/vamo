@@ -9,6 +9,7 @@ import type {
 } from "@/content/ingestion-dashboard";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
+import { loadIp14ProgressiveBoard } from "@/lib/ip14-progressive-data";
 import {
   ClusterCommandControls,
   RecoveryCommandButton,
@@ -48,6 +49,13 @@ export default async function IngestionDashboardPage() {
   });
 
   const { view, source } = await loadIngestionDashboard("vamo");
+  const { view: progressiveView, source: progressiveSource } =
+    await loadIp14ProgressiveBoard("vamo");
+  const {
+    rows: progressiveRows,
+    summary: progressiveSummary,
+    nextAction: progressiveNextAction,
+  } = progressiveView;
   const {
     signals: ingestionSignals,
     actions: ingestionActions,
@@ -334,6 +342,86 @@ export default async function IngestionDashboardPage() {
             ))}
           </ol>
         </div>
+      </section>
+
+      <section className="admin-section" aria-label="IP-14 progressive dry run">
+        <div className="admin-section-heading admin-section-heading-compact">
+          <div>
+            <p className="admin-kicker">IP-14 · progressive dry run</p>
+            <h2>Target backlog and dry-run review</h2>
+          </div>
+          <span className="admin-table-count">
+            {progressiveSource === "live" ? "Live control plane" : "Sample preview"} ·{" "}
+            {progressiveSummary.reviewRequired} review · {progressiveSummary.blocked} blocked
+          </span>
+        </div>
+        <p className="admin-next-action">
+          <strong>Next action:</strong> {progressiveNextAction}
+        </p>
+        <div className="admin-table-wrap">
+          <table className="admin-target-table">
+            <thead>
+              <tr>
+                <th>Target</th>
+                <th>Work</th>
+                <th>Tier / safety</th>
+                <th>Score</th>
+                <th>Stage</th>
+                <th>Checkpoint</th>
+                <th>Progress</th>
+                <th>Blocks</th>
+                <th>Next approval</th>
+              </tr>
+            </thead>
+            <tbody>
+              {progressiveRows.map((row) => (
+                <tr key={row.targetId} className={`admin-tone-${row.tone}`}>
+                  <td>
+                    <strong>{row.targetId}</strong>
+                    <span>
+                      {row.projectKey} · {row.sourceId}
+                    </span>
+                  </td>
+                  <td>{row.workStatus.replace(/_/g, " ")}</td>
+                  <td>
+                    <code>{row.tier}</code>
+                    <span>{row.safetyMode}</span>
+                  </td>
+                  <td>
+                    {row.score}
+                    <span>{row.eligible ? "eligible" : "blocked"}</span>
+                  </td>
+                  <td>{row.stage.replace(/_/g, " ")}</td>
+                  <td>
+                    <code>{row.checkpoint}</code>
+                    <span>{row.shipmentDiff}</span>
+                  </td>
+                  <td>
+                    {row.rowsStaged}/{row.rowsRead} staged
+                    <span>
+                      {row.policyBlockCount} policy · {row.deadLetterCount} dead-letter
+                    </span>
+                  </td>
+                  <td>
+                    {row.blockers.length > 0 ? row.blockers.join(", ") : "—"}
+                  </td>
+                  <td>{row.nextApproval}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {progressiveRows[0] ? (
+          <div className="admin-rationale">
+            <p>
+              <strong>Rationale:</strong> {progressiveRows[0].rationale}
+            </p>
+            <p>
+              <strong>AI (advisory, {progressiveRows[0].aiConfidence}):</strong>{" "}
+              {progressiveRows[0].aiSummary}
+            </p>
+          </div>
+        ) : null}
       </section>
 
       <section className="admin-section admin-policy-panel">

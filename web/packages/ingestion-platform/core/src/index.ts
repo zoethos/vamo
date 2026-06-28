@@ -99,3 +99,72 @@ export {
   type WorkerHarnessConfig,
   type WorkerRunSummary
 } from "./worker-main.js";
+export {
+  rankTargetCandidates,
+  scoreTargetCandidate,
+  TARGET_SCORE_CRITERIA,
+  type BlastRadiusFacts,
+  type CheckpointabilityFacts,
+  type CollisionFacts,
+  type CollisionPolicy,
+  type ConsumerValueFacts,
+  type CostAndQuotaFacts,
+  type DataQualityFacts,
+  type ObservabilityFacts,
+  type ScorecardCriterionResult,
+  type SourceRightsFacts,
+  type TargetCandidateInput,
+  type TargetReadinessFacts,
+  type TargetScoreCriterion,
+  type TargetScorecard
+} from "./target-scorecard.js";
+export {
+  buildScheduleProposal,
+  deriveAdvisoryRationale,
+  IP14_FORBIDDEN_SAFETY_MODES,
+  TARGET_TIERS,
+  type AiConfidence,
+  type AiRationale,
+  type ApprovalRequirement,
+  type BuildScheduleProposalInput,
+  type BuildScheduleProposalResult,
+  type QuotaBudget,
+  type RunWindow,
+  type SafetyMode,
+  type ScheduleProposal,
+  type ScheduleProposalError,
+  type ScheduleProposalErrorCode,
+  type ScheduleScope,
+  type StopConditions,
+  type TargetTier
+} from "./schedule-proposal.js";
+export {
+  buildScoutReport,
+  evaluatePreflight,
+  PROGRESSIVE_STAGES,
+  runProgressiveDryRun,
+  summarizeShipmentDiff,
+  type CheckpointReport,
+  type DryRunPlanRequest,
+  type PreflightCheck,
+  type PreflightReport,
+  type ProgressiveDryRunDeps,
+  type ProgressiveRunReport,
+  type ProgressiveStage,
+  type RowCounts,
+  type RunProgressiveDryRunInput,
+  type ScoutReport,
+  type ShipmentDiffSummary,
+  type StageResult,
+  type StageStatus
+} from "./progressive-run.js";
+export {
+  buildProgressiveRunView,
+  sampleProgressiveRunSnapshot,
+  sampleVamoProposal,
+  type ProgressiveBacklogEntryInput,
+  type ProgressiveBacklogRow,
+  type ProgressiveRunSnapshot,
+  type ProgressiveRunView,
+  type ProgressiveWorkStatus
+} from "./progressive-read-model.js";
