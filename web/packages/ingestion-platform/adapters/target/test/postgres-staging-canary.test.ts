@@ -15,15 +15,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 // Runs in CI without a database: the staging guard must block before any
 // planning or write SQL is issued.
 describe("staging canary guard (no database)", () => {
-  it("refuses to write when staging is not proven, issuing no write SQL", async () => {
-    const fake = new FakeClient("staging");
-    const result = await applyPostgresStagingCanary({
-      client: fake,
-      target: targetSpec(),
-      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
-      proveStaging: () => false
-    });
-
+  function assertBlockedNoWrite(result: Awaited<ReturnType<typeof applyPostgresStagingCanary>>, fake: FakeClient) {
     assert.equal(result.ok, false);
     if (result.ok) return;
     assert.equal(result.code, "staging_not_proven");
@@ -33,25 +25,62 @@ describe("staging canary guard (no database)", () => {
       !fake.sql.some((sql) => /insert\s+into|update\s+|delete\s+from/i.test(sql)),
       `no write SQL expected, saw: ${fake.sql.join(" | ")}`
     );
+  }
+
+  it("refuses to write when the caller proof is false, issuing no write SQL", async () => {
+    const fake = new FakeClient({ sentinel: "staging" });
+    const result = await applyPostgresStagingCanary({
+      client: fake,
+      target: targetSpec(),
+      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
+      proveStaging: () => false
+    });
+    assertBlockedNoWrite(result, fake);
   });
 
-  it("refuses when the caller proof is true but the database sentinel is absent", async () => {
-    const fake = new FakeClient();
+  it("reads the sentinel table and refuses when the row is missing", async () => {
+    const fake = new FakeClient({ sentinel: undefined });
     const result = await applyPostgresStagingCanary({
       client: fake,
       target: targetSpec(),
       candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
       proveStaging: () => true
     });
+    assertBlockedNoWrite(result, fake);
+    assert.ok(fake.sql.some((sql) => /confluendo_guard\.environment_sentinel/.test(sql)));
+  });
 
-    assert.equal(result.ok, false);
-    if (result.ok) return;
-    assert.equal(result.code, "staging_not_proven");
-    assert.ok(fake.sql.some((sql) => /current_setting\('ingestion\.environment'/.test(sql)));
-    assert.ok(
-      !fake.sql.some((sql) => /insert\s+into|update\s+|delete\s+from/i.test(sql)),
-      `no write SQL expected, saw: ${fake.sql.join(" | ")}`
-    );
+  it("fails closed when the sentinel schema/table is missing (query throws)", async () => {
+    const fake = new FakeClient({ throwOnSentinel: "missing_table" });
+    const result = await applyPostgresStagingCanary({
+      client: fake,
+      target: targetSpec(),
+      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
+      proveStaging: () => true
+    });
+    assertBlockedNoWrite(result, fake);
+  });
+
+  it("fails closed when the sentinel value is not staging", async () => {
+    const fake = new FakeClient({ sentinel: "production" });
+    const result = await applyPostgresStagingCanary({
+      client: fake,
+      target: targetSpec(),
+      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
+      proveStaging: () => true
+    });
+    assertBlockedNoWrite(result, fake);
+  });
+
+  it("fails closed when the role lacks SELECT on the sentinel (permission denied)", async () => {
+    const fake = new FakeClient({ throwOnSentinel: "permission_denied" });
+    const result = await applyPostgresStagingCanary({
+      client: fake,
+      target: targetSpec(),
+      candidates: [candidate("colosseum", { source_id: "colosseum", display_name: "Colosseum" })],
+      proveStaging: () => true
+    });
+    assertBlockedNoWrite(result, fake);
   });
 });
 
@@ -69,12 +98,26 @@ describe(
 
     after(async () => {
       await client.query("drop schema if exists canary_target cascade");
+      await client.query("drop schema if exists confluendo_guard cascade");
       await client.end();
     });
 
     beforeEach(async () => {
       await client.query("drop schema if exists canary_target cascade");
-      await client.query("select set_config('ingestion.environment', 'staging', false)");
+      // DBA-provisioned staging sentinel row (replaces the rejected ALTER DATABASE
+      // ... SET current_setting approach).
+      await client.query("create schema if not exists confluendo_guard");
+      await client.query(
+        `create table if not exists confluendo_guard.environment_sentinel (
+           key text primary key,
+           value text not null
+         )`
+      );
+      await client.query(
+        `insert into confluendo_guard.environment_sentinel (key, value)
+         values ('environment', 'staging')
+         on conflict (key) do update set value = excluded.value`
+      );
       await client.query("create schema canary_target");
       await client.query(`
         create table canary_target.generic_places (
@@ -229,23 +272,33 @@ describe(
   }
 );
 
+interface FakeClientOptions {
+  /** Sentinel `value`. `undefined` means the row is absent (no rows returned). */
+  sentinel?: string | null;
+  /** Simulate the sentinel query throwing (missing table or permission denied). */
+  throwOnSentinel?: "missing_table" | "permission_denied";
+}
+
 class FakeClient implements PgClientLike {
   readonly sql: string[] = [];
 
-  constructor(private readonly env?: string) {}
+  constructor(private readonly opts: FakeClientOptions = {}) {}
 
   async query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string
   ): Promise<QueryResult<T>> {
     this.sql.push(sql.trim());
-    if (sql.includes("current_setting('ingestion.environment'")) {
-      return {
-        rows: [{ env: this.env ?? null }],
-        rowCount: 1,
-        command: "SELECT",
-        oid: 0,
-        fields: []
-      } as unknown as QueryResult<T>;
+    if (sql.includes("confluendo_guard.environment_sentinel")) {
+      if (this.opts.throwOnSentinel === "missing_table") {
+        throw Object.assign(new Error('relation "confluendo_guard.environment_sentinel" does not exist'), {
+          code: "42P01"
+        });
+      }
+      if (this.opts.throwOnSentinel === "permission_denied") {
+        throw Object.assign(new Error("permission denied for table environment_sentinel"), { code: "42501" });
+      }
+      const rows = this.opts.sentinel === undefined ? [] : [{ value: this.opts.sentinel }];
+      return { rows, rowCount: rows.length, command: "SELECT", oid: 0, fields: [] } as unknown as QueryResult<T>;
     }
     return { rows: [], rowCount: 0, command: "", oid: 0, fields: [] } as unknown as QueryResult<T>;
   }

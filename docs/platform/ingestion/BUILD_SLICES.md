@@ -880,8 +880,9 @@ Defines:
 - Target: Vamo staging only, resolved from consumer config.
 - Hard production block at three layers: policy rejects `production_write`,
   durable target/shipment write modes only allow `dry_run`/`approved_write`, and
-  the adapter refuses unless the target DB positively declares
-  `ingestion.environment = 'staging'`.
+  the adapter refuses unless the target DB exposes the DBA-provisioned sentinel
+  row `confluendo_guard.environment_sentinel` (`key='environment'`,
+  `value='staging'`).
 - Approval requirement: `ingestion_admin` + fresh MFA step-up + audit reason +
   explicit `review_required -> staging_write` transition; machine tokens cannot
   promote.
@@ -923,7 +924,8 @@ Implementation phases:
 3. **Shipment apply path** (`adapters/target/src/postgres-staging-canary.ts`):
    extend the proven dry-run planner with a transactional, idempotent
    apply/rollback. It first proves a staging connection using the target DB
-   sentinel `ingestion.environment = 'staging'` plus the injected guard, then
+   sentinel row `confluendo_guard.environment_sentinel` (`value='staging'`) plus
+   the injected guard, then
    re-plans the diff, refuses to write if the diff drifted from review or the
    plan exceeds bounds or contains `delete`, applies bounded upserts in one
    transaction, captures prior row state for reversibility, and records shipment
@@ -940,8 +942,8 @@ Implementation phases:
    a server-side CLI that runs the full gated path against a real staging DSN
    only when `CONFIRM_VAMO_STAGING_CANARY=YES`, a recorded dashboard approval
    audit id, the Confluendo control DB, a staging DSN/environment, and
-   `--execute` are all present; the target DB must also expose
-   `ingestion.environment = 'staging'`. Absent any gate it hard-fails and writes
+   `--execute` are all present; the target DB must also expose the
+   `confluendo_guard.environment_sentinel` row (`value='staging'`). Absent any gate it hard-fails and writes
    nothing. The runbook documents the manual, separately-approved live procedure
    and the rollback command.
 6. **No live Vamo staging write** is executed in this slice. The live canary
