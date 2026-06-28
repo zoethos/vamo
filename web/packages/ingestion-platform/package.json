@@ -8,6 +8,7 @@
     "./adapters/target": "./dist/adapters/target/src/index.js",
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
     "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
+    "./adapters/target/staging-canary": "./dist/adapters/target/src/postgres-staging-canary.js",
     "./core": "./dist/core/src/index.js",
     "./control-api": {
       "types": "./dist/core/src/control-command-api.d.ts",
