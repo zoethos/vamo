@@ -10,7 +10,7 @@ Future<void> main() async {
   await Env.load();
   await Supabase.initialize(
     url: Env.supabaseUrl,
-    publishableKey: Env.supabaseAnonKey,
+    publishableKey: Env.supabasePublishableKey,
   );
 
   runApp(

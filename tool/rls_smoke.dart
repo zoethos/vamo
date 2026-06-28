@@ -11,7 +11,7 @@
 //     live paid calls.)
 //
 // Also required:
-//   SUPABASE_URL, SUPABASE_ANON_KEY
+//   SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 //   SUPABASE_URL must point at staging by default. The smoke creates and
 //     deletes trips, storage objects, notifications, FX rows, and lifecycle
 //     state; it refuses the known production project ref.
@@ -132,7 +132,8 @@ List<Map<String, dynamic>> twoMemberShares({
 
 Future<void> main() async {
   final url = Platform.environment['SUPABASE_URL'];
-  final anon = Platform.environment['SUPABASE_ANON_KEY'];
+  final publishableKey = Platform.environment['SUPABASE_PUBLISHABLE_KEY'] ??
+      Platform.environment['SUPABASE_ANON_KEY'];
   final aEmail = Platform.environment['RLS_USER_A_EMAIL'];
   final aPass = Platform.environment['RLS_USER_A_PASSWORD'];
   final bEmail = Platform.environment['RLS_USER_B_EMAIL'];
@@ -140,16 +141,16 @@ Future<void> main() async {
   final cEmail = Platform.environment['RLS_USER_C_EMAIL'];
   final cPass = Platform.environment['RLS_USER_C_PASSWORD'];
 
-  if ([url, anon, aEmail, aPass, bEmail, bPass, cEmail, cPass]
+  if ([url, publishableKey, aEmail, aPass, bEmail, bPass, cEmail, cPass]
       .any((v) => v == null || v.isEmpty)) {
     stderr.writeln(
-      'Missing env. Set SUPABASE_URL, SUPABASE_ANON_KEY, '
+      'Missing env. Set SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, '
       'RLS_USER_A/B/C_EMAIL and RLS_USER_A/B/C_PASSWORD.',
     );
     exit(2);
   }
   final checkedUrl = url!;
-  final checkedAnon = anon!;
+  final checkedAnon = publishableKey!;
   _guardSupabaseTarget(checkedUrl);
 
   final results = <_Check>[];

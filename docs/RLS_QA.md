@@ -8,7 +8,7 @@ Against the **staging** Supabase project (never commit credentials):
 
 ```bash
 dart pub get
-# Set: SUPABASE_URL=https://sfwziwcuyctxvidivnsh.supabase.co, SUPABASE_ANON_KEY,
+# Set: SUPABASE_URL=https://sfwziwcuyctxvidivnsh.supabase.co, SUPABASE_PUBLISHABLE_KEY,
 #      RLS_USER_A_EMAIL/PASSWORD, RLS_USER_B_EMAIL/PASSWORD, RLS_USER_C_EMAIL/PASSWORD
 # (three password-auth test users — create once in Supabase Auth dashboard)
 dart run tool/rls_smoke.dart

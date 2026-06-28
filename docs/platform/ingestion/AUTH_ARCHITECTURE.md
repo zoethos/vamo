@@ -88,7 +88,7 @@ flowchart LR
 Boundary rules:
 
 - Browser code receives only public Supabase configuration such as
-  `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+  `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Supabase service-role keys, direct Postgres URLs, target credentials, and
   worker credentials are server-only.
 - The admin dashboard never writes directly to the control DB or target DB.
@@ -305,7 +305,7 @@ browser UI should not depend on it.
 
 | Secret or credential | Browser | Host server route | Worker |
 | --- | --- | --- | --- |
-| Supabase public URL / anon key | Allowed | Allowed | Usually not needed |
+| Supabase public URL / publishable key | Allowed | Allowed | Usually not needed |
 | Supabase service-role key | Forbidden | Server-only if required | Server-only if required |
 | `INGESTION_CONTROL_DATABASE_URL` | Forbidden | Allowed | Allowed if task-scoped |
 | Target DB credentials | Forbidden | Usually forbidden | Allowed by shipment adapter |
@@ -323,7 +323,7 @@ prefix.
 - Recheck current Supabase SSR docs and changelog immediately before coding.
 - Add the current SSR package expected by the docs, likely `@supabase/ssr`.
 - Align env examples with the site code:
-  `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+  `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 ### UI-01.1 - Server Auth Helpers
 

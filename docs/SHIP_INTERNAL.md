@@ -13,7 +13,7 @@ melos run test
 melos run analyze
 ```
 
-- [ ] `app/.env` production values (Supabase URL + anon key only — never service role).
+- [ ] `app/.env` production values (Supabase URL + publishable key only — never service role).
 - [ ] `POSTHOG_API_KEY` set for analytics QA ([RUN.md](../RUN.md) Slice 10).
 - [ ] **`dart run tool/rls_smoke.dart` PASS** on cloud ([RLS_QA.md](RLS_QA.md)) — required before any store upload.
 - [ ] RLS QA manual appendix complete if needed ([RLS_QA.md](RLS_QA.md)).
@@ -93,7 +93,7 @@ Each upload increments `+N` by exactly 1; Android/Profile show it as
 - [ ] `main` CI green at the build commit (build_runner + analyze + test).
 - [ ] `dart run tool/rls_smoke.dart` **PASS on cloud** (currently 51/51) — the
       release gate; never upload on a red smoke.
-- [ ] `app/.env` production values (Supabase URL + anon key only — never service role).
+- [ ] `app/.env` production values (Supabase URL + publishable key only — never service role).
 - [ ] Migrations 0001–0018 applied to the cloud project (`supabase migration list`
       shows local == remote).
 

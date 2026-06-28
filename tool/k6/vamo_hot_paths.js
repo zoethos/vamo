@@ -22,7 +22,8 @@ if (baseUrl.includes(knownProdSupabaseRef)) {
       'The k6 script writes trips and expenses; use staging instead.',
   );
 }
-const anonKey = requireEnv('SUPABASE_ANON_KEY');
+const publishableKey =
+  __ENV.SUPABASE_PUBLISHABLE_KEY || requireEnv('SUPABASE_ANON_KEY');
 const userAEmail = __ENV.K6_USER_A_EMAIL || __ENV.RLS_USER_A_EMAIL;
 const userAPassword = __ENV.K6_USER_A_PASSWORD || __ENV.RLS_USER_A_PASSWORD;
 const userBEmail = __ENV.K6_USER_B_EMAIL || __ENV.RLS_USER_B_EMAIL;
@@ -138,7 +139,7 @@ function signIn(email, password) {
     JSON.stringify({ email, password }),
     {
       headers: {
-        apikey: anonKey,
+        apikey: publishableKey,
         'content-type': 'application/json',
       },
       tags: { name: 'auth_password' },
@@ -201,7 +202,7 @@ function tableSelect(token, table, query) {
 
 function authHeaders(token) {
   return {
-    apikey: anonKey,
+    apikey: publishableKey,
     authorization: `Bearer ${token}`,
     'content-type': 'application/json',
   };

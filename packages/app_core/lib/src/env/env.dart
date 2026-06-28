@@ -9,7 +9,8 @@ class Env {
   static Future<void> load() => dotenv.load(fileName: '.env');
 
   static String get supabaseUrl => _require('SUPABASE_URL');
-  static String get supabaseAnonKey => _require('SUPABASE_ANON_KEY');
+  static String get supabasePublishableKey =>
+      _requireAny(['SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ANON_KEY']);
 
   static String get posthogApiKey => _optional('POSTHOG_API_KEY') ?? '';
 
@@ -31,6 +32,18 @@ class Env {
       );
     }
     return value;
+  }
+
+  static String _requireAny(Iterable<String> keys) {
+    for (final key in keys) {
+      final value = _optional(key);
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    throw StateError(
+      'Missing required env var "${keys.first}". Copy .env.example to .env and fill it in.',
+    );
   }
 
   static String? _optional(String key) {

@@ -124,7 +124,7 @@ Commands:
 
 ```powershell
 $env:SUPABASE_URL = "https://<staging-ref>.supabase.co"
-$env:SUPABASE_ANON_KEY = "<staging-anon-key>"
+$env:SUPABASE_PUBLISHABLE_KEY = "<staging-publishable-key>"
 $env:SCENARIO_TARGET_LABEL = "staging"
 $env:SCENARIO_USER_A_EMAIL = "<user-a>"
 $env:SCENARIO_USER_A_PASSWORD = "<password>"
@@ -148,7 +148,7 @@ docker run --rm `
   -e K6_VUS `
   -e K6_DURATION `
   -e SUPABASE_URL `
-  -e SUPABASE_ANON_KEY `
+  -e SUPABASE_PUBLISHABLE_KEY `
   -e RLS_USER_A_EMAIL `
   -e RLS_USER_A_PASSWORD `
   -e RLS_USER_B_EMAIL `

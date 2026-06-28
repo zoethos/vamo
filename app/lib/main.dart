@@ -65,7 +65,7 @@ Future<void> _runVamoApp() async {
   // app.vamo://login-callback; AuthCallbackScreen only waits for signedIn.
   await Supabase.initialize(
     url: Env.supabaseUrl,
-    publishableKey: Env.supabaseAnonKey,
+    publishableKey: Env.supabasePublishableKey,
   );
 
   runApp(

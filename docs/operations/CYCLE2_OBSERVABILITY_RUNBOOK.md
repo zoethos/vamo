@@ -6,7 +6,7 @@ scenario with a light k6 load pass, then tells you what to watch.
 ## Preconditions
 
 - Run against staging/non-prod only.
-- Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` for the target project.
+- Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for the target project.
 - The scripts refuse the known production Supabase ref. There is no production
   override for scenario or load testing.
 - Use dedicated scenario users when possible:

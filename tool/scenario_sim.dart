@@ -5,7 +5,7 @@
 // governance expense, amend FX conversion, and verify balances are readable.
 //
 // Required env:
-//   SUPABASE_URL, SUPABASE_ANON_KEY
+//   SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY
 //   SCENARIO_USER_A_EMAIL / SCENARIO_USER_A_PASSWORD
 //   SCENARIO_USER_B_EMAIL / SCENARIO_USER_B_PASSWORD
 //
@@ -43,7 +43,10 @@ Future<void> main(List<String> args) async {
     );
     exit(2);
   }
-  final anon = _required('SUPABASE_ANON_KEY');
+  final publishableKey = _required(
+    'SUPABASE_PUBLISHABLE_KEY',
+    fallback: 'SUPABASE_ANON_KEY',
+  );
   final aEmail =
       _required('SCENARIO_USER_A_EMAIL', fallback: 'RLS_USER_A_EMAIL');
   final aPass = _required(
@@ -78,14 +81,14 @@ Future<void> main(List<String> args) async {
     clientA = await _step(
       'sign in A',
       checks,
-      () => _signIn(url, anon, aEmail, aPass),
+      () => _signIn(url, publishableKey, aEmail, aPass),
     );
     userA = clientA.auth.currentUser!.id;
 
     clientB = await _step(
       'sign in B',
       checks,
-      () => _signIn(url, anon, bEmail, bPass),
+      () => _signIn(url, publishableKey, bEmail, bPass),
     );
     userB = clientB.auth.currentUser!.id;
 
@@ -266,11 +269,11 @@ Future<T> _step<T>(
 
 Future<SupabaseClient> _signIn(
   String url,
-  String anon,
+  String publishableKey,
   String email,
   String password,
 ) async {
-  final client = SupabaseClient(url, anon);
+  final client = SupabaseClient(url, publishableKey);
   final response = await client.auth.signInWithPassword(
     email: email,
     password: password,
@@ -326,7 +329,7 @@ Usage:
 
 Required env:
   SUPABASE_URL
-  SUPABASE_ANON_KEY
+  SUPABASE_PUBLISHABLE_KEY
   SCENARIO_USER_A_EMAIL / SCENARIO_USER_A_PASSWORD
   SCENARIO_USER_B_EMAIL / SCENARIO_USER_B_PASSWORD
 
