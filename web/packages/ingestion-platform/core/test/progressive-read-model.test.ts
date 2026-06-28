@@ -29,10 +29,16 @@ describe("progressive run dashboard read model", () => {
 
     // Progress, checkpoint, and shipment diff are visible.
     assert.equal(vamo!.rowsRead, 5);
-    assert.equal(vamo!.rowsStaged, 3);
+    assert.equal(vamo!.rowsStaged, 1);
     assert.match(vamo!.checkpoint, /source_row_id=/);
-    assert.match(vamo!.shipmentDiff, /insert/);
+    assert.match(vamo!.shipmentDiff, /2 insert/);
+    assert.deepEqual(vamo!.canaryBounds, {
+      geography: "rome-italy",
+      category: "poi",
+      maxRows: 2
+    });
     assert.ok(vamo!.policyBlocks.length >= 1);
+    assert.ok(vamo!.policyBlocks.some((block) => block.includes("scope_mismatch")));
     assert.ok(vamo!.deadLetters.length >= 1);
     assert.match(vamo!.nextApproval, /staging canary/i);
   });

@@ -266,7 +266,11 @@ export async function runProgressiveDryRun(
     batchSize: scoutBatch,
     fixtureRoot: input.fixtureRoot
   });
-  const scout = buildScoutReport(scoutRun, scoutRun.checkpoint.processedCount);
+  const scopedScout = filterCandidatesByScope(scoutRun.candidates, input.proposal.scope);
+  const scout = buildScoutReport(
+    { ...scoutRun, candidates: scopedScout.inScope },
+    scoutRun.checkpoint.processedCount
+  );
   stages.push({
     stage: "scout",
     status: "passed",
@@ -280,9 +284,10 @@ export async function runProgressiveDryRun(
     batchSize: input.proposal.scope.rowLimit,
     fixtureRoot: input.fixtureRoot
   });
+  const scopedSample = filterCandidatesByScope(sampleRun.candidates, input.proposal.scope);
   const plan = await deps.planDryRun({
     target: input.target,
-    candidates: sampleRun.candidates
+    candidates: scopedSample.inScope
   });
   const shipmentDiff = summarizeShipmentDiff(plan);
   stages.push({
@@ -297,6 +302,11 @@ export async function runProgressiveDryRun(
   const policyBlocks = sampleRun.events
     .filter((event) => event.eventType === "policy_blocked")
     .map((event) => `${event.signal ?? "policy_blocked"}: ${event.message}`);
+  for (const candidate of scopedSample.outOfScope) {
+    policyBlocks.push(
+      `scope_mismatch: ${candidate.recordKey} outside ${input.proposal.scope.geography}/${input.proposal.scope.category}`
+    );
+  }
   const deadLetters = sampleRun.deadLetters.map(
     (deadLetter) => `${deadLetter.reasonCode}: ${deadLetter.reasonMessage}`
   );
@@ -330,7 +340,7 @@ export async function runProgressiveDryRun(
     checkpoint,
     policyBlocks,
     deadLetters,
-    sampleRun
+    { ...sampleRun, candidates: scopedSample.inScope }
   );
 }
 
@@ -422,4 +432,30 @@ function emptyDiff(): ShipmentDiffSummary {
 
 function emptyCheckpoint(): CheckpointReport {
   return { cursorScope: "none", cursorValue: null, lastRecordKey: null, processedCount: 0 };
+}
+
+function filterCandidatesByScope(
+  candidates: StagedCandidate[],
+  scope: ScheduleProposal["scope"]
+): { inScope: StagedCandidate[]; outOfScope: StagedCandidate[] } {
+  const geography = normalizeScopeValue(scope.geography);
+  const category = normalizeScopeValue(scope.category);
+  const inScope: StagedCandidate[] = [];
+  const outOfScope: StagedCandidate[] = [];
+
+  for (const candidate of candidates) {
+    const candidateGeography = normalizeScopeValue(candidate.sourceScope?.geography);
+    const candidateCategory = normalizeScopeValue(candidate.sourceScope?.category);
+    if (candidateGeography === geography && candidateCategory === category) {
+      inScope.push(candidate);
+    } else {
+      outOfScope.push(candidate);
+    }
+  }
+
+  return { inScope, outOfScope };
+}
+
+function normalizeScopeValue(value: string | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
 }

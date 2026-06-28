@@ -177,6 +177,19 @@ For destructive reset, `aal2` alone is not enough because the user may have
 completed MFA hours earlier. The reset flow should force a fresh challenge and
 accept it only within a short server-defined window, for example five minutes.
 
+### Session Lifetime vs. Fresh Step-Up
+
+The normal Supabase Auth session may be configured longer for operator comfort
+(for example, in the host Supabase Auth JWT/session settings), because ordinary
+dashboard reads and low-risk navigation should not force constant re-login.
+That is separate from the **fresh step-up** window used for destructive or
+high-impact actions such as reset and staging-canary approval.
+
+For those actions, the platform keeps a short server-defined freshness window
+and shows a countdown in the admin masthead. When the countdown expires, the
+operator can keep the dashboard session but must refresh MFA before recording a
+new destructive approval.
+
 ## Admin Allowlist
 
 Use a platform-owned table as the P0 source of truth:

@@ -1,5 +1,5 @@
-{"source_row_id":1,"source":{"id":"fsq_colosseum","name":" Colosseum ","latitude":41.8902,"longitude":12.4922},"attribution":"FSQ Open Source Places"}
-{"source_row_id":2,"source":{"id":"fsq_eiffel_tower","name":"Eiffel Tower","latitude":48.8584,"longitude":2.2945},"attribution":"FSQ Open Source Places"}
-{"source_row_id":3,"source":{"id":"fsq_missing_name","latitude":40.6892,"longitude":-74.0445},"attribution":"FSQ Open Source Places"}
-{"source_row_id":4,"source":{"id":"fsq_trevi_media","name":"Trevi Fountain","latitude":41.9009,"longitude":12.4833},"media":{"bytesBase64":"AAAA"},"attribution":"FSQ Open Source Places"}
-{"source_row_id":5,"source":{"id":"fsq_sagrada_familia","name":"Sagrada Familia","latitude":41.4036,"longitude":2.1744},"attribution":"FSQ Open Source Places"}
+{"source_row_id":1,"source":{"id":"fsq_colosseum","name":" Colosseum ","latitude":41.8902,"longitude":12.4922},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":2,"source":{"id":"fsq_eiffel_tower","name":"Eiffel Tower","latitude":48.8584,"longitude":2.2945},"scope":{"geography":"paris-france","category":"poi"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":3,"source":{"id":"fsq_missing_name","latitude":40.6892,"longitude":-74.0445},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":4,"source":{"id":"fsq_trevi_media","name":"Trevi Fountain","latitude":41.9009,"longitude":12.4833},"scope":{"geography":"rome-italy","category":"poi"},"media":{"bytesBase64":"AAAA"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":5,"source":{"id":"fsq_sagrada_familia","name":"Sagrada Familia","latitude":41.4036,"longitude":2.1744},"scope":{"geography":"barcelona-spain","category":"poi"},"attribution":"FSQ Open Source Places"}

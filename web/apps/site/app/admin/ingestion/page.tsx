@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@vamo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
@@ -48,6 +49,8 @@ export default async function IngestionDashboardPage() {
     projectKey: "vamo",
     nextPath: "/admin/ingestion",
   });
+  const serverNowMs = Date.now();
+  const freshStepUpExpiresAt = freshStepUpExpiry(principal.stepUpSatisfiedAt);
 
   const { view, source } = await loadIngestionDashboard("vamo");
   const { view: progressiveView, source: progressiveSource } =
@@ -101,7 +104,11 @@ export default async function IngestionDashboardPage() {
               Ingestion
             </Link>
           </div>
-          <AdminSessionActions principal={principal} />
+          <AdminSessionActions
+            principal={principal}
+            freshStepUpExpiresAt={freshStepUpExpiresAt}
+            serverNowMs={serverNowMs}
+          />
           <DashboardThemeToggle
             defaultTheme="light"
             label="Ingestion dashboard theme"
@@ -414,6 +421,7 @@ export default async function IngestionDashboardPage() {
         {canaryTarget ? (
           <StagingCanaryControl
             targetId={canaryTarget.targetId}
+            bounds={canaryTarget.canaryBounds}
             context={{
               role: principal.role,
               assuranceLevel: principal.assuranceLevel,
@@ -440,4 +448,15 @@ export default async function IngestionDashboardPage() {
       </p>
     </main>
   );
+}
+
+function freshStepUpExpiry(stepUpSatisfiedAt: string | undefined): string | undefined {
+  if (!stepUpSatisfiedAt) {
+    return undefined;
+  }
+  const satisfiedMs = Date.parse(stepUpSatisfiedAt);
+  if (!Number.isFinite(satisfiedMs)) {
+    return undefined;
+  }
+  return new Date(satisfiedMs + STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS).toISOString();
 }

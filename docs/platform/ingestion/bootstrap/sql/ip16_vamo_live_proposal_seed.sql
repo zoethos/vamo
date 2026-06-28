@@ -186,13 +186,13 @@ select
     {
       "stage": "scout",
       "status": "passed",
-      "detail": "Scouted 2 sample rows: 2 staged, 0 dead-lettered, 0 policy-blocked.",
+      "detail": "Scouted 2 sample rows: 1 staged, 0 dead-lettered, 0 policy-blocked.",
       "signal": "scout_sampled"
     },
     {
       "stage": "sample_dry_run",
       "status": "passed",
-      "detail": "Dry-run diff: 4 insert, 0 update, 0 no-op (no target writes).",
+      "detail": "Dry-run diff: 2 insert, 0 update, 0 no-op (no target writes).",
       "signal": "sample_dry_run_diff_ready"
     },
     {
@@ -251,24 +251,24 @@ select
   },
   "scout": {
     "sampleRowCount": 2,
-    "candidateCount": 2,
+    "candidateCount": 1,
     "deadLetterCount": 0,
     "policyBlockCount": 0,
-    "detail": "Scouted 2 sample rows: 2 staged, 0 dead-lettered, 0 policy-blocked."
+    "detail": "Scouted 2 sample rows: 1 staged, 0 dead-lettered, 0 policy-blocked."
   },
   "rowCounts": {
     "read": 3,
-    "staged": 2,
-    "policyBlocked": 0,
+    "staged": 1,
+    "policyBlocked": 1,
     "deadLettered": 2
   },
   "shipmentDiff": {
     "compatible": true,
-    "insert": 4,
+    "insert": 2,
     "update": 0,
     "noOp": 0,
     "delete": 0,
-    "total": 4,
+    "total": 2,
     "incompatibilities": 0
   },
   "checkpoint": {
@@ -277,7 +277,9 @@ select
     "lastRecordKey": "fsq_missing_name",
     "processedCount": 3
   },
-  "policyBlocks": [],
+  "policyBlocks": [
+    "scope_mismatch: fsq_eiffel_tower outside rome-italy/poi"
+  ],
   "deadLetters": [
     "missing_mapped_field: Required mapping source \"source.name\" is missing.",
     "missing_mapped_field: Required mapping source \"source.name\" is missing."

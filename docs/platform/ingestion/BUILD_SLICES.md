@@ -936,9 +936,11 @@ Implementation phases:
 4. **Dashboard approval control**: a Next API route + client control that drives
    the gated promotion. The route resolves the authenticated admin principal and
    a fresh AAL2/MFA step-up (reusing IP-11 `ingestion-admin-auth`), requires a
-   non-empty audit reason, calls the pure policy, and records the decision/audit.
-   The browser never receives DSNs or write credentials, and the control plans
-   the canary; it does not perform the live staging write itself.
+   non-empty audit reason, derives the canary bounds from the reviewed
+   control-plane proposal/report (not browser-entered scope/counts), calls the
+   pure policy, and records the decision/audit. The browser never receives DSNs
+   or write credentials, and the control plans the canary; it does not perform
+   the live staging write itself.
 5. **Live runbook + hard confirmation gate**
    (`scripts/run-ip16-staging-canary.mjs`, `docs/platform/ingestion/STAGING_CANARY_RUNBOOK.md`):
    a server-side CLI that runs the full gated path against a real staging DSN

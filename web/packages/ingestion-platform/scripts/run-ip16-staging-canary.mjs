@@ -165,11 +165,14 @@ async function buildReviewedRun() {
   // The staged candidates an --execute would ship.
   const pipelineRun = await runFixturePipeline({
     pipeline,
-    batchSize: proposal.batchSize,
+    batchSize: proposal.scope.rowLimit,
     fixtureRoot: bundleDir
   });
+  const candidates = pipelineRun.candidates.filter((candidate) =>
+    candidateMatchesScope(candidate, proposal.scope)
+  );
 
-  return { proposal, scorecard, target, report, candidates: pipelineRun.candidates };
+  return { proposal, scorecard, target, report, candidates };
 }
 
 /** Extra operator/host-side staging proof; the adapter also requires the DB
@@ -239,12 +242,12 @@ async function main() {
   const approvalId = process.env.VAMO_STAGING_CANARY_APPROVAL_ID?.trim();
 
   const { proposal, report, target, candidates } = await buildReviewedRun();
+  const write = summarizeWrite({ runReport: report });
   const bounds = {
     geography: proposal.scope.geography,
-    category: proposal.scope.category
+    category: proposal.scope.category,
+    maxRows: write.writeCount
   };
-
-  const write = summarizeWrite({ runReport: report });
 
   console.log("");
   console.log("=== IP-16 First Vamo Staging Canary (runbook) ===");
@@ -262,6 +265,7 @@ async function main() {
   bullet("safety -> shipment", "staging_write -> approved_write");
   bullet("geography", bounds.geography);
   bullet("category", bounds.category);
+  bullet("reviewed write bound", String(bounds.maxRows));
   bullet("insert/update/no-op", `${write.insert} / ${write.update} / ${write.noOp}`);
   bullet("write count", String(write.writeCount));
   bullet("candidates staged", String(candidates.length));
@@ -342,7 +346,7 @@ async function main() {
     target,
     candidates,
     proveStaging: makeProveStaging(stagingDsn),
-    maxRows: 50,
+    maxRows: write.writeCount,
     expectedWrite: { insert: write.insert, update: write.update }
   });
 
@@ -470,6 +474,7 @@ function assertApprovalMatchesReviewedRun(approval, { report, bounds, write }) {
   compare(mismatches, "shipmentMode", plan.shipmentMode, "approved_write");
   compare(mismatches, "bounds.geography", plan.bounds?.geography, bounds.geography);
   compare(mismatches, "bounds.category", plan.bounds?.category, bounds.category);
+  compare(mismatches, "bounds.maxRows", plan.bounds?.maxRows, bounds.maxRows);
   compare(mismatches, "write.insert", plan.write?.insert, write.insert);
   compare(mismatches, "write.update", plan.write?.update, write.update);
   compare(mismatches, "write.noOp", plan.write?.noOp, write.noOp);
@@ -486,4 +491,15 @@ function compare(mismatches, label, actual, expected) {
   if (actual !== expected) {
     mismatches.push(`${label} expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`);
   }
+}
+
+function candidateMatchesScope(candidate, scope) {
+  return (
+    normalizeScope(candidate.sourceScope?.geography) === normalizeScope(scope.geography) &&
+    normalizeScope(candidate.sourceScope?.category) === normalizeScope(scope.category)
+  );
+}
+
+function normalizeScope(value) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }

@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   evaluateStagingCanaryPromotion,
-  type EvaluateStagingCanaryPromotionResult,
-  type StagingCanaryBounds
+  type EvaluateStagingCanaryPromotionResult
 } from "@vamo/ingestion-platform/core";
 import { loadProgressiveRunSnapshot } from "@vamo/ingestion-platform/progressive-control-read";
 import { recordStagingCanaryApproval } from "@vamo/ingestion-platform/staging-canary-control";
@@ -73,6 +72,13 @@ export async function POST(request: NextRequest) {
   // dashboard approval, the recorded plan, and the live CLI all key off the
   // same targetId (the lookup above accepts either the scorecard or report id).
   const reportTargetId = entry.report.targetId;
+  const reviewedBounds = entry.canaryBounds;
+  if (!reviewedBounds) {
+    return NextResponse.json(
+      { ok: false, error: "Reviewed canary bounds are not available for this target." },
+      { status: 409 }
+    );
+  }
 
   const decision: EvaluateStagingCanaryPromotionResult = evaluateStagingCanaryPromotion({
     runReport: entry.report,
@@ -84,7 +90,10 @@ export async function POST(request: NextRequest) {
       principal: auth.principal,
       auditReason: parsed.auditReason
     },
-    bounds: parsed.bounds
+    // Bounds are derived from the reviewed proposal/run report in the control
+    // plane. Browser-supplied geography/category/maxRows are intentionally not
+    // trusted because they can loosen the approved canary scope.
+    bounds: reviewedBounds
   });
 
   let auditId: string | null = null;
@@ -141,7 +150,7 @@ async function readJsonBody(
 function parseRequest(
   value: unknown
 ):
-  | { ok: true; projectKey: string; targetId: string; auditReason: string; bounds: StagingCanaryBounds }
+  | { ok: true; projectKey: string; targetId: string; auditReason: string }
   | { ok: false; error: string } {
   if (!isRecord(value)) {
     return { ok: false, error: "Request body must be a JSON object." };
@@ -157,30 +166,16 @@ function parseRequest(
     return { ok: false, error: "A non-empty auditReason is required." };
   }
 
-  const boundsValue = isRecord(value.bounds) ? value.bounds : undefined;
-  const geography = boundsValue ? readString(boundsValue.geography) : undefined;
-  const category = boundsValue ? readString(boundsValue.category) : undefined;
-  if (!geography || !category) {
-    return { ok: false, error: "bounds.geography and bounds.category are required." };
-  }
-
-  const maxRows = boundsValue ? readPositiveInt(boundsValue.maxRows) : undefined;
-
   return {
     ok: true,
     projectKey: readString(value.projectKey) ?? "vamo",
     targetId,
-    auditReason,
-    bounds: { geography, category, ...(maxRows !== undefined ? { maxRows } : {}) }
+    auditReason
   };
 }
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function readPositiveInt(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

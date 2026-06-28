@@ -25,6 +25,42 @@ proves a different trust boundary.
 | 7 | CLI dry preview | `../STAGING_CANARY_RUNBOOK.md` | Confluendo operator | No target writes |
 | 8 | Live staging canary | `../STAGING_CANARY_RUNBOOK.md` | Confluendo operator | Vamo staging only |
 
+## Phase 2 Grant Checklist
+
+After applying `control_schema.sql`, run
+`../../../../web/packages/ingestion-platform/core/sql/control_bootstrap_confluendo.sql`
+as the Confluendo control DB owner. That bootstrap must grant the runtime role
+(`confluendo_app`) both read access for the dashboard and the narrow control
+ledger writes used by IP-16:
+
+```sql
+grant usage on schema ingestion_platform to confluendo_app;
+grant select on all tables in schema ingestion_platform to confluendo_app;
+
+grant insert, update on ingestion_platform.ingestion_targets to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_shipments to confluendo_app;
+grant insert, delete on ingestion_platform.ingestion_shipment_items to confluendo_app;
+
+grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
+grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
+```
+
+These are Confluendo **control-plane** grants only. They do not grant
+Confluendo any write access to Vamo production, and they do not replace the
+separate Vamo staging `vamo_canary_app` role used for the bounded target write.
+
+Verify the shipment-ledger grants before running a live canary:
+
+```sql
+select
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_targets', 'SELECT, INSERT, UPDATE') as can_upsert_targets,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipments', 'SELECT, INSERT, UPDATE') as can_upsert_shipments,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipment_items', 'SELECT, INSERT, DELETE') as can_replace_shipment_items,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_audit_log', 'SELECT, INSERT') as can_record_audit;
+```
+
+Expected: all four values are `true`.
+
 ## Guardrails
 
 - Never run a Vamo staging canary before phases 1-7 are green.
