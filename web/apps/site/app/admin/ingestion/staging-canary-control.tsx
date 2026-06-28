@@ -48,6 +48,9 @@ const blockLabels: Record<string, string> = {
   nothing_to_ship: "The reviewed diff has nothing to ship."
 };
 
+const freshStepUpHref =
+  "/admin/mfa/challenge?reason=fresh_step_up_required&next=%2Fadmin%2Fingestion";
+
 export function StagingCanaryControl({
   targetId,
   context,
@@ -103,7 +106,12 @@ export function StagingCanaryControl({
         return;
       }
       if (payload.decision === "blocked" && Array.isArray(payload.blocks)) {
-        setDecision({ state: "blocked", blocks: payload.blocks.map((block) => block.code) });
+        const blocks = payload.blocks.map((block) => block.code);
+        if (blocks.includes("fresh_step_up_required")) {
+          window.location.assign(freshStepUpHref);
+          return;
+        }
+        setDecision({ state: "blocked", blocks });
         return;
       }
       setDecision({ state: "error", message: payload.error ?? "The promotion was refused." });
@@ -218,6 +226,11 @@ function DecisionView({ decision }: { decision: Decision }) {
             <li key={code}>{blockLabels[code] ?? code}</li>
           ))}
         </ul>
+        {decision.blocks.includes("fresh_step_up_required") ? (
+          <a className="admin-command admin-command-neutral admin-inline-action" href={freshStepUpHref}>
+            Refresh MFA step-up
+          </a>
+        ) : null}
       </div>
     );
   }

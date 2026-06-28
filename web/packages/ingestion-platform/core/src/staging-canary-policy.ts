@@ -19,7 +19,10 @@
  *   boundary. This module decides; it never writes.
  */
 
-import type { AdminPrincipal } from "./admin-auth.js";
+import {
+  ADMIN_FRESH_STEP_UP_WINDOW_MS,
+  type AdminPrincipal
+} from "./admin-auth.js";
 import type { ProgressiveRunReport } from "./progressive-run.js";
 import type { ApprovalRequirement, SafetyMode } from "./schedule-proposal.js";
 
@@ -27,7 +30,7 @@ import type { ApprovalRequirement, SafetyMode } from "./schedule-proposal.js";
 export const STAGING_CANARY_MAX_ROWS = 50;
 
 /** A fresh MFA step-up must be at most this old (mirrors IP-11 admin-auth). */
-export const STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS = 5 * 60 * 1000;
+export const STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS = ADMIN_FRESH_STEP_UP_WINDOW_MS;
 
 /**
  * A recorded dashboard approval must be consumed by the live runbook within this
