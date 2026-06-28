@@ -41,6 +41,14 @@ grant usage on schema ingestion_platform to confluendo_app;
 
 grant select on all tables in schema ingestion_platform to confluendo_app;
 
+-- Staging-canary approval is recorded in ingestion_audit_log, then the live
+-- runbook records the shipment ledger after the Vamo staging target commit.
+-- Keep this scoped to the control-plane ledger tables; consumer target writes
+-- use the separate vamo_canary_app role in the Vamo staging database.
+grant insert, update on ingestion_platform.ingestion_targets to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_shipments to confluendo_app;
+grant insert, delete on ingestion_platform.ingestion_shipment_items to confluendo_app;
+
 grant update (
   status,
   error_code,
@@ -56,7 +64,7 @@ grant update (
 ) on ingestion_platform.ingestion_worker_leases to confluendo_app;
 
 grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
-grant usage, select on sequence ingestion_platform.ingestion_audit_log_id_seq to confluendo_app;
+grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;
 
