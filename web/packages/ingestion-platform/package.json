@@ -8,6 +8,7 @@
     "./adapters/target": "./dist/adapters/target/src/index.js",
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
     "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
+    "./adapters/target/staging-canary": "./dist/adapters/target/src/postgres-staging-canary.js",
     "./core": "./dist/core/src/index.js",
     "./control-api": {
       "types": "./dist/core/src/control-command-api.d.ts",
@@ -33,6 +34,10 @@
       "types": "./dist/core/src/progressive-control-read.d.ts",
       "default": "./dist/core/src/progressive-control-read.js"
     },
+    "./staging-canary-control": {
+      "types": "./dist/core/src/staging-canary-control.d.ts",
+      "default": "./dist/core/src/staging-canary-control.js"
+    },
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
     "./package.json": "./package.json"
@@ -42,6 +47,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "import:contract": "npm run build && node scripts/import-consumer-contract.mjs",
     "ip14:dry-run": "npm run build && node scripts/run-ip14-dry-run.mjs",
+    "ip16:staging-canary": "npm run build && node scripts/run-ip16-staging-canary.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

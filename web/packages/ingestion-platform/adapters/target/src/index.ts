@@ -9,6 +9,18 @@ export {
   type SupabasePostgresDryRunResult
 } from "./supabase-postgres.js";
 export {
+  applyPostgresStagingCanary,
+  rollbackPostgresStagingCanary,
+  type AppliedCanaryItem,
+  type ApplyPostgresStagingCanaryInput,
+  type ApplyPostgresStagingCanaryResult,
+  type ExpectedCanaryWrite,
+  type RollbackPostgresStagingCanaryInput,
+  type RollbackPostgresStagingCanaryResult,
+  type StagingCanaryBlockCode,
+  type StagingCanaryCounts
+} from "./postgres-staging-canary.js";
+export {
   evaluateSupabaseTargetSpecSecurity,
   hasBlockingSupabaseSecurityFindings,
   inspectSupabaseTargetSecurity,

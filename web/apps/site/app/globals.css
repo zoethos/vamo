@@ -1258,6 +1258,79 @@ a:hover {
   margin: 0 0 0.25rem;
 }
 
+.admin-canary-control {
+  margin: 1rem 0 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 14px;
+  background: rgba(42, 46, 58, 0.03);
+}
+
+.admin-canary-control h3 {
+  margin: 0.25rem 0 0.4rem;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.admin-canary-note {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: rgba(42, 46, 58, 0.66);
+}
+
+.admin-canary-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.6fr;
+  gap: 0.75rem;
+}
+
+.admin-canary-fields label,
+.admin-canary-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: rgba(42, 46, 58, 0.78);
+}
+
+.admin-canary-reason {
+  margin: 0.75rem 0 0.85rem;
+}
+
+.admin-canary-fields input,
+.admin-canary-reason textarea {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(42, 46, 58, 0.18);
+  border-radius: 9px;
+  font: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+
+.admin-canary-disabled {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(176, 58, 46, 0.9);
+}
+
+.admin-console[data-theme="dark"] .admin-canary-control {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-console[data-theme="dark"] .admin-canary-note,
+.admin-console[data-theme="dark"] .admin-canary-fields label,
+.admin-console[data-theme="dark"] .admin-canary-reason {
+  color: rgba(233, 236, 245, 0.7);
+}
+
+.admin-console[data-theme="dark"] .admin-canary-fields input,
+.admin-console[data-theme="dark"] .admin-canary-reason textarea {
+  background: rgba(20, 23, 33, 0.85);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #e9ecf5;
+}
+
 .admin-instance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

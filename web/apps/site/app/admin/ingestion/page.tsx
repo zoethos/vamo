@@ -15,6 +15,7 @@ import {
   RecoveryCommandButton,
   TargetCommandButton,
 } from "./ingestion-command-controls";
+import { StagingCanaryControl } from "./staging-canary-control";
 
 export const metadata: Metadata = {
   title: "Ingestion control · Confluendo",
@@ -68,6 +69,9 @@ export default async function IngestionDashboardPage() {
   const selectedTarget =
     ingestionTargets.find((target) => target.status === "blocked") ??
     ingestionTargets[0];
+  const canaryTarget = progressiveRows.find(
+    (row) => row.workStatus === "review_required",
+  );
   const commandContext = {
     role: principal.role,
     assuranceLevel: principal.assuranceLevel,
@@ -406,6 +410,16 @@ export default async function IngestionDashboardPage() {
               {progressiveRows[0].aiSummary}
             </p>
           </div>
+        ) : null}
+        {canaryTarget ? (
+          <StagingCanaryControl
+            targetId={canaryTarget.targetId}
+            context={{
+              role: principal.role,
+              assuranceLevel: principal.assuranceLevel,
+              source: progressiveSource,
+            }}
+          />
         ) : null}
       </section>
 

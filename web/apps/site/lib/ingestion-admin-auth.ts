@@ -167,6 +167,43 @@ export async function authorizeIngestionCommandRequest(input: {
   };
 }
 
+export async function authorizeStagingCanaryRequest(input: {
+  request: NextRequest;
+  projectKey: string;
+}): Promise<
+  | {
+      ok: true;
+      principal: AdminPrincipal;
+      actor: { type: "operator"; id: string };
+      auditContext: Record<string, unknown>;
+    }
+  | { ok: false; status: number; body: { ok: false; error: string; code: string } }
+> {
+  const csrf = requireSameOriginJsonMutation(input.request);
+  if (!csrf.ok) {
+    return csrf;
+  }
+
+  const resolution = await getIngestionAdminPrincipal(input.projectKey);
+  if (!resolution.ok) {
+    return adminJsonFailure(resolution.code);
+  }
+
+  // Authentication + allowlist are enforced here. The canary-specific gate
+  // (admin role, AAL2, fresh step-up, non-empty audit reason, bounds) is the
+  // authoritative decision of the pure staging-canary policy, so callers can
+  // surface its block codes inline rather than as a hard auth failure.
+  return {
+    ok: true,
+    principal: resolution.principal,
+    actor: {
+      type: "operator",
+      id: `supabase:${resolution.principal.userId}`
+    },
+    auditContext: adminPrincipalAuditContext(resolution.principal)
+  };
+}
+
 export function adminAccessRedirectPath(
   code: IngestionAdminFailureCode,
   nextPath: string
