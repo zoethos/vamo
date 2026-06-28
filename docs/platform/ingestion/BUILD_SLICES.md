@@ -631,7 +631,7 @@ Dashboard requirement:
 
 ## Slice IP-13 - DB-Backed CI Smoke For Control SQL
 
-Status: done when CI is green.
+Status: done.
 
 Goal: make the SQL-backed control-plane read/write path run in CI against a
 real Postgres service instead of relying only on mock clients.
@@ -652,8 +652,8 @@ Acceptance criteria:
 
 ## Slice IP-14 - First Vamo Progressive Dry Run
 
-Status: implementation complete, pending PR/CI. Local-only on
-`feature/ip-14-vamo-progressive-dry-run`; not yet merged or run through CI.
+Status: done. Merged to `main` via PR #95 with CI green (build/test, DB-backed
+control smoke, secret and dependency scans).
 
 Goal: a bounded, observable, dry-run-only Vamo ingestion selected through the
 target scorecard and visible in the dashboard, with production and staging
@@ -730,13 +730,121 @@ Validation (local, all green):
 
 Remaining follow-ups:
 
-- Open the PR and get CI green (DB-backed smoke included).
 - Optionally produce a real `ingestion_schedule_proposals` row in the control DB
   so the dashboard shows live progressive work instead of the sample.
 - Add a scheduling mutation endpoint (operator-driven proposal/schedule writes).
 - Add the staging-canary slice that implements the `review_required` ->
   `staging_write` promotion with the approval gate above.
-- Prepare the IP-15 repo split only after IP-14 lands.
+- Prepare the Confluendo repo split (IP-15 below), now that IP-14 has landed.
+
+## Slice IP-15 - Confluendo Repo Split Prep
+
+Status: next (IP-14 merged).
+
+Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
+repo, while making Vamo an importing consumer instead of the platform host.
+
+IP-14 has landed and proves the real boundary:
+
+```text
+Vamo contract -> Confluendo import -> schedule/preflight -> dry-run -> dashboard review
+```
+
+Extracting before that would have risked moving scaffolding. Extracting after
+staging or production writes risks letting Vamo-specific operational shortcuts
+leak deeper into platform code, so do the split prep before the staging-canary
+slice.
+
+Architecture decision: provider repo plus consumer contracts. Confluendo owns
+platform code, docs, auth templates, control SQL, worker runtime, adapters, and
+admin surfaces. Vamo owns only its consumer contract, target credentials, product
+schema, and integration notes.
+
+Target Confluendo tree:
+
+```text
+confluendo/
+  apps/
+    console/
+    control-api/
+    worker/
+  packages/
+    core/
+    spec/
+    policy/
+    adapters/
+      source/
+      target/
+      transform/
+    admin-ui/
+    telemetry/
+  examples/
+    consumers/
+      vamo-place-intelligence/
+  docs/
+    architecture/
+    operations/
+    auth/
+  sql/
+    control_schema.sql
+    bootstrap_template.sql
+```
+
+Target Vamo tree:
+
+```text
+vamo/
+  contracts/
+    ingestion/
+      vamo-place-intelligence/
+        manifest.yaml
+        pipeline.yaml
+        target.yaml
+        fixtures/
+  docs/
+    ingestion/
+      vamo-confluendo-integration.md
+  app/
+  packages/
+  supabase/
+```
+
+Allowed dependency direction:
+
+- Vamo may depend on Confluendo packages, CLI, hosted APIs, embedded admin UI,
+  and contract schemas.
+- Confluendo must not depend on Vamo app code, Flutter packages, Vamo web
+  routes, Vamo Supabase edge functions, or Vamo migrations.
+- Confluendo may carry Vamo only as an example/imported consumer fixture with
+  pinned provenance.
+
+Split-prep tasks:
+
+- Rename package identity from `@vamo/ingestion-platform` to a Confluendo-owned
+  namespace.
+- Move Vamo-specific imported fixtures into `examples/consumers/` or an explicit
+  test fixture namespace.
+- Convert `control_bootstrap_confluendo.sql` into a platform bootstrap template
+  plus a Vamo example seed.
+- Replace hard-coded `projectKey = "vamo"` defaults in platform-facing APIs with
+  host-provided configuration.
+- Keep Vamo-specific cache metrics in the Vamo host adapter, not platform core.
+- Separate Confluendo auth/domain templates from Vamo auth/email templates.
+- Ensure CI can run platform tests, site/console build, and disposable Postgres
+  smoke without the Vamo repo.
+- Define the Vamo import path: git path, package artifact, tarball, or CLI
+  import command.
+
+Acceptance criteria:
+
+- A clean dependency scan shows no platform imports from Vamo runtime modules.
+- The platform package, docs, and SQL are branded Confluendo, not Vamo.
+- Vamo's contract bundle remains consumer-owned and can be imported into the
+  platform from outside the platform repo.
+- Vamo can still run its customer-zero dashboard/integration against the
+  extracted Confluendo package/API.
+- The new repo can run the ingestion-platform test suite with disposable
+  Postgres.
 
 ## What Not To Build Yet
 
@@ -745,17 +853,19 @@ Remaining follow-ups:
 - No production target writes.
 - No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
-- No standalone repo split until the spec/core/adapter boundaries are proven.
+- No standalone repo split until IP-15 split prep is complete (IP-14 has proven
+  the dry-run loop).
 
 ## Recommended Immediate Next Slice
 
-**IP-14 - First Vamo Progressive Dry Run** is implementation complete locally
-and is pending PR/CI (see the IP-14 slice above). Land it first:
+**IP-14 - First Vamo Progressive Dry Run** has merged to `main` (PR #95, CI
+green). The dry-run loop is proven end to end: Vamo contract -> Confluendo
+import -> target scorecard -> preflight -> scout -> sample dry-run -> dashboard
+review, with staging and production writes still disabled.
 
-- Open the PR and get CI green, including the DB-backed control smoke.
-
-After IP-14 lands, the next value step is the **staging-canary slice**: the
-operator-driven promotion from `review_required` to `staging_write`, gated by an
-`ingestion_admin` MFA step-up and an audit reason. A scheduling mutation
-endpoint (writing real `ingestion_schedule_proposals` rows) is the supporting
-piece. The IP-15 repo split prep should follow only after IP-14 has merged.
+Next, run **IP-15 - Confluendo Repo Split Prep** (slice above) before any broad
+staging canary or production shipment. The follow-on **staging-canary slice**
+then adds the operator-driven promotion from `review_required` to
+`staging_write`, gated by an `ingestion_admin` MFA step-up and an audit reason,
+with a scheduling mutation endpoint (writing real `ingestion_schedule_proposals`
+rows) as the supporting piece.
