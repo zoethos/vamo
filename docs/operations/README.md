@@ -12,6 +12,7 @@ Launch, disaster-recovery, and observability runbooks live here.
 | `OBSERVABILITY.md` | Error handling, Crashlytics/PostHog posture, and no-swallow rules. |
 | `CYCLE2_OBSERVABILITY_RUNBOOK.md` | Cycle 2 scenario/k6/observability runbook. |
 | `MIGRATION_PROMOTION_POLICY.md` | Mandatory staging -> production migration governance and agent checkpoint. |
+| `PLACE_INTELLIGENCE_CACHE_PROMOTION.md` | Exact staging -> production checklist for the place-intelligence cache migration. |
 
 Operational documents are execution checklists. Keep them current with the
 actual staging/prod project shape.
