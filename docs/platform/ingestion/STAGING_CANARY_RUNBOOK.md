@@ -10,6 +10,11 @@ checklist.
 > policy can reject it, while durable target/shipment write modes and the target
 > adapter permit only an approved staging canary.
 
+For full instance bootstrap and disaster-recovery sequencing, start with the
+Confluendo bootstrap docs in the platform tree. This runbook assumes the
+Confluendo control DB, Vamo proposal seed, Vamo target schema, staging sentinel,
+and `vamo_canary_app` role have already been provisioned in that order.
+
 ## Preconditions
 
 1. The target is at `review_required` with a **compatible** shipment diff and
@@ -19,41 +24,128 @@ checklist.
    with a verified AAL2 MFA factor, a fresh step-up, and a non-empty audit
    reason. See the staging-canary control on `/admin/ingestion`.
 3. You have a **staging** Postgres DSN. Never a production DSN.
-4. The target database has a positive sentinel:
-   `ingestion.environment = 'staging'`. Absence of this setting blocks the
+4. The target database has a positive sentinel row:
+   `confluendo_guard.environment_sentinel` with `key='environment'` and
+   `value='staging'`. Absence of the row, table, or SELECT privilege blocks the
    write. See **Provisioning the staging sentinel** below.
 5. You have an explicit green light to perform a live staging write.
 
 ## Provisioning the staging sentinel (DBA, out-of-band)
 
-The adapter's "prove staging" check reads a database-level setting and fails
-closed if it is missing. This setting is the durable proof that a connection is
-actually a staging database; it must be provisioned **out-of-band by a DBA or
-operator on the Vamo staging database only**, never by ingestion code.
+The adapter's "prove staging" check reads a **DBA-provisioned table row** and
+fails closed if it is missing. This row is the durable proof that a connection
+is actually a staging database; it must be provisioned **out-of-band by a DBA
+or operator on the Vamo staging database only**, never by ingestion code.
 
-Run once, against the **Vamo staging** database, as a DBA:
+> Why a table and not a GUC? Supabase rejects `ALTER DATABASE ... SET <custom>`
+> parameters, so the previous `current_setting('ingestion.environment')`
+> approach is no longer usable. The sentinel is a row instead.
+
+The adapter reads exactly:
 
 ```sql
-ALTER DATABASE <vamo_staging_db_name> SET ingestion.environment = 'staging';
+select value from confluendo_guard.environment_sentinel
+where key = 'environment' limit 1;
 ```
 
-New sessions then report `current_setting('ingestion.environment') = 'staging'`,
-which is what the adapter requires before it will write.
+and writes only if `value = 'staging'`.
 
 Rules — these are load-bearing for the whole staging guarantee:
 
-- **Ingestion code must never set this sentinel.** The platform must not run
-  `SET ingestion.environment = …`, `set_config('ingestion.environment', …)`, or
-  any session/transaction-scoped assignment. If the code under test could set
-  its own proof, the proof would be self-asserted and worthless. The adapter
-  only ever *reads* `current_setting('ingestion.environment')`.
-- **Production must never carry this sentinel set to `staging`.** Do not run the
-  `ALTER DATABASE … SET ingestion.environment = 'staging'` statement on a
-  production (or production-like) database. A production database must have the
-  setting unset (or set to a non-`staging` value), so the adapter fails closed
-  there even if a wrong DSN is supplied by mistake.
-- The setting is database-scoped and persists across sessions; verify with
-  `SHOW ingestion.environment;` on a fresh staging session before a canary.
+- **Ingestion code must never write this sentinel.** The platform never runs
+  `insert`/`update`/`alter` against `confluendo_guard.environment_sentinel`; the
+  `vamo_canary_app` role is granted `SELECT` only on it. If the code under test
+  could set its own proof, the proof would be self-asserted and worthless. The
+  adapter only ever *reads* the row.
+- **Production must never carry this sentinel.** Do not create
+  `confluendo_guard.environment_sentinel` (or do not set its value to `staging`)
+  on a production or production-like database. With the table/row absent, a
+  non-`staging` value, or no SELECT grant, the adapter fails closed.
+- Verify with the read query above on a fresh staging session before a canary.
+
+## Vamo staging DBA SQL (out-of-band, staging only)
+
+Run the following **on the Vamo staging database only**, as the DBA/owner. The
+steps are idempotent. Do not run any of this against production.
+
+**a. Create the staging sentinel table and row:**
+
+```sql
+create schema if not exists confluendo_guard;
+
+create table if not exists confluendo_guard.environment_sentinel (
+  key text primary key,
+  value text not null
+);
+
+insert into confluendo_guard.environment_sentinel (key, value)
+values ('environment', 'staging')
+on conflict (key) do update set value = excluded.value;
+```
+
+**b. Create or alter the least-privilege canary role.** This is a staging-only
+login role for the canary DSN, with no `BYPASSRLS`, no superuser, and no delete
+power:
+
+```sql
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'vamo_canary_app') then
+    create role vamo_canary_app login password '<set-strong-password>'
+      nosuperuser nocreatedb nocreaterole noinherit nobypassrls;
+  else
+    alter role vamo_canary_app
+      nosuperuser nocreatedb nocreaterole noinherit nobypassrls;
+  end if;
+end $$;
+
+grant usage on schema confluendo_guard, public to vamo_canary_app;
+grant select on confluendo_guard.environment_sentinel to vamo_canary_app;
+grant select, insert, update on public.location_canonicals to vamo_canary_app;
+grant select, insert, update on public.location_source_refs to vamo_canary_app;
+-- Deliberately NO grant of delete, truncate, table ownership, or bypassrls.
+```
+
+**c. Add role-scoped RLS policies for SELECT/INSERT/UPDATE** on the two cache
+tables. RLS is already enabled by the migration; add no DELETE policy:
+
+```sql
+create policy vamo_canary_select on public.location_canonicals
+  for select to vamo_canary_app using (true);
+create policy vamo_canary_insert on public.location_canonicals
+  for insert to vamo_canary_app with check (true);
+create policy vamo_canary_update on public.location_canonicals
+  for update to vamo_canary_app using (true) with check (true);
+
+create policy vamo_canary_select on public.location_source_refs
+  for select to vamo_canary_app using (true);
+create policy vamo_canary_insert on public.location_source_refs
+  for insert to vamo_canary_app with check (true);
+create policy vamo_canary_update on public.location_source_refs
+  for update to vamo_canary_app using (true) with check (true);
+```
+
+**d. Confirm the guardrails:**
+
+```sql
+select table_schema, table_name, privilege_type
+from information_schema.role_table_grants
+where grantee = 'vamo_canary_app'
+order by table_schema, table_name, privilege_type;
+
+select rolname, rolsuper, rolbypassrls
+from pg_roles
+where rolname = 'vamo_canary_app';
+```
+
+Expected: `vamo_canary_app` has SELECT/INSERT/UPDATE on the two cache tables,
+SELECT only on the sentinel, no DELETE, `rolsuper = false`, and
+`rolbypassrls = false`.
+
+> Because the canary role has no `DELETE`, programmatic rollback of inserted
+> rows cannot run under `vamo_canary_app`. Rollback of updates can still restore
+> prior values. Insert rollback requires a separately authorized owner/operator
+> action using the Confluendo shipment ledger.
 
 ## Dry preview (safe, CI-runnable)
 
@@ -107,9 +199,11 @@ Gates enforced, in order:
    One recorded approval ships at most once; record a fresh approval for another
    run.
 9. The target adapter independently **proves staging**: it refuses unless the
-   target DB reports `current_setting('ingestion.environment') = 'staging'`.
-   The CLI also refuses if the operator environment is not `staging` or if the
-   DSN matches the production host pattern (`VAMO_PRODUCTION_HOST_PATTERN`,
+   target DB returns `value='staging'` from
+   `confluendo_guard.environment_sentinel` where `key='environment'`. A missing
+   schema/table/row, a non-`staging` value, or a role lacking SELECT all fail
+   closed. The CLI also refuses if the operator environment is not `staging` or
+   if the DSN matches the production host pattern (`VAMO_PRODUCTION_HOST_PATTERN`,
    default `prod`).
 
 The write is bounded (`maxRows` 50 by default), idempotent (re-running is a
