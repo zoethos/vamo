@@ -848,7 +848,12 @@ Acceptance criteria:
 
 ## Slice IP-16 - First Vamo Staging Canary
 
-Status: design spec documented; execution path not yet implemented.
+Status: in progress. Implements the real gated staging-canary path (pure
+approval policy, adapter shipment apply/rollback, dashboard approval control,
+and a confirmation-gated runbook/CLI). The actual live write into Vamo staging
+is deliberately deferred: it is manual, separately approved, and requires an
+explicit `CONFIRM_VAMO_STAGING_CANARY=YES` confirmation. CI/tests never need
+live Vamo staging credentials.
 
 Goal: promote exactly one reviewed dry run (a target at `review_required` with a
 compatible diff and `wroteToTarget === false`) to a tiny, bounded, reversible
@@ -900,6 +905,83 @@ Guardrails (carried from IP-14, unchanged):
   advisory per `TARGET_SELECTION_AND_SCHEDULING.md` §3).
 - No service-role secrets, DSNs, or write credentials in browser code.
 - No Vamo runtime coupling in platform core.
+
+Implementation phases:
+
+1. **Docs/spec** (this section + `STAGING_CANARY.md`). Docs-only commit.
+2. **Pure approval policy** (`core/src/staging-canary-policy.ts`): evaluate the
+   `review_required -> staging_write` promotion. Inputs are the latest
+   `ProgressiveRunReport`, the resolved approval context (role, MFA/AAL2
+   freshness, audit reason), the requested transition, the canary bounds, and
+   the resolved target environment. Output is a structured decision: either an
+   accepted, bounded `StagingCanaryPlan` (shipment intent, idempotency keys,
+   rollback plan) or ordered blocking reasons. Dependency-free and
+   deterministic; no DB, no network, browser-safe.
+3. **Shipment apply path** (`adapters/target/src/postgres-staging-canary.ts`):
+   extend the proven dry-run planner with a transactional, idempotent
+   apply/rollback. It first proves a staging connection (injected guard), then
+   re-plans the diff, refuses to write if the diff drifted from review or the
+   plan exceeds bounds or contains `delete`, applies bounded upserts in one
+   transaction, captures prior row state for reversibility, and records shipment
+   items. Tested only against a fake `PgClientLike` and disposable Postgres
+   (`INGESTION_TEST_DATABASE_URL`); never live Vamo staging.
+4. **Dashboard approval control**: a Next API route + client control that drives
+   the gated promotion. The route resolves the authenticated admin principal and
+   a fresh AAL2/MFA step-up (reusing IP-11 `ingestion-admin-auth`), requires a
+   non-empty audit reason, calls the pure policy, and records the decision/audit.
+   The browser never receives DSNs or write credentials, and the control plans
+   the canary; it does not perform the live staging write itself.
+5. **Live runbook + hard confirmation gate**
+   (`scripts/run-ip16-staging-canary.mjs`, `docs/platform/ingestion/STAGING_CANARY_RUNBOOK.md`):
+   a server-side CLI that runs the full gated path against a real staging DSN
+   only when `CONFIRM_VAMO_STAGING_CANARY=YES` (or equivalent explicit manual
+   confirmation) is set, the safety mode maps to a staging `approved_write`, and
+   the environment is proven staging. Absent the confirmation it hard-fails and
+   writes nothing. The runbook documents the manual, separately-approved live
+   procedure and the rollback command.
+6. **No live Vamo staging write** is executed in this slice. The live canary
+   waits for an explicit operator green light.
+
+Files (planned):
+
+- `web/packages/ingestion-platform/core/src/staging-canary-policy.ts` + tests.
+- `web/packages/ingestion-platform/adapters/target/src/postgres-staging-canary.ts`
+  + tests (fake client + disposable Postgres).
+- `web/packages/ingestion-platform/scripts/run-ip16-staging-canary.mjs` +
+  `ip16:staging-canary` npm script.
+- `web/apps/site/app/api/admin/ingestion/staging-canary/route.ts` and a client
+  approval control under `web/apps/site/app/admin/ingestion/`.
+- `docs/platform/ingestion/STAGING_CANARY_RUNBOOK.md`.
+
+Acceptance criteria:
+
+- The pure policy accepts a promotion only when the run reached review with a
+  compatible diff and `wroteToTarget === false`, the principal is
+  `ingestion_admin` with a fresh MFA/AAL2 step-up and a non-empty audit reason,
+  the transition is explicitly `review_required -> staging_write`, the bounds
+  hold (row count under the cap, one geography, one category, no `delete`,
+  upsert keys present), and the resolved environment is `staging`. Every other
+  case returns ordered blocking reasons and no plan.
+- The adapter apply path writes only inside a transaction, is idempotent on
+  re-run (no duplicate rows), captures prior state so updates are reversible,
+  refuses to run unless the connection is proven staging, and rolls back fully
+  on any failure or bound violation. Rollback removes inserts and reverts
+  updates and is itself idempotent.
+- `production_write` is rejected by policy and unrepresentable in the schema; no
+  production environment/DSN/enum is added.
+- The dashboard control cannot promote without admin + AAL2 + audit reason, and
+  the browser bundle contains no DB credentials.
+- Tests and CI pass without any live Vamo staging credentials; the live CLI
+  hard-fails unless `CONFIRM_VAMO_STAGING_CANARY=YES`.
+
+Validation:
+
+- `npm --workspace @vamo/ingestion-platform test`
+- `npm --workspace @vamo/ingestion-platform run ip16:staging-canary` (dry,
+  confirmation absent -> hard-fail with no write)
+- `npm --workspace @vamo/site run build`
+- Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for the apply/rollback
+  round-trip.
 
 ## What Not To Build Yet
 
