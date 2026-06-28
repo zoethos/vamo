@@ -846,6 +846,61 @@ Acceptance criteria:
 - The new repo can run the ingestion-platform test suite with disposable
   Postgres.
 
+## Slice IP-16 - First Vamo Staging Canary
+
+Status: design spec documented; execution path not yet implemented.
+
+Goal: promote exactly one reviewed dry run (a target at `review_required` with a
+compatible diff and `wroteToTarget === false`) to a tiny, bounded, reversible
+write into Vamo staging only. This is Confluendo's first write to a consumer
+database; production stays structurally impossible.
+
+Architecture decision: pure approval/shipment policy in platform core; target
+writes happen only through the `adapters/target` boundary; Vamo remains a
+consumer profile/config, never a platform dependency. Promotion gate, bounds
+enforcement, staging-only decision, ledger/idempotency planning, rollback
+planning, and the canary state machine are pure and DB-free. The only code that
+writes to Vamo staging is the target adapter, which first proves a staging
+connection.
+
+Source of truth:
+
+- `docs/platform/ingestion/STAGING_CANARY.md`
+
+Defines:
+
+- Goal: promote one reviewed dry run to a tiny Vamo staging write.
+- Source: open/cacheable snapshot only (no live scraping, no VPN/proxy/evasion).
+- Target: Vamo staging only, resolved from consumer config.
+- Hard production block at three layers: policy rejects `production_write`, the
+  schema has no `production_write`/production enum, and no production adapter is
+  wired.
+- Approval requirement: `ingestion_admin` + fresh MFA step-up + audit reason +
+  explicit `review_required -> staging_write` transition; machine tokens cannot
+  promote.
+- Canary bound: small row count (recommended `<= 50`), one geography, one
+  category, idempotent upsert on declared keys, no `delete`, single shipment.
+- Rollback: every written row is traceable by `shipment_id`/`run_id`; inserts
+  are removable and updates are reversible via captured prior state; one audited
+  operator action; idempotent.
+- Telemetry: shipment ledger (`ingestion_shipments`/`_items`), checkpoint, dead
+  letters, policy blocks, attribution, events, and audit log.
+- Operator dashboard state transitions: `review_required ->
+  staging_canary_pending -> staging_canary_shipped | staging_canary_blocked`,
+  with `staging_canary_rolled_back`; no production node.
+- Explicit stop conditions that always leave a no-write or fully-rolled-back
+  state.
+- Safety-mode mapping: policy `staging_write` + environment `staging` maps to an
+  `approved_write` shipment; `production_write` has no durable representation.
+
+Guardrails (carried from IP-14, unchanged):
+
+- No production writes; no `production_write` enum widening.
+- No live provider scraping, no VPN/proxy/evasion, no live AI calls (AI stays
+  advisory per `TARGET_SELECTION_AND_SCHEDULING.md` §3).
+- No service-role secrets, DSNs, or write credentials in browser code.
+- No Vamo runtime coupling in platform core.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
@@ -855,6 +910,8 @@ Acceptance criteria:
 - No connector marketplace.
 - No standalone repo split until IP-15 split prep is complete (IP-14 has proven
   the dry-run loop).
+- For IP-16, no "promote to production" control, no production environment/DSN,
+  and no `production_write` enum value.
 
 ## Recommended Immediate Next Slice
 
@@ -863,9 +920,11 @@ green). The dry-run loop is proven end to end: Vamo contract -> Confluendo
 import -> target scorecard -> preflight -> scout -> sample dry-run -> dashboard
 review, with staging and production writes still disabled.
 
-Next, run **IP-15 - Confluendo Repo Split Prep** (slice above) before any broad
-staging canary or production shipment. The follow-on **staging-canary slice**
-then adds the operator-driven promotion from `review_required` to
-`staging_write`, gated by an `ingestion_admin` MFA step-up and an audit reason,
-with a scheduling mutation endpoint (writing real `ingestion_schedule_proposals`
-rows) as the supporting piece.
+Run **IP-15 - Confluendo Repo Split Prep** (slice above) before any broad
+staging canary or production shipment. The follow-on **IP-16 - First Vamo
+Staging Canary** (spec at `docs/platform/ingestion/STAGING_CANARY.md`) then adds
+the operator-driven promotion from `review_required` to `staging_write`, gated
+by an `ingestion_admin` MFA step-up and an audit reason, mapped to a single
+bounded, reversible `approved_write` shipment into Vamo staging only, with a
+scheduling mutation endpoint (writing real `ingestion_schedule_proposals` rows)
+as the supporting piece.
