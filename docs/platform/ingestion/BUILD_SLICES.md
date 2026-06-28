@@ -848,12 +848,14 @@ Acceptance criteria:
 
 ## Slice IP-16 - First Vamo Staging Canary
 
-Status: in progress. Implements the real gated staging-canary path (pure
-approval policy, adapter shipment apply/rollback, dashboard approval control,
-and a confirmation-gated runbook/CLI). The actual live write into Vamo staging
-is deliberately deferred: it is manual, separately approved, and requires an
-explicit `CONFIRM_VAMO_STAGING_CANARY=YES` confirmation. CI/tests never need
-live Vamo staging credentials.
+Status: done, merged to `main` in the Confluendo/web dashboard repo via PR #97
+and hardened by PR #99. The Vamo app schema migration
+`20260625155733_place_intelligence_cache.sql` has also been promoted to Vamo
+staging and production under `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
+The actual live write into Vamo staging remains manual and separately approved:
+it requires an explicit `CONFIRM_VAMO_STAGING_CANARY=YES` confirmation, a fresh
+dashboard approval, a staging DSN, and `--execute`. CI/tests never need live
+Vamo staging credentials.
 
 Goal: promote exactly one reviewed dry run (a target at `review_required` with a
 compatible diff and `wroteToTarget === false`) to a tiny, bounded, reversible
@@ -880,8 +882,9 @@ Defines:
 - Target: Vamo staging only, resolved from consumer config.
 - Hard production block at three layers: policy rejects `production_write`,
   durable target/shipment write modes only allow `dry_run`/`approved_write`, and
-  the adapter refuses unless the target DB positively declares
-  `ingestion.environment = 'staging'`.
+  the adapter refuses unless the target DB exposes the DBA-provisioned sentinel
+  row `confluendo_guard.environment_sentinel` with `key='environment'` and
+  `value='staging'`.
 - Approval requirement: `ingestion_admin` + fresh MFA step-up + audit reason +
   explicit `review_required -> staging_write` transition; machine tokens cannot
   promote.
@@ -922,13 +925,14 @@ Implementation phases:
    deterministic; no DB, no network, browser-safe.
 3. **Shipment apply path** (`adapters/target/src/postgres-staging-canary.ts`):
    extend the proven dry-run planner with a transactional, idempotent
-   apply/rollback. It first proves a staging connection using the target DB
-   sentinel `ingestion.environment = 'staging'` plus the injected guard, then
-   re-plans the diff, refuses to write if the diff drifted from review or the
-   plan exceeds bounds or contains `delete`, applies bounded upserts in one
-   transaction, captures prior row state for reversibility, and records shipment
-   items. Tested only against a fake `PgClientLike` and disposable Postgres
-   (`INGESTION_TEST_DATABASE_URL`); never live Vamo staging.
+   apply/rollback. It first proves a staging connection by reading the target DB
+   sentinel row `confluendo_guard.environment_sentinel` (`key='environment'`,
+   `value='staging'`) plus the injected guard, then re-plans the diff, refuses
+   to write if the diff drifted from review or the plan exceeds bounds or
+   contains `delete`, applies bounded upserts in one transaction, captures prior
+   row state for reversibility, and records shipment items. Tested against a
+   fake `PgClientLike` and disposable Postgres (`INGESTION_TEST_DATABASE_URL`);
+   live Vamo staging execution is manual and gated.
 4. **Dashboard approval control**: a Next API route + client control that drives
    the gated promotion. The route resolves the authenticated admin principal and
    a fresh AAL2/MFA step-up (reusing IP-11 `ingestion-admin-auth`), requires a
@@ -941,9 +945,9 @@ Implementation phases:
    only when `CONFIRM_VAMO_STAGING_CANARY=YES`, a recorded dashboard approval
    audit id, the Confluendo control DB, a staging DSN/environment, and
    `--execute` are all present; the target DB must also expose
-   `ingestion.environment = 'staging'`. Absent any gate it hard-fails and writes
-   nothing. The runbook documents the manual, separately-approved live procedure
-   and the rollback command.
+   `confluendo_guard.environment_sentinel` with `value='staging'`. Absent any
+   gate it hard-fails and writes nothing. The runbook documents the manual,
+   separately-approved live procedure and the rollback command.
 6. **No live Vamo staging write** is executed in this slice. The live canary
    waits for an explicit operator green light.
 
@@ -1001,19 +1005,26 @@ Validation:
   the dry-run loop).
 - For IP-16, no "promote to production" control and no production
   environment/DSN/adapter.
+- No default backup/restore, physical log shipping, or raw replication path for
+  Confluendo product data delivery. Use shipment packages through the delivery
+  modes in `DATA_DELIVERY_ARCHITECTURE.md`.
 
 ## Recommended Immediate Next Slice
 
-**IP-14 - First Vamo Progressive Dry Run** has merged to `main` (PR #95, CI
-green). The dry-run loop is proven end to end: Vamo contract -> Confluendo
-import -> target scorecard -> preflight -> scout -> sample dry-run -> dashboard
-review, with staging and production writes still disabled.
+**IP-16 - First Vamo Staging Canary** is implemented and merged, and the Vamo
+place-intelligence schema is aligned on staging and production. The remaining
+live step is operational: verify the Vamo staging sentinel/`vamo_canary_app`
+bootstrap, record a fresh dashboard approval, and execute the first bounded
+Vamo staging canary only with `CONFIRM_VAMO_STAGING_CANARY=YES` and `--execute`.
 
-Run **IP-15 - Confluendo Repo Split Prep** (slice above) before any broad
-staging canary or production shipment. The follow-on **IP-16 - First Vamo
-Staging Canary** (spec at `docs/platform/ingestion/STAGING_CANARY.md`) then adds
-the operator-driven promotion from `review_required` to `staging_write`, gated
-by an `ingestion_admin` MFA step-up and an audit reason, mapped to a single
-bounded, reversible `approved_write` shipment into Vamo staging only, with a
-scheduling mutation endpoint (writing real `ingestion_schedule_proposals` rows)
-as the supporting piece.
+The next implementation slice after that canary is **IP-17 - Vamo Production
+Inbox Delivery**. It should follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
+
+- `confluendo_inbox` schema for Vamo production,
+- a least-privilege Confluendo inbox writer role that cannot write directly to
+  Vamo product tables,
+- `apply_confluendo_shipment(package_id, approved_by, approval_reason)` or an
+  equivalent Vamo-owned apply function,
+- checksum/idempotency validation,
+- dashboard states for `production_inbox_delivered` and `consumer_applied`,
+- rollback/reversal posture owned by Vamo production operators.
