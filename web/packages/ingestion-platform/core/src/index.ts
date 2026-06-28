@@ -168,3 +168,19 @@ export {
   type ProgressiveRunView,
   type ProgressiveWorkStatus
 } from "./progressive-read-model.js";
+export {
+  evaluateStagingCanaryPromotion,
+  summarizeWrite,
+  STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
+  STAGING_CANARY_MAX_ROWS,
+  type CanaryEnvironment,
+  type EvaluateStagingCanaryPromotionInput,
+  type EvaluateStagingCanaryPromotionResult,
+  type StagingCanaryApprovalContext,
+  type StagingCanaryApprover,
+  type StagingCanaryBlock,
+  type StagingCanaryBlockCode,
+  type StagingCanaryBounds,
+  type StagingCanaryPlan,
+  type StagingCanaryWriteSummary
+} from "./staging-canary-policy.js";
