@@ -5,6 +5,8 @@ import type { AdminPrincipal } from "../src/admin-auth.js";
 import type { ProgressiveRunReport, ShipmentDiffSummary } from "../src/progressive-run.js";
 import {
   evaluateStagingCanaryPromotion,
+  isApprovalFresh,
+  STAGING_CANARY_APPROVAL_MAX_AGE_MS,
   STAGING_CANARY_MAX_ROWS,
   type EvaluateStagingCanaryPromotionInput,
   type StagingCanaryBlockCode
@@ -257,3 +259,35 @@ function runReport(): ProgressiveRunReport {
     }
   };
 }
+
+describe("isApprovalFresh", () => {
+  it("accepts an approval recorded just now", () => {
+    assert.equal(isApprovalFresh({ approvedAt: NOW, now: NOW }), true);
+  });
+
+  it("accepts an approval within the default 15-minute TTL", () => {
+    const approvedAt = new Date(Date.parse(NOW) - 14 * 60 * 1000).toISOString();
+    assert.equal(isApprovalFresh({ approvedAt, now: NOW }), true);
+  });
+
+  it("rejects an approval older than the default TTL", () => {
+    const approvedAt = new Date(Date.parse(NOW) - (STAGING_CANARY_APPROVAL_MAX_AGE_MS + 1000)).toISOString();
+    assert.equal(isApprovalFresh({ approvedAt, now: NOW }), false);
+  });
+
+  it("rejects a future-dated approval so clock skew cannot extend the window", () => {
+    const approvedAt = new Date(Date.parse(NOW) + 60 * 1000).toISOString();
+    assert.equal(isApprovalFresh({ approvedAt, now: NOW }), false);
+  });
+
+  it("honors a custom maxAgeMs override", () => {
+    const approvedAt = new Date(Date.parse(NOW) - 30 * 60 * 1000).toISOString();
+    assert.equal(isApprovalFresh({ approvedAt, now: NOW, maxAgeMs: 60 * 60 * 1000 }), true);
+    assert.equal(isApprovalFresh({ approvedAt, now: NOW, maxAgeMs: 10 * 60 * 1000 }), false);
+  });
+
+  it("treats unparseable timestamps as not fresh", () => {
+    assert.equal(isApprovalFresh({ approvedAt: "not-a-date", now: NOW }), false);
+    assert.equal(isApprovalFresh({ approvedAt: NOW, now: "nonsense" }), false);
+  });
+});

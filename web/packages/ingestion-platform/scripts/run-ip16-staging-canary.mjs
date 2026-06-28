@@ -12,7 +12,11 @@
 //        - VAMO_STAGING_CANARY_APPROVAL_ID is set          (dashboard approval)
 //        - INGESTION_CONTROL_DATABASE_URL is set           (approval + ledger)
 //        - the --execute flag is passed
-//   3. Even then, the target adapter independently proves the target DB itself
+//   3. Even then, the recorded dashboard approval must be recent (TTL, default
+//      15 minutes; override with VAMO_STAGING_CANARY_APPROVAL_MAX_AGE_MINUTES)
+//      AND single-use: if a succeeded/shipping/approved shipment already exists
+//      for the approval id, the run refuses before touching the target DB.
+//   4. Even then, the target adapter independently proves the target DB itself
 //      declares `ingestion.environment = 'staging'` before any write.
 //
 // Guarantees:
@@ -42,10 +46,12 @@ import { Client } from "pg";
 
 import {
   buildScheduleProposal,
+  isApprovalFresh,
   recordStagingCanaryShipment,
   runFixturePipeline,
   runProgressiveDryRun,
   scoreTargetCandidate,
+  STAGING_CANARY_APPROVAL_MAX_AGE_MS,
   summarizeWrite
 } from "../dist/core/src/index.js";
 import {
@@ -178,6 +184,49 @@ function makeProveStaging(connectionString) {
   };
 }
 
+/** Bounded approval TTL in ms (default 15 min; positive-integer-minutes override). */
+function approvalMaxAgeMs() {
+  const raw = process.env.VAMO_STAGING_CANARY_APPROVAL_MAX_AGE_MINUTES?.trim();
+  if (!raw) {
+    return STAGING_CANARY_APPROVAL_MAX_AGE_MS;
+  }
+  const minutes = Number.parseInt(raw, 10);
+  if (!Number.isInteger(minutes) || minutes <= 0 || String(minutes) !== raw) {
+    throw new Error(
+      `VAMO_STAGING_CANARY_APPROVAL_MAX_AGE_MINUTES must be a positive integer of minutes; got "${raw}".`
+    );
+  }
+  return minutes * 60 * 1000;
+}
+
+/**
+ * Single-use guard: a live approval may be shipped exactly once. The dashboard
+ * approval id keys a shipment row (see recordStagingCanaryShipment). If a row in
+ * a still-relevant state already exists, the canary has run (or is running) and
+ * must not be replayed against the target.
+ */
+async function findActiveCanaryShipment({ connectionString, projectKey, shipmentKey }) {
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `
+        select s.id::text as id, s.status as status
+        from ingestion_platform.ingestion_shipments s
+        join ingestion_platform.ingestion_projects p on p.id = s.project_id
+        where p.project_key = $1
+          and s.shipment_key = $2
+          and s.status in ('approved', 'shipping', 'succeeded')
+        limit 1
+      `,
+      [projectKey, shipmentKey]
+    );
+    return result.rows[0] ?? null;
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   const execute = process.argv.includes("--execute");
   const confirmed = process.env.CONFIRM_VAMO_STAGING_CANARY === "YES";
@@ -255,8 +304,36 @@ async function main() {
     throw new Error("Recorded approval has no audit reason; refusing to execute.");
   }
 
+  // Approval TTL: a forgotten or replayed approval cannot be acted on much later.
+  const now = new Date().toISOString();
+  const maxAgeMs = approvalMaxAgeMs();
+  if (!isApprovalFresh({ approvedAt: recordedApproval.createdAt, now, maxAgeMs })) {
+    console.error(
+      `NO WRITE PERFORMED. Recorded approval ${approvalId} (created ${recordedApproval.createdAt}) is outside the ` +
+        `${Math.round(maxAgeMs / 60000)}-minute TTL or is future-dated. Re-approve in the dashboard before executing.`
+    );
+    process.exit(1);
+  }
+
+  // Single-use: the dashboard approval id may be shipped at most once. This guard
+  // runs against the control DB BEFORE the target adapter is touched, so a replay
+  // cannot reach Vamo staging even though the adapter itself is idempotent.
+  const shipmentKey = `staging-canary:${report.targetId}:approval:${approvalId}`;
+  const existingShipment = await findActiveCanaryShipment({
+    connectionString: controlDsn,
+    projectKey: report.projectKey,
+    shipmentKey
+  });
+  if (existingShipment) {
+    console.error(
+      `NO WRITE PERFORMED. Approval ${approvalId} already has a ${existingShipment.status} shipment ` +
+        `(${shipmentKey}). Staging canaries are single-use; record a fresh approval for another run.`
+    );
+    process.exit(1);
+  }
+
   // Live, fully-gated execution. Not run in CI or without an explicit green light.
-  console.log("All gates satisfied. Executing the bounded staging canary…");
+  console.log("All gates satisfied (fresh, single-use approval). Executing the bounded staging canary…");
   const result = await applyPostgresStagingCanary({
     connectionString: stagingDsn,
     target,
@@ -271,17 +348,43 @@ async function main() {
     process.exit(1);
   }
 
-  const shipment = await recordStagingCanaryShipment({
-    connectionString: controlDsn,
-    projectKey: report.projectKey,
-    targetId: report.targetId,
-    targetAdapter: target.adapter,
-    approvalAuditId: approvalId,
-    actor: recordedApproval.actor,
-    reason: auditReason,
-    counts: result.counts,
-    items: result.items
-  });
+  // Target write committed. Record the control ledger so the approval becomes
+  // single-use. If THIS fails, the target already changed: stop and reconcile.
+  let shipment;
+  try {
+    shipment = await recordStagingCanaryShipment({
+      connectionString: controlDsn,
+      projectKey: report.projectKey,
+      targetId: report.targetId,
+      targetAdapter: target.adapter,
+      approvalAuditId: approvalId,
+      actor: recordedApproval.actor,
+      reason: auditReason,
+      counts: result.counts,
+      items: result.items
+    });
+  } catch (ledgerError) {
+    console.error("");
+    console.error("!!! TARGET WRITE SUCCEEDED BUT CONTROL LEDGER FAILED !!!");
+    console.error("Do NOT rerun this canary. The Vamo staging target already changed, but the");
+    console.error("control ledger was not recorded, so the single-use guard cannot protect a rerun.");
+    console.error('Reconcile manually per STAGING_CANARY_RUNBOOK.md > "Target write succeeded but control ledger failed".');
+    console.error(`  approval id:  ${approvalId}`);
+    console.error(`  shipment_key: ${shipmentKey}`);
+    console.error(`  written:      ${JSON.stringify(result.counts)}`);
+    console.error(
+      `  canary items: ${JSON.stringify(
+        result.items.map((item) => ({
+          table: item.targetTable,
+          op: item.operation,
+          recordKey: item.recordKey,
+          keys: item.keys
+        }))
+      )}`
+    );
+    console.error(ledgerError instanceof Error ? ledgerError.stack ?? ledgerError.message : String(ledgerError));
+    process.exit(1);
+  }
 
   console.log("Staging canary shipped (staging only).");
   bullet("shipment id", shipment.shipmentId);
@@ -310,6 +413,7 @@ async function loadRecordedApproval({ connectionString, approvalId, projectKey, 
                a.actor_id as "actorId",
                a.reason,
                a.payload,
+               a.created_at as "createdAt",
                p.project_key as "projectKey",
                a.target_id as "targetId",
                a.action
@@ -335,10 +439,12 @@ async function loadRecordedApproval({ connectionString, approvalId, projectKey, 
     if (row.payload?.accepted !== true) {
       throw new Error(`Recorded approval ${approvalId} is not accepted.`);
     }
+    const createdAt = row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt);
     return {
       approvalId: row.id,
       reason: row.reason,
       payload: row.payload,
+      createdAt,
       actor: { type: row.actorType, id: row.actorId }
     };
   } finally {

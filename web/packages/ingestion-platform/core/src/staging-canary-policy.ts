@@ -29,6 +29,12 @@ export const STAGING_CANARY_MAX_ROWS = 50;
 /** A fresh MFA step-up must be at most this old (mirrors IP-11 admin-auth). */
 export const STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS = 5 * 60 * 1000;
 
+/**
+ * A recorded dashboard approval must be consumed by the live runbook within this
+ * window, so a forgotten or replayed approval cannot be acted on much later.
+ */
+export const STAGING_CANARY_APPROVAL_MAX_AGE_MS = 15 * 60 * 1000;
+
 /** Only `staging` is ever allowed to be written; anything else is rejected. */
 export type CanaryEnvironment = "staging" | "production" | (string & {});
 
@@ -327,4 +333,25 @@ function isNarrowScopeValue(value: string): boolean {
     return false;
   }
   return !/[,;|]/.test(trimmed);
+}
+
+/**
+ * Pure freshness check for a recorded dashboard approval. Returns true only when
+ * the approval was created in the (recent) past and is within the TTL window.
+ * Future-dated or unparseable timestamps are treated as not fresh so a skewed or
+ * forged `created_at` can never extend the usable window.
+ */
+export function isApprovalFresh(input: {
+  approvedAt: string;
+  now: string;
+  maxAgeMs?: number;
+}): boolean {
+  const approvedMs = Date.parse(input.approvedAt);
+  const nowMs = Date.parse(input.now);
+  if (!Number.isFinite(approvedMs) || !Number.isFinite(nowMs)) {
+    return false;
+  }
+  const maxAgeMs = input.maxAgeMs ?? STAGING_CANARY_APPROVAL_MAX_AGE_MS;
+  const ageMs = nowMs - approvedMs;
+  return ageMs >= 0 && ageMs <= maxAgeMs;
 }

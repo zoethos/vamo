@@ -170,7 +170,9 @@ export {
 } from "./progressive-read-model.js";
 export {
   evaluateStagingCanaryPromotion,
+  isApprovalFresh,
   summarizeWrite,
+  STAGING_CANARY_APPROVAL_MAX_AGE_MS,
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
   STAGING_CANARY_MAX_ROWS,
   type CanaryEnvironment,

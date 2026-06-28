@@ -69,6 +69,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Normalize the audit/target identity to the reviewed run report so the
+  // dashboard approval, the recorded plan, and the live CLI all key off the
+  // same targetId (the lookup above accepts either the scorecard or report id).
+  const reportTargetId = entry.report.targetId;
+
   const decision: EvaluateStagingCanaryPromotionResult = evaluateStagingCanaryPromotion({
     runReport: entry.report,
     transition: { from: "review_required", to: "staging_write" },
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
     const audit = await recordStagingCanaryApproval({
       connectionString,
       projectKey: parsed.projectKey,
-      targetId: parsed.targetId,
+      targetId: reportTargetId,
       accepted: decision.ok,
       actor: auth.actor,
       reason: parsed.auditReason,
