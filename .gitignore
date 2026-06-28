@@ -77,3 +77,13 @@ supabase/.temp/
 # Temporary: leftover locked by a tool session - delete folder, then remove this line
 /Vamo/
 app/flutter_*.png
+
+# Generated brand-export artifacts. CONFLUENDO_BRAND.md is the canonical source;
+# design-tool HTML exports are disposable. Note: this also ignores any
+# hand-authored .html brand prototypes under docs/brand — keep prototypes
+# elsewhere or switch to explicit filenames if that changes.
+docs/brand/.thumbnail
+docs/brand/support.js
+docs/brand/*.html
+docs/brand/*.dc.html
+docs/brand/rebrand-screenshots/
