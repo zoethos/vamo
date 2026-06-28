@@ -849,7 +849,9 @@ Acceptance criteria:
 ## Slice IP-16 - First Vamo Staging Canary
 
 Status: done, merged to `main` in the Confluendo/web dashboard repo via PR #97
-and hardened by PR #99. The Vamo app schema migration
+and hardened by PR #99 and PR #101 (PR #101 corrected the reviewed canary scope
+to rome-italy/poi — 1 candidate, 2 writes — and added a fresh-MFA countdown in
+the admin mastheads). The Vamo app schema migration
 `20260625155733_place_intelligence_cache.sql` has also been promoted to Vamo
 staging and production under `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
 The actual live write into Vamo staging remains manual and separately approved:
@@ -1013,11 +1015,22 @@ Validation:
 
 ## Recommended Immediate Next Slice
 
-**IP-16 - First Vamo Staging Canary** is implemented and merged, and the Vamo
-place-intelligence schema is aligned on staging and production. The remaining
-live step is operational: verify the Vamo staging sentinel/`vamo_canary_app`
-bootstrap, record a fresh dashboard approval, and execute the first bounded
-Vamo staging canary only with `CONFIRM_VAMO_STAGING_CANARY=YES` and `--execute`.
+**IP-16 - First Vamo Staging Canary** is implemented, merged, and hardened
+(PR #97, #99, #101), and the Vamo place-intelligence schema is aligned on
+staging and production. The Vamo staging sentinel/`vamo_canary_app` bootstrap
+(table sentinel, least-privilege role, SELECT/INSERT/UPDATE grants and RLS
+policies, no DELETE) is verified read-only. The remaining steps are operational,
+in order:
+
+1. Reseed the Confluendo control proposal row from
+   `docs/platform/ingestion/bootstrap/sql/ip16_vamo_live_proposal_seed.sql` so the
+   live reviewed run reflects the corrected scope (rome-italy/poi, 1 candidate,
+   2 writes, `review_required`, `dry_run`, `wroteToTarget=false`,
+   `reachedReview=true`).
+2. Record a fresh dashboard MFA approval (`ingestion_admin` + fresh AAL2 step-up
+   + non-empty audit reason). Do not reuse the stale approval id 4.
+3. Execute the first bounded Vamo staging canary only, against staging, with
+   `CONFIRM_VAMO_STAGING_CANARY=YES` and `--execute`.
 
 The next implementation slice after that canary is **IP-17 - Vamo Production
 Inbox Delivery**. It should follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
