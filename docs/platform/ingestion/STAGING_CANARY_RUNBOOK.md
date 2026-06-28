@@ -10,6 +10,11 @@ checklist.
 > policy can reject it, while durable target/shipment write modes and the target
 > adapter permit only an approved staging canary.
 
+For full instance bootstrap and disaster-recovery sequencing, start with
+`bootstrap/README.md`. This runbook assumes the Confluendo control DB, Vamo
+proposal seed, Vamo target schema, staging sentinel, and `vamo_canary_app` role
+have already been provisioned in that order.
+
 ## Preconditions
 
 1. The target is at `review_required` with a **compatible** shipment diff and
