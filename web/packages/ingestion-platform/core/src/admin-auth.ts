@@ -97,6 +97,13 @@ const mutatingRoles = new Set<AdminRole>(["operator", "admin"]);
 export const ADMIN_FRESH_STEP_UP_WINDOW_MS = 30 * 60 * 1000;
 
 /**
+ * Supabase signs the MFA authentication method timestamp, while the command
+ * route compares it to the app server clock. Allow small clock skew so a fresh
+ * challenge cannot fail because the app host is a few seconds behind.
+ */
+export const ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS = 60 * 1000;
+
+/**
  * Commands a non-session machine principal (the static API token) may run.
  * Destructive or high-impact commands (`reset`, `shutdown`) are deliberately
  * excluded: those require an authenticated admin session with MFA, so the token
@@ -295,7 +302,8 @@ function hasFreshStepUp(input: AdminCommandAuthorizationInput): boolean {
     return false;
   }
   const windowMs = input.freshStepUpWindowMs ?? ADMIN_FRESH_STEP_UP_WINDOW_MS;
-  return nowMs - satisfiedMs >= 0 && nowMs - satisfiedMs <= windowMs;
+  const ageMs = nowMs - satisfiedMs;
+  return ageMs >= -ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS && ageMs <= windowMs;
 }
 
 function hasProjectScope(scopes: string[], projectKey: string): boolean {

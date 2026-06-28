@@ -105,6 +105,16 @@ describe("evaluateStagingCanaryPromotion", () => {
     assertBlocked(result, "fresh_step_up_required");
   });
 
+  it("accepts a just-issued MFA timestamp with small server clock skew", () => {
+    const result = evaluateStagingCanaryPromotion(
+      validInput((input) => {
+        input.approval.principal.stepUpSatisfiedAt = "2026-06-28T10:00:30.000Z";
+      })
+    );
+
+    assert.equal(result.ok, true);
+  });
+
   it("blocks an empty audit reason", () => {
     const result = evaluateStagingCanaryPromotion(
       validInput((input) => {

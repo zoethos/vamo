@@ -66,6 +66,7 @@ export {
 } from "./control-command-api.js";
 export {
   adminPrincipalAuditContext,
+  ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS,
   ADMIN_FRESH_STEP_UP_WINDOW_MS,
   authorizeAdminCommand,
   authorizeAdminDashboard,

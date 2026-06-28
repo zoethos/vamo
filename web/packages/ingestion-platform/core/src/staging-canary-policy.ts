@@ -20,6 +20,7 @@
  */
 
 import {
+  ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS,
   ADMIN_FRESH_STEP_UP_WINDOW_MS,
   type AdminPrincipal
 } from "./admin-auth.js";
@@ -322,7 +323,8 @@ function hasFreshStepUp(approval: StagingCanaryApprovalContext): boolean {
     return false;
   }
   const windowMs = approval.freshStepUpWindowMs ?? STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS;
-  return nowMs - satisfiedMs >= 0 && nowMs - satisfiedMs <= windowMs;
+  const ageMs = nowMs - satisfiedMs;
+  return ageMs >= -ADMIN_FRESH_STEP_UP_CLOCK_SKEW_MS && ageMs <= windowMs;
 }
 
 function hasProjectScope(scopes: string[], projectKey: string): boolean {

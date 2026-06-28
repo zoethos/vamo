@@ -182,6 +182,12 @@ describe("admin auth policy", () => {
       projectKey: "vamo",
       now
     });
+    const smallClockSkewStepUp = resolveAdminPrincipal({
+      row: adminRow,
+      session: { ...aal2Session, stepUpSatisfiedAt: "2026-06-26T12:00:30.000Z" },
+      projectKey: "vamo",
+      now
+    });
 
     assert.equal(oldStepUp.ok, true);
     assert.deepEqual(
@@ -209,6 +215,17 @@ describe("admin auth policy", () => {
     assert.deepEqual(
       authorizeAdminCommand({
         principal: freshStepUp.principal,
+        projectKey: "vamo",
+        command: "reset",
+        now
+      }),
+      { ok: true }
+    );
+
+    assert.equal(smallClockSkewStepUp.ok, true);
+    assert.deepEqual(
+      authorizeAdminCommand({
+        principal: smallClockSkewStepUp.principal,
         projectKey: "vamo",
         command: "reset",
         now
