@@ -8,6 +8,7 @@ This is the documentation home for the reusable ingestion platform.
 | `AUTH_ARCHITECTURE.md` | Admin authentication, authorization, audit actor, and secret-boundary design. |
 | `BUILD_SLICES.md` | Implementation slices from spec kernel through Vamo consumer profile. |
 | `DATA_DELIVERY_ARCHITECTURE.md` | Delivery modes: consumer inbox schema and hosted Confluendo DB/API. |
+| `OPERATOR_DEV.md` | Local operator-console startup and cache-reset policy for `localhost:4373`. |
 | `bootstrap/README.md` | Ordered bootstrap and disaster-recovery sequence for Confluendo instances. |
 | `TARGET_SELECTION_AND_SCHEDULING.md` | Target-selection criteria and AI-assisted progressive ingestion plan. |
 | `STAGING_CANARY.md` | IP-16 design: promoting one reviewed dry run to a tiny, reversible, staging-only Vamo write. |
