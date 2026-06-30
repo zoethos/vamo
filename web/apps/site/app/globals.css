@@ -2315,6 +2315,28 @@ a:hover {
   color: #9aa0ac;
 }
 
+.admin-sign-in-email-flow {
+  display: grid;
+  gap: 4px;
+  margin-top: 11px;
+  border: 1.5px solid rgba(59, 110, 165, 0.18);
+  border-radius: 14px;
+  padding: 13px 15px;
+  background: rgba(59, 110, 165, 0.07);
+}
+
+.admin-sign-in-email-flow b {
+  color: #0c0e16;
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.admin-sign-in-email-flow span {
+  color: #5f6d7c;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 .admin-sign-in-methods {
   margin: 11px 0 0;
   border: 0;
@@ -2991,7 +3013,7 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 9px;
-  margin-bottom: 22px;
+  margin-bottom: 10px;
 }
 
 .admin-mfa-otp-input {
@@ -3020,6 +3042,13 @@ a:hover {
   border-color: var(--mfa-coral);
   background: var(--mfa-panel);
   box-shadow: 0 0 0 3px rgba(255, 107, 92, 0.15);
+}
+
+.admin-mfa-code-helper {
+  margin: 0 0 22px;
+  color: var(--mfa-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .admin-mfa-stepup-submit {

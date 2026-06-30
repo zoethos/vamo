@@ -8,16 +8,23 @@
       </p>
 
       <h1 style="margin: 0 0 12px; color: #0f1b2d; font-size: 24px; line-height: 1.2; font-weight: 600;">
-        Your operator sign-in code
+        Your operator sign-in email
       </h1>
 
       <p style="margin: 0 0 22px; color: #5b6b7d; font-size: 15px; line-height: 1.55;">
-        Use this code to continue into the Confluendo operator console.
+        Use the secure link below to verify your email session. If the link is
+        blocked or opens on another device, use the fallback code instead.
+      </p>
+
+      <p style="margin: 0 0 22px;">
+        <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="display: inline-block; padding: 13px 18px; border-radius: 10px; background: #3b6ea5; color: #ffffff; font-size: 15px; font-weight: 800; text-decoration: none;">
+          Sign in to Confluendo
+        </a>
       </p>
 
       <div style="margin: 0 0 22px; padding: 18px 20px; border-radius: 12px; background: #eef3f8; border: 1px solid rgba(59, 110, 165, 0.22); text-align: center;">
         <p style="margin: 0 0 8px; color: #5b6b7d; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;">
-          One-time code
+          Fallback email code
         </p>
         <p style="margin: 0; color: #3b6ea5; font-size: 34px; line-height: 1; font-weight: 800; letter-spacing: 0.18em; font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;">
           {{ .Token }}
@@ -25,15 +32,9 @@
       </div>
 
       <p style="margin: 0 0 16px; color: #44566a; font-size: 14px; line-height: 1.55;">
-        Opened this email on a different device or in Outlook? Use the code above.
-        It does not depend on the browser that requested the email.
-      </p>
-
-      <p style="margin: 0 0 22px; color: #44566a; font-size: 14px; line-height: 1.55;">
-        You can also
-        <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="color: #3b6ea5; font-weight: 700; text-decoration: underline;">
-          tap here to sign in directly
-        </a>.
+        The fallback code verifies the same email step as the link. If your
+        account requires MFA, the next screen asks for your separate
+        authenticator-app code.
       </p>
 
       <p style="margin: 0 0 22px; color: #8a97a6; font-size: 12px; line-height: 1.55;">

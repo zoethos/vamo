@@ -13,6 +13,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:site:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
     "ingestion:docker": "docker compose -f ../tool/ingestion/docker-compose.yml up --build",
     "ingestion:docker:down": "docker compose -f ../tool/ingestion/docker-compose.yml down",
     "ingestion:worker": "npm --workspace @vamo/ingestion-platform run build && npm --workspace @vamo/ingestion-platform run worker",

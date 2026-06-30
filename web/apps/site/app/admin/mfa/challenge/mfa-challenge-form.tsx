@@ -9,7 +9,10 @@ import {
 } from "react";
 
 const CODE_LENGTH = 6;
+const EMAIL_CODE_LENGTH = 8;
 const EMPTY_DIGITS = Array.from({ length: CODE_LENGTH }, () => "");
+const EMAIL_CODE_MESSAGE =
+  "That looks like the 8-digit email sign-in code. For this step, open your authenticator app and enter its 6-digit code.";
 
 export function MfaChallengeForm({
   factorId,
@@ -101,7 +104,21 @@ export function MfaChallengeForm({
   }
 
   function applyDigits(index: number, value: string) {
-    const pastedDigits = value.replace(/\D/g, "").slice(0, CODE_LENGTH - index);
+    const cleanDigits = value.replace(/\D/g, "");
+
+    if (cleanDigits.length === EMAIL_CODE_LENGTH) {
+      setHint("email code detected");
+      setError(EMAIL_CODE_MESSAGE);
+      return;
+    }
+
+    if (cleanDigits.length > CODE_LENGTH) {
+      setHint("too many digits");
+      setError("Authenticator app codes are 6 digits. Use the current code shown in your authenticator app.");
+      return;
+    }
+
+    const pastedDigits = cleanDigits.slice(0, CODE_LENGTH - index);
     if (!pastedDigits) {
       return;
     }
@@ -134,7 +151,7 @@ export function MfaChallengeForm({
       <input type="hidden" name="code" value={code} />
 
       <div className="admin-mfa-code-row">
-        <label id="admin-mfa-code-label">Authenticator code</label>
+        <label id="admin-mfa-code-label">Authenticator app code (6 digits)</label>
         <span className={statusClass} role={statusText ? "status" : undefined}>
           {statusText}
         </span>
@@ -167,6 +184,11 @@ export function MfaChallengeForm({
           />
         ))}
       </div>
+
+      <p className="admin-mfa-code-helper">
+        Use the rolling 6-digit code from your authenticator app, not the
+        8-digit code from the sign-in email.
+      </p>
 
       <button className="admin-mfa-stepup-submit" type="submit" disabled={status === "verifying"}>
         {status === "verifying" ? "Verifying..." : "Verify and continue"}

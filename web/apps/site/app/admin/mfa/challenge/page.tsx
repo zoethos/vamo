@@ -71,11 +71,12 @@ export default async function AdminMfaChallengePage({
           </div>
 
           <div className="admin-mfa-stepup-copy">
-            <p className="admin-mfa-stepup-kicker">MFA step-up</p>
+            <p className="admin-mfa-stepup-kicker">Step 2 · authenticator app</p>
             <h1 id="admin-mfa-challenge-title">Verify before continuing</h1>
             <p>
-              Reset and promotion actions require a fresh verification. Enter
-              the current six-digit code from your authenticator app.
+              Your email link or email code verified the first step. Operator
+              controls also require the current six-digit code from your
+              authenticator app. Do not use the eight-digit email code here.
             </p>
           </div>
 
