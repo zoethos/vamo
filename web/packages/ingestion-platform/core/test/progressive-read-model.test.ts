@@ -3,8 +3,11 @@ import { describe, it } from "node:test";
 
 import {
   buildProgressiveRunView,
+  isActiveCanaryShipment,
   sampleProgressiveRunSnapshot,
-  sampleVamoProposal
+  sampleVamoProposal,
+  type CanaryShipmentState,
+  type ProgressiveRunSnapshot
 } from "../src/progressive-read-model.js";
 
 describe("progressive run dashboard read model", () => {
@@ -78,5 +81,70 @@ describe("progressive run dashboard read model", () => {
       buildProgressiveRunView(sampleProgressiveRunSnapshot),
       buildProgressiveRunView(sampleProgressiveRunSnapshot)
     );
+  });
+
+  it("classifies active vs. inactive canary shipment statuses", () => {
+    const base = {
+      mode: "approved_write",
+      shipmentKey: "staging-canary:t:approval:1",
+      createdAt: "2026-06-28T12:00:00.000Z"
+    };
+    assert.equal(isActiveCanaryShipment(undefined), false);
+    assert.equal(isActiveCanaryShipment(null), false);
+    assert.equal(isActiveCanaryShipment({ ...base, status: "succeeded" }), true);
+    assert.equal(isActiveCanaryShipment({ ...base, status: "shipping" }), true);
+    assert.equal(isActiveCanaryShipment({ ...base, status: "approved" }), true);
+    assert.equal(isActiveCanaryShipment({ ...base, status: "failed" }), false);
+    assert.equal(isActiveCanaryShipment({ ...base, status: "planned" }), false);
+  });
+
+  it("surfaces a succeeded shipment as already shipped, taking precedence over review_required", () => {
+    const shipment: CanaryShipmentState = {
+      status: "succeeded",
+      mode: "approved_write",
+      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:4",
+      createdAt: "2026-06-28T12:00:00.000Z",
+      approvalAuditId: "4"
+    };
+    const snapshot: ProgressiveRunSnapshot = {
+      entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
+        entry.workStatus === "review_required" ? { ...entry, canaryShipment: shipment } : entry
+      )
+    };
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    assert.ok(row);
+    // The proposal row is untouched (still review_required) but the ledger wins.
+    assert.equal(row.workStatus, "review_required");
+    assert.equal(row.canaryShipped, true);
+    assert.equal(row.canaryShipment?.shipmentKey, shipment.shipmentKey);
+    assert.match(row.nextApproval, /already shipped/i);
+    assert.doesNotMatch(row.nextApproval, /approve/i);
+
+    // The single next action no longer invites a repeat approval.
+    assert.doesNotMatch(view.nextAction, /^Review vamo-place-intelligence-staging/);
+    assert.match(view.nextAction, /already shipped to Vamo staging/i);
+  });
+
+  it("keeps review_required actionable when no active shipment exists", () => {
+    const failed: CanaryShipmentState = {
+      status: "failed",
+      mode: "approved_write",
+      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:7",
+      createdAt: "2026-06-28T12:00:00.000Z",
+      approvalAuditId: "7"
+    };
+    const snapshot: ProgressiveRunSnapshot = {
+      entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
+        entry.workStatus === "review_required" ? { ...entry, canaryShipment: failed } : entry
+      )
+    };
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    assert.ok(row);
+    assert.equal(row.canaryShipped, false);
+    assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
   });
 });

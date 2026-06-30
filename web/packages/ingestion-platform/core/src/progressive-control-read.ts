@@ -2,6 +2,8 @@ import { Client, type QueryResult } from "pg";
 
 import type { ProgressiveRunReport } from "./progressive-run.js";
 import type {
+  CanaryShipmentState,
+  CanaryShipmentStatus,
   ProgressiveBacklogEntryInput,
   ProgressiveRunSnapshot,
   ProgressiveWorkStatus
@@ -35,6 +37,7 @@ export interface LoadProgressiveRunSnapshotInput {
 }
 
 interface ProposalRow extends Record<string, unknown> {
+  targetKey: string;
   workStatus: string;
   tier: string;
   safetyMode: string;
@@ -43,9 +46,30 @@ interface ProposalRow extends Record<string, unknown> {
   runReport: ProgressiveRunReport | null;
 }
 
+interface ShipmentRow extends Record<string, unknown> {
+  shipmentKey: string;
+  status: string;
+  mode: string;
+  createdAt: string | Date | null;
+  summary: { approvalAuditId?: unknown } | null;
+}
+
 // Postgres "undefined_table" — an older control DB without the progressive table
 // should degrade to the sample, never crash the dashboard render.
 const UNDEFINED_TABLE = "42P01";
+
+// The shipment_key the staging-canary recorder writes:
+// `staging-canary:<target_key>:approval:<approvalAuditId>`.
+const CANARY_SHIPMENT_KEY_PATTERN = /^staging-canary:(.+):approval:(.+)$/;
+const CANARY_SHIPMENT_STATUSES: ReadonlySet<CanaryShipmentStatus> = new Set([
+  "planned",
+  "dry_run",
+  "approved",
+  "shipping",
+  "succeeded",
+  "failed",
+  "cancelled"
+]);
 
 /**
  * Returns the progressive snapshot for a project, or `null` when the table is
@@ -73,6 +97,7 @@ export async function loadProgressiveRunSnapshot(
     const result = await client.query<ProposalRow>(
       `
         select
+          sp.target_key as "targetKey",
           sp.work_status as "workStatus",
           sp.tier as tier,
           sp.safety_mode as "safetyMode",
@@ -91,7 +116,11 @@ export async function loadProgressiveRunSnapshot(
       return null;
     }
 
-    return { entries: result.rows.map(toEntry) };
+    const shipments = await loadCanaryShipmentMap(client, input.projectKey);
+
+    return {
+      entries: result.rows.map((row) => toEntry(row, shipments.get(row.targetKey) ?? null))
+    };
   } catch (error) {
     if (isUndefinedTable(error)) {
       return null;
@@ -104,7 +133,104 @@ export async function loadProgressiveRunSnapshot(
   }
 }
 
-function toEntry(row: ProposalRow): ProgressiveBacklogEntryInput {
+/**
+ * Loads the latest staging-canary shipment per target for a project, keyed by
+ * target_key parsed from the shipment_key. Returns an empty map (never throws)
+ * when the shipment ledger is absent on an older control DB, so the dashboard
+ * still renders. Rows are ordered newest-first, so the first row seen for each
+ * target wins.
+ */
+async function loadCanaryShipmentMap(
+  client: ProgressiveControlReadPgClientLike,
+  projectKey: string
+): Promise<Map<string, CanaryShipmentState>> {
+  const map = new Map<string, CanaryShipmentState>();
+  try {
+    const result = await client.query<ShipmentRow>(
+      `
+        select
+          s.shipment_key as "shipmentKey",
+          s.status as status,
+          s.mode as mode,
+          s.created_at as "createdAt",
+          s.summary as summary
+        from ingestion_platform.ingestion_shipments s
+        join ingestion_platform.ingestion_projects p on p.id = s.project_id
+        where p.project_key = $1
+          and s.shipment_key like 'staging-canary:%:approval:%'
+        order by s.created_at desc, s.id desc
+      `,
+      [projectKey]
+    );
+
+    for (const row of result.rows) {
+      const parsed = parseShipmentRow(row);
+      if (parsed && !map.has(parsed.targetKey)) {
+        map.set(parsed.targetKey, parsed.state);
+      }
+    }
+  } catch (error) {
+    if (!isUndefinedTable(error)) {
+      throw error;
+    }
+  }
+  return map;
+}
+
+function parseShipmentRow(
+  row: ShipmentRow
+): { targetKey: string; state: CanaryShipmentState } | null {
+  const match = CANARY_SHIPMENT_KEY_PATTERN.exec(row.shipmentKey ?? "");
+  if (!match) {
+    return null;
+  }
+  const targetKey = match[1];
+  const approvalFromKey = match[2];
+  if (!CANARY_SHIPMENT_STATUSES.has(row.status as CanaryShipmentStatus)) {
+    return null;
+  }
+
+  return {
+    targetKey,
+    state: {
+      status: row.status as CanaryShipmentStatus,
+      mode: row.mode,
+      shipmentKey: row.shipmentKey,
+      createdAt: toIso(row.createdAt),
+      approvalAuditId: resolveApprovalAuditId(row.summary, approvalFromKey)
+    }
+  };
+}
+
+function resolveApprovalAuditId(
+  summary: ShipmentRow["summary"],
+  fallback: string | undefined
+): string | undefined {
+  const fromSummary = summary?.approvalAuditId;
+  if (typeof fromSummary === "string" && fromSummary.trim().length > 0) {
+    return fromSummary.trim();
+  }
+  if (typeof fromSummary === "number" && Number.isFinite(fromSummary)) {
+    return String(fromSummary);
+  }
+  return fallback && fallback.length > 0 ? fallback : undefined;
+}
+
+function toIso(value: string | Date | null): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "string" && value.length > 0) {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  }
+  return new Date(0).toISOString();
+}
+
+function toEntry(
+  row: ProposalRow,
+  canaryShipment: CanaryShipmentState | null
+): ProgressiveBacklogEntryInput {
   const report = row.runReport ?? undefined;
   return {
     workStatus: row.workStatus as ProgressiveWorkStatus,
@@ -113,7 +239,8 @@ function toEntry(row: ProposalRow): ProgressiveBacklogEntryInput {
     safetyMode: row.safetyMode as SafetyMode,
     canaryBounds: deriveReviewedCanaryBounds({ proposal: row.proposal, report }),
     report,
-    scheduledApprovalDescription: report ? undefined : row.proposal?.approval.description
+    scheduledApprovalDescription: report ? undefined : row.proposal?.approval.description,
+    canaryShipment
   };
 }
 
