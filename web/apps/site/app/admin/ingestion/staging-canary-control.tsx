@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { AdminAssuranceLevel, AdminRole } from "@vamo/ingestion-platform/admin-auth";
+import type { CanaryShipmentState } from "@vamo/ingestion-platform/progressive-read-model";
 
 type DashboardSource = "live" | "sample";
 
@@ -55,20 +56,24 @@ export function StagingCanaryControl({
   targetId,
   context,
   bounds,
+  shipment,
+  alreadyShipped = false,
 }: {
   targetId: string;
   context: CanaryContext;
   bounds?: CanaryBounds;
+  shipment?: CanaryShipmentState;
+  alreadyShipped?: boolean;
 }) {
   const [reason, setReason] = useState("");
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
 
-  const disabledReason = disabledReasonFor(context, bounds);
+  const disabledReason = disabledReasonFor(context, bounds, alreadyShipped);
   const pending = decision.state === "running";
 
   async function submit() {
-    if (inFlightRef.current) {
+    if (inFlightRef.current || alreadyShipped) {
       return;
     }
     if (!bounds) {
@@ -132,6 +137,8 @@ export function StagingCanaryControl({
         confirmation-gated runbook step. No production writes.
       </p>
 
+      {alreadyShipped ? <ShippedNotice shipment={shipment} /> : null}
+
       <div className="admin-canary-fields">
         <label>
           <span>Geography</span>
@@ -193,6 +200,38 @@ export function StagingCanaryControl({
   );
 }
 
+function ShippedNotice({ shipment }: { shipment?: CanaryShipmentState }) {
+  const shippedAt = formatShippedAt(shipment?.createdAt);
+  return (
+    <div className="admin-command-result admin-command-result-ok" role="status">
+      <strong>Already shipped to Vamo staging</strong>
+      {shipment ? (
+        <>
+          <span>Shipment key: {shipment.shipmentKey}</span>
+          {shipment.approvalAuditId ? (
+            <span>Approval audit id: {shipment.approvalAuditId}</span>
+          ) : null}
+          <span>
+            Status: {shipment.status}
+            {shippedAt ? ` · ${shippedAt}` : ""}
+          </span>
+        </>
+      ) : null}
+      <span>
+        Approving again is disabled. Create a new proposal/run to ship this target again.
+      </span>
+    </div>
+  );
+}
+
+function formatShippedAt(createdAt?: string): string | undefined {
+  if (!createdAt) {
+    return undefined;
+  }
+  const parsed = new Date(createdAt);
+  return Number.isNaN(parsed.getTime()) ? createdAt : parsed.toISOString();
+}
+
 function DecisionView({ decision }: { decision: Decision }) {
   if (decision.state === "idle" || decision.state === "running") {
     return null;
@@ -242,7 +281,14 @@ function DecisionView({ decision }: { decision: Decision }) {
   );
 }
 
-function disabledReasonFor(context: CanaryContext, bounds?: CanaryBounds): string | undefined {
+function disabledReasonFor(
+  context: CanaryContext,
+  bounds?: CanaryBounds,
+  alreadyShipped = false,
+): string | undefined {
+  if (alreadyShipped) {
+    return "Already shipped to Vamo staging; create a new proposal/run to ship again.";
+  }
   if (context.source !== "live") {
     return "Staging-canary approval requires a live control plane.";
   }

@@ -422,6 +422,8 @@ export default async function IngestionDashboardPage() {
           <StagingCanaryControl
             targetId={canaryTarget.targetId}
             bounds={canaryTarget.canaryBounds}
+            shipment={canaryTarget.canaryShipment}
+            alreadyShipped={canaryTarget.canaryShipped}
             context={{
               role: principal.role,
               assuranceLevel: principal.assuranceLevel,

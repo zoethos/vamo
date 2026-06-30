@@ -23,6 +23,7 @@ assert.equal(sampleProposalResult.ok, true);
 const sampleProposal = sampleProposalResult.ok ? sampleProposalResult.proposal : null;
 
 const stubRows = sampleProgressiveRunSnapshot.entries.map((entry) => ({
+  targetKey: entry.scorecard.targetId,
   workStatus: entry.workStatus,
   tier: entry.tier,
   safetyMode: entry.safetyMode,
@@ -31,19 +32,31 @@ const stubRows = sampleProgressiveRunSnapshot.entries.map((entry) => ({
   runReport: entry.report ?? null
 }));
 
-class StubProgressiveClient implements ProgressiveControlReadPgClientLike {
-  constructor(private readonly rows: unknown[]) {}
+function toResult<T extends Record<string, unknown>>(rows: unknown[]): QueryResult<T> {
+  return {
+    rows: rows as T[],
+    rowCount: rows.length,
+    command: "SELECT",
+    oid: 0,
+    fields: []
+  } as QueryResult<T>;
+}
 
-  async query<T extends Record<string, unknown> = Record<string, unknown>>(): Promise<
-    QueryResult<T>
-  > {
-    return {
-      rows: this.rows as T[],
-      rowCount: this.rows.length,
-      command: "SELECT",
-      oid: 0,
-      fields: []
-    } as QueryResult<T>;
+// Query-aware stub: the control read now issues a second query for the shipment
+// ledger, so the stub must answer proposal vs. shipment queries distinctly.
+class StubProgressiveClient implements ProgressiveControlReadPgClientLike {
+  constructor(
+    private readonly rows: unknown[],
+    private readonly shipmentRows: unknown[] = []
+  ) {}
+
+  async query<T extends Record<string, unknown> = Record<string, unknown>>(
+    sql: string
+  ): Promise<QueryResult<T>> {
+    if (sql.includes("ingestion_shipments")) {
+      return toResult<T>(this.shipmentRows);
+    }
+    return toResult<T>(this.rows);
   }
 }
 
@@ -92,6 +105,96 @@ describe("progressive control read", () => {
       projectKey: "vamo"
     });
     assert.equal(snapshot, null);
+  });
+
+  it("attaches a succeeded staging-canary shipment to its proposal", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:4",
+        status: "succeeded",
+        mode: "approved_write",
+        createdAt: "2026-06-28T12:00:00.000Z",
+        summary: { environment: "staging", approvalAuditId: 4 }
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+
+    const review = snapshot.entries.find(
+      (entry) => entry.scorecard.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(review);
+    assert.ok(review.canaryShipment, "review entry carries its shipment state");
+    assert.equal(review.canaryShipment.status, "succeeded");
+    assert.equal(review.canaryShipment.mode, "approved_write");
+    assert.equal(
+      review.canaryShipment.shipmentKey,
+      "staging-canary:vamo-place-intelligence-staging:approval:4"
+    );
+    assert.equal(review.canaryShipment.approvalAuditId, "4");
+
+    // The view surfaces the spent canary and stops inviting a repeat approval.
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find(
+      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(row);
+    assert.equal(row.canaryShipped, true);
+    assert.match(row.nextApproval, /already shipped/i);
+    assert.doesNotMatch(view.nextAction, /Review vamo-place-intelligence-staging/);
+    assert.match(view.nextAction, /already shipped to Vamo staging/i);
+  });
+
+  it("falls back to the approval id parsed from the shipment key", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:9",
+        status: "shipping",
+        mode: "approved_write",
+        createdAt: "2026-06-28T12:00:00.000Z",
+        summary: {}
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+    const review = snapshot.entries.find(
+      (entry) => entry.scorecard.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(review?.canaryShipment);
+    assert.equal(review.canaryShipment.approvalAuditId, "9");
+    assert.equal(review.canaryShipment.status, "shipping");
+  });
+
+  it("ignores a failed shipment so approval can still be requested", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:7",
+        status: "failed",
+        mode: "approved_write",
+        createdAt: "2026-06-28T12:00:00.000Z",
+        summary: { approvalAuditId: 7 }
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find(
+      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(row);
+    // A failed shipment is recorded but not active: the canary slot is unspent.
+    assert.equal(row.canaryShipped, false);
+    assert.ok(row.canaryShipment, "failed shipment still surfaced for context");
+    assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
   });
 
   it("surfaces AI advisory, tier, stage, blockers, next approval, and the dry-run invariant", async () => {
@@ -196,6 +299,48 @@ describe("progressive control read", () => {
           maxRows: 2
         });
         assert.ok(row.aiSummary.length > 0);
+        // No shipment ledger row yet: the canary slot is unspent.
+        assert.equal(row.canaryShipped, false);
+        assert.equal(row.canaryShipment, undefined);
+
+        // Record a succeeded staging-canary shipment and confirm the join lights
+        // up the proposal as already shipped.
+        const targetResult = await client.query<{ id: string }>(
+          `
+            insert into ingestion_platform.ingestion_targets (
+              project_id, target_key, display_name, adapter, safety_mode
+            )
+            values ($1, $2, $2, 'postgres-staging-canary', 'approved_write')
+            returning id::text as id
+          `,
+          [projectId, sampleEntry.scorecard.targetId]
+        );
+        const targetId = Number(targetResult.rows[0]?.id);
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_shipments (
+              project_id, target_id, shipment_key, mode, status, summary
+            )
+            values ($1, $2, $3, 'approved_write', 'succeeded', $4::jsonb)
+          `,
+          [
+            projectId,
+            targetId,
+            `staging-canary:${sampleEntry.scorecard.targetId}:approval:4`,
+            JSON.stringify({ environment: "staging", approvalAuditId: 4 })
+          ]
+        );
+
+        const shippedSnapshot = await loadProgressiveRunSnapshot({ client, projectKey: "demo" });
+        assert.ok(shippedSnapshot);
+        const shippedView = buildProgressiveRunView(shippedSnapshot);
+        const shippedRow = shippedView.rows[0];
+        assert.ok(shippedRow);
+        assert.equal(shippedRow.canaryShipped, true);
+        assert.ok(shippedRow.canaryShipment);
+        assert.equal(shippedRow.canaryShipment.status, "succeeded");
+        assert.equal(shippedRow.canaryShipment.approvalAuditId, "4");
+        assert.match(shippedView.nextAction, /already shipped to Vamo staging/i);
 
         // Unknown project still falls back (null), exercising the join filter.
         const missing = await loadProgressiveRunSnapshot({ client, projectKey: "nope" });

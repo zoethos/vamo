@@ -35,6 +35,43 @@ export type ProgressiveWorkStatus =
   | "review_required"
   | "blocked";
 
+export type CanaryShipmentStatus =
+  | "planned"
+  | "dry_run"
+  | "approved"
+  | "shipping"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
+
+/**
+ * Latest staging-canary shipment ledger row for a target, as surfaced to the
+ * dashboard. Read-only projection of `ingestion_platform.ingestion_shipments`.
+ */
+export interface CanaryShipmentState {
+  status: CanaryShipmentStatus;
+  mode: string;
+  shipmentKey: string;
+  createdAt: string;
+  approvalAuditId?: string;
+}
+
+/**
+ * Statuses that mean the canary slot for a reviewed proposal is already spent:
+ * a shipment has been approved, is shipping, or has succeeded. Treat any of
+ * these as "already shipped" so the dashboard does not invite a repeat approval
+ * against the same `review_required` row.
+ */
+export const ACTIVE_CANARY_SHIPMENT_STATUSES: readonly CanaryShipmentStatus[] = [
+  "approved",
+  "shipping",
+  "succeeded"
+];
+
+export function isActiveCanaryShipment(shipment?: CanaryShipmentState | null): boolean {
+  return Boolean(shipment) && ACTIVE_CANARY_SHIPMENT_STATUSES.includes(shipment!.status);
+}
+
 export interface ProgressiveBacklogEntryInput {
   workStatus: ProgressiveWorkStatus;
   scorecard: TargetScorecard;
@@ -43,6 +80,8 @@ export interface ProgressiveBacklogEntryInput {
   canaryBounds?: ReviewedCanaryBounds;
   scheduledApprovalDescription?: string;
   report?: ProgressiveRunReport;
+  /** Latest staging-canary shipment for this target, if any exists. */
+  canaryShipment?: CanaryShipmentState | null;
 }
 
 export interface ProgressiveRunSnapshot {
@@ -86,6 +125,13 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
   wroteToTarget: boolean;
   /** Reviewed, immutable bounds for a staging-canary approval. */
   canaryBounds?: ReviewedCanaryBounds;
+  /** Latest staging-canary shipment ledger row for this target, if any. */
+  canaryShipment?: CanaryShipmentState;
+  /**
+   * True when an active/spent canary shipment exists (approved, shipping, or
+   * succeeded). The dashboard must not offer a repeat approval in this state.
+   */
+  canaryShipped: boolean;
   blockers: string[];
   policyBlocks: string[];
   deadLetters: string[];
@@ -135,6 +181,8 @@ export function buildProgressiveRunView(snapshot: ProgressiveRunSnapshot): Progr
 function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
   const { scorecard, report } = entry;
   const shipment = report?.shipmentDiff;
+  const canaryShipment = entry.canaryShipment ?? undefined;
+  const canaryShipped = isActiveCanaryShipment(canaryShipment);
   // Prefer the rationale carried by an executed run; otherwise derive the same
   // deterministic advisory rationale the proposal would use for this tier.
   const aiRationale = report?.aiRationale ?? deriveAdvisoryRationale(scorecard, entry.tier);
@@ -161,15 +209,30 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     deadLetterCount: report?.rowCounts.deadLettered ?? 0,
     wroteToTarget: report?.wroteToTarget ?? false,
     canaryBounds: entry.canaryBounds,
+    canaryShipment,
+    canaryShipped,
     blockers: scorecard.blockingGates.slice(),
     policyBlocks: report?.policyBlocks.slice() ?? [],
     deadLetters: report?.deadLetters.slice() ?? [],
     shipmentDiff: shipment
       ? `${shipment.insert} insert / ${shipment.update} update / ${shipment.noOp} no-op${shipment.compatible ? "" : " (incompatible)"}`
       : "not planned",
-    nextApproval: report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
+    // A spent canary takes precedence over the policy approval prompt: the
+    // ledger is the source of truth, even when the proposal row still reads
+    // review_required.
+    nextApproval: canaryShipped
+      ? describeShippedCanary(canaryShipment)
+      : report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
     tone: WORK_STATUS_TONE[entry.workStatus]
   };
+}
+
+function describeShippedCanary(shipment?: CanaryShipmentState): string {
+  if (!shipment) {
+    return "Already shipped to Vamo staging.";
+  }
+  const approval = shipment.approvalAuditId ? ` (approval ${shipment.approvalAuditId})` : "";
+  return `Already shipped to Vamo staging${approval}; create a new proposal/run to ship again.`;
 }
 
 export function deriveReviewedCanaryBounds(input: {
@@ -193,9 +256,17 @@ function count(rows: ProgressiveBacklogRow[], status: ProgressiveWorkStatus): nu
 }
 
 function deriveNextAction(rows: ProgressiveBacklogRow[]): string {
-  const review = rows.find((row) => row.workStatus === "review_required");
+  // A review_required row whose canary already shipped is not actionable: the
+  // ledger has spent the canary slot. Only an unshipped review needs a decision.
+  const review = rows.find((row) => row.workStatus === "review_required" && !row.canaryShipped);
   if (review) {
     return `Review ${review.targetId}: ${review.nextApproval}`;
+  }
+  const shipped = rows.find((row) => row.workStatus === "review_required" && row.canaryShipped);
+  if (shipped) {
+    return `${shipped.targetId} already shipped to Vamo staging${
+      shipped.canaryShipment?.shipmentKey ? ` (${shipped.canaryShipment.shipmentKey})` : ""
+    }; create a new proposal/run to ship again.`;
   }
   const running = rows.find((row) => row.workStatus === "running");
   if (running) {
