@@ -22,8 +22,6 @@ type SearchParams = {
   reason?: string;
 };
 
-export type SignInMethod = "link" | "code";
-
 export default async function AdminSignInPage({
   searchParams,
 }: {
@@ -33,9 +31,8 @@ export default async function AdminSignInPage({
   const isConfigured = Boolean(getSupabasePublicConfig());
   const next = normalizeNextPath(params.next);
   const sentEmail = params.email?.trim();
-  const signInMethod = normalizeSignInMethod(params.method);
   const hasSentEmail = params.sent === "1" && Boolean(sentEmail);
-  const showOtpForm = hasSentEmail && signInMethod === "code";
+  const showOtpForm = hasSentEmail;
   const showMissingConfig = !isConfigured;
   const error =
     params.error === "auth_not_configured" || params.reason === "auth_not_configured"
@@ -111,13 +108,12 @@ export default async function AdminSignInPage({
 
           {hasSentEmail ? (
             <div className="admin-auth-message" role="status">
-              {sentMessage(signInMethod, sentEmail)}
+              {sentMessage(sentEmail)}
             </div>
           ) : null}
 
           <SignInRequestForm
             initialEmail={sentEmail ?? ""}
-            initialMethod={signInMethod}
             isConfigured={isConfigured}
             hasSentEmail={hasSentEmail}
             next={next}
@@ -172,16 +168,9 @@ function normalizeNextPath(value: string | undefined): string {
   return value;
 }
 
-function normalizeSignInMethod(value: string | undefined): SignInMethod {
-  return value === "code" ? "code" : "link";
-}
-
-function sentMessage(method: SignInMethod, email: string | undefined): string {
+function sentMessage(email: string | undefined): string {
   const suffix = email ? ` to ${email}` : "";
-  if (method === "code") {
-    return `Email code sent${suffix}. Enter the email one-time code below. Authenticator app setup happens after this email step, if required.`;
-  }
-  return `Email link sent${suffix}. Open the secure link in this browser. Authenticator app setup happens after this email step, if required.`;
+  return `Sign-in email sent${suffix}. Open the secure link, or enter the 8-digit email code below. This verifies your email session; if your account requires MFA, the next step is your authenticator app.`;
 }
 
 function readableError(error: string): string {
@@ -191,7 +180,7 @@ function readableError(error: string): string {
     case "auth_not_configured":
       return "Supabase auth is not configured for this environment.";
     case "callback_failed":
-      return "The direct sign-in link could not be verified automatically. Enter the one-time code from that email, or request a fresh email if needed.";
+      return "The direct sign-in link could not be verified automatically. Enter the 8-digit email code from that email, or request a fresh email if needed.";
     case "link_session_mismatch":
       return "That sign-in link was opened after its browser session expired or in a different browser. Request an email one-time code, or open a fresh link in this same browser.";
     case "send_failed":
@@ -199,7 +188,7 @@ function readableError(error: string): string {
     case "rate_limited":
       return "Too many sign-in links were requested. Wait a little, then try again.";
     case "otp_missing":
-      return "Enter the email one-time code from your sign-in email.";
+      return "Enter the 8-digit email code from your sign-in email.";
     case "otp_failed":
       return "The email one-time code could not be verified. Request a new sign-in email and try again.";
     case "not_authenticated":
