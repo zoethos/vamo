@@ -40,10 +40,18 @@ export function SignInRequestForm({
 }: SignInRequestFormProps) {
   const [method, setMethod] = useState<SignInMethod>(initialMethod);
   const [email, setEmail] = useState(initialEmail);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const emailValid = /.+@.+\..+/.test(email);
+  const disabled = !isConfigured || isSubmitting;
 
   return (
-    <form className="admin-sign-in-request-form" action="/admin/sign-in/request" method="post">
+    <form
+      className="admin-sign-in-request-form"
+      action="/admin/sign-in/request"
+      method="post"
+      onSubmit={() => setIsSubmitting(true)}
+      aria-busy={isSubmitting}
+    >
       <input type="hidden" name="next" value={next} />
 
       <label htmlFor="admin-email">Work email</label>
@@ -58,12 +66,12 @@ export function SignInRequestForm({
           placeholder="you@company.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          disabled={!isConfigured}
+          disabled={disabled}
         />
-        {emailValid ? <CheckIcon /> : null}
+        {emailValid && !isSubmitting ? <CheckIcon /> : null}
       </div>
 
-      <fieldset className="admin-sign-in-methods" disabled={!isConfigured}>
+      <fieldset className="admin-sign-in-methods" disabled={disabled}>
         <legend>Choose sign-in method</legend>
         <div>
           {signInMethods.map((item) => {
@@ -97,10 +105,15 @@ export function SignInRequestForm({
         </div>
       </fieldset>
 
-      <button className="admin-sign-in-primary-button" type="submit" disabled={!isConfigured}>
-        {primaryLabel(method, hasSentEmail)}
+      <button className="admin-sign-in-primary-button" type="submit" disabled={disabled}>
+        {isSubmitting ? "Sending..." : primaryLabel(method, hasSentEmail)}
         <ArrowIcon />
       </button>
+      {isSubmitting ? (
+        <p className="admin-sign-in-submit-status" role="status">
+          Sending the operator sign-in email. Keep this window open.
+        </p>
+      ) : null}
     </form>
   );
 }
