@@ -53,13 +53,14 @@ export function SignInRequestForm({
       aria-busy={isSubmitting}
     >
       <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="method" value={method} />
 
       <label htmlFor="admin-email">Work email</label>
       <div className="admin-sign-in-input-shell">
         <MailIcon />
         <input
           id="admin-email"
-          name="email"
           type="email"
           autoComplete="email"
           required
@@ -84,7 +85,7 @@ export function SignInRequestForm({
               >
                 <input
                   type="radio"
-                  name="method"
+                  name="method-choice"
                   value={item.id}
                   checked={selected}
                   onChange={() => setMethod(item.id)}
