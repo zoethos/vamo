@@ -75,7 +75,8 @@ export default async function AdminMfaChallengePage({
             <h1 id="admin-mfa-challenge-title">Verify before continuing</h1>
             <p>
               Reset and promotion actions require a fresh verification. Enter
-              the current six-digit code from your authenticator app.
+              the current six-digit code from your authenticator app. This is
+              different from the eight-digit email sign-in code.
             </p>
           </div>
 

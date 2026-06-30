@@ -2991,7 +2991,7 @@ a:hover {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 9px;
-  margin-bottom: 22px;
+  margin-bottom: 10px;
 }
 
 .admin-mfa-otp-input {
@@ -3020,6 +3020,13 @@ a:hover {
   border-color: var(--mfa-coral);
   background: var(--mfa-panel);
   box-shadow: 0 0 0 3px rgba(255, 107, 92, 0.15);
+}
+
+.admin-mfa-code-helper {
+  margin: 0 0 22px;
+  color: var(--mfa-muted);
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .admin-mfa-stepup-submit {
