@@ -2456,6 +2456,13 @@ a:hover {
   opacity: 0.58;
 }
 
+.admin-sign-in-submit-status {
+  margin: -2px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .admin-sign-in-verify-form {
   border-top: 1px solid #e6e7eb;
   padding-top: 18px;

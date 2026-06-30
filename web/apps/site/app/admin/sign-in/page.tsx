@@ -189,7 +189,7 @@ function readableError(error: string): string {
     case "auth_not_configured":
       return "Supabase auth is not configured for this environment.";
     case "callback_failed":
-      return "The sign-in link could not be verified. Request a new link.";
+      return "The direct sign-in link could not be verified automatically. Enter the one-time code from that email, or request a fresh email if needed.";
     case "link_session_mismatch":
       return "That sign-in link was opened after its browser session expired or in a different browser. Request an email one-time code, or open a fresh link in this same browser.";
     case "send_failed":

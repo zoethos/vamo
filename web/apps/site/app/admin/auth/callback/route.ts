@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
+type EmailOtpType = "email" | "magiclink";
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const tokenHash = request.nextUrl.searchParams.get("token_hash");
@@ -17,12 +19,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (tokenHash && otpType) {
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: otpType,
-    });
-    if (error) {
-      console.warn("Admin auth token-hash callback failed", summarizeAuthError(error));
+    const result = await verifyTokenHashWithFallback(supabase, tokenHash, otpType);
+    if (result.error) {
+      console.warn("Admin auth token-hash callback failed", {
+        requestedType: otpType,
+        attempts: result.attempts,
+      });
       return redirectToSignIn(request, "callback_failed", next);
     }
 
@@ -36,6 +38,34 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(new URL(next, request.url));
+}
+
+async function verifyTokenHashWithFallback(
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>,
+  tokenHash: string,
+  preferredType: EmailOtpType
+): Promise<{
+  error: unknown | null;
+  attempts: Array<{ type: EmailOtpType; error?: Record<string, unknown> }>;
+}> {
+  const fallbackType: EmailOtpType = preferredType === "email" ? "magiclink" : "email";
+  const attempts: Array<{ type: EmailOtpType; error?: Record<string, unknown> }> = [];
+
+  for (const type of [preferredType, fallbackType]) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type,
+    });
+
+    if (!error) {
+      attempts.push({ type });
+      return { error: null, attempts };
+    }
+
+    attempts.push({ type, error: summarizeAuthError(error) });
+  }
+
+  return { error: new Error("Token hash verification failed"), attempts };
 }
 
 function redirectToSignIn(request: NextRequest, error: string, next: string): NextResponse {
@@ -60,7 +90,7 @@ async function exchangeCodeForSession(
   }
 }
 
-function normalizeEmailOtpType(value: string | null): "email" | "magiclink" | null {
+function normalizeEmailOtpType(value: string | null): EmailOtpType | null {
   return value === "email" || value === "magiclink" ? value : null;
 }
 

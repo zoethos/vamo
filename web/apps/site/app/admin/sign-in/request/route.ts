@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
+const SIGN_IN_REQUEST_COOKIE = "confluendo_admin_sign_in_request";
+const SIGN_IN_REQUEST_COOLDOWN_MS = 45_000;
+
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const email = readString(formData.get("email"));
@@ -9,6 +12,10 @@ export async function POST(request: NextRequest) {
 
   if (!email) {
     return redirectToSignIn(request, { error: "missing_email", method, next });
+  }
+
+  if (isDuplicateRequest(request, email, method)) {
+    return redirectToSignIn(request, { sent: "1", email, method, next });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -35,7 +42,15 @@ export async function POST(request: NextRequest) {
     return redirectToSignIn(request, { error: errorCode, method, next });
   }
 
-  return redirectToSignIn(request, { sent: "1", email, method, next });
+  const response = redirectToSignIn(request, { sent: "1", email, method, next });
+  response.cookies.set(SIGN_IN_REQUEST_COOKIE, serializeRequestMarker(email, method), {
+    httpOnly: true,
+    maxAge: Math.ceil(SIGN_IN_REQUEST_COOLDOWN_MS / 1000),
+    path: "/admin/sign-in",
+    sameSite: "lax",
+    secure: request.nextUrl.protocol === "https:",
+  });
+  return response;
 }
 
 function redirectToSignIn(
@@ -64,6 +79,39 @@ function normalizeNextPath(value: string | undefined): string {
 
 function normalizeSignInMethod(value: string | undefined): "link" | "code" {
   return value === "code" ? "code" : "link";
+}
+
+function isDuplicateRequest(
+  request: NextRequest,
+  email: string,
+  method: "link" | "code"
+): boolean {
+  const marker = request.cookies.get(SIGN_IN_REQUEST_COOKIE)?.value;
+  if (!marker) {
+    return false;
+  }
+
+  const [markerEmail, markerMethod, markerTimestamp] = marker.split("|");
+  const requestedEmail = normalizeEmailForMarker(email);
+  const timestamp = Number(markerTimestamp);
+
+  if (
+    markerEmail !== requestedEmail ||
+    markerMethod !== method ||
+    !Number.isFinite(timestamp)
+  ) {
+    return false;
+  }
+
+  return Date.now() - timestamp < SIGN_IN_REQUEST_COOLDOWN_MS;
+}
+
+function serializeRequestMarker(email: string, method: "link" | "code"): string {
+  return `${normalizeEmailForMarker(email)}|${method}|${Date.now()}`;
+}
+
+function normalizeEmailForMarker(email: string): string {
+  return encodeURIComponent(email.trim().toLowerCase());
 }
 
 function signInRequestErrorCode(error: unknown): string {
