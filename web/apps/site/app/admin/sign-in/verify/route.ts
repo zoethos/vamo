@@ -72,7 +72,7 @@ function normalizeNextPath(value: string | undefined): string {
 
 function normalizeOtpCode(value: string | undefined): string | undefined {
   const normalized = value?.replace(/[\s-]+/g, "") ?? "";
-  return normalized.length > 0 ? normalized : undefined;
+  return /^\d{8}$/.test(normalized) ? normalized : undefined;
 }
 
 function summarizeAuthError(error: unknown): Record<string, unknown> {

@@ -140,9 +140,11 @@ export default async function AdminSignInPage({
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={12}
+                  minLength={8}
+                  maxLength={8}
+                  pattern="[0-9]{8}"
                   required
-                  placeholder="123456"
+                  placeholder="12345678"
                   disabled={!isConfigured}
                 />
               </div>
