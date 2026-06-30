@@ -2801,6 +2801,355 @@ a:hover {
   color: #f5f6f7;
 }
 
+.admin-mfa-stepup-page {
+  --mfa-bg: #0b1220;
+  --mfa-card: #111a2e;
+  --mfa-panel: #1a2440;
+  --mfa-line: rgba(255, 255, 255, 0.09);
+  --mfa-text: #eaeef5;
+  --mfa-muted: #9aa6ba;
+  --mfa-muted-2: #6a7689;
+  --mfa-coral: #ff6b5c;
+  --mfa-amber: #ffb03a;
+  --mfa-teal: #27c2a0;
+  --mfa-indigo: #6e7bf2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  color: var(--mfa-text);
+  background: radial-gradient(1200px 700px at 50% -10%, #16213a 0%, var(--mfa-bg) 60%);
+}
+
+.admin-mfa-stepup-page ::selection {
+  background: var(--mfa-coral);
+  color: #ffffff;
+}
+
+.admin-mfa-stepup-card {
+  width: min(100%, 440px);
+  overflow: hidden;
+  border: 1px solid var(--mfa-line);
+  border-radius: 18px;
+  background: var(--mfa-card);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+}
+
+.admin-mfa-stepup-spectrum {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  height: 3px;
+}
+
+.admin-mfa-stepup-spectrum span:nth-child(1) {
+  background: var(--mfa-coral);
+}
+
+.admin-mfa-stepup-spectrum span:nth-child(2) {
+  background: var(--mfa-amber);
+}
+
+.admin-mfa-stepup-spectrum span:nth-child(3) {
+  background: var(--mfa-teal);
+}
+
+.admin-mfa-stepup-spectrum span:nth-child(4) {
+  background: var(--mfa-indigo);
+}
+
+.admin-mfa-stepup-inner {
+  padding: 30px 34px 34px;
+}
+
+.admin-mfa-stepup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.admin-mfa-stepup-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--mfa-text);
+  text-decoration: none;
+}
+
+.admin-mfa-stepup-brand svg {
+  color: #ffffff;
+}
+
+.admin-mfa-stepup-brand span {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.admin-mfa-stepup-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--mfa-line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: var(--mfa-panel);
+  white-space: nowrap;
+}
+
+.admin-mfa-stepup-session span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mfa-amber);
+  animation: admin-mfa-pulse 2s ease-in-out infinite;
+}
+
+.admin-mfa-stepup-session strong {
+  color: var(--mfa-muted);
+  font-family: var(--cfl-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+}
+
+.admin-mfa-stepup-copy {
+  margin-bottom: 22px;
+}
+
+.admin-mfa-stepup-kicker {
+  margin: 0 0 11px;
+  color: var(--mfa-amber);
+  font-family: var(--cfl-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-mfa-stepup-copy h1 {
+  margin: 0 0 10px;
+  color: var(--mfa-text);
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.12;
+}
+
+.admin-mfa-stepup-copy p:last-child {
+  margin: 0;
+  color: var(--mfa-muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.admin-mfa-stepup-form {
+  display: grid;
+  gap: 0;
+}
+
+.admin-mfa-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.admin-mfa-code-row label,
+.admin-mfa-code-status {
+  font-family: var(--cfl-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+}
+
+.admin-mfa-code-row label {
+  color: var(--mfa-muted-2);
+  text-transform: uppercase;
+}
+
+.admin-mfa-code-status {
+  color: var(--mfa-teal);
+  text-align: right;
+}
+
+.admin-mfa-code-status-warning {
+  color: var(--mfa-amber);
+}
+
+.admin-mfa-otp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 22px;
+}
+
+.admin-mfa-otp-input {
+  min-width: 0;
+  height: 56px;
+  border: 1px solid var(--mfa-line);
+  border-radius: 11px;
+  color: var(--mfa-text);
+  background: var(--mfa-panel);
+  font-family: var(--cfl-font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.admin-mfa-otp-input::placeholder {
+  color: #3c485f;
+}
+
+.admin-mfa-otp-input:focus {
+  outline: none;
+  border-color: var(--mfa-coral);
+  background: var(--mfa-panel);
+  box-shadow: 0 0 0 3px rgba(255, 107, 92, 0.15);
+}
+
+.admin-mfa-stepup-submit {
+  width: 100%;
+  border: 0;
+  border-radius: 11px;
+  padding: 15px;
+  color: #ffffff;
+  background: var(--mfa-coral);
+  box-shadow: 0 8px 20px -8px rgba(255, 107, 92, 0.6);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-mfa-stepup-submit:disabled,
+.admin-mfa-otp-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.admin-mfa-stepup-message {
+  border: 1px solid rgba(255, 176, 58, 0.28);
+  border-radius: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  color: var(--mfa-amber);
+  background: rgba(255, 176, 58, 0.08);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-mfa-stepup-message-danger {
+  border-color: rgba(255, 107, 92, 0.34);
+  color: #ffb4ab;
+  background: rgba(255, 107, 92, 0.09);
+}
+
+.admin-mfa-stepup-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admin-mfa-stepup-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 43px;
+  border: 1px solid var(--mfa-line);
+  border-radius: 10px;
+  color: var(--mfa-muted);
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.admin-mfa-stepup-actions a:hover,
+.admin-mfa-stepup-actions a:focus-visible {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--mfa-text);
+  outline: none;
+}
+
+.admin-mfa-stepup-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  border-top: 1px solid var(--mfa-line);
+  padding-top: 18px;
+}
+
+.admin-mfa-stepup-footer svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.admin-mfa-stepup-footer path {
+  fill: none;
+  stroke: var(--mfa-teal);
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.admin-mfa-stepup-footer span {
+  color: var(--mfa-muted-2);
+  font-family: var(--cfl-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+@keyframes admin-mfa-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-mfa-stepup-page {
+    padding: 28px 14px;
+  }
+
+  .admin-mfa-stepup-inner {
+    padding: 24px 20px 24px;
+  }
+
+  .admin-mfa-stepup-header {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 24px;
+  }
+
+  .admin-mfa-stepup-copy h1 {
+    font-size: 25px;
+  }
+
+  .admin-mfa-otp-grid {
+    gap: 7px;
+  }
+
+  .admin-mfa-otp-input {
+    height: 50px;
+    border-radius: 9px;
+    font-size: 19px;
+  }
+}
+
 @media (max-width: 820px) {
   .provider-dashboard {
     padding-top: 1.5rem;
