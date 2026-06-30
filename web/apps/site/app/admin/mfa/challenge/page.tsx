@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
-import {
-  readableAdminAccessFailure,
-  requireIngestionAdminPrincipal,
-} from "@/lib/ingestion-admin-auth";
+import { requireIngestionAdminPrincipal } from "@/lib/ingestion-admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { MfaChallengeForm } from "./mfa-challenge-form";
 
@@ -52,38 +49,56 @@ export default async function AdminMfaChallengePage({
   }
 
   return (
-    <main className="admin-auth-page">
-      <section className="admin-auth-panel" aria-labelledby="admin-mfa-challenge-title">
-        <Link className="admin-auth-brand" href="/admin/ingestion">
-          <ConfluendoMark size={34} />
-          <span>Confluendo</span>
-        </Link>
-
-        <div className="admin-auth-copy">
-          <p className="admin-kicker">MFA step-up</p>
-          <h1 id="admin-mfa-challenge-title">Verify before continuing</h1>
-          <p>
-            {readableAdminAccessFailure(params.reason ?? "mfa_challenge_required")}
-          </p>
+    <main className="admin-mfa-stepup-page">
+      <section className="admin-mfa-stepup-card" aria-labelledby="admin-mfa-challenge-title">
+        <div className="admin-mfa-stepup-spectrum" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
         </div>
 
-        <div className="admin-auth-message" role="status">
-          Enter the current six-digit code from your authenticator app. Reset
-          actions require a fresh verification.
-        </div>
-
-        {factorLookupFailed || !factorId ? (
-          <div className="admin-auth-message admin-auth-message-danger" role="alert">
-            Supabase MFA factors could not be loaded. Refresh this page before
-            using operator controls.
+        <div className="admin-mfa-stepup-inner">
+          <div className="admin-mfa-stepup-header">
+            <Link className="admin-mfa-stepup-brand" href="/admin/ingestion">
+              <ConfluendoMark size={28} variant="spectrum" />
+              <span>Confluendo</span>
+            </Link>
+            <div className="admin-mfa-stepup-session" aria-label="Current session requires MFA step-up">
+              <span aria-hidden="true" />
+              <strong>aal1 · step-up required</strong>
+            </div>
           </div>
-        ) : (
-          <MfaChallengeForm factorId={factorId} next={next} />
-        )}
 
-        <div className="admin-auth-actions">
-          <Link href="/admin/sign-out">Sign out</Link>
-          <Link href={next}>Back to console</Link>
+          <div className="admin-mfa-stepup-copy">
+            <p className="admin-mfa-stepup-kicker">MFA step-up</p>
+            <h1 id="admin-mfa-challenge-title">Verify before continuing</h1>
+            <p>
+              Reset and promotion actions require a fresh verification. Enter
+              the current six-digit code from your authenticator app.
+            </p>
+          </div>
+
+          {factorLookupFailed || !factorId ? (
+            <div className="admin-mfa-stepup-message admin-mfa-stepup-message-danger" role="alert">
+              Supabase MFA factors could not be loaded. Refresh this page before
+              using operator controls.
+            </div>
+          ) : (
+            <MfaChallengeForm factorId={factorId} next={next} />
+          )}
+
+          <div className="admin-mfa-stepup-actions">
+            <Link href={next}>Back to console</Link>
+            <Link href="/admin/sign-out">Sign out</Link>
+          </div>
+
+          <div className="admin-mfa-stepup-footer">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z" />
+            </svg>
+            <span>audit-logged · session elevated to aal2 on success</span>
+          </div>
         </div>
       </section>
     </main>
