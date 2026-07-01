@@ -998,11 +998,89 @@ Validation:
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for the apply/rollback
   round-trip.
 
+## Slice IP-17 - Vamo Production Inbox Delivery
+
+Status: implementation complete locally, pending PR/CI. No live production
+delivery has been run.
+
+Goal:
+
+- Promote a reviewed, staging-proven Vamo place-intelligence package into Vamo
+  production's `confluendo_inbox` schema.
+- Keep Confluendo out of Vamo production product tables.
+- Let Vamo own the later `apply_confluendo_shipment(...)` step into
+  `public.location_canonicals` and `public.location_source_refs`.
+
+Architecture decision:
+
+- **Pure policy + package builder + target adapter.** The approval rules and
+  package construction live in platform core; target writes are isolated behind
+  the Postgres production-inbox adapter; the dashboard records approval only.
+  This preserves the Confluendo provider boundary and the Vamo consumer apply
+  boundary.
+
+Implemented components:
+
+- `web/packages/ingestion-platform/core/src/production-inbox-policy.ts`
+  validates admin/AAL2/fresh-step-up, staging evidence, reviewed compatible dry
+  run, production environment, bounds, no deletes, audit reason, and explicit
+  `approved_for_production_inbox -> production_inbox_delivered` transition.
+- `web/packages/ingestion-platform/core/src/shipment-package.ts` builds the
+  logical package and item payloads. It intentionally leaves checksum
+  calculation to target Postgres.
+- `web/packages/ingestion-platform/adapters/target/src/postgres-production-inbox.ts`
+  writes only to `confluendo_inbox.shipments` and
+  `confluendo_inbox.shipment_items`, refuses staging guard artifacts, computes
+  payload and package checksums in Vamo Postgres, and is idempotent on matching
+  checksum.
+- `web/packages/ingestion-platform/core/src/production-inbox-control.ts`
+  records approval and delivery ledger rows in the Confluendo control DB.
+- `web/packages/ingestion-platform/scripts/run-ip17-production-inbox.mjs`
+  previews safely and hard-fails unless `CONFIRM_VAMO_PRODUCTION_INBOX=YES`,
+  `--execute`, a fresh approval id, control DSN, production inbox DSN, and
+  `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production` are all present.
+- `web/apps/site/app/api/admin/ingestion/production-inbox/route.ts` records the
+  dashboard approval decision only; it never receives Vamo production DB
+  credentials.
+- `web/apps/site/app/admin/ingestion/production-inbox-control.tsx` surfaces the
+  production inbox approval state beside the staging canary control.
+- `supabase/migrations/20260701121500_confluendo_inbox_writer_digest_usage.sql`
+  grants the least-privilege inbox writer access to the `extensions` schema so
+  it can call `extensions.digest(...)`.
+- `docs/platform/ingestion/PRODUCTION_INBOX_RUNBOOK.md` documents the live
+  production inbox sequence and Vamo-owned apply step.
+
+Hard guardrails:
+
+- No production live run in this slice.
+- No direct Confluendo grants on Vamo production product tables.
+- No browser exposure of Vamo production DB credentials.
+- No JavaScript checksum authority for production inbox packages; the adapter
+  and Vamo apply function both use Vamo Postgres `extensions.digest(...)` over
+  `jsonb::text`.
+- No production delivery if `vamo_canary_app` or the staging guard sentinel is
+  present on the target.
+- Vamo-owned apply remains a manual/operator step after inbox delivery.
+
+Validation:
+
+- `npm --workspace @vamo/ingestion-platform test`
+- `npm --workspace @vamo/ingestion-platform run ip17:production-inbox` (dry,
+  confirmation absent -> hard-fail with no write)
+- `npm --workspace @vamo/site run build`
+- Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for:
+  - production inbox schema and writer role,
+  - SQL-computed item/package checksums,
+  - idempotent inbox delivery,
+  - Vamo-owned apply function,
+  - staging guard refusal.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
 - No Google reusable content cache.
-- No production target writes.
+- No direct production target writes. IP-17 may deliver only to the consumer
+  inbox schema after explicit approval and live gates.
 - No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
 - No standalone repo split until IP-15 split prep is complete (IP-14 has proven
@@ -1015,31 +1093,21 @@ Validation:
 
 ## Recommended Immediate Next Slice
 
-**IP-16 - First Vamo Staging Canary** is implemented, merged, and hardened
-(PR #97, #99, #101), and the Vamo place-intelligence schema is aligned on
-staging and production. The Vamo staging sentinel/`vamo_canary_app` bootstrap
-(table sentinel, least-privilege role, SELECT/INSERT/UPDATE grants and RLS
-policies, no DELETE) is verified read-only. The remaining steps are operational,
-in order:
+**IP-17 - Vamo Production Inbox Delivery** is the active implementation slice.
+After IP-17 is merged, the next move is operational, not another platform
+feature:
 
-1. Reseed the Confluendo control proposal row from
-   `docs/platform/ingestion/bootstrap/sql/ip16_vamo_live_proposal_seed.sql` so the
-   live reviewed run reflects the corrected scope (rome-italy/poi, 1 candidate,
-   2 writes, `review_required`, `dry_run`, `wroteToTarget=false`,
-   `reachedReview=true`).
-2. Record a fresh dashboard MFA approval (`ingestion_admin` + fresh AAL2 step-up
-   + non-empty audit reason). Do not reuse the stale approval id 4.
-3. Execute the first bounded Vamo staging canary only, against staging, with
-   `CONFIRM_VAMO_STAGING_CANARY=YES` and `--execute`.
+1. Promote the inbox digest-grant migration to Vamo staging and production under
+   `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
+2. Provision the Vamo production inbox login role and verify it can write only
+   to `confluendo_inbox`.
+3. Record a fresh Confluendo dashboard approval for production inbox delivery.
+4. Run the IP-17 dry preview and then the confirmation-gated live delivery only
+   if all gates are green.
+5. Have Vamo operators run the Vamo-owned apply function after inspecting the
+   delivered inbox package.
 
-The next implementation slice after that canary is **IP-17 - Vamo Production
-Inbox Delivery**. It should follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
-
-- `confluendo_inbox` schema for Vamo production,
-- a least-privilege Confluendo inbox writer role that cannot write directly to
-  Vamo product tables,
-- `apply_confluendo_shipment(package_id, approved_by, approval_reason)` or an
-  equivalent Vamo-owned apply function,
-- checksum/idempotency validation,
-- dashboard states for `production_inbox_delivered` and `consumer_applied`,
-- rollback/reversal posture owned by Vamo production operators.
+The next implementation slice after that should be **IP-18 - Automated Batch
+Target Planning**: YAML/imported target sets, progressive scheduling, dashboard
+batch controls, and AI-assisted prioritization. That is where broad city/POI
+coverage belongs; IP-17 is the governed production-delivery foundation.

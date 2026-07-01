@@ -230,6 +230,17 @@ Confluendo package
 This keeps Confluendo from having direct production write access to final Vamo
 product tables while still letting Confluendo deliver governed data packages.
 
+IP-17 implements the first version of this path:
+
+- package creation and approval policy live in Confluendo platform core,
+- delivery writes only to `confluendo_inbox.shipments` and
+  `confluendo_inbox.shipment_items`,
+- payload and package checksums are computed inside Vamo Postgres with
+  `extensions.digest(...)`,
+- the dashboard records approval only; live delivery remains CLI-gated,
+- Vamo owns `confluendo_inbox.apply_confluendo_shipment(...)` and the final
+  product-table mutation.
+
 Vamo can also use the hosted Confluendo API for preview, admin comparison,
 search assistance, or fallback reads where product latency and availability
 requirements allow it.
@@ -314,10 +325,13 @@ generic JSONB. The generic item table is useful for audit and disaster recovery.
 
 ## Open Follow-Ups
 
-- Define the Vamo production inbox schema migration.
-- Define the Vamo `apply_confluendo_shipment` function contract.
-- Add Confluendo control-plane package signing or checksum verification.
-- Add dashboard states for inbox delivered versus consumer applied.
+- Promote the Vamo production inbox schema migrations through staging and
+  production under the migration promotion policy.
+- Run the first live, confirmation-gated production inbox delivery after
+  approval and production safety checks.
+- Add Confluendo control-plane package signing on top of checksum verification.
+- Add richer dashboard states for consumer-applied package details and Vamo
+  apply failures.
 - Add hosted API read model and project-scoped access tokens.
 - Decide whether hosted Confluendo API should have SDK-first or REST-first
   packaging.

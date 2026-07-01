@@ -16,6 +16,7 @@ import {
   RecoveryCommandButton,
   TargetCommandButton,
 } from "./ingestion-command-controls";
+import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 
 export const metadata: Metadata = {
@@ -419,17 +420,30 @@ export default async function IngestionDashboardPage() {
           </div>
         ) : null}
         {canaryTarget ? (
-          <StagingCanaryControl
-            targetId={canaryTarget.targetId}
-            bounds={canaryTarget.canaryBounds}
-            shipment={canaryTarget.canaryShipment}
-            alreadyShipped={canaryTarget.canaryShipped}
-            context={{
-              role: principal.role,
-              assuranceLevel: principal.assuranceLevel,
-              source: progressiveSource,
-            }}
-          />
+          <div className="admin-canary-stack">
+            <StagingCanaryControl
+              targetId={canaryTarget.targetId}
+              bounds={canaryTarget.canaryBounds}
+              shipment={canaryTarget.canaryShipment}
+              alreadyShipped={canaryTarget.canaryShipped}
+              context={{
+                role: principal.role,
+                assuranceLevel: principal.assuranceLevel,
+                source: progressiveSource,
+              }}
+            />
+            <ProductionInboxControl
+              targetId={canaryTarget.targetId}
+              bounds={canaryTarget.canaryBounds}
+              canaryShipment={canaryTarget.canaryShipment}
+              productionInbox={canaryTarget.productionInbox}
+              context={{
+                role: principal.role,
+                assuranceLevel: principal.assuranceLevel,
+                source: progressiveSource,
+              }}
+            />
+          </div>
         ) : null}
       </section>
 

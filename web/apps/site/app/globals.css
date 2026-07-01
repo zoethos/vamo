@@ -1308,12 +1308,23 @@ a:hover {
   margin: 0 0 0.25rem;
 }
 
+.admin-canary-stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
 .admin-canary-control {
   margin: 1rem 0 0;
   padding: 1rem 1.1rem;
   border: 1px solid rgba(42, 46, 58, 0.12);
   border-radius: 14px;
   background: rgba(42, 46, 58, 0.03);
+}
+
+.admin-canary-note code {
+  font-family: var(--cfl-font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .admin-canary-control h3 {
@@ -3235,7 +3246,8 @@ a:hover {
 @media (max-width: 760px) {
   .admin-hero,
   .admin-command-grid,
-  .admin-stat-grid {
+  .admin-stat-grid,
+  .admin-canary-stack {
     grid-template-columns: 1fr;
   }
 

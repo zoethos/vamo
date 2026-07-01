@@ -9,6 +9,7 @@
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
     "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
     "./adapters/target/staging-canary": "./dist/adapters/target/src/postgres-staging-canary.js",
+    "./adapters/target/production-inbox": "./dist/adapters/target/src/postgres-production-inbox.js",
     "./core": "./dist/core/src/index.js",
     "./control-api": {
       "types": "./dist/core/src/control-command-api.d.ts",
@@ -38,6 +39,10 @@
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"
     },
+    "./production-inbox-control": {
+      "types": "./dist/core/src/production-inbox-control.d.ts",
+      "default": "./dist/core/src/production-inbox-control.js"
+    },
     "./policy": "./dist/policy/src/index.js",
     "./spec": "./dist/spec/src/index.js",
     "./package.json": "./package.json"
@@ -48,6 +53,7 @@
     "import:contract": "npm run build && node scripts/import-consumer-contract.mjs",
     "ip14:dry-run": "npm run build && node scripts/run-ip14-dry-run.mjs",
     "ip16:staging-canary": "npm run build && node scripts/run-ip16-staging-canary.mjs",
+    "ip17:production-inbox": "npm run build && node scripts/run-ip17-production-inbox.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

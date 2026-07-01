@@ -21,6 +21,12 @@ export {
   type StagingCanaryCounts
 } from "./postgres-staging-canary.js";
 export {
+  deliverPostgresProductionInboxPackage,
+  type DeliverPostgresProductionInboxInput,
+  type ProductionInboxDeliveryBlockCode,
+  type ProductionInboxDeliveryResult
+} from "./postgres-production-inbox.js";
+export {
   evaluateSupabaseTargetSpecSecurity,
   hasBlockingSupabaseSecurityFindings,
   inspectSupabaseTargetSecurity,

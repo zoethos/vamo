@@ -136,16 +136,50 @@ describe("progressive control read", () => {
     );
     assert.equal(review.canaryShipment.approvalAuditId, "4");
 
-    // The view surfaces the spent canary and stops inviting a repeat approval.
+    // The view surfaces the spent canary and moves the target forward to the
+    // production-inbox approval instead of inviting a repeat canary approval.
     const view = buildProgressiveRunView(snapshot);
     const row = view.rows.find(
       (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
     );
     assert.ok(row);
     assert.equal(row.canaryShipped, true);
-    assert.match(row.nextApproval, /already shipped/i);
+    assert.match(row.nextApproval, /production inbox delivery/i);
     assert.doesNotMatch(view.nextAction, /Review vamo-place-intelligence-staging/);
-    assert.match(view.nextAction, /already shipped to Vamo staging/i);
+    assert.match(view.nextAction, /ready for production inbox approval/i);
+  });
+
+  it("attaches a production-inbox delivery shipment to its proposal", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:14",
+        status: "succeeded",
+        mode: "approved_write",
+        createdAt: "2026-07-01T12:00:00.000Z",
+        summary: {
+          environment: "production",
+          productionStatus: "production_inbox_delivered",
+          approvalAuditId: 14,
+          packageId: "production-inbox:vamo-place-intelligence-staging:approval:14",
+          itemCount: 2
+        }
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find(
+      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(row);
+    assert.equal(row.productionInboxDelivered, true);
+    assert.equal(row.productionInbox?.approvalAuditId, "14");
+    assert.equal(row.productionInbox?.itemCount, 2);
+    assert.match(row.nextApproval, /waiting for Vamo apply/i);
   });
 
   it("falls back to the approval id parsed from the shipment key", async () => {
@@ -340,7 +374,7 @@ describe("progressive control read", () => {
         assert.ok(shippedRow.canaryShipment);
         assert.equal(shippedRow.canaryShipment.status, "succeeded");
         assert.equal(shippedRow.canaryShipment.approvalAuditId, "4");
-        assert.match(shippedView.nextAction, /already shipped to Vamo staging/i);
+        assert.match(shippedView.nextAction, /ready for production inbox approval/i);
 
         // Unknown project still falls back (null), exercising the join filter.
         const missing = await loadProgressiveRunSnapshot({ client, projectKey: "nope" });

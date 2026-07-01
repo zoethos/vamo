@@ -4,6 +4,8 @@ import type { ProgressiveRunReport } from "./progressive-run.js";
 import type {
   CanaryShipmentState,
   CanaryShipmentStatus,
+  ProductionInboxState,
+  ProductionInboxStatus,
   ProgressiveBacklogEntryInput,
   ProgressiveRunSnapshot,
   ProgressiveWorkStatus
@@ -51,7 +53,7 @@ interface ShipmentRow extends Record<string, unknown> {
   status: string;
   mode: string;
   createdAt: string | Date | null;
-  summary: { approvalAuditId?: unknown } | null;
+  summary: Record<string, unknown> | null;
 }
 
 // Postgres "undefined_table" — an older control DB without the progressive table
@@ -61,6 +63,7 @@ const UNDEFINED_TABLE = "42P01";
 // The shipment_key the staging-canary recorder writes:
 // `staging-canary:<target_key>:approval:<approvalAuditId>`.
 const CANARY_SHIPMENT_KEY_PATTERN = /^staging-canary:(.+):approval:(.+)$/;
+const PRODUCTION_INBOX_SHIPMENT_KEY_PATTERN = /^production-inbox:(.+):approval:(.+)$/;
 const CANARY_SHIPMENT_STATUSES: ReadonlySet<CanaryShipmentStatus> = new Set([
   "planned",
   "dry_run",
@@ -69,6 +72,13 @@ const CANARY_SHIPMENT_STATUSES: ReadonlySet<CanaryShipmentStatus> = new Set([
   "succeeded",
   "failed",
   "cancelled"
+]);
+const PRODUCTION_INBOX_STATUSES: ReadonlySet<ProductionInboxStatus> = new Set([
+  "production_inbox_delivered",
+  "production_inbox_delivery_failed",
+  "consumer_apply_pending",
+  "consumer_applied",
+  "consumer_apply_failed"
 ]);
 
 /**
@@ -117,9 +127,12 @@ export async function loadProgressiveRunSnapshot(
     }
 
     const shipments = await loadCanaryShipmentMap(client, input.projectKey);
+    const productionInbox = await loadProductionInboxShipmentMap(client, input.projectKey);
 
     return {
-      entries: result.rows.map((row) => toEntry(row, shipments.get(row.targetKey) ?? null))
+      entries: result.rows.map((row) =>
+        toEntry(row, shipments.get(row.targetKey) ?? null, productionInbox.get(row.targetKey) ?? null)
+      )
     };
   } catch (error) {
     if (isUndefinedTable(error)) {
@@ -131,6 +144,43 @@ export async function loadProgressiveRunSnapshot(
       await ownedClient.end();
     }
   }
+}
+
+async function loadProductionInboxShipmentMap(
+  client: ProgressiveControlReadPgClientLike,
+  projectKey: string
+): Promise<Map<string, ProductionInboxState>> {
+  const map = new Map<string, ProductionInboxState>();
+  try {
+    const result = await client.query<ShipmentRow>(
+      `
+        select
+          s.shipment_key as "shipmentKey",
+          s.status as status,
+          s.mode as mode,
+          s.created_at as "createdAt",
+          s.summary as summary
+        from ingestion_platform.ingestion_shipments s
+        join ingestion_platform.ingestion_projects p on p.id = s.project_id
+        where p.project_key = $1
+          and s.shipment_key like 'production-inbox:%:approval:%'
+        order by s.created_at desc, s.id desc
+      `,
+      [projectKey]
+    );
+
+    for (const row of result.rows) {
+      const parsed = parseProductionInboxShipmentRow(row);
+      if (parsed && !map.has(parsed.targetKey)) {
+        map.set(parsed.targetKey, parsed.state);
+      }
+    }
+  } catch (error) {
+    if (!isUndefinedTable(error)) {
+      throw error;
+    }
+  }
+  return map;
 }
 
 /**
@@ -202,6 +252,31 @@ function parseShipmentRow(
   };
 }
 
+function parseProductionInboxShipmentRow(
+  row: ShipmentRow
+): { targetKey: string; state: ProductionInboxState } | null {
+  const match = PRODUCTION_INBOX_SHIPMENT_KEY_PATTERN.exec(row.shipmentKey ?? "");
+  if (!match) {
+    return null;
+  }
+  const status = readProductionInboxStatus(row.summary, row.status);
+  if (!status) {
+    return null;
+  }
+  return {
+    targetKey: match[1],
+    state: {
+      status,
+      shipmentKey: row.shipmentKey,
+      createdAt: toIso(row.createdAt),
+      approvalAuditId: resolveApprovalAuditId(row.summary, match[2]),
+      packageId: readString(row.summary?.packageId),
+      packageChecksum: readString(row.summary?.packageChecksum),
+      itemCount: readNumber(row.summary?.itemCount)
+    }
+  };
+}
+
 function resolveApprovalAuditId(
   summary: ShipmentRow["summary"],
   fallback: string | undefined
@@ -214,6 +289,23 @@ function resolveApprovalAuditId(
     return String(fromSummary);
   }
   return fallback && fallback.length > 0 ? fallback : undefined;
+}
+
+function readProductionInboxStatus(
+  summary: ShipmentRow["summary"],
+  ledgerStatus: string
+): ProductionInboxStatus | undefined {
+  const fromSummary = readString(summary?.productionStatus) ?? readString(summary?.status);
+  if (fromSummary && PRODUCTION_INBOX_STATUSES.has(fromSummary as ProductionInboxStatus)) {
+    return fromSummary as ProductionInboxStatus;
+  }
+  if (ledgerStatus === "succeeded") {
+    return "production_inbox_delivered";
+  }
+  if (ledgerStatus === "failed" || ledgerStatus === "cancelled") {
+    return "production_inbox_delivery_failed";
+  }
+  return undefined;
 }
 
 function toIso(value: string | Date | null): string {
@@ -229,7 +321,8 @@ function toIso(value: string | Date | null): string {
 
 function toEntry(
   row: ProposalRow,
-  canaryShipment: CanaryShipmentState | null
+  canaryShipment: CanaryShipmentState | null,
+  productionInbox: ProductionInboxState | null
 ): ProgressiveBacklogEntryInput {
   const report = row.runReport ?? undefined;
   return {
@@ -240,8 +333,24 @@ function toEntry(
     canaryBounds: deriveReviewedCanaryBounds({ proposal: row.proposal, report }),
     report,
     scheduledApprovalDescription: report ? undefined : row.proposal?.approval.description,
-    canaryShipment
+    canaryShipment,
+    productionInbox
   };
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 function isUndefinedTable(error: unknown): boolean {

@@ -162,8 +162,11 @@ export {
 } from "./progressive-run.js";
 export {
   buildProgressiveRunView,
+  isProductionInboxDelivered,
   sampleProgressiveRunSnapshot,
   sampleVamoProposal,
+  type ProductionInboxState,
+  type ProductionInboxStatus,
   type ProgressiveBacklogEntryInput,
   type ProgressiveBacklogRow,
   type ProgressiveRunSnapshot,
@@ -198,3 +201,37 @@ export {
   type StagingCanaryShipmentItemForLedger,
   type StagingCanaryControlPgClientLike
 } from "./staging-canary-control.js";
+export {
+  evaluateProductionInboxPromotion,
+  isProductionInboxApprovalFresh,
+  PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS,
+  PRODUCTION_INBOX_FRESH_STEP_UP_WINDOW_MS,
+  PRODUCTION_INBOX_MAX_ROWS,
+  type EvaluateProductionInboxPromotionInput,
+  type EvaluateProductionInboxPromotionResult,
+  type ProductionInboxApprovalContext,
+  type ProductionInboxApprover,
+  type ProductionInboxBlock,
+  type ProductionInboxBlockCode,
+  type ProductionInboxBounds,
+  type ProductionInboxPlan,
+  type ProductionInboxStagingEvidence,
+  type ProductionInboxTransition
+} from "./production-inbox-policy.js";
+export {
+  buildProductionInboxPackage,
+  type BuildProductionInboxPackageInput,
+  type ProductionInboxOperation,
+  type ProductionInboxPackage,
+  type ProductionInboxPackageItem,
+  type ProductionInboxTargetTable
+} from "./shipment-package.js";
+export {
+  recordProductionInboxApproval,
+  recordProductionInboxDelivery,
+  type ProductionInboxControlPgClientLike,
+  type RecordProductionInboxApprovalInput,
+  type RecordProductionInboxApprovalResult,
+  type RecordProductionInboxDeliveryInput,
+  type RecordProductionInboxDeliveryResult
+} from "./production-inbox-control.js";

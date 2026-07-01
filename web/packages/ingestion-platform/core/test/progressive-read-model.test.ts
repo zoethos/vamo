@@ -4,9 +4,11 @@ import { describe, it } from "node:test";
 import {
   buildProgressiveRunView,
   isActiveCanaryShipment,
+  isProductionInboxDelivered,
   sampleProgressiveRunSnapshot,
   sampleVamoProposal,
   type CanaryShipmentState,
+  type ProductionInboxState,
   type ProgressiveRunSnapshot
 } from "../src/progressive-read-model.js";
 
@@ -119,12 +121,13 @@ describe("progressive run dashboard read model", () => {
     assert.equal(row.workStatus, "review_required");
     assert.equal(row.canaryShipped, true);
     assert.equal(row.canaryShipment?.shipmentKey, shipment.shipmentKey);
-    assert.match(row.nextApproval, /already shipped/i);
-    assert.doesNotMatch(row.nextApproval, /approve/i);
+    assert.match(row.nextApproval, /production inbox delivery/i);
+    assert.match(row.nextApproval, /production inbox delivery/i);
 
-    // The single next action no longer invites a repeat approval.
+    // The single next action no longer invites a repeat canary approval; it
+    // moves the target forward to the production-inbox approval.
     assert.doesNotMatch(view.nextAction, /^Review vamo-place-intelligence-staging/);
-    assert.match(view.nextAction, /already shipped to Vamo staging/i);
+    assert.match(view.nextAction, /ready for production inbox approval/i);
   });
 
   it("keeps review_required actionable when no active shipment exists", () => {
@@ -146,5 +149,52 @@ describe("progressive run dashboard read model", () => {
     assert.ok(row);
     assert.equal(row.canaryShipped, false);
     assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
+  });
+
+  it("surfaces production inbox delivery as waiting for Vamo apply", () => {
+    const canary: CanaryShipmentState = {
+      status: "succeeded",
+      mode: "approved_write",
+      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:8",
+      createdAt: "2026-06-28T12:00:00.000Z",
+      approvalAuditId: "8"
+    };
+    const inbox: ProductionInboxState = {
+      status: "production_inbox_delivered",
+      shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:12",
+      createdAt: "2026-07-01T12:00:00.000Z",
+      approvalAuditId: "12",
+      packageId: "production-inbox:vamo-place-intelligence-staging:approval:12",
+      itemCount: 2
+    };
+    const snapshot: ProgressiveRunSnapshot = {
+      entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
+        entry.workStatus === "review_required"
+          ? { ...entry, canaryShipment: canary, productionInbox: inbox }
+          : entry
+      )
+    };
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    assert.ok(row);
+    assert.equal(row.productionInboxDelivered, true);
+    assert.equal(row.productionInbox?.packageId, inbox.packageId);
+    assert.match(row.nextApproval, /waiting for Vamo apply/i);
+    assert.match(view.nextAction, /waiting for Vamo apply/i);
+  });
+
+  it("classifies production inbox states", () => {
+    const base = {
+      shipmentKey: "production-inbox:t:approval:1",
+      createdAt: "2026-07-01T12:00:00.000Z"
+    };
+    assert.equal(isProductionInboxDelivered(undefined), false);
+    assert.equal(isProductionInboxDelivered(null), false);
+    assert.equal(isProductionInboxDelivered({ ...base, status: "production_inbox_delivered" }), true);
+    assert.equal(isProductionInboxDelivered({ ...base, status: "consumer_apply_pending" }), true);
+    assert.equal(isProductionInboxDelivered({ ...base, status: "consumer_applied" }), true);
+    assert.equal(isProductionInboxDelivered({ ...base, status: "consumer_apply_failed" }), false);
+    assert.equal(isProductionInboxDelivered({ ...base, status: "production_inbox_delivery_failed" }), false);
   });
 });

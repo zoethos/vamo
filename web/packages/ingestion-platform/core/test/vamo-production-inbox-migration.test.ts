@@ -12,6 +12,10 @@ const confluendoInboxSql = readFileSync(
   "../../../supabase/migrations/20260701100233_confluendo_inbox.sql",
   "utf8"
 );
+const writerDigestGrantSql = readFileSync(
+  "../../../supabase/migrations/20260701121500_confluendo_inbox_writer_digest_usage.sql",
+  "utf8"
+);
 
 describe(
   "Vamo Confluendo production inbox migration",
@@ -39,6 +43,7 @@ describe(
       await client.query("create extension if not exists pgcrypto with schema extensions");
       await client.query(placeIntelligenceSql);
       await client.query(confluendoInboxSql);
+      await client.query(writerDigestGrantSql);
     });
 
     it("keeps the inbox writer isolated from product tables", async () => {
@@ -272,7 +277,9 @@ async function cleanup(client: Client): Promise<void> {
   await client.query("drop table if exists public.location_provider_policies cascade");
   await client.query("drop table if exists public.trips cascade");
   await client.query("drop schema if exists auth cascade");
-  await client.query("drop role if exists confluendo_inbox_writer");
+  // `confluendo_inbox_writer` is cluster-level. The disposable Postgres
+  // container is removed after DB smokes, and the migration reasserts the role
+  // flags idempotently before every test.
 }
 
 async function createSupabaseRoles(client: Client): Promise<void> {
