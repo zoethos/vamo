@@ -46,6 +46,33 @@ flowchart LR
 
 Both `.env.local` files and `web/.env.canary.local` are local-only and ignored.
 
+## Variable Purpose Legend
+
+Use this legend when deciding where a value belongs and whether it is safe to
+share. Values marked server-only or shell-only must never be exposed through
+`NEXT_PUBLIC_*` or committed to Git.
+
+| Variable | Purpose | Used by | Secret posture |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Points browser auth clients at the Confluendo control Supabase project. | Confluendo console browser | Public, but Confluendo-owned. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-safe Supabase publishable/anon key for Auth and MFA session flows. | Confluendo console browser | Public client key; never replace with service-role. |
+| `INGESTION_CONTROL_DATABASE_URL` | Server/CLI connection to the Confluendo control plane for proposals, approvals, audit, and shipment ledger. | Console server routes; IP-16/IP-17 CLIs | Server-only secret DSN. |
+| `INGESTION_ADMIN_API_TOKEN` | Optional machine-token path for non-human control commands. | Console command API | Server-only secret; avoid in human-only production. |
+| `VAMO_PLACE_CACHE_DATABASE_URL` | Optional customer-zero read adapter for Vamo cache metrics. | Console server metrics | Server-only DSN; optional. |
+| `CONFLUENDO_CONSOLE_URL` | Lets the Vamo web shell hand operators to the standalone Confluendo console. | Vamo web shell | Public URL, no DB authority. |
+| `VAMO_STAGING_DATABASE_URL` | Connects IP-16 to Vamo staging as `vamo_canary_app`. | IP-16 runbook CLI | Shell-only secret DSN. |
+| `VAMO_STAGING_CANARY_ENVIRONMENT` | Declares the intended IP-16 execution environment. | IP-16 runbook CLI | Non-secret; must equal `staging`. |
+| `VAMO_STAGING_CANARY_APPROVAL_ID` | Identifies the fresh, audited dashboard approval consumed by one staging canary run. | IP-16 runbook CLI | Non-secret but single-use operational value. |
+| `VAMO_STAGING_CANARY_REASON` | Optional operator reason to attach to the canary execution. | IP-16 runbook CLI | Non-secret unless the reason text contains sensitive detail. |
+| `VAMO_STAGING_CANARY_APPROVAL_MAX_AGE_MINUTES` | Overrides the approval freshness window for IP-16. | IP-16 runbook CLI | Non-secret policy tuning. |
+| `VAMO_STAGING_HOST_PATTERN` | Extra host guard so staging and production targets are not confused. | IP-16/IP-17 runbook CLIs | Non-secret safety guard. |
+| `CONFIRM_VAMO_STAGING_CANARY` | Final human gate for an IP-16 live staging write. | IP-16 runbook CLI | Non-secret; set per run only. |
+| `VAMO_PRODUCTION_INBOX_DATABASE_URL` | Connects IP-17 to Vamo production as `confluendo_inbox_app`, limited to the inbox schema. | IP-17 runbook CLI | Shell-only secret DSN. |
+| `VAMO_PRODUCTION_INBOX_ENVIRONMENT` | Declares the intended IP-17 execution environment. | IP-17 runbook CLI | Non-secret; must equal `production`. |
+| `VAMO_PRODUCTION_INBOX_APPROVAL_ID` | Identifies the fresh, audited dashboard approval consumed by one production inbox delivery. | IP-17 runbook CLI | Non-secret but single-use operational value. |
+| `VAMO_PRODUCTION_INBOX_APPROVAL_MAX_AGE_MINUTES` | Overrides the approval freshness window for IP-17. | IP-17 runbook CLI | Non-secret policy tuning. |
+| `CONFIRM_VAMO_PRODUCTION_INBOX` | Final human gate for an IP-17 production inbox delivery. | IP-17 runbook CLI | Non-secret; set per run only. |
+
 ## Shared Confluendo Control Values
 
 These values point to the Confluendo control Supabase project.
