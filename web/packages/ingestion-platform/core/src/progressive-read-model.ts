@@ -44,6 +44,13 @@ export type CanaryShipmentStatus =
   | "failed"
   | "cancelled";
 
+export type ProductionInboxStatus =
+  | "production_inbox_delivered"
+  | "production_inbox_delivery_failed"
+  | "consumer_apply_pending"
+  | "consumer_applied"
+  | "consumer_apply_failed";
+
 /**
  * Latest staging-canary shipment ledger row for a target, as surfaced to the
  * dashboard. Read-only projection of `ingestion_platform.ingestion_shipments`.
@@ -54,6 +61,16 @@ export interface CanaryShipmentState {
   shipmentKey: string;
   createdAt: string;
   approvalAuditId?: string;
+}
+
+export interface ProductionInboxState {
+  status: ProductionInboxStatus;
+  shipmentKey: string;
+  createdAt: string;
+  approvalAuditId?: string;
+  packageId?: string;
+  packageChecksum?: string;
+  itemCount?: number;
 }
 
 /**
@@ -82,6 +99,8 @@ export interface ProgressiveBacklogEntryInput {
   report?: ProgressiveRunReport;
   /** Latest staging-canary shipment for this target, if any exists. */
   canaryShipment?: CanaryShipmentState | null;
+  /** Latest production inbox delivery for this target, if any exists. */
+  productionInbox?: ProductionInboxState | null;
 }
 
 export interface ProgressiveRunSnapshot {
@@ -132,6 +151,8 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
    * succeeded). The dashboard must not offer a repeat approval in this state.
    */
   canaryShipped: boolean;
+  productionInbox?: ProductionInboxState;
+  productionInboxDelivered: boolean;
   blockers: string[];
   policyBlocks: string[];
   deadLetters: string[];
@@ -183,6 +204,8 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
   const shipment = report?.shipmentDiff;
   const canaryShipment = entry.canaryShipment ?? undefined;
   const canaryShipped = isActiveCanaryShipment(canaryShipment);
+  const productionInbox = entry.productionInbox ?? undefined;
+  const productionInboxDelivered = isProductionInboxDelivered(productionInbox);
   // Prefer the rationale carried by an executed run; otherwise derive the same
   // deterministic advisory rationale the proposal would use for this tier.
   const aiRationale = report?.aiRationale ?? deriveAdvisoryRationale(scorecard, entry.tier);
@@ -211,6 +234,8 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     canaryBounds: entry.canaryBounds,
     canaryShipment,
     canaryShipped,
+    productionInbox,
+    productionInboxDelivered,
     blockers: scorecard.blockingGates.slice(),
     policyBlocks: report?.policyBlocks.slice() ?? [],
     deadLetters: report?.deadLetters.slice() ?? [],
@@ -220,9 +245,11 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     // A spent canary takes precedence over the policy approval prompt: the
     // ledger is the source of truth, even when the proposal row still reads
     // review_required.
-    nextApproval: canaryShipped
-      ? describeShippedCanary(canaryShipment)
-      : report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
+    nextApproval: productionInboxDelivered
+      ? describeProductionInbox(productionInbox)
+      : canaryShipped
+        ? "Staging canary shipped; production inbox delivery can be approved."
+        : report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
     tone: WORK_STATUS_TONE[entry.workStatus]
   };
 }
@@ -233,6 +260,24 @@ function describeShippedCanary(shipment?: CanaryShipmentState): string {
   }
   const approval = shipment.approvalAuditId ? ` (approval ${shipment.approvalAuditId})` : "";
   return `Already shipped to Vamo staging${approval}; create a new proposal/run to ship again.`;
+}
+
+export function isProductionInboxDelivered(inbox?: ProductionInboxState | null): boolean {
+  return (
+    inbox?.status === "production_inbox_delivered" ||
+    inbox?.status === "consumer_apply_pending" ||
+    inbox?.status === "consumer_applied"
+  );
+}
+
+function describeProductionInbox(inbox?: ProductionInboxState): string {
+  if (!inbox) {
+    return "Production inbox delivered; waiting for Vamo apply.";
+  }
+  if (inbox.status === "consumer_applied") {
+    return `Vamo applied production inbox package ${inbox.packageId ?? inbox.shipmentKey}.`;
+  }
+  return `Production inbox delivered (${inbox.packageId ?? inbox.shipmentKey}); waiting for Vamo apply.`;
 }
 
 export function deriveReviewedCanaryBounds(input: {
@@ -258,9 +303,19 @@ function count(rows: ProgressiveBacklogRow[], status: ProgressiveWorkStatus): nu
 function deriveNextAction(rows: ProgressiveBacklogRow[]): string {
   // A review_required row whose canary already shipped is not actionable: the
   // ledger has spent the canary slot. Only an unshipped review needs a decision.
-  const review = rows.find((row) => row.workStatus === "review_required" && !row.canaryShipped);
+  const review = rows.find(
+    (row) => row.workStatus === "review_required" && !row.canaryShipped && !row.productionInboxDelivered
+  );
   if (review) {
     return `Review ${review.targetId}: ${review.nextApproval}`;
+  }
+  const productionDelivered = rows.find((row) => row.productionInboxDelivered);
+  if (productionDelivered) {
+    return `${productionDelivered.targetId}: ${productionDelivered.nextApproval}`;
+  }
+  const productionReady = rows.find((row) => row.workStatus === "review_required" && row.canaryShipped);
+  if (productionReady) {
+    return `${productionReady.targetId} is ready for production inbox approval.`;
   }
   const shipped = rows.find((row) => row.workStatus === "review_required" && row.canaryShipped);
   if (shipped) {

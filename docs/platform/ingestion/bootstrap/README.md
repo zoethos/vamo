@@ -24,6 +24,11 @@ proves a different trust boundary.
 | 6 | Dashboard approval | `../STAGING_CANARY_RUNBOOK.md` | Confluendo admin | Confluendo control DB audit |
 | 7 | CLI dry preview | `../STAGING_CANARY_RUNBOOK.md` | Confluendo operator | No target writes |
 | 8 | Live staging canary | `../STAGING_CANARY_RUNBOOK.md` | Confluendo operator | Vamo staging only |
+| 9 | Vamo production inbox schema | `../../../../supabase/migrations/20260701100233_confluendo_inbox.sql` and `../../../../supabase/migrations/20260701121500_confluendo_inbox_writer_digest_usage.sql` | Vamo DBA/operator | Vamo production inbox schema |
+| 10 | Vamo production inbox login | `../PRODUCTION_INBOX_RUNBOOK.md` | Vamo DBA/operator | Vamo production roles/grants |
+| 11 | Production inbox approval | `../PRODUCTION_INBOX_RUNBOOK.md` | Confluendo admin | Confluendo control DB audit |
+| 12 | Production inbox delivery | `../PRODUCTION_INBOX_RUNBOOK.md` | Confluendo operator | Vamo production `confluendo_inbox` only |
+| 13 | Vamo product apply | `../PRODUCTION_INBOX_RUNBOOK.md` | Vamo DBA/operator | Vamo production product tables |
 
 ## Phase 2 Grant Checklist
 
@@ -67,7 +72,11 @@ Expected: all four values are `true`.
 - Never set `CONFIRM_VAMO_STAGING_CANARY=YES` during bootstrap.
 - Never run `--execute` during bootstrap verification.
 - Never grant Confluendo write access to Vamo production.
+- Never grant Confluendo direct write access to Vamo production product tables.
+  Production delivery uses `confluendo_inbox` only; Vamo owns the apply step.
 - Never create a production sentinel row with `value='staging'`.
+- Never compute production inbox payload or package checksums in JavaScript.
+  They must be computed by Vamo Postgres using `extensions.digest(...)`.
 - Keep Confluendo control DB credentials separate from Vamo target DB
   credentials.
 - Keep customer-specific seed artifacts in this bootstrap folder or a future
@@ -84,8 +93,16 @@ For a fresh Confluendo instance serving Vamo:
    production as appropriate.
 5. Provision the Vamo staging sentinel table and `vamo_canary_app` role.
 6. Re-run read-only readiness checks before any approval or write.
+7. Apply the Vamo production inbox migrations and provision a production login
+   role granted `confluendo_inbox_writer`.
+8. Re-run production safety checks before any production inbox approval.
 
 The proposal seed is intentionally idempotent and owner-run. It does not write
 to Vamo staging or production; it only restores the Confluendo control-plane
 review row that makes the dashboard show LIVE data for customer-zero canary
 approval.
+
+Production inbox delivery has its own confirmation gate in
+`../PRODUCTION_INBOX_RUNBOOK.md`. It writes only to Vamo production
+`confluendo_inbox`; Vamo operators separately run the Vamo-owned apply function
+when they are ready to mutate product tables.
