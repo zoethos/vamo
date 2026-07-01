@@ -16,7 +16,7 @@
     "dev:site:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
     "ingestion:docker": "docker compose -f ../tool/ingestion/docker-compose.yml up --build",
     "ingestion:docker:down": "docker compose -f ../tool/ingestion/docker-compose.yml down",
-    "ingestion:worker": "npm --workspace @vamo/ingestion-platform run build && npm --workspace @vamo/ingestion-platform run worker",
+    "ingestion:worker": "npm --workspace @confluendo/ingestion-platform run build && npm --workspace @confluendo/ingestion-platform run worker",
     "lint": "turbo run lint",
     "test": "turbo run test"
   },

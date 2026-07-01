@@ -2,7 +2,7 @@
 //
 // This module no longer hand-authors the dashboard. It reads through the
 // platform read model: a control-plane snapshot is transformed into view state
-// by `@vamo/ingestion-platform`. The page renders the result. The server-only
+// by `@confluendo/ingestion-platform`. The page renders the result. The server-only
 // control API owns mutations; the browser shell only posts commands through that
 // authenticated API and never reads or writes control tables directly.
 //
@@ -11,11 +11,11 @@
 import {
   buildIngestionDashboardView,
   sampleControlPlaneSnapshot,
-} from "@vamo/ingestion-platform/read-model";
+} from "@confluendo/ingestion-platform/read-model";
 import type {
   IngestionStatus,
   IngestionTone,
-} from "@vamo/ingestion-platform/read-model";
+} from "@confluendo/ingestion-platform/read-model";
 
 export type { IngestionStatus, IngestionTone };
 

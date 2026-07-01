@@ -2,9 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   evaluateProductionInboxPromotion,
   type EvaluateProductionInboxPromotionResult
-} from "@vamo/ingestion-platform/core";
-import { loadProgressiveRunSnapshot } from "@vamo/ingestion-platform/progressive-control-read";
-import { recordProductionInboxApproval } from "@vamo/ingestion-platform/production-inbox-control";
+} from "@confluendo/ingestion-platform/core";
+import { loadProgressiveRunSnapshot } from "@confluendo/ingestion-platform/progressive-control-read";
+import { recordProductionInboxApproval } from "@confluendo/ingestion-platform/production-inbox-control";
 import { authorizeStagingCanaryRequest } from "@/lib/ingestion-admin-auth";
 
 export const runtime = "nodejs";

@@ -10,8 +10,8 @@ import {
   type AdminAssuranceLevel,
   type AdminAuthFailureCode,
   type AdminPrincipal
-} from "@vamo/ingestion-platform/admin-auth";
-import type { IngestionCommandKind } from "@vamo/ingestion-platform/control-api";
+} from "@confluendo/ingestion-platform/admin-auth";
+import type { IngestionCommandKind } from "@confluendo/ingestion-platform/control-api";
 
 import { createSupabaseServerClient } from "./supabase-server";
 

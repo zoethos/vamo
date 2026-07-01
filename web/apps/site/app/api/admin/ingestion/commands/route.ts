@@ -5,8 +5,8 @@ import {
   applyPostgresIngestionCommand,
   type CommandScope,
   type IngestionCommandKind
-} from "@vamo/ingestion-platform/control-api";
-import { authorizeMachineCommand } from "@vamo/ingestion-platform/admin-auth";
+} from "@confluendo/ingestion-platform/control-api";
+import { authorizeMachineCommand } from "@confluendo/ingestion-platform/admin-auth";
 import { authorizeIngestionCommandRequest } from "@/lib/ingestion-admin-auth";
 
 export const runtime = "nodejs";

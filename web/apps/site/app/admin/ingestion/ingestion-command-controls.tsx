@@ -10,15 +10,15 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import type { AdminRole, AdminAssuranceLevel } from "@vamo/ingestion-platform/admin-auth";
+import type { AdminRole, AdminAssuranceLevel } from "@confluendo/ingestion-platform/admin-auth";
 import type {
   CommandScope,
   IngestionCommandKind,
-} from "@vamo/ingestion-platform/control-api";
+} from "@confluendo/ingestion-platform/control-api";
 import type {
   IngestionAction,
   IngestionTarget,
-} from "@vamo/ingestion-platform/read-model";
+} from "@confluendo/ingestion-platform/read-model";
 
 type DashboardSource = "live" | "sample";
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import type { AdminPrincipal } from "@vamo/ingestion-platform/admin-auth";
+import type { AdminPrincipal } from "@confluendo/ingestion-platform/admin-auth";
 
 type AdminSessionActionsProps = {
   principal: Pick<AdminPrincipal, "assuranceLevel" | "email" | "role">;

@@ -6,7 +6,7 @@
 // the platform never reads the consumer repo at runtime.
 //
 // Usage:
-//   npm --workspace @vamo/ingestion-platform run import:contract -- --from <bundle-dir> [--out <dir>]
+//   npm --workspace @confluendo/ingestion-platform run import:contract -- --from <bundle-dir> [--out <dir>]
 //
 // Requires a prior build (the npm script runs `build` first); it imports the
 // compiled spec kernel from dist/.

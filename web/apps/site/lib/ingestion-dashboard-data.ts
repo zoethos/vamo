@@ -1,11 +1,11 @@
 import "server-only";
 
-import { loadControlPlaneSnapshot } from "@vamo/ingestion-platform/control-read";
+import { loadControlPlaneSnapshot } from "@confluendo/ingestion-platform/control-read";
 import {
   buildIngestionDashboardView,
   sampleControlPlaneSnapshot,
   type IngestionDashboardView
-} from "@vamo/ingestion-platform/read-model";
+} from "@confluendo/ingestion-platform/read-model";
 
 import { loadVamoCacheMetrics } from "./ingestion-cache-stats";
 

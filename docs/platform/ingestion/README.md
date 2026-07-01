@@ -7,6 +7,7 @@ This is the documentation home for the reusable ingestion platform.
 | `ARCHITECTURE.md` | Product, runtime, policy, target-shipment, and market architecture. |
 | `AUTH_ARCHITECTURE.md` | Admin authentication, authorization, audit actor, and secret-boundary design. |
 | `BUILD_SLICES.md` | Implementation slices from spec kernel through Vamo consumer profile. |
+| `CONFLUENDO_EXTRACTION_PREP.md` | IP-15 prep plan: namespace, ownership, target repo shape, extraction gates. |
 | `DATA_DELIVERY_ARCHITECTURE.md` | Delivery modes: consumer inbox schema and hosted Confluendo DB/API. |
 | `OPERATOR_DEV.md` | Local operator-console startup and cache-reset policy for `localhost:4373`. |
 | `bootstrap/README.md` | Ordered bootstrap and disaster-recovery sequence for Confluendo instances. |

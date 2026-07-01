@@ -1,11 +1,11 @@
 import "server-only";
 
-import { loadProgressiveRunSnapshot } from "@vamo/ingestion-platform/progressive-control-read";
+import { loadProgressiveRunSnapshot } from "@confluendo/ingestion-platform/progressive-control-read";
 import {
   buildProgressiveRunView,
   sampleProgressiveRunSnapshot,
   type ProgressiveRunView
-} from "@vamo/ingestion-platform/progressive-read-model";
+} from "@confluendo/ingestion-platform/progressive-read-model";
 
 export type Ip14ProgressiveSource = "live" | "sample";
 
