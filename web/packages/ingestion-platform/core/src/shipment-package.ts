@@ -102,15 +102,45 @@ function candidateToItems(candidate: StagedCandidate): ProductionInboxPackageIte
     if (!isRecord(payload)) {
       return [];
     }
+    const normalizedPayload = normalizePayloadForTarget(candidate, targetTable, payload);
     return [
       {
-        itemKey: `${targetTable}:${itemIdentity(targetTable, payload, candidate.recordKey)}`,
+        itemKey: `${targetTable}:${itemIdentity(targetTable, normalizedPayload, candidate.recordKey)}`,
         targetTable,
         operation: "upsert",
-        payload
+        payload: normalizedPayload
       }
     ];
   });
+}
+
+function normalizePayloadForTarget(
+  candidate: StagedCandidate,
+  targetTable: ProductionInboxTargetTable,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  if (targetTable !== "location_source_refs") {
+    return { ...payload };
+  }
+
+  const canonicalKey =
+    readString(payload.canonical_key) ??
+    readString(
+      isRecord(candidate.payload.location_canonicals)
+        ? candidate.payload.location_canonicals.canonical_key
+        : undefined
+    );
+
+  if (!canonicalKey) {
+    throw new Error(
+      `Production inbox source ref for ${candidate.recordKey} is missing canonical_key.`
+    );
+  }
+
+  return {
+    ...payload,
+    canonical_key: canonicalKey
+  };
 }
 
 function itemIdentity(

@@ -244,7 +244,7 @@ function candidate(): StagedCandidate {
         promotion_state: "seeded"
       },
       location_source_refs: {
-        canonical_key: "fsq-colosseum",
+        canonical_id: "030d1b0a-a43e-5f7f-bb32-e4ce5a516bc5",
         provider: "fsq_os_places",
         source_place_id: "fsq_colosseum",
         source_payload_hash: "payload-hash",
