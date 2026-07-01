@@ -8,10 +8,13 @@ $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $WebRoot = Join-Path $Root "web"
-$SiteRoot = Join-Path $WebRoot "apps\site"
-$NextCache = Join-Path $SiteRoot ".next"
-$SiteTurboCache = Join-Path $SiteRoot ".turbo"
-$DevStatePath = Join-Path $SiteRoot ".confluendo-dev-state.json"
+$ConsoleRoot = Join-Path $WebRoot "apps\confluendo-console"
+$LegacySiteRoot = Join-Path $WebRoot "apps\site"
+$NextCache = Join-Path $ConsoleRoot ".next"
+$ConsoleTurboCache = Join-Path $ConsoleRoot ".turbo"
+$DevStatePath = Join-Path $ConsoleRoot ".confluendo-dev-state.json"
+$ConsoleEnv = Join-Path $ConsoleRoot ".env.local"
+$LegacySiteEnv = Join-Path $LegacySiteRoot ".env.local"
 $OutLog = Join-Path $env:TEMP "confluendo-dashboard-$Port.log"
 $ErrLog = Join-Path $env:TEMP "confluendo-dashboard-$Port.err.log"
 $DevStateVersion = 1
@@ -20,9 +23,9 @@ $BuildStateInputs = @(
     "web\package-lock.json",
     "web\package.json",
     "web\turbo.json",
-    "web\apps\site\package.json",
-    "web\apps\site\next.config.ts",
-    "web\apps\site\tsconfig.json",
+    "web\apps\confluendo-console\package.json",
+    "web\apps\confluendo-console\next.config.ts",
+    "web\apps\confluendo-console\tsconfig.json",
     "web\packages\ingestion-platform\package.json",
     "web\packages\ingestion-platform\tsconfig.json"
 )
@@ -66,8 +69,8 @@ function Clear-NextCache {
     }
 
     Write-Host ("Clearing Next.js cache: {0}" -f $decision.Reason)
-    Remove-SiteChildPath -Path $NextCache -Label ".next"
-    Remove-SiteChildPath -Path $SiteTurboCache -Label ".turbo"
+    Remove-ConsoleChildPath -Path $NextCache -Label ".next"
+    Remove-ConsoleChildPath -Path $ConsoleTurboCache -Label ".turbo"
     Write-DevState -State $CurrentState
 }
 
@@ -139,7 +142,7 @@ function Get-CacheDecision {
     }
 }
 
-function Remove-SiteChildPath {
+function Remove-ConsoleChildPath {
     param(
         [string]$Path,
         [string]$Label
@@ -150,10 +153,10 @@ function Remove-SiteChildPath {
         return
     }
 
-    $resolvedSite = (Resolve-Path -LiteralPath $SiteRoot).Path
+    $resolvedConsole = (Resolve-Path -LiteralPath $ConsoleRoot).Path
     $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
 
-    if (-not $resolvedPath.StartsWith($resolvedSite, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not $resolvedPath.StartsWith($resolvedConsole, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Refusing to remove unexpected cache path: $resolvedPath"
     }
 
@@ -232,14 +235,34 @@ function Write-DevState {
     Write-Host ("Dev-state marker: {0}" -f $DevStatePath)
 }
 
+function Sync-ConsoleEnv {
+    if (Test-Path -LiteralPath $ConsoleEnv) {
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $LegacySiteEnv)) {
+        Write-Warning ("Console env file is missing: {0}" -f $ConsoleEnv)
+        Write-Warning "Create it from the Confluendo control env before signing in."
+        return
+    }
+
+    Copy-Item -LiteralPath $LegacySiteEnv -Destination $ConsoleEnv
+    Write-Host ("Copied local console env from legacy site env: {0}" -f $ConsoleEnv)
+}
+
 if (-not (Test-Path -LiteralPath (Join-Path $WebRoot "package.json"))) {
-    throw "Cannot find web/package.json under $Root. Run this script from the vamo-web-dashboard checkout."
+    throw "Cannot find web/package.json under $Root. Run this script from the repository root."
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $ConsoleRoot "package.json"))) {
+    throw "Cannot find Confluendo console app under $ConsoleRoot."
 }
 
 $currentState = Get-DevState
 
 Stop-PortOwner -TargetPort $Port
 Clear-NextCache -CurrentState $currentState
+Sync-ConsoleEnv
 
 Write-Host "Starting Confluendo dashboard on http://localhost:$Port/admin/ingestion"
 Write-Host "stdout: $OutLog"
@@ -247,7 +270,7 @@ Write-Host "stderr: $ErrLog"
 
 $process = Start-Process `
     -FilePath "npm.cmd" `
-    -ArgumentList @("--workspace", "@vamo/site", "run", "dev") `
+    -ArgumentList @("--workspace", "@confluendo/console", "run", "dev") `
     -WorkingDirectory $WebRoot `
     -RedirectStandardOutput $OutLog `
     -RedirectStandardError $ErrLog `

@@ -1,14 +1,18 @@
 {
-  "name": "@vamo/site",
+  "name": "@confluendo/console",
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm --workspace @confluendo/ingestion-platform run build",
     "dev": "next dev --port 4373",
+    "prebuild": "npm --workspace @confluendo/ingestion-platform run build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.0",
+    "@confluendo/ingestion-platform": "*",
     "@supabase/supabase-js": "2.108.2",
     "next": "^15.1.0",
     "react": "^19.0.0",

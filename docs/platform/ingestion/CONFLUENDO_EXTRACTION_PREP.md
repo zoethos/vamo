@@ -15,11 +15,13 @@ works against the Confluendo-owned package namespace.
 
 1. **Prep before full extraction.** Keep the code in the current monorepo for
    this slice, but make boundaries executable and documented.
-2. **Console stays incubated for now.** `/admin/ingestion` remains in the Vamo
-   web/admin shell as customer-zero UI, but imports the Confluendo package. A
-   future slice can move it to `confluendo.com` as `apps/console`.
+2. **Console is carved out in-place before extraction.** The operator console
+   lives in `web/apps/confluendo-console` as `@confluendo/console`; the Vamo
+   site only redirects or links to that boundary.
 3. **Package namespace changes first.** The platform workspace is named
-   `@confluendo/ingestion-platform`; Vamo imports it as a consumer/host.
+   `@confluendo/ingestion-platform`; the Confluendo console imports it directly.
+   Vamo remains a consumer through contracts, inbox/apply functions, and links
+   to the console.
 4. **No Vamo runtime dependency in Confluendo.** Vamo can appear as imported
    fixtures, examples, tests, runbooks, and customer-zero docs. Platform runtime
    code must not import Vamo app, Vamo web routes, Flutter packages, or Vamo
@@ -35,7 +37,8 @@ Z:\vamo-ip17\                         # linked worktree of the current repo
     packages/
       ingestion-platform/              # Confluendo-owned package
     apps/
-      site/                            # Vamo web/admin shell, customer-zero host
+      confluendo-console/              # Confluendo-owned operator console
+      site/                            # Vamo web shell, consumer handoff only
   docs/
     platform/
       ingestion/                       # Confluendo platform docs
@@ -46,10 +49,12 @@ Z:\vamo-ip17\                         # linked worktree of the current repo
 The important relationship is already visible:
 
 ```text
-@vamo/site -> @confluendo/ingestion-platform
+@confluendo/console -> @confluendo/ingestion-platform
 ```
 
-The reverse direction must not exist.
+`@vamo/site` must not import Confluendo packages after the console carve-out.
+It can link or redirect operators to the console boundary. The reverse direction
+must not exist.
 
 ## Target Standalone Shape
 
@@ -100,10 +105,10 @@ Z:\vamo\
 | Spec parser, policy engine, run planners | Confluendo | `web/packages/ingestion-platform` | `Z:\confluendo\packages\ingestion-platform` |
 | Source/target adapters | Confluendo | `web/packages/ingestion-platform/adapters` | `Z:\confluendo\packages\ingestion-platform/adapters` |
 | Control schema and bootstrap templates | Confluendo | `web/packages/ingestion-platform/core/sql`, docs bootstrap | `Z:\confluendo\sql`, `docs/operations` |
-| Operator auth architecture and email templates | Confluendo | `docs/platform/ingestion`, `web/apps/site/admin` | `Z:\confluendo\apps\console`, `docs/auth` |
+| Operator auth architecture and email templates | Confluendo | `docs/platform/ingestion`, `web/apps/confluendo-console` | `Z:\confluendo\apps\console`, `docs/auth` |
 | Vamo consumer contract | Vamo | `Z:\vamo\contracts\ingestion\...` and imported snapshot | Vamo repo source, Confluendo example snapshot |
 | Vamo product schema and apply functions | Vamo | `supabase/migrations` | Vamo repo only |
-| Vamo cache metrics adapter | Vamo host | `web/apps/site/lib/ingestion-cache-stats.ts` | Vamo integration layer |
+| Vamo cache metrics adapter | Confluendo customer-zero console adapter | `web/apps/confluendo-console/lib/ingestion-cache-stats.ts` | Consumer integration layer |
 
 ## Extraction Sequence
 
@@ -142,13 +147,18 @@ Move first:
 - `tool/ingestion` and worker scripts -> `Z:\confluendo\apps\worker` or
   `Z:\confluendo\tool`
 
-Keep Vamo UI in place temporarily, consuming Confluendo by package, tarball, or
-workspace link.
+Keep the Vamo consumer web shell separate from the console; it may link or
+redirect to the console but must not import platform runtime packages.
 
 ### Step 4 - Console carve-out
 
-Move `/admin/ingestion`, `/admin/providers`, auth pages, and the Confluendo
-branding into `Z:\confluendo\apps\console`.
+Done in-place before the physical repo split:
+
+- `web/apps/confluendo-console` owns `/admin/ingestion`, `/admin/providers`,
+  admin auth/MFA pages, Confluendo branding, and the server API routes for
+  operator decisions.
+- `web/apps/site` keeps only the Vamo landing/invite/legal shell and an
+  `/admin/*` handoff route.
 
 Vamo can then link to or embed the Confluendo console for the Vamo project
 instead of hosting the console itself.
@@ -178,6 +188,7 @@ Do not start IP-18 until these pass:
 ```powershell
 npm --workspace @confluendo/ingestion-platform run ip15:boundary-audit
 npm --workspace @confluendo/ingestion-platform test
+npm --workspace @confluendo/console run build
 npm --workspace @vamo/site run build
 ```
 
@@ -192,7 +203,9 @@ The standalone repo move is ready when:
 
 - the package namespace is Confluendo-owned,
 - the boundary audit passes,
-- the Vamo host only imports published/workspace Confluendo APIs,
+- the Confluendo console owns the admin/auth/control routes,
+- the Vamo host does not import Confluendo packages and only links or redirects
+  to the console,
 - Vamo-specific code is either in Vamo host paths or imported consumer fixtures,
 - platform tests run without reading `Z:\vamo` at runtime.
 
