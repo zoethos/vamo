@@ -12,6 +12,7 @@ This is the documentation home for the reusable ingestion platform.
 | `OPERATOR_DEV.md` | Local operator-console startup and cache-reset policy for `localhost:4373`. |
 | `bootstrap/README.md` | Ordered bootstrap and disaster-recovery sequence for Confluendo instances. |
 | `PRODUCTION_INBOX_RUNBOOK.md` | IP-17 operational runbook: confirmation-gated production inbox delivery and Vamo-owned apply. |
+| `RUNTIME_VALUES_MAP.md` | Operator map of required env values, Supabase projects, roles, schemas, and table boundaries. |
 | `TARGET_SELECTION_AND_SCHEDULING.md` | Target-selection criteria and AI-assisted progressive ingestion plan. |
 | `STAGING_CANARY.md` | IP-16 design: promoting one reviewed dry run to a tiny, reversible, staging-only Vamo write. |
 | `STAGING_CANARY_RUNBOOK.md` | IP-16 operational runbook: confirmation-gated live staging-canary execution and rollback. |
