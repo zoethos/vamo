@@ -1,6 +1,6 @@
 # Ingestion Platform Build Slices
 
-Status: implementation slicing record - updated 2026-06-28.
+Status: implementation slicing record - updated 2026-07-01.
 
 This plan turns `docs/platform/ingestion/ARCHITECTURE.md` into
 buildable slices. The platform is incubated in this repo, but it must stay
@@ -728,32 +728,38 @@ Validation (local, all green):
   schema smoke. The spec test runner now uses `--test-concurrency=1` so DB
   smokes that recreate the shared disposable schema cannot deadlock.
 
-Remaining follow-ups:
+Completion notes and remaining follow-ups:
 
-- Optionally produce a real `ingestion_schedule_proposals` row in the control DB
-  so the dashboard shows live progressive work instead of the sample.
-- Add a scheduling mutation endpoint (operator-driven proposal/schedule writes).
-- Add the staging-canary slice that implements the `review_required` ->
-  `staging_write` promotion with the approval gate above.
-- Prepare the Confluendo repo split (IP-15 below), now that IP-14 has landed.
+- A real `ingestion_schedule_proposals` row was later seeded for the Vamo
+  staging target, so the dashboard can render live progressive work instead of
+  the bundled sample when the control DB is configured.
+- The staging-canary promotion flow was implemented in IP-16 and then hardened
+  through follow-up PRs.
+- Still pending: a general scheduling mutation endpoint for operator-driven
+  proposal/schedule writes. That belongs with the broader batching/automation
+  work, not the one-off Vamo canary.
+- Still pending: execute the IP-15 extraction plan so Confluendo leaves the Vamo
+  incubation tree as an independent platform repo.
 
 ## Slice IP-15 - Confluendo Repo Split Prep
 
-Status: next (IP-14 merged).
+Status: spec documented and merged; execution still pending.
 
 Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
 repo, while making Vamo an importing consumer instead of the platform host.
 
-IP-14 has landed and proves the real boundary:
+IP-14 proved the real boundary:
 
 ```text
 Vamo contract -> Confluendo import -> schedule/preflight -> dry-run -> dashboard review
 ```
 
-Extracting before that would have risked moving scaffolding. Extracting after
-staging or production writes risks letting Vamo-specific operational shortcuts
-leak deeper into platform code, so do the split prep before the staging-canary
-slice.
+IP-16 then proved the first consumer write path while the platform still lived
+inside the Vamo web-dashboard tree. That was useful for speed, but it also
+confirmed the reason for the split: the longer Confluendo stays incubated in the
+Vamo repo, the easier it is for Vamo-specific auth, bootstrap, target, or
+dashboard assumptions to leak into platform code. Keep the split plan active and
+execute it before building broad multi-consumer ingestion automation.
 
 Architecture decision: provider repo plus consumer contracts. Confluendo owns
 platform code, docs, auth templates, control SQL, worker runtime, adapters, and
@@ -854,10 +860,15 @@ to rome-italy/poi — 1 candidate, 2 writes — and added a fresh-MFA countdown 
 the admin mastheads). The Vamo app schema migration
 `20260625155733_place_intelligence_cache.sql` has also been promoted to Vamo
 staging and production under `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
-The actual live write into Vamo staging remains manual and separately approved:
-it requires an explicit `CONFIRM_VAMO_STAGING_CANARY=YES` confirmation, a fresh
-dashboard approval, a staging DSN, and `--execute`. CI/tests never need live
-Vamo staging credentials.
+Follow-up fixes through PR #104 added shipment-ledger awareness so already
+shipped staging canaries are rendered as shipped and cannot be re-approved from
+the same reviewed proposal row. PRs #107-#110 stabilized the Confluendo operator
+auth/dev loop (MFA freshness tolerance, MFA UI, 8-digit email OTP handling,
+unified sign-in copy, and the local dashboard start/cache helper). Live Vamo
+staging execution remains manual and separately approved: it requires an
+explicit `CONFIRM_VAMO_STAGING_CANARY=YES` confirmation, a fresh dashboard
+approval, a staging DSN, and `--execute`. CI/tests never need live Vamo staging
+credentials.
 
 Goal: promote exactly one reviewed dry run (a target at `review_required` with a
 compatible diff and `wroteToTarget === false`) to a tiny, bounded, reversible
@@ -998,6 +1009,94 @@ Validation:
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for the apply/rollback
   round-trip.
 
+## Slice IP-17 - Vamo Production Inbox Delivery
+
+Status: next.
+
+Goal: ship Confluendo-produced, operator-approved data packages to Vamo
+production without granting Confluendo direct write access to Vamo product
+tables. Production receives packages into a consumer-owned inbox schema; Vamo
+then owns validation, final apply, rollback/reversal, and product-table writes.
+
+Architecture decision: consumer inbox adapter plus Vamo-owned apply function.
+Confluendo owns package assembly, package checksum/idempotency, delivery ledger,
+and inbox writes. Vamo owns the final product-table mutation boundary.
+
+Scope:
+
+- Define `confluendo_inbox` schema for Vamo production.
+- Add least-privilege inbox writer role and grants. The role can write inbox
+  stage tables only; it cannot write `public.location_canonicals`,
+  `public.location_source_refs`, or other Vamo product tables directly.
+- Add package/idempotency model: package id, source manifest, row counts,
+  checksum, attribution manifest, source dataset/license metadata, and
+  shipment status.
+- Add a Vamo-owned apply entry point such as
+  `apply_confluendo_shipment(package_id, approved_by, approval_reason)`.
+- Add dashboard states for `production_inbox_delivered`,
+  `consumer_apply_pending`, `consumer_applied`, and `consumer_apply_failed`.
+- Add rollback/reversal posture owned by Vamo production operators.
+
+Acceptance criteria:
+
+- A production package can be delivered to the inbox with no direct product-table
+  write grants to Confluendo.
+- Re-delivery of the same package is idempotent and checksum-verified.
+- A Vamo-owned apply function can validate and apply the package, or reject it
+  with durable diagnostics.
+- Dashboard separates "delivered to production inbox" from "applied by Vamo".
+- Production safety is verified read-only before any delivery: no staging
+  sentinel, no `vamo_canary_app`, no staging-canary grants or RLS policies.
+
+Validation:
+
+- Disposable Postgres tests for inbox schema, idempotent package delivery, and
+  apply/reject paths.
+- Read-only production safety check before any real delivery attempt.
+- No live production delivery in CI.
+
+## Slice IP-18 - Consumer-Neutral Batch Scheduling
+
+Status: planned after IP-17 and active IP-15 extraction planning.
+
+Goal: turn one-off target selection into a scalable Confluendo capability. A
+consumer provides a YAML contract or uses the admin console to define many
+targets; Confluendo scores, schedules, executes, checkpoints, and reports
+progress across the batch. Vamo's POI/city ingestion is the first use case, not
+the platform model.
+
+Architecture decision: platform scheduler plus consumer contracts. Target
+selection, scoring, throttling, checkpointing, and dashboard progress are
+Confluendo-owned. Consumer-specific concepts such as cities, POIs, landmarks, or
+schemas enter as contract data and adapter mappings.
+
+Scope:
+
+- YAML contract for batch target definitions, source constraints, target
+  schemas, quality gates, rate limits, and delivery mode.
+- Admin console target planner: import YAML, preview scorecards, edit batches,
+  approve schedules, pause/resume/retry targets, and inspect target-level
+  telemetry.
+- AI-assisted planning as advisory only: propose target order, clustering,
+  estimated cost/time, and risk flags; never bypass policy gates or operator
+  approval.
+- Progressive scheduler that supports many targets with leases, checkpoints,
+  backoff, dead letters, and resumability.
+- Dashboard rollups: batch progress, current target, last checkpoint, failure
+  signal, policy blocks, provider usage, cache yield, and next operator action.
+
+Acceptance criteria:
+
+- Vamo can submit a batch such as Rome/Paris/London POI scopes through YAML or
+  console import without hand-entering one target at a time.
+- A non-POI consumer can use the same scheduler with a different schema and
+  adapter mapping.
+- Operators can pause/resume/reset an entire batch or one target.
+- A failed target records the exact stop signal and can resume from the last
+  checkpoint.
+- AI suggestions are deterministic/advisory artifacts in the review model until
+  a later live-LLM policy is approved.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
@@ -1015,25 +1114,11 @@ Validation:
 
 ## Recommended Immediate Next Slice
 
-**IP-16 - First Vamo Staging Canary** is implemented, merged, and hardened
-(PR #97, #99, #101), and the Vamo place-intelligence schema is aligned on
-staging and production. The Vamo staging sentinel/`vamo_canary_app` bootstrap
-(table sentinel, least-privilege role, SELECT/INSERT/UPDATE grants and RLS
-policies, no DELETE) is verified read-only. The remaining steps are operational,
-in order:
-
-1. Reseed the Confluendo control proposal row from
-   `docs/platform/ingestion/bootstrap/sql/ip16_vamo_live_proposal_seed.sql` so the
-   live reviewed run reflects the corrected scope (rome-italy/poi, 1 candidate,
-   2 writes, `review_required`, `dry_run`, `wroteToTarget=false`,
-   `reachedReview=true`).
-2. Record a fresh dashboard MFA approval (`ingestion_admin` + fresh AAL2 step-up
-   + non-empty audit reason). Do not reuse the stale approval id 4.
-3. Execute the first bounded Vamo staging canary only, against staging, with
-   `CONFIRM_VAMO_STAGING_CANARY=YES` and `--execute`.
-
-The next implementation slice after that canary is **IP-17 - Vamo Production
-Inbox Delivery**. It should follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
+**IP-17 - Vamo Production Inbox Delivery** is the next implementation slice.
+IP-16 is implemented, merged, and hardened, and Vamo staging/production schema
+alignment is governed by `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
+Production delivery must not be a direct write to Vamo product tables. It should
+follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
 
 - `confluendo_inbox` schema for Vamo production,
 - a least-privilege Confluendo inbox writer role that cannot write directly to
@@ -1043,3 +1128,8 @@ Inbox Delivery**. It should follow `DATA_DELIVERY_ARCHITECTURE.md` and define:
 - checksum/idempotency validation,
 - dashboard states for `production_inbox_delivered` and `consumer_applied`,
 - rollback/reversal posture owned by Vamo production operators.
+
+In parallel, start IP-15 execution planning so the next broad automation slice
+(YAML-driven batch target scheduling and dashboard-managed progressive runs)
+lands in Confluendo as a platform capability instead of deepening the Vamo
+incubation coupling.
