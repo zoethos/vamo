@@ -151,7 +151,7 @@ It does not connect to Vamo production and it does not write the inbox package.
 From `Z:\vamo-web-dashboard\web`:
 
 ```powershell
-npm --workspace @vamo/ingestion-platform run ip17:production-inbox
+npm --workspace @confluendo/ingestion-platform run ip17:production-inbox
 ```
 
 Expected without live gates:
@@ -174,7 +174,7 @@ $env:VAMO_PRODUCTION_INBOX_APPROVAL_ID = "<approval-audit-id>"
 $env:VAMO_PRODUCTION_INBOX_DATABASE_URL = "<production-inbox-login-dsn>"
 $env:INGESTION_CONTROL_DATABASE_URL = "<confluendo-control-dsn>"
 
-npm --workspace @vamo/ingestion-platform run ip17:production-inbox -- --execute
+npm --workspace @confluendo/ingestion-platform run ip17:production-inbox -- --execute
 ```
 
 The live command:

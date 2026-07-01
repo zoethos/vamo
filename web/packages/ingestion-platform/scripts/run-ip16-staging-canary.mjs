@@ -31,7 +31,7 @@
 //
 // Usage:
 //   Preview + gate check (CI-safe, hard-fails):
-//     npm --workspace @vamo/ingestion-platform run ip16:staging-canary
+//     npm --workspace @confluendo/ingestion-platform run ip16:staging-canary
 //   Live staging write (manual, separately approved — DO NOT run without a
 //   green light):
 //     CONFIRM_VAMO_STAGING_CANARY=YES \

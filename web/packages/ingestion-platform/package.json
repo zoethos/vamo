@@ -1,5 +1,5 @@
 {
-  "name": "@vamo/ingestion-platform",
+  "name": "@confluendo/ingestion-platform",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -51,6 +51,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "import:contract": "npm run build && node scripts/import-consumer-contract.mjs",
+    "ip15:boundary-audit": "node scripts/ip15-boundary-audit.mjs",
     "ip14:dry-run": "npm run build && node scripts/run-ip14-dry-run.mjs",
     "ip16:staging-canary": "npm run build && node scripts/run-ip16-staging-canary.mjs",
     "ip17:production-inbox": "npm run build && node scripts/run-ip17-production-inbox.mjs",

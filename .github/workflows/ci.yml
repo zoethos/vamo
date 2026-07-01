@@ -39,7 +39,7 @@ jobs:
         working-directory: web
         env:
           INGESTION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ingestion_test
-        run: npm --workspace @vamo/ingestion-platform test
+        run: npm --workspace @confluendo/ingestion-platform test
 
       - name: Install Deno
         shell: bash

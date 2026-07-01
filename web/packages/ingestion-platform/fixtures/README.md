@@ -18,7 +18,7 @@ Consumers (e.g. Vamo) own their contract in their own repo and publish it as a
 bundle. The platform imports a snapshot:
 
 ```bash
-npm --workspace @vamo/ingestion-platform run import:contract -- \
+npm --workspace @confluendo/ingestion-platform run import:contract -- \
   --from Z:/vamo/contracts/ingestion/vamo-place-intelligence
 ```
 

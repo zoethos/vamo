@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { AdminAssuranceLevel, AdminRole } from "@vamo/ingestion-platform/admin-auth";
+import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
 import type {
   CanaryShipmentState,
   ProductionInboxState
-} from "@vamo/ingestion-platform/progressive-read-model";
+} from "@confluendo/ingestion-platform/progressive-read-model";
 
 type DashboardSource = "live" | "sample";
 

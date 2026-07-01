@@ -178,7 +178,7 @@ Always preview first. With no environment and no flag, the CLI prints the
 bounded plan and the gate status, then **hard-fails (exit 1) without writing**:
 
 ```bash
-npm --workspace @vamo/ingestion-platform run ip16:staging-canary
+npm --workspace @confluendo/ingestion-platform run ip16:staging-canary
 ```
 
 Expected: a printed plan (environment `staging`, `staging_write -> approved_write`,

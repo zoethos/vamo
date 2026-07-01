@@ -118,8 +118,8 @@ Tests:
 
 Definition of done:
 
-- `npm --workspace @vamo/ingestion-platform test -- spec` passes.
-- `npm --workspace @vamo/ingestion-platform build` passes.
+- `npm --workspace @confluendo/ingestion-platform test -- spec` passes.
+- `npm --workspace @confluendo/ingestion-platform build` passes.
 - Static admin mock data can optionally import generated fixture JSON.
 
 ## Slice IP-02 - Platform Control Schema Draft
@@ -264,8 +264,8 @@ Acceptance criteria:
 
 Definition of done:
 
-- `npm --workspace @vamo/ingestion-platform run import:contract -- --from <dir>` regenerates the snapshot.
-- `npm --workspace @vamo/ingestion-platform test` passes.
+- `npm --workspace @confluendo/ingestion-platform run import:contract -- --from <dir>` regenerates the snapshot.
+- `npm --workspace @confluendo/ingestion-platform test` passes.
 
 ## Slice IP-04 - Postgres Dry-Run Target Adapter
 
@@ -355,7 +355,7 @@ platform model instead of hand-written static content.
 
 Architecture decision: service boundary. Admin UI reads through an API/read
 model; it does not read/write control tables directly. The read model is a pure
-transform exposed on its own package subpath (`@vamo/ingestion-platform/read-model`)
+transform exposed on its own package subpath (`@confluendo/ingestion-platform/read-model`)
 so the Next bundle never pulls `pg`/`node:fs` and there is no control-table or
 service-role access in browser-reachable code. A live control API can later feed
 the same transform real rows; only the snapshot source changes.
@@ -367,7 +367,7 @@ Files:
 - `web/packages/ingestion-platform/core/src/read-model.ts` (transform + view/domain
   types + sample control-plane snapshot)
 - `web/packages/ingestion-platform/core/test/read-model.test.ts`
-- `@vamo/ingestion-platform` added as a `@vamo/site` workspace dependency
+- `@confluendo/ingestion-platform` added as a `@vamo/site` workspace dependency
 - optional `web/apps/ingestion-control-api/` (deferred — no live API yet)
 
 Behavior:
@@ -586,7 +586,7 @@ Acceptance criteria:
 
 Validation:
 
-- `npm --workspace @vamo/ingestion-platform test`
+- `npm --workspace @confluendo/ingestion-platform test`
 - `npm --workspace @vamo/site run build`
 
 ## Slice IP-12 - Target Selection And Progressive Scheduling
@@ -644,7 +644,7 @@ in pull requests.
 Acceptance criteria:
 
 - CI starts a disposable Postgres service.
-- `npm --workspace @vamo/ingestion-platform test` runs with
+- `npm --workspace @confluendo/ingestion-platform test` runs with
   `INGESTION_TEST_DATABASE_URL`.
 - The control schema creates, uniqueness constraints hold, and real
   start/shutdown/reset command mutations apply against SQL.
@@ -718,9 +718,9 @@ Operator approval required before any staging canary:
 
 Validation (local, all green):
 
-- `npm --workspace @vamo/ingestion-platform test` - 114 pass, 2 DB smokes
+- `npm --workspace @confluendo/ingestion-platform test` - 114 pass, 2 DB smokes
   skipped without a database URL, 0 fail.
-- `npm --workspace @vamo/ingestion-platform run ip14:dry-run` - exit 0,
+- `npm --workspace @confluendo/ingestion-platform run ip14:dry-run` - exit 0,
   `dry_run`, no writes.
 - `npm --workspace @vamo/site run build` - succeeds; `/admin/ingestion` renders.
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` - core suite 86/86,
@@ -739,75 +739,31 @@ Remaining follow-ups:
 
 ## Slice IP-15 - Confluendo Repo Split Prep
 
-Status: next (IP-14 merged).
+Status: active prep. The first boundary changes are package namespace,
+documentation, and executable audit checks; this is not the physical repo move.
 
 Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
 repo, while making Vamo an importing consumer instead of the platform host.
 
-IP-14 has landed and proves the real boundary:
+IP-14 through IP-17 have landed and prove the current spine:
 
 ```text
-Vamo contract -> Confluendo import -> schedule/preflight -> dry-run -> dashboard review
+Vamo contract -> Confluendo import -> dry-run -> staging canary
+  -> production inbox package -> Vamo-owned apply
 ```
 
-Extracting before that would have risked moving scaffolding. Extracting after
-staging or production writes risks letting Vamo-specific operational shortcuts
-leak deeper into platform code, so do the split prep before the staging-canary
-slice.
+The 2-row production inbox delivery proved the pipe; it did not solve the real
+product need of broad EU POI ingestion. Before IP-18 batch automation, keep
+Confluendo from becoming Vamo-shaped.
 
 Architecture decision: provider repo plus consumer contracts. Confluendo owns
 platform code, docs, auth templates, control SQL, worker runtime, adapters, and
 admin surfaces. Vamo owns only its consumer contract, target credentials, product
 schema, and integration notes.
 
-Target Confluendo tree:
+Source of truth:
 
-```text
-confluendo/
-  apps/
-    console/
-    control-api/
-    worker/
-  packages/
-    core/
-    spec/
-    policy/
-    adapters/
-      source/
-      target/
-      transform/
-    admin-ui/
-    telemetry/
-  examples/
-    consumers/
-      vamo-place-intelligence/
-  docs/
-    architecture/
-    operations/
-    auth/
-  sql/
-    control_schema.sql
-    bootstrap_template.sql
-```
-
-Target Vamo tree:
-
-```text
-vamo/
-  contracts/
-    ingestion/
-      vamo-place-intelligence/
-        manifest.yaml
-        pipeline.yaml
-        target.yaml
-        fixtures/
-  docs/
-    ingestion/
-      vamo-confluendo-integration.md
-  app/
-  packages/
-  supabase/
-```
+- `docs/platform/ingestion/CONFLUENDO_EXTRACTION_PREP.md`
 
 Allowed dependency direction:
 
@@ -818,22 +774,26 @@ Allowed dependency direction:
 - Confluendo may carry Vamo only as an example/imported consumer fixture with
   pinned provenance.
 
-Split-prep tasks:
+Implemented in this prep slice:
 
-- Rename package identity from `@vamo/ingestion-platform` to a Confluendo-owned
-  namespace.
+- Package identity and imports move from `@vamo/ingestion-platform` to
+  `@confluendo/ingestion-platform`.
+- `@vamo/site` remains a customer-zero host that imports the Confluendo package.
+- `ip15:boundary-audit` verifies the package namespace, stale import absence,
+  and no direct platform runtime imports from host/Vamo paths.
+- Extraction-prep docs define current incubation tree, target standalone tree,
+  ownership matrix, lift sequence, and gates before IP-18.
+
+Deferred to physical extraction:
+
+- Move `web/packages/ingestion-platform` into a standalone Confluendo repo.
+- Move `/admin/ingestion` and `/admin/providers` into a Confluendo console app.
 - Move Vamo-specific imported fixtures into `examples/consumers/` or an explicit
-  test fixture namespace.
+  test fixture namespace in the standalone repo.
 - Convert `control_bootstrap_confluendo.sql` into a platform bootstrap template
-  plus a Vamo example seed.
-- Replace hard-coded `projectKey = "vamo"` defaults in platform-facing APIs with
-  host-provided configuration.
-- Keep Vamo-specific cache metrics in the Vamo host adapter, not platform core.
-- Separate Confluendo auth/domain templates from Vamo auth/email templates.
-- Ensure CI can run platform tests, site/console build, and disposable Postgres
-  smoke without the Vamo repo.
-- Define the Vamo import path: git path, package artifact, tarball, or CLI
-  import command.
+  plus customer examples.
+- Replace remaining Vamo default project keys in the Vamo host with environment
+  or project configuration where they are not intentionally customer-zero.
 
 Acceptance criteria:
 
@@ -845,6 +805,12 @@ Acceptance criteria:
   extracted Confluendo package/API.
 - The new repo can run the ingestion-platform test suite with disposable
   Postgres.
+
+Validation:
+
+- `npm --workspace @confluendo/ingestion-platform run ip15:boundary-audit`
+- `npm --workspace @confluendo/ingestion-platform test`
+- `npm --workspace @vamo/site run build`
 
 ## Slice IP-16 - First Vamo Staging Canary
 
@@ -991,8 +957,8 @@ Acceptance criteria:
 
 Validation:
 
-- `npm --workspace @vamo/ingestion-platform test`
-- `npm --workspace @vamo/ingestion-platform run ip16:staging-canary` (dry,
+- `npm --workspace @confluendo/ingestion-platform test`
+- `npm --workspace @confluendo/ingestion-platform run ip16:staging-canary` (dry,
   confirmation absent -> hard-fail with no write)
 - `npm --workspace @vamo/site run build`
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for the apply/rollback
@@ -1000,8 +966,11 @@ Validation:
 
 ## Slice IP-17 - Vamo Production Inbox Delivery
 
-Status: implementation complete locally, pending PR/CI. No live production
-delivery has been run.
+Status: done. IP-17 merged to `main` and IP-17.1 fixed the source-ref
+`canonical_key` package/apply contract. The first live package attempt proved
+delivery into `confluendo_inbox` but failed Vamo apply because package 10 was
+assembled by the old source-ref payload contract. Package 10 is spent; use a
+fresh approval/package after IP-17.1.
 
 Goal:
 
@@ -1027,7 +996,10 @@ Implemented components:
   `approved_for_production_inbox -> production_inbox_delivered` transition.
 - `web/packages/ingestion-platform/core/src/shipment-package.ts` builds the
   logical package and item payloads. It intentionally leaves checksum
-  calculation to target Postgres.
+  calculation to target Postgres. IP-17.1 requires every
+  `location_source_refs` item to carry the `canonical_key` that Vamo's apply
+  function resolves, deriving it from the paired canonical item when the staged
+  source-ref payload only carries `canonical_id`.
 - `web/packages/ingestion-platform/adapters/target/src/postgres-production-inbox.ts`
   writes only to `confluendo_inbox.shipments` and
   `confluendo_inbox.shipment_items`, refuses staging guard artifacts, computes
@@ -1064,8 +1036,8 @@ Hard guardrails:
 
 Validation:
 
-- `npm --workspace @vamo/ingestion-platform test`
-- `npm --workspace @vamo/ingestion-platform run ip17:production-inbox` (dry,
+- `npm --workspace @confluendo/ingestion-platform test`
+- `npm --workspace @confluendo/ingestion-platform run ip17:production-inbox` (dry,
   confirmation absent -> hard-fail with no write)
 - `npm --workspace @vamo/site run build`
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for:
@@ -1075,6 +1047,11 @@ Validation:
   - Vamo-owned apply function,
   - staging guard refusal.
 
+Live operational note:
+
+- Do not retry package 10. Create a fresh production inbox approval and package
+  after the fixed code is deployed, then let Vamo run the apply step.
+
 ## What Not To Build Yet
 
 - No real provider scraping.
@@ -1083,8 +1060,8 @@ Validation:
   inbox schema after explicit approval and live gates.
 - No autonomous AI-started ingestion without policy and operator approval.
 - No connector marketplace.
-- No standalone repo split until IP-15 split prep is complete (IP-14 has proven
-  the dry-run loop).
+- No physical standalone repo split until IP-15 boundary prep is merged and the
+  boundary audit passes on `main`.
 - For IP-16, no "promote to production" control and no production
   environment/DSN/adapter.
 - No default backup/restore, physical log shipping, or raw replication path for
@@ -1093,21 +1070,14 @@ Validation:
 
 ## Recommended Immediate Next Slice
 
-**IP-17 - Vamo Production Inbox Delivery** is the active implementation slice.
-After IP-17 is merged, the next move is operational, not another platform
-feature:
+**IP-15 - Confluendo Repo Split Prep** is the active implementation slice.
 
-1. Promote the inbox digest-grant migration to Vamo staging and production under
-   `docs/operations/MIGRATION_PROMOTION_POLICY.md`.
-2. Provision the Vamo production inbox login role and verify it can write only
-   to `confluendo_inbox`.
-3. Record a fresh Confluendo dashboard approval for production inbox delivery.
-4. Run the IP-17 dry preview and then the confirmation-gated live delivery only
-   if all gates are green.
-5. Have Vamo operators run the Vamo-owned apply function after inspecting the
-   delivered inbox package.
+After IP-15 is merged, the next implementation slice is **IP-18 - Automated
+Batch Target Planning**: YAML/imported target sets, progressive scheduling,
+dashboard batch controls, and AI-assisted prioritization. That is where broad
+EU city/POI coverage belongs; IP-17 was the governed production-delivery
+foundation.
 
-The next implementation slice after that should be **IP-18 - Automated Batch
-Target Planning**: YAML/imported target sets, progressive scheduling, dashboard
-batch controls, and AI-assisted prioritization. That is where broad city/POI
-coverage belongs; IP-17 is the governed production-delivery foundation.
+Operationally, Vamo can still run a fresh IP-17 production inbox delivery after
+IP-17.1, but that is a smoke/proof path, not the path to a substantial EU POI
+database.

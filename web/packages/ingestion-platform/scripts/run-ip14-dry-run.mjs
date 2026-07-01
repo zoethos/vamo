@@ -13,7 +13,7 @@
 //   - Hard-fails (exit 1) if the proposal safety mode is anything but dry_run.
 //
 // Usage:
-//   npm --workspace @vamo/ingestion-platform run ip14:dry-run
+//   npm --workspace @confluendo/ingestion-platform run ip14:dry-run
 //
 // Requires a prior build (the npm script runs `build` first); it imports the
 // compiled platform from dist/.

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@vamo/ingestion-platform/core";
+import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@confluendo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
