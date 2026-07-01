@@ -1,0 +1,20 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+/.confluendo-dev-state.json
+
+# misc
+.DS_Store
+*.pem
+.env*.local
+
+# debug
+npm-debug.log*
+
+# typescript
+next-env.d.ts

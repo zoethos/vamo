@@ -23,6 +23,7 @@ function readJson(file) {
 
 const platformPackage = readJson(path.join(packageRoot, "package.json"));
 const sitePackage = readJson(path.join(webRoot, "apps", "site", "package.json"));
+const consolePackage = readJson(path.join(webRoot, "apps", "confluendo-console", "package.json"));
 
 assert(
   platformPackage.name === "@confluendo/ingestion-platform",
@@ -30,13 +31,28 @@ assert(
 );
 
 assert(
-  sitePackage.dependencies?.["@confluendo/ingestion-platform"] === "*",
-  "site app must depend on @confluendo/ingestion-platform as the provider package"
+  consolePackage.name === "@confluendo/console",
+  `console app name is ${consolePackage.name}, expected @confluendo/console`
+);
+
+assert(
+  consolePackage.dependencies?.["@confluendo/ingestion-platform"] === "*",
+  "console app must depend on @confluendo/ingestion-platform as the provider package"
 );
 
 assert(
   !sitePackage.dependencies?.["@vamo/ingestion-platform"],
   "site app must not depend on @vamo/ingestion-platform"
+);
+
+assert(
+  !sitePackage.dependencies?.["@confluendo/ingestion-platform"],
+  "Vamo site must not depend on @confluendo/ingestion-platform after the console carve-out"
+);
+
+assert(
+  !sitePackage.dependencies?.["@confluendo/console"],
+  "Vamo site must not depend on @confluendo/console; it should link/redirect to the console boundary"
 );
 
 const textFiles = walk(repoRoot).filter((file) => {
@@ -54,6 +70,42 @@ const staleNamespace = textFiles.filter((file) =>
 assert(
   staleNamespace.length === 0,
   `stale @vamo/ingestion-platform references remain:\n${staleNamespace.map(toRepoRelative).join("\n")}`
+);
+
+const siteRuntimeFiles = walk(path.join(webRoot, "apps", "site")).filter((file) => {
+  const relative = toRepoRelative(file);
+  if (relative.includes("/.next/") || relative.includes("/.turbo/")) {
+    return false;
+  }
+  return /\.(js|mjs|ts|tsx|json)$/.test(file);
+});
+
+const siteProviderReferences = siteRuntimeFiles.filter((file) => {
+  const source = readFileSync(file, "utf8");
+  return source.includes("@confluendo/ingestion-platform") || source.includes("@confluendo/console");
+});
+
+assert(
+  siteProviderReferences.length === 0,
+  `Vamo site still references Confluendo packages:\n${siteProviderReferences.map(toRepoRelative).join("\n")}`
+);
+
+const consoleRuntimeFiles = walk(path.join(webRoot, "apps", "confluendo-console")).filter((file) => {
+  const relative = toRepoRelative(file);
+  if (relative.includes("/.next/") || relative.includes("/.turbo/")) {
+    return false;
+  }
+  return /\.(js|mjs|ts|tsx)$/.test(file);
+});
+
+const consoleHostImports = consoleRuntimeFiles.filter((file) => {
+  const source = readFileSync(file, "utf8");
+  return /from\s+["'].*(?:apps\/site|@vamo\/site|Z:\\\\?vamo)/.test(source);
+});
+
+assert(
+  consoleHostImports.length === 0,
+  `console runtime files import the Vamo host:\n${consoleHostImports.map(toRepoRelative).join("\n")}`
 );
 
 const platformRuntimeFiles = walk(path.join(packageRoot)).filter((file) => {
@@ -76,8 +128,12 @@ assert(
 
 console.log("Confluendo boundary audit");
 console.log(`- package: ${platformPackage.name}`);
-console.log("- site dependency: @confluendo/ingestion-platform");
+console.log(`- console app: ${consolePackage.name}`);
+console.log("- console dependency: @confluendo/ingestion-platform");
+console.log("- site dependency: none (redirect/link boundary only)");
 console.log(`- scanned text files: ${textFiles.length}`);
+console.log(`- scanned site runtime files: ${siteRuntimeFiles.length}`);
+console.log(`- scanned console runtime files: ${consoleRuntimeFiles.length}`);
 console.log(`- scanned platform runtime files: ${platformRuntimeFiles.length}`);
 
 if (failures.length > 0) {

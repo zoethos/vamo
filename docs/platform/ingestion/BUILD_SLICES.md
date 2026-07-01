@@ -739,8 +739,9 @@ Remaining follow-ups:
 
 ## Slice IP-15 - Confluendo Repo Split Prep
 
-Status: active prep. The first boundary changes are package namespace,
-documentation, and executable audit checks; this is not the physical repo move.
+Status: active prep. Package namespace, executable audit checks, and the
+in-repo Confluendo console carve-out are in progress; this is not the physical
+repo move.
 
 Goal: prepare Confluendo to leave the Vamo incubation tree as an independent
 repo, while making Vamo an importing consumer instead of the platform host.
@@ -778,16 +779,21 @@ Implemented in this prep slice:
 
 - Package identity and imports move from `@vamo/ingestion-platform` to
   `@confluendo/ingestion-platform`.
-- `@vamo/site` remains a customer-zero host that imports the Confluendo package.
+- `@confluendo/console` owns the operator console under
+  `web/apps/confluendo-console`.
+- `@vamo/site` no longer imports Confluendo packages; `/admin/*` is a handoff to
+  the console boundary.
 - `ip15:boundary-audit` verifies the package namespace, stale import absence,
-  and no direct platform runtime imports from host/Vamo paths.
+  console ownership, site non-dependency, and no direct platform runtime imports
+  from host/Vamo paths.
 - Extraction-prep docs define current incubation tree, target standalone tree,
   ownership matrix, lift sequence, and gates before IP-18.
 
 Deferred to physical extraction:
 
 - Move `web/packages/ingestion-platform` into a standalone Confluendo repo.
-- Move `/admin/ingestion` and `/admin/providers` into a Confluendo console app.
+- Move `web/apps/confluendo-console` to the standalone Confluendo repo and wire
+  `confluendo.com`/Vercel to that app.
 - Move Vamo-specific imported fixtures into `examples/consumers/` or an explicit
   test fixture namespace in the standalone repo.
 - Convert `control_bootstrap_confluendo.sql` into a platform bootstrap template
@@ -810,6 +816,7 @@ Validation:
 
 - `npm --workspace @confluendo/ingestion-platform run ip15:boundary-audit`
 - `npm --workspace @confluendo/ingestion-platform test`
+- `npm --workspace @confluendo/console run build`
 - `npm --workspace @vamo/site run build`
 
 ## Slice IP-16 - First Vamo Staging Canary

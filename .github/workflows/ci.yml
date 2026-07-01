@@ -41,6 +41,10 @@ jobs:
           INGESTION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ingestion_test
         run: npm --workspace @confluendo/ingestion-platform test
 
+      - name: Build Confluendo console
+        working-directory: web
+        run: npm --workspace @confluendo/console run build
+
       - name: Install Deno
         shell: bash
         run: |

@@ -13,7 +13,10 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:console": "npm --workspace @confluendo/console run dev",
+    "dev:console:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
     "dev:site:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
+    "build:console": "npm --workspace @confluendo/console run build",
     "ingestion:docker": "docker compose -f ../tool/ingestion/docker-compose.yml up --build",
     "ingestion:docker:down": "docker compose -f ../tool/ingestion/docker-compose.yml down",
     "ingestion:worker": "npm --workspace @confluendo/ingestion-platform run build && npm --workspace @confluendo/ingestion-platform run worker",
