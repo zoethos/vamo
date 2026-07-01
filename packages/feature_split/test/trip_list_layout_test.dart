@@ -17,7 +17,7 @@ void main() {
         startDate: '2026-07-01',
         baseCurrency: 'EUR',
       ),
-    ]);
+    ], now: DateTime.utc(2026, 6, 30));
 
     expect(layout.featured?.id, 'a');
     expect(layout.upcoming, hasLength(1));
