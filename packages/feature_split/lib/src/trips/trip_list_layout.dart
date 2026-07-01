@@ -18,8 +18,8 @@ class TripListLayout {
   bool get hasFeatured => featured != null;
 }
 
-TripListLayout layoutTripsForMyTrips(List<TripSummary> trips) {
-  final now = DateTime.now();
+TripListLayout layoutTripsForMyTrips(List<TripSummary> trips, {DateTime? now}) {
+  final referenceNow = now ?? DateTime.now();
   final upcoming = <TripSummary>[];
   final past = <TripSummary>[];
   final other = <TripSummary>[];
@@ -27,9 +27,9 @@ TripListLayout layoutTripsForMyTrips(List<TripSummary> trips) {
   for (final trip in trips) {
     final start = parseTripDate(trip.startDate);
     final end = parseTripDate(trip.endDate) ?? start;
-    if (start != null && start.isAfter(now)) {
+    if (start != null && start.isAfter(referenceNow)) {
       upcoming.add(trip);
-    } else if (end != null && end.isBefore(now)) {
+    } else if (end != null && end.isBefore(referenceNow)) {
       past.add(trip);
     } else {
       other.add(trip);
@@ -70,4 +70,3 @@ TripListLayout layoutTripsForMyTrips(List<TripSummary> trips) {
     other: other,
   );
 }
-
