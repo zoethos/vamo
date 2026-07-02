@@ -71,6 +71,7 @@ export interface ProductionInboxState {
   packageId?: string;
   packageChecksum?: string;
   itemCount?: number;
+  consumerApplyError?: string;
 }
 
 /**
@@ -273,6 +274,9 @@ export function isProductionInboxDelivered(inbox?: ProductionInboxState | null):
 function describeProductionInbox(inbox?: ProductionInboxState): string {
   if (!inbox) {
     return "Production inbox delivered; waiting for Vamo apply.";
+  }
+  if (inbox.status === "consumer_apply_failed" || inbox.status === "production_inbox_delivery_failed") {
+    return `Previous production inbox delivery failed (${inbox.packageId ?? inbox.shipmentKey}); create a fresh approval/package to retry.`;
   }
   if (inbox.status === "consumer_applied") {
     return `Vamo applied production inbox package ${inbox.packageId ?? inbox.shipmentKey}.`;

@@ -184,6 +184,40 @@ describe("progressive run dashboard read model", () => {
     assert.match(view.nextAction, /waiting for Vamo apply/i);
   });
 
+  it("surfaces failed production inbox apply as retryable instead of delivered", () => {
+    const canary: CanaryShipmentState = {
+      status: "succeeded",
+      mode: "approved_write",
+      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:8",
+      createdAt: "2026-06-28T12:00:00.000Z",
+      approvalAuditId: "8"
+    };
+    const inbox: ProductionInboxState = {
+      status: "consumer_apply_failed",
+      shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:10",
+      createdAt: "2026-07-01T12:00:00.000Z",
+      approvalAuditId: "10",
+      packageId: "production-inbox:vamo-place-intelligence-staging:approval:10",
+      itemCount: 2,
+      consumerApplyError: "canonical_key missing"
+    };
+    const snapshot: ProgressiveRunSnapshot = {
+      entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
+        entry.workStatus === "review_required"
+          ? { ...entry, canaryShipment: canary, productionInbox: inbox }
+          : entry
+      )
+    };
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    assert.ok(row);
+    assert.equal(row.productionInboxDelivered, false);
+    assert.match(row.nextApproval, /production inbox delivery/i);
+    assert.doesNotMatch(row.nextApproval, /Already delivered/i);
+    assert.match(view.nextAction, /ready for production inbox approval/i);
+  });
+
   it("classifies production inbox states", () => {
     const base = {
       shipmentKey: "production-inbox:t:approval:1",

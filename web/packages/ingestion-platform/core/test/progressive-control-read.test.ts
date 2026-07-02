@@ -182,6 +182,47 @@ describe("progressive control read", () => {
     assert.match(row.nextApproval, /waiting for Vamo apply/i);
   });
 
+  it("attaches a failed production-inbox apply without treating it as delivered", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:8",
+        status: "succeeded",
+        mode: "approved_write",
+        createdAt: "2026-06-28T12:00:00.000Z",
+        summary: { environment: "staging", approvalAuditId: 8 }
+      },
+      {
+        shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:10",
+        status: "succeeded",
+        mode: "approved_write",
+        createdAt: "2026-07-01T12:00:00.000Z",
+        summary: {
+          environment: "production",
+          productionStatus: "consumer_apply_failed",
+          consumerApplyError: "canonical_key missing",
+          approvalAuditId: 10,
+          packageId: "production-inbox:vamo-place-intelligence-staging:approval:10",
+          itemCount: 2
+        }
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find(
+      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+    );
+    assert.ok(row);
+    assert.equal(row.productionInboxDelivered, false);
+    assert.equal(row.productionInbox?.status, "consumer_apply_failed");
+    assert.equal(row.productionInbox?.consumerApplyError, "canonical_key missing");
+    assert.match(view.nextAction, /ready for production inbox approval/i);
+  });
+
   it("falls back to the approval id parsed from the shipment key", async () => {
     const shipmentRows = [
       {
