@@ -69,8 +69,15 @@ grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 -- It does not grant access to any consumer target database/table.
 grant update (
   status,
+  blockers,
+  run_report,
   updated_at
 ) on ingestion_platform.ingestion_batch_queue_items to confluendo_app;
+
+-- IP-18.4 batch dry-run execution writes only Confluendo control-plane
+-- execution ledger rows. It does not grant access to any consumer database.
+grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;

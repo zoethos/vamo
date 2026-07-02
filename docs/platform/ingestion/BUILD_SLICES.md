@@ -1236,6 +1236,21 @@ Delivered in IP-18.4:
   report column (read-only).
 - Disposable Postgres smokes mandatory.
 
+Operational note:
+
+- Applying only the pre-IP-18.4 control schema leaves live execute blocked with
+  `relation "ingestion_platform.ingestion_batch_dry_run_executions" does not
+  exist`. After IP-18.4, live Confluendo control DBs must receive both the
+  updated `control_schema.sql` and `control_bootstrap_confluendo.sql`.
+- The runtime role (`confluendo_app`) needs insert/update on
+  `ingestion_batch_dry_run_executions` and column-scoped update on
+  `ingestion_batch_queue_items.status`, `run_report`, `blockers`, and
+  `updated_at`. These are Confluendo control-plane grants only; they do not
+  grant Vamo staging or production access.
+- On PowerShell, use the direct node form for execute mode after `npm run build`
+  from `web/packages/ingestion-platform`, because npm may parse forwarded
+  `--max-units`/`--audit-id` flags as npm config before the script sees them.
+
 Future slices:
 
 - **IP-18.5** — staged batch canary waves

@@ -36,8 +36,8 @@ proves a different trust boundary.
 After applying `control_schema.sql`, run
 `../../../../web/packages/ingestion-platform/core/sql/control_bootstrap_confluendo.sql`
 as the Confluendo control DB owner. That bootstrap must grant the runtime role
-(`confluendo_app`) both read access for the dashboard and the narrow control
-ledger writes used by IP-16:
+(`confluendo_app`) both read access for the dashboard and the narrow Confluendo
+control-plane writes used by IP-16 through IP-18.4:
 
 ```sql
 grant usage on schema ingestion_platform to confluendo_app;
@@ -46,6 +46,14 @@ grant select on all tables in schema ingestion_platform to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_targets to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_shipments to confluendo_app;
 grant insert, delete on ingestion_platform.ingestion_shipment_items to confluendo_app;
+
+grant update (
+  status,
+  blockers,
+  run_report,
+  updated_at
+) on ingestion_platform.ingestion_batch_queue_items to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to confluendo_app;
 
 grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
@@ -62,10 +70,14 @@ select
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_targets', 'SELECT, INSERT, UPDATE') as can_upsert_targets,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipments', 'SELECT, INSERT, UPDATE') as can_upsert_shipments,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipment_items', 'SELECT, INSERT, DELETE') as can_replace_shipment_items,
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'status', 'UPDATE') as can_update_queue_status,
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'run_report', 'UPDATE') as can_update_queue_report,
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'blockers', 'UPDATE') as can_update_queue_blockers,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_dry_run_executions', 'SELECT, INSERT, UPDATE') as can_write_dry_run_executions,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_audit_log', 'SELECT, INSERT') as can_record_audit;
 ```
 
-Expected: all four values are `true`.
+Expected: all values are `true`.
 
 ## Guardrails
 
