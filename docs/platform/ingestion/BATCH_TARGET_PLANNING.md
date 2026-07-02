@@ -69,14 +69,35 @@ Exits non-zero on validation failure or non-`dry_run` safety mode.
 fed from bundled sample read-model data. No write or approval controls in this
 slice.
 
+## Dashboard queue (IP-18.1)
+
+`buildBatchQueueSnapshot()` turns a batch plan into operational queue state for
+the console:
+
+- **BatchQueueSnapshot** — plan metadata, progress counters, coverage, groups,
+  items, blocker summaries, next action.
+- **BatchQueueGroup** — country-grouped units with per-group progress.
+- **BatchQueueItem** — unit queue row with explicit `targetEnvironment` metadata.
+- **Statuses** — `planned`, `blocked`, `ready_for_dry_run`, `dry_run_ready`,
+  `staged_ready`, `production_ready`, `applied`.
+
+The Vamo EU POI sample feeds the first bundled queue fixture. Units with
+schedule proposals surface as `ready_for_dry_run`; blocked units aggregate
+reasons into blocker summaries. Optional per-unit progression overrides support
+future persistence without changing the read-model shape.
+
+The console **Batch Queue** section shows coverage cards, a country/category
+matrix, blocker summaries when present, and the full queue table. Read-only: no
+mutation buttons, no start-ingestion control, no staging/production write paths.
+
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.1 | Dashboard batch queue |
-| IP-18.2 | Batch dry-run persistence |
-| IP-18.3 | Staged batch canaries |
-| IP-18.4 | Production inbox package waves |
+| IP-18.2 | Persistent batch queue / control table |
+| IP-18.3 | Operator scheduling mutations |
+| IP-18.4 | Staged batch canary waves |
+| IP-18.5 | Production inbox package waves |
 
 ## Safety
 

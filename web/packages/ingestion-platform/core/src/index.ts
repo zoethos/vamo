@@ -271,3 +271,15 @@ export {
   type BatchPlanView,
   type BatchPlanRow
 } from "./batch-plan-read-model.js";
+export {
+  buildBatchQueueSnapshot,
+  sampleVamoEuPoiBatchQueueSnapshot,
+  type BatchQueueSnapshot,
+  type BatchQueueGroup,
+  type BatchQueueItem,
+  type BatchQueueItemStatus,
+  type BatchQueueCoverage,
+  type BatchQueueProgress,
+  type BatchQueueBlockerSummary,
+  type BuildBatchQueueSnapshotInput
+} from "./batch-queue-read-model.js";

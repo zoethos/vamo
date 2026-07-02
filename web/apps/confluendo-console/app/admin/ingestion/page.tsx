@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
-  sampleVamoEuPoiBatchView,
+  sampleVamoEuPoiBatchQueueSnapshot,
 } from "@confluendo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
@@ -84,7 +84,9 @@ export default async function IngestionDashboardPage() {
     assuranceLevel: principal.assuranceLevel,
     source,
   };
-  const batchPlanPreview = sampleVamoEuPoiBatchView();
+  const batchQueue = sampleVamoEuPoiBatchQueueSnapshot();
+  const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
+  const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
 
   return (
     <main
@@ -459,44 +461,107 @@ export default async function IngestionDashboardPage() {
         ) : null}
       </section>
 
-      <section className="admin-section" aria-label="IP-18 batch planning preview">
+      <section className="admin-section" aria-label="IP-18 batch queue">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18 · batch planning</p>
-            <h2>Automated target batch preview</h2>
+            <p className="admin-kicker">IP-18.1 · batch queue</p>
+            <h2>Automated target batch queue</h2>
           </div>
-          <span className="admin-readonly-pill">Sample preview · dry-run planning only</span>
+          <span className="admin-readonly-pill">Read-only queue · sample fixture</span>
         </div>
         <p className="admin-next-action">
-          <strong>Next action:</strong> {batchPlanPreview.nextAction}
+          <strong>Next action:</strong> {batchQueue.nextAction}
         </p>
         <div className="admin-stat-grid">
           <article className="admin-stat">
-            <span>Plan</span>
-            <strong>{batchPlanPreview.planId}</strong>
+            <span>Queue</span>
+            <strong>{batchQueue.queueId}</strong>
             <p>
-              {batchPlanPreview.targetKey} · {batchPlanPreview.targetEnvironment}
+              {batchQueue.targetKey} · {batchQueue.targetEnvironment}
             </p>
           </article>
           <article className="admin-stat">
-            <span>Units</span>
-            <strong>{batchPlanPreview.totalUnits}</strong>
+            <span>Progress</span>
+            <strong>{batchQueue.progress.total}</strong>
             <p>
-              {batchPlanPreview.plannedUnits} planned · {batchPlanPreview.blockedUnits} blocked
+              {batchQueue.progress.ready} ready · {batchQueue.progress.planned} planned ·{" "}
+              {batchQueue.progress.blocked} blocked
             </p>
           </article>
           <article className="admin-stat">
-            <span>Source</span>
-            <strong>{batchPlanPreview.sourceKey}</strong>
-            <p>Consumer-neutral batch expansion</p>
+            <span>Applied</span>
+            <strong>{batchQueue.progress.applied}</strong>
+            <p>{batchQueue.sourceKey}</p>
           </article>
         </div>
+
+        <div className="admin-stat-grid">
+          {batchCountries.map((country) => (
+            <article className="admin-stat" key={country}>
+              <span>{country}</span>
+              <strong>{batchQueue.coverage.perCountry[country]}</strong>
+              <p>planned units</p>
+            </article>
+          ))}
+        </div>
+
+        {batchQueue.blockerSummaries.length > 0 ? (
+          <div className="admin-table-wrap">
+            <table className="admin-target-table">
+              <thead>
+                <tr>
+                  <th>Blocker</th>
+                  <th>Units</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchQueue.blockerSummaries.map((blocker) => (
+                  <tr key={blocker.reason}>
+                    <td>
+                      <code>{blocker.reason}</code>
+                    </td>
+                    <td>{blocker.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        <div className="admin-table-wrap">
+          <table className="admin-target-table">
+            <thead>
+              <tr>
+                <th>Country \ Category</th>
+                {batchCategories.map((category) => (
+                  <th key={category}>{category}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {batchCountries.map((country) => (
+                <tr key={country}>
+                  <td>
+                    <strong>{country}</strong>
+                  </td>
+                  {batchCategories.map((category) => (
+                    <td key={`${country}-${category}`}>
+                      {batchQueue.coverage.matrix[country]?.[category] ?? 0}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         <div className="admin-table-wrap">
           <table className="admin-target-table">
             <thead>
               <tr>
                 <th>#</th>
                 <th>Unit</th>
+                <th>Country</th>
                 <th>Geography</th>
                 <th>Category</th>
                 <th>Environment</th>
@@ -505,17 +570,18 @@ export default async function IngestionDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {batchPlanPreview.previewRows.map((row) => (
-                <tr key={row.unitKey}>
-                  <td>{row.runOrder}</td>
+              {batchQueue.items.map((item) => (
+                <tr key={item.unitKey}>
+                  <td>{item.runOrder}</td>
                   <td>
-                    <code>{row.unitKey}</code>
+                    <code>{item.unitKey}</code>
                   </td>
-                  <td>{row.geography}</td>
-                  <td>{row.category}</td>
-                  <td>{row.targetEnvironment}</td>
-                  <td>{row.priority}</td>
-                  <td>{row.status}</td>
+                  <td>{item.country}</td>
+                  <td>{item.geography}</td>
+                  <td>{item.category}</td>
+                  <td>{item.targetEnvironment}</td>
+                  <td>{item.priority}</td>
+                  <td>{item.status}</td>
                 </tr>
               ))}
             </tbody>
