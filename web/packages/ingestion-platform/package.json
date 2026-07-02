@@ -55,6 +55,7 @@
     "ip14:dry-run": "npm run build && node scripts/run-ip14-dry-run.mjs",
     "ip16:staging-canary": "npm run build && node scripts/run-ip16-staging-canary.mjs",
     "ip17:production-inbox": "npm run build && node scripts/run-ip17-production-inbox.mjs",
+    "ip18:batch-plan": "npm run build && node scripts/run-ip18-batch-plan.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

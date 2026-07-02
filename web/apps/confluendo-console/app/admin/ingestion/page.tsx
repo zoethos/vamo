@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@confluendo/ingestion-platform/core";
+import {
+  STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
+  sampleVamoEuPoiBatchView,
+} from "@confluendo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
@@ -81,6 +84,7 @@ export default async function IngestionDashboardPage() {
     assuranceLevel: principal.assuranceLevel,
     source,
   };
+  const batchPlanPreview = sampleVamoEuPoiBatchView();
 
   return (
     <main
@@ -453,6 +457,70 @@ export default async function IngestionDashboardPage() {
             />
           </div>
         ) : null}
+      </section>
+
+      <section className="admin-section" aria-label="IP-18 batch planning preview">
+        <div className="admin-section-heading admin-section-heading-compact">
+          <div>
+            <p className="admin-kicker">IP-18 · batch planning</p>
+            <h2>Automated target batch preview</h2>
+          </div>
+          <span className="admin-readonly-pill">Sample preview · dry-run planning only</span>
+        </div>
+        <p className="admin-next-action">
+          <strong>Next action:</strong> {batchPlanPreview.nextAction}
+        </p>
+        <div className="admin-stat-grid">
+          <article className="admin-stat">
+            <span>Plan</span>
+            <strong>{batchPlanPreview.planId}</strong>
+            <p>
+              {batchPlanPreview.targetKey} · {batchPlanPreview.targetEnvironment}
+            </p>
+          </article>
+          <article className="admin-stat">
+            <span>Units</span>
+            <strong>{batchPlanPreview.totalUnits}</strong>
+            <p>
+              {batchPlanPreview.plannedUnits} planned · {batchPlanPreview.blockedUnits} blocked
+            </p>
+          </article>
+          <article className="admin-stat">
+            <span>Source</span>
+            <strong>{batchPlanPreview.sourceKey}</strong>
+            <p>Consumer-neutral batch expansion</p>
+          </article>
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-target-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Unit</th>
+                <th>Geography</th>
+                <th>Category</th>
+                <th>Environment</th>
+                <th>Priority</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batchPlanPreview.previewRows.map((row) => (
+                <tr key={row.unitKey}>
+                  <td>{row.runOrder}</td>
+                  <td>
+                    <code>{row.unitKey}</code>
+                  </td>
+                  <td>{row.geography}</td>
+                  <td>{row.category}</td>
+                  <td>{row.targetEnvironment}</td>
+                  <td>{row.priority}</td>
+                  <td>{row.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="admin-section admin-policy-panel">

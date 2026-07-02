@@ -1,0 +1,55 @@
+kind: ingestion.batch_plan
+version: 1
+id: vamo-eu-poi-sample
+projectKey: vamo
+sourceKey: fsq-os-places-sample
+targetProfileKey: place-intelligence
+targetKey: vamo-place-intelligence
+targetEnvironment: staging
+safetyMode: dry_run
+notes: >
+  Representative EU POI batch sample for IP-18 planning only. Full EU coverage
+  will come from open-source snapshots such as FSQ OS Places, GeoNames, and
+  Wikidata in later slices — not from this tiny fixture.
+geographies:
+  countries:
+    - key: italy
+      label: Italy
+    - key: france
+      label: France
+    - key: germany
+      label: Germany
+    - key: spain
+      label: Spain
+  regions:
+    - key: lombardy-italy
+      country: italy
+      label: Lombardy
+  cities:
+    - key: rome-italy
+      country: italy
+      label: Rome
+    - key: paris-france
+      country: france
+      label: Paris
+    - key: munich-germany
+      country: germany
+      label: Munich
+    - key: barcelona-spain
+      country: spain
+      label: Barcelona
+categories:
+  - poi
+  - landmark
+  - restaurant
+  - transport
+priorityHints:
+  - geography: rome-italy
+    category: poi
+    weight: 10
+  - geography: paris-france
+    category: landmark
+    weight: 8
+bounds:
+  sampleRowLimitPerUnit: 50
+  defaultBatchSize: 10

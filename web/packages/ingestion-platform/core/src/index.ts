@@ -243,3 +243,31 @@ export {
   type RecordProductionInboxDeliveryInput,
   type RecordProductionInboxDeliveryResult
 } from "./production-inbox-control.js";
+export {
+  parseBatchPlanSpec,
+  BATCH_PLAN_KIND,
+  BATCH_ALLOWED_SAFETY_MODES,
+  BATCH_FORBIDDEN_SAFETY_MODES,
+  type BatchPlanSpec,
+  type BatchPlanSpecError,
+  type BatchPlanSpecErrorCode,
+  type BatchGeographiesSpec,
+  type BatchTargetEnvironment
+} from "./batch-plan-spec.js";
+export {
+  buildBatchPlan,
+  type BatchPlanResult,
+  type BatchPlanUnit,
+  type BatchPlanUnitStatus,
+  type BatchCoverageSummary,
+  type BuildBatchPlanInput
+} from "./batch-planner.js";
+export {
+  buildBatchPlanView,
+  buildBatchPlanFromSpec,
+  sampleVamoEuPoiBatchPlan,
+  sampleVamoEuPoiBatchView,
+  sampleVamoEuPoiBatchYaml,
+  type BatchPlanView,
+  type BatchPlanRow
+} from "./batch-plan-read-model.js";
