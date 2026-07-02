@@ -5,7 +5,11 @@ import {
   type PersistedBatchPlanRow,
   type PersistedBatchQueueItemRow
 } from "./batch-queue-persistence.js";
-import type { BatchQueueItemStatus, BatchQueueSnapshot } from "./batch-queue-read-model.js";
+import type {
+  BatchQueueItemStatus,
+  BatchQueueLatestExecution,
+  BatchQueueSnapshot
+} from "./batch-queue-read-model.js";
 
 /**
  * Live read of persisted batch queue state into `BatchQueueSnapshot`.
@@ -54,6 +58,14 @@ interface ItemRow extends Record<string, unknown> {
   blockers: string[];
   proposal: Record<string, unknown> | null;
   runReport: Record<string, unknown> | null;
+}
+
+interface ExecutionRow extends Record<string, unknown> {
+  executionKey: string;
+  status: string;
+  auditId: string | null;
+  summary: Record<string, unknown> | null;
+  finishedAt: string | Date | null;
 }
 
 const UNDEFINED_TABLE = "42P01";
@@ -155,6 +167,8 @@ export async function loadBatchQueueSnapshot(
       return null;
     }
 
+    const latestExecution = await loadLatestExecution(client, batchPlanId);
+
     return mapPersistenceBundleToSnapshot(
       plan.projectKey,
       {
@@ -183,7 +197,8 @@ export async function loadBatchQueueSnapshot(
         blockers: Array.isArray(row.blockers) ? row.blockers.map(String) : [],
         proposal: row.proposal,
         runReport: row.runReport
-      }))
+      })),
+      latestExecution
     );
   } catch (error) {
     if (isUndefinedTable(error)) {
@@ -199,4 +214,51 @@ export async function loadBatchQueueSnapshot(
 
 function isUndefinedTable(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === UNDEFINED_TABLE;
+}
+
+async function loadLatestExecution(
+  client: BatchQueueControlReadPgClientLike,
+  batchPlanId: string
+): Promise<BatchQueueLatestExecution | null> {
+  try {
+    const result = await client.query<ExecutionRow>(
+      `
+        select
+          execution_key as "executionKey",
+          status,
+          audit_id as "auditId",
+          summary,
+          finished_at as "finishedAt"
+        from ingestion_platform.ingestion_batch_dry_run_executions
+        where batch_plan_id = $1::bigint
+        order by updated_at desc, id desc
+        limit 1
+      `,
+      [batchPlanId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+    const summary = row.summary ?? {};
+    return {
+      executionKey: row.executionKey,
+      status: row.status,
+      auditId: row.auditId ?? undefined,
+      succeededCount: Number(summary.succeededCount ?? 0),
+      blockedCount: Number(summary.blockedCount ?? 0),
+      runningCount: Number(summary.runningCount ?? 0),
+      finishedAt:
+        row.finishedAt instanceof Date
+          ? row.finishedAt.toISOString()
+          : typeof row.finishedAt === "string"
+            ? row.finishedAt
+            : undefined
+    };
+  } catch (error) {
+    if (isUndefinedTable(error)) {
+      return null;
+    }
+    throw error;
+  }
 }

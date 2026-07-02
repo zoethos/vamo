@@ -20,7 +20,8 @@ export const CONTROL_TABLES = [
   "ingestion_audit_log",
   "ingestion_schedule_proposals",
   "ingestion_batch_plans",
-  "ingestion_batch_queue_items"
+  "ingestion_batch_queue_items",
+  "ingestion_batch_dry_run_executions"
 ] as const;
 
 export type ControlTableName = (typeof CONTROL_TABLES)[number];

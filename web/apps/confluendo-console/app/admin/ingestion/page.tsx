@@ -477,7 +477,7 @@ export default async function IngestionDashboardPage() {
       <section className="admin-section" aria-label="IP-18 batch queue">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18.3 · batch queue</p>
+            <p className="admin-kicker">IP-18.4 · batch queue</p>
             <h2>Automated target batch queue</h2>
           </div>
           <span className="admin-readonly-pill">
@@ -519,11 +519,30 @@ export default async function IngestionDashboardPage() {
             </p>
           </article>
           <article className="admin-stat">
+            <span>Execution</span>
+            <strong>{batchQueue.progress.execution.dryRunSucceeded}</strong>
+            <p>
+              {batchQueue.progress.execution.dryRunReady} ready ·{" "}
+              {batchQueue.progress.execution.dryRunRunning} running ·{" "}
+              {batchQueue.progress.execution.dryRunBlocked} blocked
+            </p>
+          </article>
+          <article className="admin-stat">
             <span>Applied</span>
             <strong>{batchQueue.progress.applied}</strong>
             <p>{batchQueue.sourceKey}</p>
           </article>
         </div>
+
+        {batchQueue.latestExecution ? (
+          <p className="admin-next-action">
+            <strong>Latest execution:</strong> {batchQueue.latestExecution.executionKey} ·{" "}
+            {batchQueue.latestExecution.status}
+            {batchQueue.latestExecution.auditId
+              ? ` · audit ${batchQueue.latestExecution.auditId}`
+              : ""}
+          </p>
+        ) : null}
 
         <div className="admin-stat-grid">
           {batchCountries.map((country) => (
@@ -597,6 +616,7 @@ export default async function IngestionDashboardPage() {
                 <th>Environment</th>
                 <th>Priority</th>
                 <th>Status</th>
+                <th>Dry-run report</th>
               </tr>
             </thead>
             <tbody>
@@ -612,6 +632,13 @@ export default async function IngestionDashboardPage() {
                   <td>{item.targetEnvironment}</td>
                   <td>{item.priority}</td>
                   <td>{item.status}</td>
+                  <td>
+                    {item.dryRunReport
+                      ? `${item.dryRunReport.rowsProcessed} rows · wroteToTarget=false`
+                      : item.blockReasons.length > 0
+                        ? item.blockReasons.join(", ")
+                        : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1168,9 +1168,9 @@ tables or rows are absent.
 
 ## Slice IP-18.3 - Operator Scheduling Mutations
 
-Status: **active / implemented**. Writes only to Confluendo control-plane queue
-items and audit log. No provider calls, no Vamo staging writes, no production
-inbox delivery.
+Status: **done** (IP-18.3 merged; live-verified). Writes only to Confluendo
+control-plane queue items and audit log. No provider calls, no Vamo staging
+writes, no production inbox delivery.
 
 Goal:
 
@@ -1197,19 +1197,55 @@ Delivered in IP-18.3:
 - Bootstrap grant update: `confluendo_app` can update only `status` and
   `updated_at` on `ingestion_batch_queue_items`.
 
+Live verification evidence:
+
+- Dashboard scheduled **36 units** from `ready_for_dry_run` → `dry_run_ready`.
+- Explicit environment: **staging** (never inferred from target key).
+- Audit id: **15** recorded in `ingestion_audit_log` for the schedule action.
+
 Ops note: after merge, re-run `control_bootstrap_confluendo.sql` on the live
 Confluendo control DB so the runtime role receives the queue-item `UPDATE` grant.
 Without that grant, the scheduling route fails closed.
 
+## Slice IP-18.4 - Dry-Run Execution Orchestration
+
+Status: **active / implemented**. Executes bounded fixture-only dry runs from
+`dry_run_ready` queue state and writes only Confluendo control-plane execution
+state. No live provider calls, no Vamo staging writes, no production inbox
+delivery.
+
+Goal:
+
+Run bounded dry-run execution against persisted queue units, store per-unit
+reports/checkpoints/blockers in control-plane tables, and surface execution
+progress in the dashboard.
+
+Delivered in IP-18.4:
+
+- Pure policy: `evaluateBatchDryRunExecution()` bounds eligible `dry_run_ready`
+  units by target key, explicit `target_environment`, max units, and audit
+  reason/operator context.
+- Fixture simulator: `simulateBatchDryRunUnit()` — deterministic, no network.
+- Control execution: `executeBatchDryRun()` with idempotent
+  `ingestion_batch_dry_run_executions` rows and queue-item status transitions
+  (`dry_run_running` → `dry_run_succeeded` / `dry_run_blocked`).
+- Status extension on `ingestion_batch_queue_items` for execution lifecycle.
+- CLI: `npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run`
+  (preview default; `--execute` requires `CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES`).
+- Dashboard: execution counters, latest execution summary, per-unit dry-run
+  report column (read-only).
+- Disposable Postgres smokes mandatory.
+
 Future slices:
 
-- **IP-18.4** — staged batch canary waves
-- **IP-18.5** — production inbox package waves
+- **IP-18.5** — staged batch canary waves
+- **IP-18.6** — production inbox package waves
 
 ## Recommended Immediate Next Slice
 
-After IP-18.3 lands, **IP-18.4 - Staged Batch Canary Waves** is the next slice:
-execute bounded dry-run/canary groups from the scheduled queue state.
+After IP-18.4 lands, **IP-18.5 - Staged Batch Canary Waves** is the next slice:
+promote bounded dry-run succeeded units into governed staging-canary shipment
+groups.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends

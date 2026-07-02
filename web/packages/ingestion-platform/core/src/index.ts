@@ -276,6 +276,9 @@ export {
   buildBatchQueueSnapshotFromItems,
   sampleVamoEuPoiBatchQueueSnapshot,
   BATCH_QUEUE_ITEM_STATUSES,
+  type BatchDryRunReport,
+  type BatchQueueExecutionProgress,
+  type BatchQueueLatestExecution,
   type BatchQueueSnapshot,
   type BatchQueueGroup,
   type BatchQueueItem,
@@ -320,3 +323,23 @@ export {
   type ScheduleBatchDryRunInput,
   type ScheduleBatchDryRunResult
 } from "./batch-queue-mutations.js";
+export {
+  evaluateBatchDryRunExecution,
+  type BatchDryRunExecutionBlock,
+  type BatchDryRunExecutionBlockCode,
+  type BatchDryRunExecutionPlan,
+  type EvaluateBatchDryRunExecutionInput,
+  type EvaluateBatchDryRunExecutionResult
+} from "./batch-dry-run-execution-policy.js";
+export {
+  simulateBatchDryRunUnit,
+  type BatchDryRunUnitReport,
+  type BatchDryRunCheckpoint,
+  type SimulateBatchDryRunUnitInput
+} from "./batch-dry-run-simulator.js";
+export {
+  executeBatchDryRun,
+  type BatchDryRunExecutionPgClientLike,
+  type ExecuteBatchDryRunInput,
+  type ExecuteBatchDryRunResult
+} from "./batch-dry-run-execution.js";
