@@ -362,7 +362,7 @@ the same transform real rows; only the snapshot source changes.
 
 Files:
 
-- `web/apps/site/app/admin/ingestion/page.tsx` (unchanged shell; label only)
+- `web/apps/confluendo-console/app/admin/ingestion/page.tsx` (unchanged shell; label only)
 - `web/apps/site/content/ingestion-dashboard.ts` (now reads through the read model)
 - `web/packages/ingestion-platform/core/src/read-model.ts` (transform + view/domain
   types + sample control-plane snapshot)
@@ -553,9 +553,9 @@ directly.
 
 Implemented:
 
-- `web/apps/site/app/api/admin/ingestion/commands/route.ts`
-- `web/apps/site/app/admin/ingestion/ingestion-command-controls.tsx`
-- `web/apps/site/lib/ingestion-admin-auth.ts`
+- `web/apps/confluendo-console/app/api/admin/ingestion/commands/route.ts`
+- `web/apps/confluendo-console/app/admin/ingestion/ingestion-command-controls.tsx`
+- `web/apps/confluendo-console/lib/ingestion-admin-auth.ts`
 - `web/packages/ingestion-platform/core/src/control-command-api.ts`
 - `web/packages/ingestion-platform/core/src/admin-auth.ts`
 - command planner, idempotent no-op, partial-success, stale-patch, audit, and
@@ -587,7 +587,7 @@ Acceptance criteria:
 Validation:
 
 - `npm --workspace @confluendo/ingestion-platform test`
-- `npm --workspace @vamo/site run build`
+- `npm --workspace @confluendo/console run build`
 
 ## Slice IP-12 - Target Selection And Progressive Scheduling
 
@@ -722,7 +722,7 @@ Validation (local, all green):
   skipped without a database URL, 0 fail.
 - `npm --workspace @confluendo/ingestion-platform run ip14:dry-run` - exit 0,
   `dry_run`, no writes.
-- `npm --workspace @vamo/site run build` - succeeds; `/admin/ingestion` renders.
+- `npm --workspace @confluendo/console run build` - succeeds; `/admin/ingestion` renders.
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` - core suite 86/86,
   including the `ingestion_schedule_proposals` round-trip and the 18-table
   schema smoke. The spec test runner now uses `--test-concurrency=1` so DB
@@ -935,8 +935,8 @@ Files (planned):
   + tests (fake client + disposable Postgres).
 - `web/packages/ingestion-platform/scripts/run-ip16-staging-canary.mjs` +
   `ip16:staging-canary` npm script.
-- `web/apps/site/app/api/admin/ingestion/staging-canary/route.ts` and a client
-  approval control under `web/apps/site/app/admin/ingestion/`.
+- `web/apps/confluendo-console/app/api/admin/ingestion/staging-canary/route.ts` and a client
+  approval control under `web/apps/confluendo-console/app/admin/ingestion/`.
 - `docs/platform/ingestion/STAGING_CANARY_RUNBOOK.md`.
 
 Acceptance criteria:
@@ -967,17 +967,20 @@ Validation:
 - `npm --workspace @confluendo/ingestion-platform test`
 - `npm --workspace @confluendo/ingestion-platform run ip16:staging-canary` (dry,
   confirmation absent -> hard-fail with no write)
-- `npm --workspace @vamo/site run build`
+- `npm --workspace @confluendo/console run build`
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for the apply/rollback
   round-trip.
 
 ## Slice IP-17 - Vamo Production Inbox Delivery
 
-Status: done. IP-17 merged to `main` and IP-17.1 fixed the source-ref
-`canonical_key` package/apply contract. The first live package attempt proved
-delivery into `confluendo_inbox` but failed Vamo apply because package 10 was
-assembled by the old source-ref payload contract. Package 10 is spent; use a
-fresh approval/package after IP-17.1.
+Status: done and live-proven at bounded customer-zero scope. IP-17 merged to
+`main` and IP-17.1 fixed the source-ref `canonical_key` package/apply contract.
+The first live package attempt proved delivery into `confluendo_inbox` but
+failed Vamo apply because package 10 was assembled by the old source-ref
+payload contract. Package 10 is spent. A fresh package,
+`production-inbox:vamo-place-intelligence-staging:approval:13`, was delivered
+after IP-17.1 and Vamo applied it successfully (`applied=2`, `skipped=0`,
+`rejected=0`). `/admin/ingestion` shows the package as applied.
 
 Goal:
 
@@ -1018,10 +1021,10 @@ Implemented components:
   previews safely and hard-fails unless `CONFIRM_VAMO_PRODUCTION_INBOX=YES`,
   `--execute`, a fresh approval id, control DSN, production inbox DSN, and
   `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production` are all present.
-- `web/apps/site/app/api/admin/ingestion/production-inbox/route.ts` records the
+- `web/apps/confluendo-console/app/api/admin/ingestion/production-inbox/route.ts` records the
   dashboard approval decision only; it never receives Vamo production DB
   credentials.
-- `web/apps/site/app/admin/ingestion/production-inbox-control.tsx` surfaces the
+- `web/apps/confluendo-console/app/admin/ingestion/production-inbox-control.tsx` surfaces the
   production inbox approval state beside the staging canary control.
 - `supabase/migrations/20260701121500_confluendo_inbox_writer_digest_usage.sql`
   grants the least-privilege inbox writer access to the `extensions` schema so
@@ -1031,7 +1034,8 @@ Implemented components:
 
 Hard guardrails:
 
-- No production live run in this slice.
+- Production live runs are manual, confirmation-gated operations; CI and normal
+  implementation validation still run dry only.
 - No direct Confluendo grants on Vamo production product tables.
 - No browser exposure of Vamo production DB credentials.
 - No JavaScript checksum authority for production inbox packages; the adapter
@@ -1046,7 +1050,7 @@ Validation:
 - `npm --workspace @confluendo/ingestion-platform test`
 - `npm --workspace @confluendo/ingestion-platform run ip17:production-inbox` (dry,
   confirmation absent -> hard-fail with no write)
-- `npm --workspace @vamo/site run build`
+- `npm --workspace @confluendo/console run build`
 - Disposable Postgres with `INGESTION_TEST_DATABASE_URL` for:
   - production inbox schema and writer role,
   - SQL-computed item/package checksums,
@@ -1056,8 +1060,11 @@ Validation:
 
 Live operational note:
 
-- Do not retry package 10. Create a fresh production inbox approval and package
-  after the fixed code is deployed, then let Vamo run the apply step.
+- Do not retry package 10. It is a historical failed package.
+- Package 13 is the successful reference proof for the inbox delivery plus
+  Vamo-owned apply boundary.
+- Any future shipment needs a new proposal/run and a new production inbox
+  approval; do not reuse spent package ids.
 
 ## What Not To Build Yet
 
@@ -1085,6 +1092,7 @@ dashboard batch controls, and AI-assisted prioritization. That is where broad
 EU city/POI coverage belongs; IP-17 was the governed production-delivery
 foundation.
 
-Operationally, Vamo can still run a fresh IP-17 production inbox delivery after
-IP-17.1, but that is a smoke/proof path, not the path to a substantial EU POI
-database.
+Operationally, IP-17 has now proven the production inbox path at tiny scale.
+The next product-scale work is not another hand-run two-row package; it is
+IP-18 batch target planning and ingestion automation after IP-15 keeps the
+Confluendo boundary clean.

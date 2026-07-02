@@ -29,6 +29,7 @@ proves a different trust boundary.
 | 11 | Production inbox approval | `../PRODUCTION_INBOX_RUNBOOK.md` | Confluendo admin | Confluendo control DB audit |
 | 12 | Production inbox delivery | `../PRODUCTION_INBOX_RUNBOOK.md` | Confluendo operator | Vamo production `confluendo_inbox` only |
 | 13 | Vamo product apply | `../PRODUCTION_INBOX_RUNBOOK.md` | Vamo DBA/operator | Vamo production product tables |
+| 14 | Post-apply dashboard verification | `../PRODUCTION_INBOX_RUNBOOK.md` | Confluendo admin + Vamo operator | Read-only verification |
 
 ## Phase 2 Grant Checklist
 
@@ -81,6 +82,32 @@ Expected: all four values are `true`.
   credentials.
 - Keep customer-specific seed artifacts in this bootstrap folder or a future
   consumer-package folder, not in generic platform runtime code.
+- Do not retry spent package ids. If an old package failed because it was
+  assembled by a superseded contract, record a fresh approval and deliver a new
+  package after the fix is deployed.
+
+## Current Vamo Customer-Zero Evidence
+
+This bootstrap is no longer theoretical. The first production inbox proof has
+completed at the tiny IP-17 scope:
+
+| Package | Result | Notes |
+| --- | --- | --- |
+| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package. It was delivered before IP-17.1 added `canonical_key` to source-ref payloads. Do not retry it. |
+| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Successful proof. Vamo applied 2 rows, skipped 0, rejected 0. `/admin/ingestion` shows the package as applied. |
+
+This proves the governed pipe:
+
+```text
+Confluendo approval
+  -> Confluendo production inbox delivery
+  -> Vamo-owned apply function
+  -> Vamo production product tables
+  -> Confluendo dashboard read model shows applied
+```
+
+It does **not** prove broad EU POI coverage. That belongs to the later batch
+planning/ingestion slices.
 
 ## Disaster Recovery Shape
 
@@ -96,6 +123,11 @@ For a fresh Confluendo instance serving Vamo:
 7. Apply the Vamo production inbox migrations and provision a production login
    role granted `confluendo_inbox_writer`.
 8. Re-run production safety checks before any production inbox approval.
+9. Record a fresh Confluendo production inbox approval for the package you want
+   to deliver. Do not reuse spent approval ids.
+10. Run the confirmation-gated IP-17 delivery into `confluendo_inbox`.
+11. Run the Vamo-owned apply function.
+12. Verify the Confluendo dashboard shows `consumer_applied`.
 
 The proposal seed is intentionally idempotent and owner-run. It does not write
 to Vamo staging or production; it only restores the Confluendo control-plane
@@ -105,4 +137,5 @@ approval.
 Production inbox delivery has its own confirmation gate in
 `../PRODUCTION_INBOX_RUNBOOK.md`. It writes only to Vamo production
 `confluendo_inbox`; Vamo operators separately run the Vamo-owned apply function
-when they are ready to mutate product tables.
+when they are ready to mutate product tables. The current successful reference
+run is package `production-inbox:vamo-place-intelligence-staging:approval:13`.

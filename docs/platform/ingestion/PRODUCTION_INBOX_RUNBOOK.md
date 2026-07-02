@@ -1,12 +1,25 @@
 # IP-17 - Vamo Production Inbox Delivery Runbook
 
-Status: implementation runbook for a confirmation-gated production inbox
-delivery. This runbook does not authorize a live production run by itself.
+Status: implemented and live-proven at the first bounded Vamo customer-zero
+scope. This runbook does not authorize a live production run by itself.
 
 Confluendo is the ingestion platform. Vamo is the consumer. For production,
 Confluendo delivers a reviewed shipment package into Vamo's
 `confluendo_inbox` schema only. Vamo owns the later apply step into
 `public.location_canonicals` and `public.location_source_refs`.
+
+## Current Live Evidence
+
+The IP-17 pipe has been proven end-to-end with the fixed IP-17.1 package
+contract:
+
+| Package | Status | Evidence |
+| --- | --- | --- |
+| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package. It was delivered before source-ref payloads carried `canonical_key`. Keep it for audit; do not retry it. |
+| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Vamo apply returned `{"status":"consumer_applied","applied":2,"skipped":0,"rejected":0,"package_id":"production-inbox:vamo-place-intelligence-staging:approval:13"}`. `/admin/ingestion` shows the package as applied. |
+
+Use this as the reference proof, not as permission to widen scope. Broad EU POI
+coverage requires the later batch planning and ingestion slices.
 
 ## Safety Model
 
@@ -129,6 +142,12 @@ The Confluendo dashboard must show:
 - staging canary evidence present,
 - no prior active production inbox delivery for the same target/proposal.
 
+If the latest production inbox row is `consumer_applied`, the same proposal is
+spent. Create a new proposal/run before approving another production package.
+If the latest row is `consumer_apply_failed`, inspect the failure and deliver a
+fresh package only after the code/data contract is fixed; do not retry the spent
+package id.
+
 ## Approval
 
 Use `/admin/ingestion` to record the production inbox approval.
@@ -148,7 +167,7 @@ It does not connect to Vamo production and it does not write the inbox package.
 
 ## Dry Preview
 
-From `Z:\vamo-web-dashboard\web`:
+From the repo `web` workspace:
 
 ```powershell
 npm --workspace @confluendo/ingestion-platform run ip17:production-inbox
@@ -210,6 +229,23 @@ The apply function validates:
 - delete operations are absent,
 - item payloads satisfy Vamo product-shape rules.
 
+Successful first proof result:
+
+```json
+{
+  "status": "consumer_applied",
+  "applied": 2,
+  "skipped": 0,
+  "rejected": 0,
+  "package_id": "production-inbox:vamo-place-intelligence-staging:approval:13"
+}
+```
+
+After apply, refresh `/admin/ingestion`. The IP-17 card should show the package
+as applied rather than pending. If it still shows pending, inspect the
+Confluendo control shipment row and the Vamo `confluendo_inbox.shipments`
+status for the same package id before creating another approval.
+
 ## Rollback And Reconciliation
 
 IP-17 does not automate production rollback. Vamo owns the product-table apply
@@ -226,6 +262,10 @@ If inbox delivery succeeds but the Confluendo ledger write fails:
 
 If Vamo apply fails, inspect `confluendo_inbox.apply_log` and keep the package
 in the inbox for diagnosis. Do not ask Confluendo to mutate product tables.
+Package `production-inbox:vamo-place-intelligence-staging:approval:10` is the
+known historical example: it failed because the old package contract omitted
+`canonical_key` from source-ref payloads. The correct response was IP-17.1 plus
+a fresh approval/package (`approval:13`), not a retry of package 10.
 
 ## Stop Conditions
 
