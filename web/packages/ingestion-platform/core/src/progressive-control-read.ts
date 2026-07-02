@@ -272,7 +272,8 @@ function parseProductionInboxShipmentRow(
       approvalAuditId: resolveApprovalAuditId(row.summary, match[2]),
       packageId: readString(row.summary?.packageId),
       packageChecksum: readString(row.summary?.packageChecksum),
-      itemCount: readNumber(row.summary?.itemCount)
+      itemCount: readNumber(row.summary?.itemCount),
+      consumerApplyError: readString(row.summary?.consumerApplyError)
     }
   };
 }

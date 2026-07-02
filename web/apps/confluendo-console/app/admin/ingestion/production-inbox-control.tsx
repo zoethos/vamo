@@ -176,10 +176,18 @@ export function ProductionInboxControl({
 }
 
 function ProductionInboxNotice({ productionInbox }: { productionInbox: ProductionInboxState }) {
+  const failed =
+    productionInbox.status === "consumer_apply_failed" ||
+    productionInbox.status === "production_inbox_delivery_failed";
   return (
-    <div className="admin-command-result admin-command-result-ok" role="status">
+    <div
+      className={`admin-command-result ${failed ? "admin-command-result-error" : "admin-command-result-ok"}`}
+      role={failed ? "alert" : "status"}
+    >
       <strong>
-        {productionInbox.status === "consumer_applied"
+        {failed
+          ? "Previous production inbox delivery failed"
+          : productionInbox.status === "consumer_applied"
           ? "Vamo applied this production package"
           : "Already delivered to Vamo production inbox"}
       </strong>
@@ -187,6 +195,8 @@ function ProductionInboxNotice({ productionInbox }: { productionInbox: Productio
       {productionInbox.packageId ? <span>Package id: {productionInbox.packageId}</span> : null}
       {productionInbox.approvalAuditId ? <span>Approval audit id: {productionInbox.approvalAuditId}</span> : null}
       <span>Status: {productionInbox.status}</span>
+      {failed ? <span>Fresh approval is allowed after the failed package is reconciled.</span> : null}
+      {productionInbox.consumerApplyError ? <span>{productionInbox.consumerApplyError}</span> : null}
     </div>
   );
 }
