@@ -37,7 +37,7 @@ source:
     snapshotPath: fixtures/open/fsq-os-places/sample.jsonl
     format: jsonl
 target:
-  id: vamo-place-intelligence-staging
+  id: vamo-place-intelligence
   adapter: supabase_postgres
   project: vamo
   profile: place-intelligence

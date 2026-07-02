@@ -18,7 +18,7 @@ describe("target selection scorecard", () => {
   it("ranks a valid Vamo target above invalid and unsafe options", () => {
     const ranked = rankTargetCandidates([unsafeGoogle, missingAttribution, vamoTarget]);
 
-    assert.equal(ranked[0]?.targetId, "vamo-place-intelligence-staging");
+    assert.equal(ranked[0]?.targetId, "vamo-place-intelligence");
     assert.equal(ranked[0]?.eligibleForScheduling, true);
 
     // Both other options are blocked from scheduling.

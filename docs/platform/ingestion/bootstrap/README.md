@@ -93,8 +93,8 @@ completed at the tiny IP-17 scope:
 
 | Package | Result | Notes |
 | --- | --- | --- |
-| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package. It was delivered before IP-17.1 added `canonical_key` to source-ref payloads. Do not retry it. |
-| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Successful proof. Vamo applied 2 rows, skipped 0, rejected 0. `/admin/ingestion` shows the package as applied. |
+| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package (legacy target-key naming; immutable audit history). It was delivered before IP-17.1 added `canonical_key` to source-ref payloads. Do not retry it. |
+| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Historical successful proof (legacy target-key naming; immutable audit history). Vamo applied 2 rows, skipped 0, rejected 0. `/admin/ingestion` shows the package as applied. New proposals use `vamo-place-intelligence`. |
 
 This proves the governed pipe:
 

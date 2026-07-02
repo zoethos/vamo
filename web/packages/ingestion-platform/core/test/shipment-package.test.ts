@@ -13,7 +13,7 @@ if (!report) {
 describe("production inbox package assembly", () => {
   it("builds generic JSONB items without client-side checksums", () => {
     const pkg = buildProductionInboxPackage({
-      packageId: "production-inbox:vamo-place-intelligence-staging:approval:9",
+      packageId: "production-inbox:vamo-place-intelligence:approval:9",
       consumerKey: "vamo",
       runReport: report,
       candidates: [candidate()],
@@ -39,7 +39,7 @@ describe("production inbox package assembly", () => {
     sourceRefs.canonical_id = "030d1b0a-a43e-5f7f-bb32-e4ce5a516bc5";
 
     const pkg = buildProductionInboxPackage({
-      packageId: "production-inbox:vamo-place-intelligence-staging:approval:9",
+      packageId: "production-inbox:vamo-place-intelligence:approval:9",
       consumerKey: "vamo",
       runReport: report,
       candidates: [staged],
@@ -88,7 +88,7 @@ describe("production inbox package assembly", () => {
     assert.throws(
       () =>
         buildProductionInboxPackage({
-          packageId: "production-inbox:vamo-place-intelligence-staging:approval:9",
+          packageId: "production-inbox:vamo-place-intelligence:approval:9",
           consumerKey: "vamo",
           runReport: report,
           candidates: [staged],

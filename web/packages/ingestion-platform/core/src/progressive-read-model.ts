@@ -61,6 +61,8 @@ export interface CanaryShipmentState {
   shipmentKey: string;
   createdAt: string;
   approvalAuditId?: string;
+  /** Resolved delivery environment from shipment summary/policy — never from targetId. */
+  targetEnvironment?: "staging";
 }
 
 export interface ProductionInboxState {
@@ -71,6 +73,8 @@ export interface ProductionInboxState {
   packageId?: string;
   packageChecksum?: string;
   itemCount?: number;
+  /** Resolved delivery environment from shipment summary/policy — never from targetId. */
+  targetEnvironment?: "production";
 }
 
 /**
@@ -153,6 +157,8 @@ export interface ProgressiveBacklogRow extends ProgressiveTone {
   canaryShipped: boolean;
   productionInbox?: ProductionInboxState;
   productionInboxDelivered: boolean;
+  /** Resolved target environment from shipment/policy — never inferred from targetId. */
+  targetEnvironment?: "staging" | "production";
   blockers: string[];
   policyBlocks: string[];
   deadLetters: string[];
@@ -236,6 +242,7 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
     canaryShipped,
     productionInbox,
     productionInboxDelivered,
+    targetEnvironment: resolveTargetEnvironment(productionInbox, canaryShipment),
     blockers: scorecard.blockingGates.slice(),
     policyBlocks: report?.policyBlocks.slice() ?? [],
     deadLetters: report?.deadLetters.slice() ?? [],
@@ -252,6 +259,19 @@ function toRow(entry: ProgressiveBacklogEntryInput): ProgressiveBacklogRow {
         : report?.nextApproval.description ?? entry.scheduledApprovalDescription ?? "Awaiting scorecard review.",
     tone: WORK_STATUS_TONE[entry.workStatus]
   };
+}
+
+function resolveTargetEnvironment(
+  productionInbox?: ProductionInboxState,
+  canaryShipment?: CanaryShipmentState
+): "staging" | "production" | undefined {
+  if (productionInbox) {
+    return productionInbox.targetEnvironment ?? "production";
+  }
+  if (canaryShipment) {
+    return canaryShipment.targetEnvironment ?? "staging";
+  }
+  return undefined;
 }
 
 function describeShippedCanary(shipment?: CanaryShipmentState): string {
@@ -344,7 +364,7 @@ function deriveNextAction(rows: ProgressiveBacklogRow[]): string {
    platform enforces, so the sample cannot drift from real behavior. */
 
 const sampleVamoCandidate: TargetCandidateInput = {
-  targetId: "vamo-place-intelligence-staging",
+  targetId: "vamo-place-intelligence",
   projectKey: "vamo",
   sourceId: "fsq-os-places-sample",
   safetyMode: "dry_run",
@@ -413,7 +433,7 @@ const sampleGoogleScorecard = scoreTargetCandidate(sampleGoogleCandidate);
 
 const sampleReport: ProgressiveRunReport = {
   projectKey: "vamo",
-  targetId: "vamo-place-intelligence-staging",
+  targetId: "vamo-place-intelligence",
   sourceId: "fsq-os-places-sample",
   tier: "sample_dry_run",
   safetyMode: "dry_run",

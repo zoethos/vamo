@@ -41,7 +41,7 @@ describe(
       const result = await recordStagingCanaryApproval({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         accepted: true,
         actor: { type: "operator", id: "supabase:user-1" },
         reason: "first Rome landmark canary",
@@ -68,7 +68,7 @@ describe(
       );
       assert.equal(row.rows[0]?.action, "approve_staging_canary");
       assert.equal(row.rows[0]?.reason, "first Rome landmark canary");
-      assert.equal(row.rows[0]?.target_id, "vamo-place-intelligence-staging");
+      assert.equal(row.rows[0]?.target_id, "vamo-place-intelligence");
       assert.equal(row.rows[0]?.accepted, true);
       assert.equal(row.rows[0]?.write_count, 3);
     });
@@ -77,7 +77,7 @@ describe(
       const result = await recordStagingCanaryApproval({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         accepted: false,
         actor: { type: "operator", id: "supabase:user-1" },
         reason: "attempted promotion without fresh step-up",
@@ -114,7 +114,7 @@ describe(
       const approval = await recordStagingCanaryApproval({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         accepted: true,
         actor: { type: "operator", id: "supabase:user-1" },
         reason: "first Rome landmark canary",
@@ -125,7 +125,7 @@ describe(
       const shipment = await recordStagingCanaryShipment({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         targetAdapter: "postgres",
         approvalAuditId: approval.auditId,
         actor: { type: "operator", id: "supabase:user-1" },

@@ -13,6 +13,7 @@ import type {
 import { deriveReviewedCanaryBounds } from "./progressive-read-model.js";
 import type { SafetyMode, ScheduleProposal, TargetTier } from "./schedule-proposal.js";
 import type { TargetScorecard } from "./target-scorecard.js";
+import { lookupByTargetIdentity } from "./target-identity.js";
 
 /**
  * Live read of the progressive scheduling backlog
@@ -131,7 +132,11 @@ export async function loadProgressiveRunSnapshot(
 
     return {
       entries: result.rows.map((row) =>
-        toEntry(row, shipments.get(row.targetKey) ?? null, productionInbox.get(row.targetKey) ?? null)
+        toEntry(
+          row,
+          lookupByTargetIdentity(shipments, row.targetKey),
+          lookupByTargetIdentity(productionInbox, row.targetKey)
+        )
       )
     };
   } catch (error) {
@@ -247,7 +252,8 @@ function parseShipmentRow(
       mode: row.mode,
       shipmentKey: row.shipmentKey,
       createdAt: toIso(row.createdAt),
-      approvalAuditId: resolveApprovalAuditId(row.summary, approvalFromKey)
+      approvalAuditId: resolveApprovalAuditId(row.summary, approvalFromKey),
+      targetEnvironment: readCanaryTargetEnvironment(row.summary)
     }
   };
 }
@@ -272,7 +278,8 @@ function parseProductionInboxShipmentRow(
       approvalAuditId: resolveApprovalAuditId(row.summary, match[2]),
       packageId: readString(row.summary?.packageId),
       packageChecksum: readString(row.summary?.packageChecksum),
-      itemCount: readNumber(row.summary?.itemCount)
+      itemCount: readNumber(row.summary?.itemCount),
+      targetEnvironment: readProductionTargetEnvironment(row.summary)
     }
   };
 }
@@ -336,6 +343,16 @@ function toEntry(
     canaryShipment,
     productionInbox
   };
+}
+
+function readCanaryTargetEnvironment(summary: ShipmentRow["summary"]): "staging" {
+  const value = readString(summary?.environment);
+  return value === "production" ? "staging" : "staging";
+}
+
+function readProductionTargetEnvironment(summary: ShipmentRow["summary"]): "production" {
+  const value = readString(summary?.environment);
+  return value === "staging" ? "production" : "production";
 }
 
 function readString(value: unknown): string | undefined {

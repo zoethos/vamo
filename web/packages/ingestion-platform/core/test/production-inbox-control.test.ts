@@ -37,11 +37,11 @@ describe(
       );
     });
 
-    it("records approval and production-inbox delivery ledger rows", async () => {
+    it("records approval and delivery with environment-neutral target keys", async () => {
       const approval = await recordProductionInboxApproval({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         accepted: true,
         actor: { type: "operator", id: "supabase:user-1" },
         reason: "first production inbox delivery",
@@ -52,10 +52,10 @@ describe(
       const delivery = await recordProductionInboxDelivery({
         client,
         projectKey: "vamo",
-        targetId: "vamo-place-intelligence-staging",
+        targetId: "vamo-place-intelligence",
         targetAdapter: "postgres-production-inbox",
         approvalAuditId: approval.auditId!,
-        packageId: `production-inbox:vamo-place-intelligence-staging:approval:${approval.auditId}`,
+        packageId: `production-inbox:vamo-place-intelligence:approval:${approval.auditId}`,
         packageChecksum: "checksum",
         itemCount: 2,
         actor: { type: "operator", id: "supabase:user-1" },
@@ -89,14 +89,14 @@ describe(
       );
       assert.equal(
         row.rows[0]?.shipment_key,
-        `production-inbox:vamo-place-intelligence-staging:approval:${approval.auditId}`
+        `production-inbox:vamo-place-intelligence:approval:${approval.auditId}`
       );
       assert.equal(row.rows[0]?.status, "succeeded");
       assert.equal(row.rows[0]?.environment, "production");
       assert.equal(row.rows[0]?.delivery_mode, "consumer_inbox");
       assert.equal(row.rows[0]?.production_status, "production_inbox_delivered");
       assert.equal(row.rows[0]?.item_count, 2);
-      assert.match(row.rows[0]?.package_id ?? "", /^production-inbox:/);
+      assert.match(row.rows[0]?.package_id ?? "", /^production-inbox:vamo-place-intelligence:/);
 
       const audit = await client.query<{ action: string; target_id: string }>(
         `
@@ -109,6 +109,44 @@ describe(
       );
       assert.equal(audit.rows[0]?.action, "deliver_production_inbox");
       assert.equal(audit.rows[0]?.target_id, delivery.shipmentId);
+    });
+
+    it("still records legacy package 13 shipment key shape for audit history", async () => {
+      const approval = await recordProductionInboxApproval({
+        client,
+        projectKey: "vamo",
+        targetId: "vamo-place-intelligence-staging",
+        accepted: true,
+        actor: { type: "operator", id: "supabase:user-1" },
+        reason: "legacy package 13 proof",
+        payload: { plan: { targetEnvironment: "production", write: { writeCount: 2 } } }
+      });
+      assert.ok(approval.auditId);
+
+      const delivery = await recordProductionInboxDelivery({
+        client,
+        projectKey: "vamo",
+        targetId: "vamo-place-intelligence-staging",
+        targetAdapter: "postgres-production-inbox",
+        approvalAuditId: "13",
+        packageId: "production-inbox:vamo-place-intelligence-staging:approval:13",
+        packageChecksum: "checksum",
+        itemCount: 2,
+        actor: { type: "operator", id: "supabase:user-1" },
+        reason: "legacy package 13 proof"
+      });
+      assert.equal(delivery.ok, true);
+
+      const row = await client.query<{ shipment_key: string; package_id: string }>(
+        `
+          select shipment_key, summary->>'packageId' as package_id
+          from ingestion_platform.ingestion_shipments
+          where id = $1::bigint
+        `,
+        [delivery.shipmentId]
+      );
+      assert.equal(row.rows[0]?.shipment_key, "production-inbox:vamo-place-intelligence-staging:approval:13");
+      assert.equal(row.rows[0]?.package_id, "production-inbox:vamo-place-intelligence-staging:approval:13");
     });
   }
 );

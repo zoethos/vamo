@@ -1,5 +1,9 @@
 -- IP-16 — First Vamo live proposal seed (Confluendo control-plane only).
 --
+-- NOTE (IP-15.2): this seed uses the legacy target key
+-- `vamo-place-intelligence-staging`. Do not rewrite it; new proposals should
+-- use the environment-neutral key `vamo-place-intelligence`.
+--
 -- Purpose: seed exactly one progressive-backlog row so the ingestion dashboard
 -- shows LIVE control-plane data (instead of the bundled SAMPLE) for the reviewed
 -- Vamo dry run. This is NOT a Vamo staging/production write and triggers no

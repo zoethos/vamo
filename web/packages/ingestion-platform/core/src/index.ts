@@ -13,6 +13,13 @@ export {
   type ShipmentItemIdentity
 } from "./control-models.js";
 export {
+  equivalentTargetKeys,
+  isLegacyTargetKey,
+  LEGACY_TARGET_ALIASES,
+  lookupByTargetIdentity,
+  VAMO_PLACE_INTELLIGENCE_TARGET_KEY
+} from "./target-identity.js";
+export {
   mapRecord,
   runFixturePipeline,
   runSourcePipeline,
@@ -171,7 +178,8 @@ export {
   type ProgressiveBacklogRow,
   type ProgressiveRunSnapshot,
   type ProgressiveRunView,
-  type ProgressiveWorkStatus
+  type ProgressiveWorkStatus,
+  type CanaryShipmentState
 } from "./progressive-read-model.js";
 export {
   evaluateStagingCanaryPromotion,

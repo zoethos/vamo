@@ -244,11 +244,11 @@ IP-17 implements the first version of this path:
 The first bounded Vamo production proof has completed:
 
 - package `production-inbox:vamo-place-intelligence-staging:approval:10`
-  delivered to the inbox but failed apply under the pre-IP-17.1 source-ref
-  payload contract,
+  (legacy target-key naming; immutable audit history) delivered to the inbox but
+  failed apply under the pre-IP-17.1 source-ref payload contract,
 - package `production-inbox:vamo-place-intelligence-staging:approval:13`
-  delivered to the inbox and was Vamo-applied successfully (`applied=2`,
-  `skipped=0`, `rejected=0`).
+  (legacy target-key naming; immutable audit history) delivered to the inbox and
+  was Vamo-applied successfully (`applied=2`, `skipped=0`, `rejected=0`).
 
 That proof validates the delivery boundary, not the breadth of the POI corpus.
 Large EU POI coverage still requires batch planning, target scheduling, and
