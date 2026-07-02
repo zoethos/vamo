@@ -171,14 +171,29 @@ CLI:
 
 ```bash
 npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run
+cd web/packages/ingestion-platform
+npm run build
 CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES INGESTION_CONTROL_DATABASE_URL=... \
-  npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run -- --execute --max-units 2 --audit-id 15
+  node scripts/run-ip18-batch-dry-run.mjs --execute --max-units 2 --audit-id 15
 ```
 
 Preview is the default mode. Execute requires `CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES`.
+When running from PowerShell, prefer the direct `node scripts/run-ip18-batch-dry-run.mjs`
+form for execute mode so npm does not treat forwarded flags as npm config.
 
 **IP-18.3 live evidence:** audit id **15** scheduled 36 units to `dry_run_ready`
 with explicit environment **staging** for target key `vamo-place-intelligence`.
+
+**Ops:** after IP-18.4, re-run both `control_schema.sql` and
+`control_bootstrap_confluendo.sql` on the live Confluendo control DB. The schema
+adds `ingestion_batch_dry_run_executions` and extends the queue status check;
+the bootstrap grants `confluendo_app` insert/update on the execution ledger and
+update on queue `status`, `run_report`, `blockers`, and `updated_at`. Without
+both, preview works but execute fails closed before any queue state is changed.
+Before applying either SQL file, positively confirm the selected Supabase
+project is the Confluendo control DB (`confluendo-control`, project ref
+`agrcvzlkorlzwoxtkcft`). Role existence is not a database-proof because
+Postgres roles are cluster-level.
 IP-18.4 dry-run execution builds on that scheduled state without touching Vamo
 targets.
 

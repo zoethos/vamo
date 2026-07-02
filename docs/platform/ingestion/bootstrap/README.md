@@ -33,11 +33,44 @@ proves a different trust boundary.
 
 ## Phase 2 Grant Checklist
 
+Before running either `control_schema.sql` or
+`control_bootstrap_confluendo.sql`, positively confirm that the SQL editor is
+connected to the **Confluendo control DB**. Do not rely on the presence of the
+`confluendo_app` role as proof: Postgres roles are cluster-level, so that role
+can exist even when the selected database/schema is wrong.
+
+For the current Vamo customer-zero control plane, the Supabase project is
+`confluendo-control` (`agrcvzlkorlzwoxtkcft`). In the SQL editor, confirm the
+project selector/ref first, then run this read-only preflight:
+
+```sql
+select
+  current_database() as database_name,
+  current_user as executing_role,
+  to_regclass('ingestion_platform.ingestion_projects') is not null as has_control_projects_table;
+```
+
+For an existing live control DB, expected values are `database_name = postgres`
+and `has_control_projects_table = true`. Then confirm the current customer-zero
+project row:
+
+```sql
+select exists (
+  select 1
+  from ingestion_platform.ingestion_projects
+  where project_key = 'vamo'
+) as has_vamo_control_project;
+```
+
+Expected: `true`. For a fresh disaster-recovery restore, the table/project row
+may not exist yet, but the operator must still confirm the Supabase project/ref
+out of band before applying schema.
+
 After applying `control_schema.sql`, run
 `../../../../web/packages/ingestion-platform/core/sql/control_bootstrap_confluendo.sql`
 as the Confluendo control DB owner. That bootstrap must grant the runtime role
-(`confluendo_app`) both read access for the dashboard and the narrow control
-ledger writes used by IP-16:
+(`confluendo_app`) both read access for the dashboard and the narrow Confluendo
+control-plane writes used by IP-16 through IP-18.4:
 
 ```sql
 grant usage on schema ingestion_platform to confluendo_app;
@@ -46,6 +79,14 @@ grant select on all tables in schema ingestion_platform to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_targets to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_shipments to confluendo_app;
 grant insert, delete on ingestion_platform.ingestion_shipment_items to confluendo_app;
+
+grant update (
+  status,
+  blockers,
+  run_report,
+  updated_at
+) on ingestion_platform.ingestion_batch_queue_items to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to confluendo_app;
 
 grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
@@ -59,13 +100,28 @@ Verify the shipment-ledger grants before running a live canary:
 
 ```sql
 select
+  current_database() as database_name,
+  current_user as executing_role,
+  to_regclass('ingestion_platform.ingestion_batch_dry_run_executions') is not null as has_execution_table,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_targets', 'SELECT, INSERT, UPDATE') as can_upsert_targets,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipments', 'SELECT, INSERT, UPDATE') as can_upsert_shipments,
   has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_shipment_items', 'SELECT, INSERT, DELETE') as can_replace_shipment_items,
-  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_audit_log', 'SELECT, INSERT') as can_record_audit;
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'status', 'UPDATE') as can_update_queue_status,
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'run_report', 'UPDATE') as can_update_queue_report,
+  has_column_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_queue_items', 'blockers', 'UPDATE') as can_update_queue_blockers,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_dry_run_executions', 'SELECT, INSERT, UPDATE') as can_write_dry_run_executions,
+  has_table_privilege('confluendo_app', 'ingestion_platform.ingestion_audit_log', 'SELECT, INSERT') as can_record_audit,
+  case
+    when to_regclass('ingestion_platform.ingestion_batch_dry_run_executions_id_seq') is null then false
+    else has_sequence_privilege('confluendo_app', 'ingestion_platform.ingestion_batch_dry_run_executions_id_seq', 'USAGE')
+  end as can_use_dry_run_execution_sequence,
+  case
+    when to_regclass('ingestion_platform.ingestion_audit_log_id_seq') is null then false
+    else has_sequence_privilege('confluendo_app', 'ingestion_platform.ingestion_audit_log_id_seq', 'USAGE')
+  end as can_use_audit_sequence;
 ```
 
-Expected: all four values are `true`.
+Expected: `database_name = postgres` and all boolean values are `true`.
 
 ## Guardrails
 

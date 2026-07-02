@@ -1,5 +1,9 @@
 -- Bootstrap companion for the Confluendo control-plane database.
 --
+-- Before running, positively confirm the Supabase project/database is the
+-- Confluendo control DB. Postgres roles are cluster-level, so the presence of
+-- confluendo_app is not by itself a safe target-database proof.
+--
 -- Run order:
 -- 1. Run core/sql/control_schema.sql as the database owner.
 -- 2. Run this file as the database owner.
@@ -69,8 +73,15 @@ grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 -- It does not grant access to any consumer target database/table.
 grant update (
   status,
+  blockers,
+  run_report,
   updated_at
 ) on ingestion_platform.ingestion_batch_queue_items to confluendo_app;
+
+-- IP-18.4 batch dry-run execution writes only Confluendo control-plane
+-- execution ledger rows. It does not grant access to any consumer database.
+grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;
