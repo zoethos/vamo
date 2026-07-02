@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
 import type { CanaryShipmentState } from "@confluendo/ingestion-platform/progressive-read-model";
 
-type DashboardSource = "live" | "sample";
+type DashboardSource = "live" | "sample" | "error";
 
 type CanaryContext = {
   role: AdminRole;
@@ -290,7 +290,9 @@ function disabledReasonFor(
     return "Already shipped to Vamo staging; create a new proposal/run to ship again.";
   }
   if (context.source !== "live") {
-    return "Staging-canary approval requires a live control plane.";
+    return context.source === "error"
+      ? "Live progressive read failed; staging-canary approval is disabled."
+      : "Staging-canary approval requires a live control plane.";
   }
   if (!bounds) {
     return "Reviewed canary bounds are missing from the control plane.";

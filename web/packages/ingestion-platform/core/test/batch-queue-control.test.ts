@@ -8,6 +8,7 @@ import { sampleVamoEuPoiBatchYaml } from "../src/batch-plan-read-model.js";
 import { sampleVamoEuPoiBatchQueueSnapshot, buildBatchQueueSnapshotFromItems } from "../src/batch-queue-read-model.js";
 import { loadBatchQueueSnapshot } from "../src/batch-queue-control-read.js";
 import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
+import { scheduleBatchDryRun } from "../src/batch-queue-mutations.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -134,6 +135,109 @@ describe("batch queue control persistence", () => {
         assert.equal(loaded.coverage.perCategory.poi, 9);
         assert.equal(loaded.coverage.matrix.italy?.poi, 3);
         assert.equal(loaded.items[0]?.status, "dry_run_ready");
+      } finally {
+        await client.query("drop schema if exists ingestion_platform cascade");
+        await client.end();
+      }
+    }
+  );
+
+  it(
+    "schedules ready queue items for dry-run idempotently and records an audit row",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+
+      try {
+        await client.query("drop schema if exists ingestion_platform cascade");
+        await client.query(controlSchemaSql);
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_projects (project_key, display_name)
+            values ('vamo', 'Vamo')
+          `
+        );
+
+        const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
+        assert.equal(parsed.ok, true);
+        if (!parsed.ok) {
+          throw new Error("sample yaml failed to parse");
+        }
+        const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+        await persistBatchQueueSnapshot({
+          client,
+          projectKey: "vamo",
+          snapshot,
+          spec: parsed.spec,
+          now: "2026-07-02T12:00:00.000Z"
+        });
+
+        const scheduled = await scheduleBatchDryRun({
+          client,
+          projectKey: "vamo",
+          planId: snapshot.planId,
+          targetKey: snapshot.targetKey,
+          actor: { type: "operator", id: "supabase:user-1" },
+          reason: "schedule the EU POI dry-run batch",
+          payload: { plan: { itemCount: 36 } },
+          now: "2026-07-02T12:10:00.000Z"
+        });
+        assert.equal(scheduled.ok, true);
+        assert.equal(scheduled.scheduledCount, 36);
+        assert.equal(scheduled.alreadyScheduledCount, 36);
+        assert.equal(scheduled.unitKeys.length, 36);
+        assert.ok(scheduled.auditId);
+
+        const statusCounts = await client.query<{ status: string; count: string }>(
+          `
+            select status, count(*)::text as count
+            from ingestion_platform.ingestion_batch_queue_items
+            group by status
+            order by status
+          `
+        );
+        assert.deepEqual(statusCounts.rows, [{ status: "dry_run_ready", count: "36" }]);
+
+        const audit = await client.query<{
+          action: string;
+          reason: string;
+          target_type: string;
+          scheduled_count: number;
+        }>(
+          `
+            select action,
+                   reason,
+                   target_type,
+                   (payload->>'scheduledCount')::int as scheduled_count
+            from ingestion_platform.ingestion_audit_log
+            order by id desc
+            limit 1
+          `
+        );
+        assert.equal(audit.rows[0]?.action, "schedule_batch_dry_run");
+        assert.equal(audit.rows[0]?.reason, "schedule the EU POI dry-run batch");
+        assert.equal(audit.rows[0]?.target_type, "batch_plan");
+        assert.equal(audit.rows[0]?.scheduled_count, 36);
+
+        const replay = await scheduleBatchDryRun({
+          client,
+          projectKey: "vamo",
+          planId: snapshot.planId,
+          targetKey: snapshot.targetKey,
+          actor: { type: "operator", id: "supabase:user-1" },
+          reason: "repeat after refresh",
+          payload: { plan: { itemCount: 36 } },
+          now: "2026-07-02T12:11:00.000Z"
+        });
+        assert.equal(replay.scheduledCount, 0);
+        assert.equal(replay.alreadyScheduledCount, 36);
+
+        const loaded = await loadBatchQueueSnapshot({ client, projectKey: "vamo" });
+        assert.ok(loaded);
+        assert.equal(loaded.items.every((item) => item.status === "dry_run_ready"), true);
+        assert.equal(loaded.nextAction, "36 unit(s) scheduled for dry-run execution.");
       } finally {
         await client.query("drop schema if exists ingestion_platform cascade");
         await client.end();

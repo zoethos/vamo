@@ -19,6 +19,7 @@ import {
   RecoveryCommandButton,
   TargetCommandButton,
 } from "./ingestion-command-controls";
+import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 
@@ -84,9 +85,16 @@ export default async function IngestionDashboardPage() {
     assuranceLevel: principal.assuranceLevel,
     source,
   };
-  const { snapshot: batchQueue, source: batchQueueSource } = await loadIp18BatchQueue("vamo");
+  const {
+    snapshot: batchQueue,
+    source: batchQueueSource,
+    error: batchQueueError
+  } = await loadIp18BatchQueue("vamo");
   const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
   const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
+  const batchQueueEligibleCount = batchQueue.items.filter(
+    (item) => item.status === "ready_for_dry_run"
+  ).length;
 
   return (
     <main
@@ -354,10 +362,15 @@ export default async function IngestionDashboardPage() {
             <h2>Target backlog and dry-run review</h2>
           </div>
           <span className="admin-table-count">
-            {progressiveSource === "live" ? "Live control plane" : "Sample preview"} ·{" "}
+            {progressiveSourceLabel(progressiveSource)} ·{" "}
             {progressiveSummary.reviewRequired} review · {progressiveSummary.blocked} blocked
           </span>
         </div>
+        {progressiveSource === "error" ? (
+          <p className="admin-command-result admin-command-result-error" role="alert">
+            Live progressive read failed; showing bundled sample data and disabling approvals.
+          </p>
+        ) : null}
         <p className="admin-next-action">
           <strong>Next action:</strong> {progressiveNextAction}
         </p>
@@ -464,18 +477,31 @@ export default async function IngestionDashboardPage() {
       <section className="admin-section" aria-label="IP-18 batch queue">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18.1 · batch queue</p>
+            <p className="admin-kicker">IP-18.3 · batch queue</p>
             <h2>Automated target batch queue</h2>
           </div>
           <span className="admin-readonly-pill">
-            {batchQueueSource === "live"
-              ? "Live control plane · read-only queue"
-              : "Sample preview · read-only queue"}
+            {batchQueueSourceLabel(batchQueueSource)}
           </span>
         </div>
+        {batchQueueError ? (
+          <p className="admin-command-result admin-command-result-error" role="alert">
+            {batchQueueError}
+          </p>
+        ) : null}
         <p className="admin-next-action">
           <strong>Next action:</strong> {batchQueue.nextAction}
         </p>
+        <BatchQueueScheduleControl
+          projectKey={batchQueue.projectKey}
+          targetKey={batchQueue.targetKey}
+          eligibleCount={batchQueueEligibleCount}
+          context={{
+            role: principal.role,
+            assuranceLevel: principal.assuranceLevel,
+            source: batchQueueSource
+          }}
+        />
         <div className="admin-stat-grid">
           <article className="admin-stat">
             <span>Queue</span>
@@ -621,4 +647,24 @@ function freshStepUpExpiry(stepUpSatisfiedAt: string | undefined): string | unde
     return undefined;
   }
   return new Date(satisfiedMs + STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS).toISOString();
+}
+
+function progressiveSourceLabel(source: "live" | "sample" | "error"): string {
+  if (source === "live") {
+    return "Live control plane";
+  }
+  if (source === "error") {
+    return "Live read failed · sample fallback";
+  }
+  return "Sample preview";
+}
+
+function batchQueueSourceLabel(source: "live" | "sample" | "error"): string {
+  if (source === "live") {
+    return "Live control plane · schedulable queue";
+  }
+  if (source === "error") {
+    return "Live read failed · sample fallback";
+  }
+  return "Sample preview · planning-only queue";
 }

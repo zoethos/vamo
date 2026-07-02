@@ -6,17 +6,21 @@ import {
   type BatchQueueSnapshot
 } from "@confluendo/ingestion-platform/core";
 
-export type Ip18BatchQueueSource = "live" | "sample";
+export type Ip18BatchQueueSource = "live" | "sample" | "error";
 
 export interface Ip18BatchQueueData {
   snapshot: BatchQueueSnapshot;
   source: Ip18BatchQueueSource;
+  error?: string;
 }
 
 /**
  * Resolves the IP-18 batch queue board for the admin console. Queue state comes
  * from persisted control-plane rows when available; otherwise the bundled Vamo
  * EU POI sample snapshot is used so the dashboard always renders coherently.
+ * Missing/empty control-plane data is benign and labeled as sample. Live read
+ * failures are labeled as errors so operators do not mistake a broken control
+ * database for an intentionally bundled preview.
  *
  * Read-path only: never schedules, executes, or mutates queue rows.
  */
@@ -37,8 +41,12 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
 
     return { snapshot, source: "live" };
   } catch (error) {
-    console.error("IP-18 batch queue live read failed; using sample data", error);
-    return sample();
+    console.error("IP-18 batch queue live read failed", error);
+    return {
+      ...sample(),
+      source: "error",
+      error: "Live batch queue read failed; showing bundled sample data."
+    };
   }
 }
 

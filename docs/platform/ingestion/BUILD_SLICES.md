@@ -1141,7 +1141,7 @@ Delivered in IP-18.1:
 
 ## Slice IP-18.2 - Persistent Batch Queue / Control Table
 
-Status: **active / implemented**. Writes only to Confluendo control-plane queue
+Status: **done** (IP-18.2 merged). Writes only to Confluendo control-plane queue
 tables (`ingestion_batch_plans`, `ingestion_batch_queue_items`). No provider
 calls, no Vamo staging writes, no production inbox delivery.
 
@@ -1166,16 +1166,50 @@ IP-18.2 tables) is applied to the live Confluendo control DB and the seed or
 persist helper has run. Merge alone correctly falls back to sample preview when
 tables or rows are absent.
 
+## Slice IP-18.3 - Operator Scheduling Mutations
+
+Status: **active / implemented**. Writes only to Confluendo control-plane queue
+items and audit log. No provider calls, no Vamo staging writes, no production
+inbox delivery.
+
+Goal:
+
+Let an authenticated operator/admin move a persisted batch queue from
+`ready_for_dry_run` to `dry_run_ready` from the console, with an audit reason,
+without executing ingestion.
+
+Delivered in IP-18.3:
+
+- Pure policy: `evaluateBatchQueueScheduleDryRun()` requires project scope,
+  operator/admin role, AAL2 when MFA is required, `dry_run` safety mode, explicit
+  target environment, eligible `ready_for_dry_run` rows, and a non-empty audit
+  reason.
+- Control mutation: `scheduleBatchDryRun()` updates only
+  `ingestion_batch_queue_items.status` (`ready_for_dry_run` → `dry_run_ready`)
+  and records `schedule_batch_dry_run` in `ingestion_audit_log`.
+- API route: `POST /api/admin/ingestion/batch-queue/schedule` with same-origin
+  JSON and session-derived Confluendo admin principal.
+- Console control: audit-reason form + button in the IP-18 Batch Queue section;
+  disabled for sample/error data, viewer role, missing AAL2, or no eligible
+  units.
+- Live-read failures for IP-14/IP-18 now surface as **Live read failed · sample
+  fallback** instead of being mislabeled as ordinary sample preview.
+- Bootstrap grant update: `confluendo_app` can update only `status` and
+  `updated_at` on `ingestion_batch_queue_items`.
+
+Ops note: after merge, re-run `control_bootstrap_confluendo.sql` on the live
+Confluendo control DB so the runtime role receives the queue-item `UPDATE` grant.
+Without that grant, the scheduling route fails closed.
+
 Future slices:
 
-- **IP-18.3** — operator scheduling mutations
 - **IP-18.4** — staged batch canary waves
 - **IP-18.5** — production inbox package waves
 
 ## Recommended Immediate Next Slice
 
-After IP-18.2 lands, **IP-18.3 - Operator Scheduling Mutations** is the next
-slice: queue mutation controls on top of the persisted read model.
+After IP-18.3 lands, **IP-18.4 - Staged Batch Canary Waves** is the next slice:
+execute bounded dry-run/canary groups from the scheduled queue state.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends

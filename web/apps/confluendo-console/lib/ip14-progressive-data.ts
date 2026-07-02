@@ -7,20 +7,21 @@ import {
   type ProgressiveRunView
 } from "@confluendo/ingestion-platform/progressive-read-model";
 
-export type Ip14ProgressiveSource = "live" | "sample";
+export type Ip14ProgressiveSource = "live" | "sample" | "error";
 
 export interface Ip14ProgressiveData {
   view: ProgressiveRunView;
   source: Ip14ProgressiveSource;
+  error?: string;
 }
 
 /**
  * Resolves the IP-14 progressive dry-run board for the admin console. Proposed,
  * scheduled, running, and review-required work comes from the platform control
  * plane (`ingestion_schedule_proposals`) through the same pure read model the
- * sample uses. Falls back to the bundled sample snapshot when no control DB is
- * configured, the table/rows are absent, or a read fails — so the console always
- * renders something coherent rather than erroring.
+ * sample uses. Missing/empty data falls back to the bundled sample snapshot;
+ * live read failures stay visible as `source: "error"` so operators do not
+ * mistake an outage for a deliberate preview.
  *
  * Read-path only: this never schedules or executes a run.
  */
@@ -43,8 +44,12 @@ export async function loadIp14ProgressiveBoard(
 
     return { view: buildProgressiveRunView(snapshot), source: "live" };
   } catch (error) {
-    console.error("IP-14 progressive live read failed; using sample data", error);
-    return sample();
+    console.error("IP-14 progressive live read failed", error);
+    return {
+      ...sample(),
+      source: "error",
+      error: "Live progressive read failed; showing bundled sample data."
+    };
   }
 }
 
