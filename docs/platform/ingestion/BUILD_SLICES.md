@@ -1082,17 +1082,54 @@ Live operational note:
   Confluendo product data delivery. Use shipment packages through the delivery
   modes in `DATA_DELIVERY_ARCHITECTURE.md`.
 
+## Slice IP-18 - Automated Batch Target Planning
+
+Status: **foundation / dry-run planning** (IP-18.0). Planning and expansion
+only — no live ingestion, no provider calls, no staging writes, no production
+inbox delivery, and no database writes.
+
+Goal:
+
+Replace hand-created, city-by-city POI targets with a consumer-neutral batch
+planner that expands geography × category specs into deterministic dry-run
+units. Vamo EU POI (`vamo-place-intelligence`) is the first example consumer
+profile, not platform hard-coding.
+
+Delivered in IP-18.0:
+
+- Batch spec model (`ingestion.batch_plan`) with explicit `targetEnvironment`
+  metadata (never inferred from `targetKey`).
+- Pure `buildBatchPlan()` expansion, dedupe, blocked-unit reasons, coverage
+  summary, and schedule-proposal integration via existing scorecard policy.
+- Vamo EU POI sample fixture (`fixtures/platform/ip18/vamo-eu-poi-batch.yaml`).
+- CLI dry-run: `npm --workspace @confluendo/ingestion-platform run ip18:batch-plan`.
+- Dashboard read-only preview panel on `/admin/ingestion` (bundled sample only).
+- Docs: `BATCH_TARGET_PLANNING.md`.
+
+Future slices:
+
+- **IP-18.1** — dashboard batch queue
+- **IP-18.2** — batch dry-run persistence
+- **IP-18.3** — staged batch canaries
+- **IP-18.4** — production inbox package waves
+
+Architecture decision: Confluendo owns the planner; Vamo is a consumer example.
+See IP-15 extraction boundary — do not encode Vamo-specific policy into the
+platform core beyond fixtures and sample profiles.
+
+Safety:
+
+- `safetyMode` must be `dry_run`; `staging_write` and `production_write` are
+  rejected at parse and plan time.
+- Generated target keys remain environment-neutral (`vamo-place-intelligence`,
+  not `vamo-place-intelligence-staging`).
+
 ## Recommended Immediate Next Slice
 
-**IP-15 - Confluendo Repo Split Prep** is the active implementation slice.
+After IP-18.0 lands, **IP-18.1 - Dashboard Batch Queue** is the next slice:
+wire batch plan persistence and operator queue controls on top of the IP-18
+planner read model.
 
-After IP-15 is merged, the next implementation slice is **IP-18 - Automated
-Batch Target Planning**: YAML/imported target sets, progressive scheduling,
-dashboard batch controls, and AI-assisted prioritization. That is where broad
-EU city/POI coverage belongs; IP-17 was the governed production-delivery
-foundation.
-
-Operationally, IP-17 has now proven the production inbox path at tiny scale.
-The next product-scale work is not another hand-run two-row package; it is
-IP-18 batch target planning and ingestion automation after IP-15 keeps the
-Confluendo boundary clean.
+Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
+automates the planning surface so broad EU city/POI coverage no longer depends
+on one-off manual target creation.
