@@ -197,6 +197,24 @@ Postgres roles are cluster-level.
 IP-18.4 dry-run execution builds on that scheduled state without touching Vamo
 targets.
 
+**IP-18.4 live evidence:** after applying the updated live control schema and
+bootstrap grants, the first bounded execution ran from the Confluendo control
+DB with `CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES`:
+
+- Execution key: `batch-dry-run:vamo-eu-poi-sample:audit:15`.
+- Execution id: `1`; execution status: `succeeded`.
+- Scheduling audit id: `15`; execution audit row: `16`.
+- Units executed: 3.
+- Queue after execution: 3 `dry_run_succeeded`, 33 `dry_run_ready`.
+- Executed units:
+  - `vamo-place-intelligence:rome-italy:poi`
+  - `vamo-place-intelligence:paris-france:landmark`
+  - `vamo-place-intelligence:barcelona-spain:landmark`
+- Dashboard dry-run reports show `wroteToTarget=false`.
+
+This proof wrote only Confluendo control-plane execution state and audit rows.
+It did not call live providers and did not write to Vamo staging or production.
+
 ## Future slices
 
 | Slice | Scope |
