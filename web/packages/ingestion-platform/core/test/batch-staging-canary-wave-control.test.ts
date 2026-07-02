@@ -127,6 +127,39 @@ describe("batch staging-canary wave approval control", () => {
           throw new Error("wave approval policy should accept dry_run_succeeded units");
         }
 
+        await client.query(
+          `
+            update ingestion_platform.ingestion_batch_queue_items
+            set status = 'dry_run_ready'
+            where unit_key = $1
+          `,
+          [waveDecision.plan.unitKeys[0]]
+        );
+        await assert.rejects(
+          () =>
+            approveBatchStagingCanaryWave({
+              client,
+              projectKey: "vamo",
+              plan: waveDecision.plan,
+              actor: { type: "operator", id: "admin-smoke" },
+              now: NOW
+            }),
+          /could not claim all selected units/
+        );
+        const rolledBackWaveCount = await client.query<{ count: string }>(
+          `select count(*)::text as count from ingestion_platform.ingestion_batch_canary_waves`
+        );
+        assert.equal(rolledBackWaveCount.rows[0]?.count, "0");
+
+        await client.query(
+          `
+            update ingestion_platform.ingestion_batch_queue_items
+            set status = 'dry_run_succeeded'
+            where unit_key = $1
+          `,
+          [waveDecision.plan.unitKeys[0]]
+        );
+
         const approved = await approveBatchStagingCanaryWave({
           client,
           projectKey: "vamo",

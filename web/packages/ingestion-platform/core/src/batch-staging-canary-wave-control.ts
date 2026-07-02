@@ -190,7 +190,7 @@ export async function approveBatchStagingCanaryWave(
       );
     }
 
-    await client.query(
+    const claimedUnits = await client.query(
       `
         update ingestion_platform.ingestion_batch_queue_items
         set status = 'staging_canary_approved',
@@ -201,6 +201,11 @@ export async function approveBatchStagingCanaryWave(
       `,
       [plan.id, input.plan.unitKeys, now]
     );
+    if (claimedUnits.rowCount !== input.plan.unitKeys.length) {
+      throw new Error(
+        `Batch staging-canary wave approval could not claim all selected units (${claimedUnits.rowCount ?? 0}/${input.plan.unitKeys.length}).`
+      );
+    }
 
     const audit = await client.query<{ id: string }>(
       `
