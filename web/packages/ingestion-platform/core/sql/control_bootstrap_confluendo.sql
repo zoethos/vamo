@@ -1,5 +1,9 @@
 -- Bootstrap companion for the Confluendo control-plane database.
 --
+-- Before running, positively confirm the Supabase project/database is the
+-- Confluendo control DB. Postgres roles are cluster-level, so the presence of
+-- confluendo_app is not by itself a safe target-database proof.
+--
 -- Run order:
 -- 1. Run core/sql/control_schema.sql as the database owner.
 -- 2. Run this file as the database owner.

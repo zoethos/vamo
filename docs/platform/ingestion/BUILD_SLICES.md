@@ -1242,11 +1242,16 @@ Operational note:
   `relation "ingestion_platform.ingestion_batch_dry_run_executions" does not
   exist`. After IP-18.4, live Confluendo control DBs must receive both the
   updated `control_schema.sql` and `control_bootstrap_confluendo.sql`.
+- Before applying either SQL file, positively confirm the SQL editor is pointed
+  at the Confluendo control DB (`confluendo-control`, project ref
+  `agrcvzlkorlzwoxtkcft`). The presence of `confluendo_app` is not sufficient
+  proof because Postgres roles are cluster-level.
 - The runtime role (`confluendo_app`) needs insert/update on
   `ingestion_batch_dry_run_executions` and column-scoped update on
   `ingestion_batch_queue_items.status`, `run_report`, `blockers`, and
-  `updated_at`. These are Confluendo control-plane grants only; they do not
-  grant Vamo staging or production access.
+  `updated_at`, plus audit-log insert and sequence usage for identity-backed
+  inserts. These are Confluendo control-plane grants only; they do not grant
+  Vamo staging or production access.
 - On PowerShell, use the direct node form for execute mode after `npm run build`
   from `web/packages/ingestion-platform`, because npm may parse forwarded
   `--max-units`/`--audit-id` flags as npm config before the script sees them.

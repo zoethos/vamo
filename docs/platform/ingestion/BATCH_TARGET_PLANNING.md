@@ -190,6 +190,10 @@ adds `ingestion_batch_dry_run_executions` and extends the queue status check;
 the bootstrap grants `confluendo_app` insert/update on the execution ledger and
 update on queue `status`, `run_report`, `blockers`, and `updated_at`. Without
 both, preview works but execute fails closed before any queue state is changed.
+Before applying either SQL file, positively confirm the selected Supabase
+project is the Confluendo control DB (`confluendo-control`, project ref
+`agrcvzlkorlzwoxtkcft`). Role existence is not a database-proof because
+Postgres roles are cluster-level.
 IP-18.4 dry-run execution builds on that scheduled state without touching Vamo
 targets.
 
