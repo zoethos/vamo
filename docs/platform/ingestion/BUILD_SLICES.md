@@ -1256,6 +1256,21 @@ Operational note:
   from `web/packages/ingestion-platform`, because npm may parse forwarded
   `--max-units`/`--audit-id` flags as npm config before the script sees them.
 
+Live evidence:
+
+- IP-18.3 scheduling audit id **15** moved 36 units from `ready_for_dry_run` to
+  `dry_run_ready`.
+- IP-18.4 execution key `batch-dry-run:vamo-eu-poi-sample:audit:15` executed
+  the first bounded 3-unit dry-run against the live Confluendo control DB.
+- Execution id **1** finished `succeeded`; execution audit row **16** was
+  recorded.
+- Queue after execution: **3** `dry_run_succeeded`, **33** `dry_run_ready`.
+- Executed units: `vamo-place-intelligence:rome-italy:poi`,
+  `vamo-place-intelligence:paris-france:landmark`,
+  `vamo-place-intelligence:barcelona-spain:landmark`.
+- Dashboard reports for all three show `wroteToTarget=false`; no live provider,
+  Vamo staging, or Vamo production writes occurred.
+
 Future slices:
 
 - **IP-18.5** — staged batch canary waves
