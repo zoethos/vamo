@@ -280,6 +280,7 @@ export {
   type BatchQueueExecutionProgress,
   type BatchQueueLatestExecution,
   type BatchQueueLatestWave,
+  type BatchQueueLatestWaveItem,
   type BatchQueueStagingCanaryProgress,
   type BatchQueueSnapshot,
   type BatchQueueGroup,
@@ -360,3 +361,34 @@ export {
   type ApproveBatchStagingCanaryWaveResult,
   type BatchStagingCanaryWavePgClientLike
 } from "./batch-staging-canary-wave-control.js";
+export {
+  buildBatchWaveUnitScope,
+  buildWaveUnitShipmentKey,
+  filterCandidatesForWaveUnit,
+  parseDryRunWriteCounts,
+  type BatchWaveUnitScope
+} from "./batch-staging-canary-wave-candidates.js";
+export {
+  loadStagingCanaryWave,
+  type LoadedStagingCanaryWave,
+  type LoadedStagingCanaryWaveItem,
+  type LoadStagingCanaryWaveInput
+} from "./batch-staging-canary-wave-load.js";
+export {
+  evaluateBatchStagingCanaryWaveExecution,
+  type BatchStagingCanaryWaveExecutionBlock,
+  type BatchStagingCanaryWaveExecutionBlockCode,
+  type BatchStagingCanaryWaveExecutionPlan,
+  type BatchStagingCanaryWaveExecutionUnitPlan,
+  type EvaluateBatchStagingCanaryWaveExecutionInput,
+  type EvaluateBatchStagingCanaryWaveExecutionResult
+} from "./batch-staging-canary-wave-execution-policy.js";
+export {
+  defaultLoadWaveUnitCandidates,
+  executeBatchStagingCanaryWave,
+  type BatchStagingCanaryWaveExecutionDeps,
+  type BatchStagingCanaryWaveExecutionPgClientLike,
+  type ExecuteBatchStagingCanaryWaveInput,
+  type ExecuteBatchStagingCanaryWaveResult,
+  type ExecuteBatchStagingCanaryWaveUnitResult
+} from "./batch-staging-canary-wave-execution.js";

@@ -557,14 +557,52 @@ export default async function IngestionDashboardPage() {
         </div>
 
         {batchQueue.latestWave ? (
-          <p className="admin-next-action">
-            <strong>Latest wave:</strong> {batchQueue.latestWave.waveKey} ·{" "}
-            {batchQueue.latestWave.status} · {batchQueue.latestWave.targetEnvironment} ·{" "}
-            {batchQueue.latestWave.unitCount} unit(s)
-            {batchQueue.latestWave.approvalExpiresAt
-              ? ` · expires ${batchQueue.latestWave.approvalExpiresAt}`
-              : ""}
-          </p>
+          <>
+            <p className="admin-next-action">
+              <strong>Latest wave:</strong> {batchQueue.latestWave.waveKey} ·{" "}
+              {batchQueue.latestWave.status} · {batchQueue.latestWave.targetEnvironment} ·{" "}
+              {batchQueue.latestWave.unitCount} unit(s)
+              {batchQueue.latestWave.approvalAuditId
+                ? ` · approval audit ${batchQueue.latestWave.approvalAuditId}`
+                : ""}
+              {batchQueue.latestWave.executionAuditId
+                ? ` · execution audit ${batchQueue.latestWave.executionAuditId}`
+                : ""}
+              {batchQueue.latestWave.approvalExpiresAt
+                ? ` · expires ${batchQueue.latestWave.approvalExpiresAt}`
+                : ""}
+            </p>
+            {batchQueue.latestWave.items && batchQueue.latestWave.items.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-target-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Unit</th>
+                      <th>Status</th>
+                      <th>Planned rows</th>
+                      <th>Shipment</th>
+                      <th>Blockers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchQueue.latestWave.items.map((item) => (
+                      <tr key={item.unitKey}>
+                        <td>{item.runOrder}</td>
+                        <td>
+                          <code>{item.unitKey}</code>
+                        </td>
+                        <td>{item.status}</td>
+                        <td>{item.plannedRowCount}</td>
+                        <td>{item.shipmentId ?? "—"}</td>
+                        <td>{item.blockers.length > 0 ? item.blockers.join(", ") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {batchQueue.latestExecution ? (

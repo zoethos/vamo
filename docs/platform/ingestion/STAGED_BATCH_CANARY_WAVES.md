@@ -1,7 +1,8 @@
 # Staged Batch Canary Waves (IP-18.5)
 
-Status: **design spec only** (IP-18.5.0) — 2026-07-02. No functional code, no SQL
-applied, no live canary execution in this slice.
+Status: **IP-18.5.2 execution implemented** — 2026-07-02. Wave approval (IP-18.5.1) and
+confirmation-gated per-unit execution (IP-18.5.2) are in code; live Vamo staging
+execution remains operator-gated and is not run in CI.
 
 IP-18.4 proved bounded fixture-only dry-run execution against the Confluendo
 control plane. IP-18.5 is the first batch slice that may touch a consumer
@@ -300,17 +301,59 @@ Same checklist as `STAGING_CANARY_RUNBOOK.md`:
 - No `production_write`, production inbox, or `confluendo_inbox` paths in IP-18.5.
 - `ip15:boundary-audit` must stay green.
 
-### 11.4 Live execution gates (future IP-18.5.2+)
+### 11.4 Live wave execution (IP-18.5.2)
+
+Preview (CI-safe — no staging writes):
+
+```powershell
+$env:INGESTION_CONTROL_DATABASE_URL = "postgres://..."
+npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave -- `
+  --wave-key batch-staging-canary:vamo-eu-poi-sample:audit:<approval-audit-id>
+```
+
+Execute against Vamo staging (manual only — requires ops sign-off):
+
+```powershell
+$env:CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY = "YES"
+$env:VAMO_STAGING_CANARY_ENVIRONMENT = "staging"
+$env:VAMO_STAGING_DATABASE_URL = "<server-side staging DSN>"
+$env:INGESTION_CONTROL_DATABASE_URL = "<confluendo control DSN>"
+npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave -- `
+  --execute `
+  --wave-key batch-staging-canary:vamo-eu-poi-sample:audit:<approval-audit-id> `
+  --max-units 1 `
+  --max-rows 50 `
+  --audit-reason "First bounded staging-canary wave — 1 unit"
+```
 
 Live wave execute requires all of:
 
 - Recorded wave approval within 15-minute freshness window
-- Fresh MFA step-up
-- `CONFIRM_VAMO_STAGING_CANARY=YES` (reuse IP-16 guard; do not invent a weaker batch flag)
-- Confluendo control DB URL
-- Vamo staging DSN (server-side)
+- `CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES`
+- `VAMO_STAGING_CANARY_ENVIRONMENT=staging`
+- Confluendo control DB URL + Vamo staging DSN (server-side)
 - Explicit `--execute` (preview default)
-- Ramp policy satisfied (`maxUnits` ≤ approved cap)
+- Per-unit `applyPostgresStagingCanary` with `confluendo_guard.environment_sentinel` proof
+- Ramp bounds (`--max-units`, `--max-rows`) ≤ approved wave caps
+
+### 11.5 Staging grants (disposable Postgres / Vamo staging)
+
+The ingestion role on the **target** DB needs:
+
+```sql
+create schema if not exists confluendo_guard;
+create table if not exists confluendo_guard.environment_sentinel (
+  key text primary key,
+  value text not null
+);
+insert into confluendo_guard.environment_sentinel (key, value)
+values ('environment', 'staging')
+on conflict (key) do update set value = excluded.value;
+
+grant usage on schema confluendo_guard to <ingestion_role>;
+grant select on confluendo_guard.environment_sentinel to <ingestion_role>;
+-- plus INSERT/UPDATE on target cache tables per STAGING_CANARY_RUNBOOK.md
+```
 
 ## 12. Implementation phases (after IP-18.5.0)
 

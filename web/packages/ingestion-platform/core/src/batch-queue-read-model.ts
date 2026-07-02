@@ -105,6 +105,15 @@ export interface BatchQueueStagingCanaryProgress {
   blocked: number;
 }
 
+export interface BatchQueueLatestWaveItem {
+  unitKey: string;
+  runOrder: number;
+  status: string;
+  plannedRowCount: number;
+  shipmentId?: string | null;
+  blockers: string[];
+}
+
 export interface BatchQueueLatestWave {
   waveKey: string;
   status: string;
@@ -114,8 +123,11 @@ export interface BatchQueueLatestWave {
   unitCount: number;
   totalPlannedRows: number;
   auditId?: string;
+  approvalAuditId?: string | null;
+  executionAuditId?: string | null;
   approvedAt?: string;
   approvalExpiresAt?: string;
+  items?: BatchQueueLatestWaveItem[];
 }
 
 export interface BatchQueueExecutionProgress {

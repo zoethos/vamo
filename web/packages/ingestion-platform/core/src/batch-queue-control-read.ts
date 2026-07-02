@@ -62,6 +62,7 @@ interface ItemRow extends Record<string, unknown> {
 }
 
 interface WaveRow extends Record<string, unknown> {
+  id: string;
   waveKey: string;
   status: string;
   targetEnvironment: string;
@@ -70,6 +71,15 @@ interface WaveRow extends Record<string, unknown> {
   summary: Record<string, unknown> | null;
   approvedAt: string | Date;
   approvalExpiresAt: string | Date;
+}
+
+interface WaveItemRow extends Record<string, unknown> {
+  unitKey: string;
+  runOrder: number;
+  status: string;
+  plannedRowCount: number;
+  blockers: unknown;
+  shipmentId: string | null;
 }
 
 interface ExecutionRow extends Record<string, unknown> {
@@ -289,6 +299,7 @@ async function loadLatestWave(
     const result = await client.query<WaveRow>(
       `
         select
+          id::text as id,
           wave_key as "waveKey",
           status,
           target_environment as "targetEnvironment",
@@ -320,6 +331,22 @@ async function loadLatestWave(
       [batchPlanId, row.waveKey]
     );
 
+    const waveItems = await client.query<WaveItemRow>(
+      `
+        select
+          unit_key as "unitKey",
+          run_order as "runOrder",
+          status,
+          planned_row_count as "plannedRowCount",
+          blockers,
+          shipment_id::text as "shipmentId"
+        from ingestion_platform.ingestion_batch_canary_wave_items
+        where wave_id = $1::bigint
+        order by run_order asc, unit_key asc
+      `,
+      [row.id]
+    );
+
     const summary = row.summary ?? {};
     return {
       waveKey: row.waveKey,
@@ -329,8 +356,20 @@ async function loadLatestWave(
       maxRows: row.maxRows,
       unitCount: Number.parseInt(itemCount.rows[0]?.count ?? "0", 10),
       totalPlannedRows: Number(summary.totalPlannedRows ?? 0),
+      approvalAuditId:
+        typeof summary.approvalAuditId === "string" ? summary.approvalAuditId : null,
+      executionAuditId:
+        typeof summary.executionAuditId === "string" ? summary.executionAuditId : null,
       approvedAt: toIsoString(row.approvedAt),
-      approvalExpiresAt: toIsoString(row.approvalExpiresAt)
+      approvalExpiresAt: toIsoString(row.approvalExpiresAt),
+      items: waveItems.rows.map((item) => ({
+        unitKey: item.unitKey,
+        runOrder: item.runOrder,
+        status: item.status,
+        plannedRowCount: item.plannedRowCount,
+        shipmentId: item.shipmentId,
+        blockers: Array.isArray(item.blockers) ? item.blockers.map(String) : []
+      }))
     };
   } catch (error) {
     if (isUndefinedTable(error)) {

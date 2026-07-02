@@ -155,7 +155,8 @@ export async function approveBatchStagingCanaryWave(
         JSON.stringify({
           unitKeys: input.plan.unitKeys,
           totalPlannedRows: input.plan.totalPlannedRows,
-          approvedBy: input.plan.approvedBy
+          approvedBy: input.plan.approvedBy,
+          approvalAuditId: null as string | null
         }),
         input.plan.approvedAt,
         input.plan.approvalExpiresAt,
@@ -249,13 +250,26 @@ export async function approveBatchStagingCanaryWave(
       ]
     );
 
+    const auditId = audit.rows[0]?.id ?? null;
+    if (auditId) {
+      await client.query(
+        `
+          update ingestion_platform.ingestion_batch_canary_waves
+          set summary = coalesce(summary, '{}'::jsonb) || $2::jsonb,
+              updated_at = $3::timestamptz
+          where id = $1::bigint
+        `,
+        [waveId, JSON.stringify({ approvalAuditId: auditId }), now]
+      );
+    }
+
     await client.query("commit");
 
     return {
       ok: true,
       batchPlanId: plan.id,
       waveId,
-      auditId: audit.rows[0]?.id ?? null,
+      auditId,
       waveKey,
       unitKeys: input.plan.unitKeys,
       idempotentReplay: false
