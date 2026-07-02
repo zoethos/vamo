@@ -18,6 +18,16 @@ export type BatchQueueItemStatus =
   | "production_ready"
   | "applied";
 
+export const BATCH_QUEUE_ITEM_STATUSES: readonly BatchQueueItemStatus[] = [
+  "planned",
+  "blocked",
+  "ready_for_dry_run",
+  "dry_run_ready",
+  "staged_ready",
+  "production_ready",
+  "applied"
+];
+
 export interface BatchQueueItem {
   unitKey: string;
   runOrder: number;
@@ -100,25 +110,74 @@ export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): Ba
     .map((unit) => toQueueItem(unit, input.plan, input.progressionByUnitKey))
     .sort((a, b) => a.runOrder - b.runOrder);
 
-  const groups = buildGroups(items);
-  const coverage = summarizeCoverage(items, input.plan.sourceKey);
-  const progress = summarizeProgress(items);
-  const blockerSummaries = summarizeBlockers(items);
-
-  return {
-    queueId: `${input.plan.planId}-queue`,
+  return finalizeBatchQueueSnapshot({
     planId: input.plan.planId,
     projectKey: input.plan.projectKey,
     targetKey: input.plan.targetKey,
     targetEnvironment: input.plan.targetEnvironment,
     sourceKey: input.plan.sourceKey,
     safetyMode: input.plan.safetyMode,
+    items,
+    planNextAction: input.plan.nextAction
+  });
+}
+
+export function buildBatchQueueSnapshotFromItems(input: {
+  planId: string;
+  projectKey: string;
+  targetKey: string;
+  targetEnvironment: string;
+  sourceKey: string;
+  safetyMode: string;
+  items: BatchQueueItem[];
+  planNextAction?: string;
+}): BatchQueueSnapshot {
+  const items = [...input.items].sort((a, b) => a.runOrder - b.runOrder);
+  return finalizeBatchQueueSnapshot({
+    planId: input.planId,
+    projectKey: input.projectKey,
+    targetKey: input.targetKey,
+    targetEnvironment: input.targetEnvironment,
+    sourceKey: input.sourceKey,
+    safetyMode: input.safetyMode,
+    items,
+    planNextAction: input.planNextAction
+  });
+}
+
+function finalizeBatchQueueSnapshot(input: {
+  planId: string;
+  projectKey: string;
+  targetKey: string;
+  targetEnvironment: string;
+  sourceKey: string;
+  safetyMode: string;
+  items: BatchQueueItem[];
+  planNextAction?: string;
+}): BatchQueueSnapshot {
+  const groups = buildGroups(input.items);
+  const coverage = summarizeCoverage(input.items, input.sourceKey);
+  const progress = summarizeProgress(input.items);
+  const blockerSummaries = summarizeBlockers(input.items);
+
+  return {
+    queueId: `${input.planId}-queue`,
+    planId: input.planId,
+    projectKey: input.projectKey,
+    targetKey: input.targetKey,
+    targetEnvironment: input.targetEnvironment,
+    sourceKey: input.sourceKey,
+    safetyMode: input.safetyMode,
     progress,
     coverage,
     groups,
-    items,
+    items: input.items,
     blockerSummaries,
-    nextAction: deriveNextAction(progress, blockerSummaries, input.plan.nextAction)
+    nextAction: deriveNextAction(
+      progress,
+      blockerSummaries,
+      input.planNextAction ?? "Review batch queue."
+    )
   };
 }
 

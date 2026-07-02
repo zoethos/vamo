@@ -90,16 +90,46 @@ The console **Batch Queue** section shows coverage cards, a country/category
 matrix, blocker summaries when present, and the full queue table. Read-only: no
 mutation buttons, no start-ingestion control, no staging/production write paths.
 
+## Persistent queue (IP-18.2)
+
+Control-plane tables under `ingestion_platform`:
+
+- **`ingestion_batch_plans`** — plan metadata, spec JSONB, summary JSONB, explicit
+  `target_environment`, env-neutral `target_key`, `safety_mode = dry_run`.
+- **`ingestion_batch_queue_items`** — one row per queue unit with CHECK-constrained
+  statuses matching IP-18.1.
+
+Persistence path:
+
+1. `mapSnapshotToPersistenceBundle()` — pure mapper from `BatchQueueSnapshot`.
+2. `persistBatchQueueSnapshot()` — idempotent upsert into control tables only.
+3. `loadBatchQueueSnapshot()` — live read back into `BatchQueueSnapshot`; returns
+   `null` when tables are absent so the console falls back to sample data.
+
+Seed/bootstrap:
+
+```bash
+npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed
+```
+
+Writes `docs/platform/ingestion/bootstrap/sql/ip18_vamo_batch_queue_seed.sql`.
+Execution mode requires `CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES` and
+`INGESTION_CONTROL_DATABASE_URL`.
+
+**Ops:** apply updated `control_schema.sql` to the live Confluendo control DB,
+then run the seed SQL (or `--execute` mode) before expecting **Live control
+plane** labels in `/admin/ingestion`. Without schema apply + seed, the dashboard
+correctly shows **Sample preview**.
+
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.2 | Persistent batch queue / control table |
 | IP-18.3 | Operator scheduling mutations |
 | IP-18.4 | Staged batch canary waves |
 | IP-18.5 | Production inbox package waves |
 
 ## Safety
 
-IP-18.0: dry-run planning only. No live ingestion, no provider calls, no
-staging or production writes.
+IP-18.0–18.2: planning and control-plane queue persistence only. No live
+ingestion, no provider calls, no Vamo staging or production writes.
