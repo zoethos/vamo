@@ -1209,7 +1209,7 @@ Without that grant, the scheduling route fails closed.
 
 ## Slice IP-18.4 - Dry-Run Execution Orchestration
 
-Status: **active / implemented**. Executes bounded fixture-only dry runs from
+Status: **done** (IP-18.4 merged; live-proven). Executes bounded fixture-only dry runs from
 `dry_run_ready` queue state and writes only Confluendo control-plane execution
 state. No live provider calls, no Vamo staging writes, no production inbox
 delivery.
@@ -1271,17 +1271,94 @@ Live evidence:
 - Dashboard reports for all three show `wroteToTarget=false`; no live provider,
   Vamo staging, or Vamo production writes occurred.
 
+## Slice IP-18.5 - Staged Batch Canary Waves
+
+Status: **active — IP-18.5.0 design only** (docs/spec). IP-18.5 is the first batch
+slice that may touch a consumer DB again. **Production is forbidden.** Vamo staging
+writes must reuse the existing IP-16 `applyPostgresStagingCanary` adapter — no
+second staging write path and no aggregate multi-unit direct write.
+
+Source of truth:
+
+- `docs/platform/ingestion/STAGED_BATCH_CANARY_WAVES.md`
+
+Core design decision:
+
+A **staging canary wave** is a bounded sequence of **independent per-unit IP-16
+staging canaries**. Each unit is sentinel-proven, atomic, individually ledgered,
+idempotent, and individually rollback-able. IP-18.5 orchestrates eligibility,
+ramp, approval, ordering, stop-on-first-failure, and control-plane state only.
+
+### IP-18.5.0 — Design spec (this slice)
+
+Goal: define the wave model, state machine, eligibility, ramp, approval, partial
+failure, resume/replay, dashboard read surfaces, and ops gates before any code or
+SQL lands.
+
+Delivered in IP-18.5.0:
+
+- `STAGED_BATCH_CANARY_WAVES.md` — authoritative design for batch staging waves.
+- BUILD_SLICES + BATCH_TARGET_PLANNING updates with IP-18.4 live evidence and
+  IP-18.5 phasing.
+
+State machine (queue item extension; no production states):
+
+```text
+dry_run_succeeded -> staging_canary_ready -> staging_canary_approved
+  -> staging_canary_running -> staging_canary_succeeded | staging_canary_blocked
+```
+
+Key gates documented:
+
+- Eligibility: `dry_run_succeeded` only, `wroteToTarget=false`, explicit
+  `target_environment='staging'`, explicit `target_key='vamo-place-intelligence'`,
+  `STAGING_CANARY_MAX_ROWS=50` per unit, wave `maxUnits` + `maxTotalRows` bounds.
+- Ramp: first live wave hard-capped at **1 unit** in approval and execution
+  policy; widening requires explicit new operator approval after prior staging
+  success; "all 33 remaining units" forbidden as first wave.
+- Approval: `ingestion_admin` + verified AAL2 + fresh MFA step-up + audit reason;
+  reuse `STAGING_CANARY_APPROVAL_MAX_AGE_MS` (15 minutes); control DB only.
+- Partial failure: **stop-on-first-failure**; succeeded units stay succeeded.
+- Replay: skip succeeded units; per-unit idempotency via IP-16 shipment keys.
+
+Live baseline (IP-18.4):
+
+- Execution key `batch-dry-run:vamo-eu-poi-sample:audit:15` succeeded for 3 units.
+- Queue: **3** `dry_run_succeeded`, **33** `dry_run_ready`.
+- First staging wave should target 1 of the 3 succeeded units, not dry-run-ready rows.
+
+Acceptance criteria (IP-18.5.0):
+
+- Design spec complete; no functional code, no SQL applied, no live canary execution.
+- IP-16 adapter remains the only staging write boundary.
+- Production forbidden; `ip15:boundary-audit` unchanged.
+
+Validation (IP-18.5.0):
+
+- `git diff --check`
+- Docs-only diff; no secrets.
+
+### Future IP-18.5 phases (not in this slice)
+
+| Phase | Scope |
+| --- | --- |
+| IP-18.5.1 | Pure wave eligibility/ramp/approval policy + control schema draft (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
+| IP-18.5.2 | Wave executor (per-unit `applyPostgresStagingCanary`) + fake/disposable target smokes |
+| IP-18.5.3 | Dashboard approval/execute + CLI `ip18:batch-staging-canary` |
+| IP-18.5.4 | First live wave (1 unit) after ops sign-off |
+
 Future slices:
 
-- **IP-18.5** — staged batch canary waves
 - **IP-18.6** — production inbox package waves
 
 ## Recommended Immediate Next Slice
 
-After IP-18.4 lands, **IP-18.5 - Staged Batch Canary Waves** is the next slice:
-promote bounded dry-run succeeded units into governed staging-canary shipment
-groups.
+After IP-18.5.0 lands, **IP-18.5.1 — Pure wave policy + control schema draft** is
+the next slice: implement eligibility/ramp/approval policies and planned control
+tables with disposable Postgres smokes that actually run — still no live Vamo
+staging writes.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
-on one-off manual target creation.
+on one-off manual target creation. IP-18.5 adds governed batch staging canaries
+on top of the IP-16 per-unit adapter.

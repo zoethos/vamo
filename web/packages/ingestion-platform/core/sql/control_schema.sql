@@ -537,11 +537,79 @@ alter table ingestion_platform.ingestion_batch_queue_items
       'dry_run_running',
       'dry_run_succeeded',
       'dry_run_blocked',
+      'staging_canary_ready',
+      'staging_canary_approved',
+      'staging_canary_running',
+      'staging_canary_succeeded',
+      'staging_canary_blocked',
       'staged_ready',
       'production_ready',
       'applied'
     )
   );
+
+create table if not exists ingestion_platform.ingestion_batch_canary_waves (
+  id bigint generated always as identity primary key,
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  wave_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  max_units integer not null,
+  max_rows integer not null,
+  audit_reason text not null,
+  actor_type text not null,
+  actor_id text not null,
+  status text not null default 'approved',
+  summary jsonb not null default '{}'::jsonb,
+  approved_at timestamptz not null,
+  approval_expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_canary_waves_wave_key_unique unique (batch_plan_id, wave_key),
+  constraint ingestion_batch_canary_waves_target_environment_check check (
+    target_environment = 'staging'
+  ),
+  constraint ingestion_batch_canary_waves_status_check check (
+    status in (
+      'planned',
+      'approval_pending',
+      'approved',
+      'running',
+      'succeeded',
+      'partial',
+      'failed',
+      'blocked'
+    )
+  ),
+  constraint ingestion_batch_canary_waves_max_units_positive check (max_units > 0),
+  constraint ingestion_batch_canary_waves_max_rows_positive check (max_rows > 0),
+  constraint ingestion_batch_canary_waves_summary_object check (
+    jsonb_typeof(summary) = 'object'
+  )
+);
+
+create table if not exists ingestion_platform.ingestion_batch_canary_wave_items (
+  id bigint generated always as identity primary key,
+  wave_id bigint not null references ingestion_platform.ingestion_batch_canary_waves(id) on delete cascade,
+  unit_key text not null,
+  run_order integer not null,
+  status text not null default 'approved',
+  planned_row_count integer not null default 0,
+  blockers jsonb not null default '[]'::jsonb,
+  shipment_id bigint references ingestion_platform.ingestion_shipments(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_canary_wave_items_unit_key_unique unique (wave_id, unit_key),
+  constraint ingestion_batch_canary_wave_items_status_check check (
+    status in ('approved', 'running', 'succeeded', 'blocked')
+  ),
+  constraint ingestion_batch_canary_wave_items_blockers_array check (
+    jsonb_typeof(blockers) = 'array'
+  ),
+  constraint ingestion_batch_canary_wave_items_planned_row_count_nonnegative check (
+    planned_row_count >= 0
+  )
+);
 
 create index if not exists ingestion_specs_project_id_idx
   on ingestion_platform.ingestion_specs (project_id);
@@ -674,5 +742,11 @@ create index if not exists ingestion_batch_queue_items_country_category_idx
 
 create index if not exists ingestion_batch_dry_run_executions_plan_status_idx
   on ingestion_platform.ingestion_batch_dry_run_executions (batch_plan_id, status, updated_at desc);
+
+create index if not exists ingestion_batch_canary_waves_plan_status_idx
+  on ingestion_platform.ingestion_batch_canary_waves (batch_plan_id, status, updated_at desc);
+
+create index if not exists ingestion_batch_canary_wave_items_wave_status_idx
+  on ingestion_platform.ingestion_batch_canary_wave_items (wave_id, status, run_order asc);
 
 commit;

@@ -60,6 +60,13 @@ export interface RecordStagingCanaryShipmentInput {
   reason: string;
   counts: { insert: number; update: number; noOp: number; writeCount: number };
   items: StagingCanaryShipmentItemForLedger[];
+  /** Optional stable shipment key; defaults to staging-canary:{targetId}:approval:{approvalAuditId}. */
+  shipmentKey?: string;
+  /**
+   * Defaults to true. Set to false only when the caller already owns the
+   * surrounding transaction on the provided client.
+   */
+  manageTransaction?: boolean;
   now?: string;
 }
 
@@ -168,10 +175,15 @@ export async function recordStagingCanaryShipment(
   }
 
   const now = input.now ?? new Date().toISOString();
-  const shipmentKey = `staging-canary:${input.targetId}:approval:${input.approvalAuditId}`;
+  const manageTransaction = input.manageTransaction ?? true;
+  const shipmentKey =
+    input.shipmentKey?.trim() ||
+    `staging-canary:${input.targetId}:approval:${input.approvalAuditId}`;
   try {
-    await client.query("begin");
-    await client.query("set local statement_timeout = '5s'");
+    if (manageTransaction) {
+      await client.query("begin");
+      await client.query("set local statement_timeout = '5s'");
+    }
 
     const projectResult = await client.query<ProjectRow>(
       `
@@ -183,7 +195,9 @@ export async function recordStagingCanaryShipment(
     );
     const project = projectResult.rows[0];
     if (!project) {
-      await client.query("rollback");
+      if (manageTransaction) {
+        await client.query("rollback");
+      }
       throw new Error("Ingestion project was not found.");
     }
 
@@ -225,7 +239,9 @@ export async function recordStagingCanaryShipment(
     );
     const targetId = targetResult.rows[0]?.id;
     if (!targetId) {
-      await client.query("rollback");
+      if (manageTransaction) {
+        await client.query("rollback");
+      }
       throw new Error("Ingestion target could not be recorded.");
     }
 
@@ -275,7 +291,9 @@ export async function recordStagingCanaryShipment(
     );
     const shipmentId = shipmentResult.rows[0]?.id;
     if (!shipmentId) {
-      await client.query("rollback");
+      if (manageTransaction) {
+        await client.query("rollback");
+      }
       throw new Error("Staging canary shipment could not be recorded.");
     }
 
@@ -347,10 +365,14 @@ export async function recordStagingCanaryShipment(
       ]
     );
 
-    await client.query("commit");
+    if (manageTransaction) {
+      await client.query("commit");
+    }
     return { ok: true, shipmentId, auditId: auditResult.rows[0]?.id ?? null };
   } catch (error) {
-    await client.query("rollback");
+    if (manageTransaction) {
+      await client.query("rollback");
+    }
     throw error;
   } finally {
     if (ownedClient) {

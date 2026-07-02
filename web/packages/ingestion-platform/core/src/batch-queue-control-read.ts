@@ -8,6 +8,7 @@ import {
 import type {
   BatchQueueItemStatus,
   BatchQueueLatestExecution,
+  BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
 
@@ -60,12 +61,37 @@ interface ItemRow extends Record<string, unknown> {
   runReport: Record<string, unknown> | null;
 }
 
+interface WaveRow extends Record<string, unknown> {
+  id: string;
+  waveKey: string;
+  status: string;
+  targetEnvironment: string;
+  maxUnits: number;
+  maxRows: number;
+  summary: Record<string, unknown> | null;
+  approvedAt: string | Date;
+  approvalExpiresAt: string | Date;
+}
+
+interface WaveItemRow extends Record<string, unknown> {
+  unitKey: string;
+  runOrder: number;
+  status: string;
+  plannedRowCount: number;
+  blockers: unknown;
+  shipmentId: string | null;
+}
+
 interface ExecutionRow extends Record<string, unknown> {
   executionKey: string;
   status: string;
   auditId: string | null;
   summary: Record<string, unknown> | null;
   finishedAt: string | Date | null;
+}
+
+interface WaveItemCountRow extends Record<string, unknown> {
+  count: string;
 }
 
 const UNDEFINED_TABLE = "42P01";
@@ -168,6 +194,7 @@ export async function loadBatchQueueSnapshot(
     }
 
     const latestExecution = await loadLatestExecution(client, batchPlanId);
+    const latestWave = await loadLatestWave(client, batchPlanId);
 
     return mapPersistenceBundleToSnapshot(
       plan.projectKey,
@@ -198,7 +225,8 @@ export async function loadBatchQueueSnapshot(
         proposal: row.proposal,
         runReport: row.runReport
       })),
-      latestExecution
+      latestExecution,
+      latestWave
     );
   } catch (error) {
     if (isUndefinedTable(error)) {
@@ -261,4 +289,99 @@ async function loadLatestExecution(
     }
     throw error;
   }
+}
+
+async function loadLatestWave(
+  client: BatchQueueControlReadPgClientLike,
+  batchPlanId: string
+): Promise<BatchQueueLatestWave | null> {
+  try {
+    const result = await client.query<WaveRow>(
+      `
+        select
+          id::text as id,
+          wave_key as "waveKey",
+          status,
+          target_environment as "targetEnvironment",
+          max_units as "maxUnits",
+          max_rows as "maxRows",
+          summary,
+          approved_at as "approvedAt",
+          approval_expires_at as "approvalExpiresAt"
+        from ingestion_platform.ingestion_batch_canary_waves
+        where batch_plan_id = $1::bigint
+        order by updated_at desc, id desc
+        limit 1
+      `,
+      [batchPlanId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const itemCount = await client.query<WaveItemCountRow>(
+      `
+        select count(*)::text as count
+        from ingestion_platform.ingestion_batch_canary_wave_items wi
+        join ingestion_platform.ingestion_batch_canary_waves w on w.id = wi.wave_id
+        where w.batch_plan_id = $1::bigint
+          and w.wave_key = $2
+      `,
+      [batchPlanId, row.waveKey]
+    );
+
+    const waveItems = await client.query<WaveItemRow>(
+      `
+        select
+          unit_key as "unitKey",
+          run_order as "runOrder",
+          status,
+          planned_row_count as "plannedRowCount",
+          blockers,
+          shipment_id::text as "shipmentId"
+        from ingestion_platform.ingestion_batch_canary_wave_items
+        where wave_id = $1::bigint
+        order by run_order asc, unit_key asc
+      `,
+      [row.id]
+    );
+
+    const summary = row.summary ?? {};
+    return {
+      waveKey: row.waveKey,
+      status: row.status,
+      targetEnvironment: row.targetEnvironment,
+      maxUnits: row.maxUnits,
+      maxRows: row.maxRows,
+      unitCount: Number.parseInt(itemCount.rows[0]?.count ?? "0", 10),
+      totalPlannedRows: Number(summary.totalPlannedRows ?? 0),
+      approvalAuditId:
+        typeof summary.approvalAuditId === "string" ? summary.approvalAuditId : null,
+      executionAuditId:
+        typeof summary.executionAuditId === "string" ? summary.executionAuditId : null,
+      approvedAt: toIsoString(row.approvedAt),
+      approvalExpiresAt: toIsoString(row.approvalExpiresAt),
+      items: waveItems.rows.map((item) => ({
+        unitKey: item.unitKey,
+        runOrder: item.runOrder,
+        status: item.status,
+        plannedRowCount: item.plannedRowCount,
+        shipmentId: item.shipmentId,
+        blockers: Array.isArray(item.blockers) ? item.blockers.map(String) : []
+      }))
+    };
+  } catch (error) {
+    if (isUndefinedTable(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function toIsoString(value: string | Date | null | undefined): string | undefined {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return typeof value === "string" ? value : undefined;
 }

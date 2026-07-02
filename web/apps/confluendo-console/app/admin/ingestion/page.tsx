@@ -20,6 +20,7 @@ import {
   TargetCommandButton,
 } from "./ingestion-command-controls";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
+import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 
@@ -95,6 +96,7 @@ export default async function IngestionDashboardPage() {
   const batchQueueEligibleCount = batchQueue.items.filter(
     (item) => item.status === "ready_for_dry_run"
   ).length;
+  const batchCanaryWaveEligibleCount = batchQueue.progress.stagingCanary.dryRunSucceededEligible;
 
   return (
     <main
@@ -477,7 +479,7 @@ export default async function IngestionDashboardPage() {
       <section className="admin-section" aria-label="IP-18 batch queue">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18.4 · batch queue</p>
+            <p className="admin-kicker">IP-18.5 · batch queue</p>
             <h2>Automated target batch queue</h2>
           </div>
           <span className="admin-readonly-pill">
@@ -496,6 +498,17 @@ export default async function IngestionDashboardPage() {
           projectKey={batchQueue.projectKey}
           targetKey={batchQueue.targetKey}
           eligibleCount={batchQueueEligibleCount}
+          context={{
+            role: principal.role,
+            assuranceLevel: principal.assuranceLevel,
+            source: batchQueueSource
+          }}
+        />
+        <BatchCanaryWaveApprovalControl
+          projectKey={batchQueue.projectKey}
+          targetKey={batchQueue.targetKey}
+          targetEnvironment={batchQueue.targetEnvironment}
+          eligibleCount={batchCanaryWaveEligibleCount}
           context={{
             role: principal.role,
             assuranceLevel: principal.assuranceLevel,
@@ -528,11 +541,69 @@ export default async function IngestionDashboardPage() {
             </p>
           </article>
           <article className="admin-stat">
+            <span>Staging canary</span>
+            <strong>{batchQueue.progress.stagingCanary.approved}</strong>
+            <p>
+              {batchQueue.progress.stagingCanary.dryRunSucceededEligible} eligible ·{" "}
+              {batchQueue.progress.stagingCanary.succeeded} succeeded ·{" "}
+              {batchQueue.progress.stagingCanary.blocked} blocked
+            </p>
+          </article>
+          <article className="admin-stat">
             <span>Applied</span>
             <strong>{batchQueue.progress.applied}</strong>
             <p>{batchQueue.sourceKey}</p>
           </article>
         </div>
+
+        {batchQueue.latestWave ? (
+          <>
+            <p className="admin-next-action">
+              <strong>Latest wave:</strong> {batchQueue.latestWave.waveKey} ·{" "}
+              {batchQueue.latestWave.status} · {batchQueue.latestWave.targetEnvironment} ·{" "}
+              {batchQueue.latestWave.unitCount} unit(s)
+              {batchQueue.latestWave.approvalAuditId
+                ? ` · approval audit ${batchQueue.latestWave.approvalAuditId}`
+                : ""}
+              {batchQueue.latestWave.executionAuditId
+                ? ` · execution audit ${batchQueue.latestWave.executionAuditId}`
+                : ""}
+              {batchQueue.latestWave.approvalExpiresAt
+                ? ` · expires ${batchQueue.latestWave.approvalExpiresAt}`
+                : ""}
+            </p>
+            {batchQueue.latestWave.items && batchQueue.latestWave.items.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-target-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Unit</th>
+                      <th>Status</th>
+                      <th>Planned rows</th>
+                      <th>Shipment</th>
+                      <th>Blockers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchQueue.latestWave.items.map((item) => (
+                      <tr key={item.unitKey}>
+                        <td>{item.runOrder}</td>
+                        <td>
+                          <code>{item.unitKey}</code>
+                        </td>
+                        <td>{item.status}</td>
+                        <td>{item.plannedRowCount}</td>
+                        <td>{item.shipmentId ?? "—"}</td>
+                        <td>{item.blockers.length > 0 ? item.blockers.join(", ") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        ) : null}
 
         {batchQueue.latestExecution ? (
           <p className="admin-next-action">

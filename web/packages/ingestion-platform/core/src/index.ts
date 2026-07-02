@@ -279,6 +279,9 @@ export {
   type BatchDryRunReport,
   type BatchQueueExecutionProgress,
   type BatchQueueLatestExecution,
+  type BatchQueueLatestWave,
+  type BatchQueueLatestWaveItem,
+  type BatchQueueStagingCanaryProgress,
   type BatchQueueSnapshot,
   type BatchQueueGroup,
   type BatchQueueItem,
@@ -343,3 +346,49 @@ export {
   type ExecuteBatchDryRunInput,
   type ExecuteBatchDryRunResult
 } from "./batch-dry-run-execution.js";
+export {
+  evaluateBatchStagingCanaryWaveApproval,
+  countStagingCanaryWaveEligibleUnits,
+  type BatchStagingCanaryWaveApprovalPlan,
+  type BatchStagingCanaryWaveBlock,
+  type BatchStagingCanaryWaveBlockCode,
+  type EvaluateBatchStagingCanaryWaveApprovalInput,
+  type EvaluateBatchStagingCanaryWaveApprovalResult
+} from "./batch-staging-canary-wave-policy.js";
+export {
+  approveBatchStagingCanaryWave,
+  type ApproveBatchStagingCanaryWaveInput,
+  type ApproveBatchStagingCanaryWaveResult,
+  type BatchStagingCanaryWavePgClientLike
+} from "./batch-staging-canary-wave-control.js";
+export {
+  buildBatchWaveUnitScope,
+  buildWaveUnitShipmentKey,
+  filterCandidatesForWaveUnit,
+  parseDryRunWriteCounts,
+  type BatchWaveUnitScope
+} from "./batch-staging-canary-wave-candidates.js";
+export {
+  loadStagingCanaryWave,
+  type LoadedStagingCanaryWave,
+  type LoadedStagingCanaryWaveItem,
+  type LoadStagingCanaryWaveInput
+} from "./batch-staging-canary-wave-load.js";
+export {
+  evaluateBatchStagingCanaryWaveExecution,
+  type BatchStagingCanaryWaveExecutionBlock,
+  type BatchStagingCanaryWaveExecutionBlockCode,
+  type BatchStagingCanaryWaveExecutionPlan,
+  type BatchStagingCanaryWaveExecutionUnitPlan,
+  type EvaluateBatchStagingCanaryWaveExecutionInput,
+  type EvaluateBatchStagingCanaryWaveExecutionResult
+} from "./batch-staging-canary-wave-execution-policy.js";
+export {
+  defaultLoadWaveUnitCandidates,
+  executeBatchStagingCanaryWave,
+  type BatchStagingCanaryWaveExecutionDeps,
+  type BatchStagingCanaryWaveExecutionPgClientLike,
+  type ExecuteBatchStagingCanaryWaveInput,
+  type ExecuteBatchStagingCanaryWaveResult,
+  type ExecuteBatchStagingCanaryWaveUnitResult
+} from "./batch-staging-canary-wave-execution.js";

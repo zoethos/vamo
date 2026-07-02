@@ -21,7 +21,9 @@ export const CONTROL_TABLES = [
   "ingestion_schedule_proposals",
   "ingestion_batch_plans",
   "ingestion_batch_queue_items",
-  "ingestion_batch_dry_run_executions"
+  "ingestion_batch_dry_run_executions",
+  "ingestion_batch_canary_waves",
+  "ingestion_batch_canary_wave_items"
 ] as const;
 
 export type ControlTableName = (typeof CONTROL_TABLES)[number];
