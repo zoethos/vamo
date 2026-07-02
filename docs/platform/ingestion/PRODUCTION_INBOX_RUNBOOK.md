@@ -15,8 +15,8 @@ contract:
 
 | Package | Status | Evidence |
 | --- | --- | --- |
-| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package. It was delivered before source-ref payloads carried `canonical_key`. Keep it for audit; do not retry it. |
-| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Vamo apply returned `{"status":"consumer_applied","applied":2,"skipped":0,"rejected":0,"package_id":"production-inbox:vamo-place-intelligence-staging:approval:13"}`. `/admin/ingestion` shows the package as applied. |
+| `production-inbox:vamo-place-intelligence-staging:approval:10` | `consumer_apply_failed` | Historical failed package (legacy target-key naming in the package id; immutable audit history). It was delivered before source-ref payloads carried `canonical_key`. Keep it for audit; do not retry it. |
+| `production-inbox:vamo-place-intelligence-staging:approval:13` | `consumer_applied` | Historical successful proof (legacy target-key naming in the package id; immutable audit history). Vamo apply returned `{"status":"consumer_applied","applied":2,"skipped":0,"rejected":0,"package_id":"production-inbox:vamo-place-intelligence-staging:approval:13"}`. `/admin/ingestion` shows the package as applied. New proposals use the environment-neutral target key `vamo-place-intelligence`. |
 
 Use this as the reference proof, not as permission to widen scope. Broad EU POI
 coverage requires the later batch planning and ingestion slices.

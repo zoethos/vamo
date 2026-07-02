@@ -24,7 +24,7 @@ describe("production inbox promotion policy", () => {
       targetEnvironment: "production",
       stagingCanary: {
         status: "succeeded",
-        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:8",
+        shipmentKey: "staging-canary:vamo-place-intelligence:approval:8",
         approvalAuditId: "8"
       },
       bounds: { geography: "rome-italy", category: "poi", maxRows: 2 },

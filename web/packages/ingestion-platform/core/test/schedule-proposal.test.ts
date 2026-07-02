@@ -57,7 +57,7 @@ describe("schedule proposal policy", () => {
     }
     const proposal = result.proposal;
     assert.equal(proposal.projectKey, "vamo");
-    assert.equal(proposal.targetId, "vamo-place-intelligence-staging");
+    assert.equal(proposal.targetId, "vamo-place-intelligence");
     assert.equal(proposal.safetyMode, "dry_run");
     assert.equal(proposal.tier, "sample_dry_run");
     assert.equal(proposal.scope.rowLimit, 3);

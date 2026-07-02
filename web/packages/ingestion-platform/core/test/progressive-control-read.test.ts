@@ -110,7 +110,7 @@ describe("progressive control read", () => {
   it("attaches a succeeded staging-canary shipment to its proposal", async () => {
     const shipmentRows = [
       {
-        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:4",
+        shipmentKey: "staging-canary:vamo-place-intelligence:approval:4",
         status: "succeeded",
         mode: "approved_write",
         createdAt: "2026-06-28T12:00:00.000Z",
@@ -124,7 +124,7 @@ describe("progressive control read", () => {
     assert.ok(snapshot);
 
     const review = snapshot.entries.find(
-      (entry) => entry.scorecard.targetId === "vamo-place-intelligence-staging"
+      (entry) => entry.scorecard.targetId === "vamo-place-intelligence"
     );
     assert.ok(review);
     assert.ok(review.canaryShipment, "review entry carries its shipment state");
@@ -132,7 +132,7 @@ describe("progressive control read", () => {
     assert.equal(review.canaryShipment.mode, "approved_write");
     assert.equal(
       review.canaryShipment.shipmentKey,
-      "staging-canary:vamo-place-intelligence-staging:approval:4"
+      "staging-canary:vamo-place-intelligence:approval:4"
     );
     assert.equal(review.canaryShipment.approvalAuditId, "4");
 
@@ -140,19 +140,19 @@ describe("progressive control read", () => {
     // production-inbox approval instead of inviting a repeat canary approval.
     const view = buildProgressiveRunView(snapshot);
     const row = view.rows.find(
-      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+      (candidate) => candidate.targetId === "vamo-place-intelligence"
     );
     assert.ok(row);
     assert.equal(row.canaryShipped, true);
     assert.match(row.nextApproval, /production inbox delivery/i);
-    assert.doesNotMatch(view.nextAction, /Review vamo-place-intelligence-staging/);
+    assert.doesNotMatch(view.nextAction, /Review vamo-place-intelligence/);
     assert.match(view.nextAction, /ready for production inbox approval/i);
   });
 
   it("attaches a production-inbox delivery shipment to its proposal", async () => {
     const shipmentRows = [
       {
-        shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:14",
+        shipmentKey: "production-inbox:vamo-place-intelligence:approval:14",
         status: "succeeded",
         mode: "approved_write",
         createdAt: "2026-07-01T12:00:00.000Z",
@@ -160,7 +160,7 @@ describe("progressive control read", () => {
           environment: "production",
           productionStatus: "production_inbox_delivered",
           approvalAuditId: 14,
-          packageId: "production-inbox:vamo-place-intelligence-staging:approval:14",
+          packageId: "production-inbox:vamo-place-intelligence:approval:14",
           itemCount: 2
         }
       }
@@ -173,7 +173,7 @@ describe("progressive control read", () => {
 
     const view = buildProgressiveRunView(snapshot);
     const row = view.rows.find(
-      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+      (candidate) => candidate.targetId === "vamo-place-intelligence"
     );
     assert.ok(row);
     assert.equal(row.productionInboxDelivered, true);
@@ -185,7 +185,7 @@ describe("progressive control read", () => {
   it("falls back to the approval id parsed from the shipment key", async () => {
     const shipmentRows = [
       {
-        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:9",
+        shipmentKey: "staging-canary:vamo-place-intelligence:approval:9",
         status: "shipping",
         mode: "approved_write",
         createdAt: "2026-06-28T12:00:00.000Z",
@@ -198,7 +198,7 @@ describe("progressive control read", () => {
     });
     assert.ok(snapshot);
     const review = snapshot.entries.find(
-      (entry) => entry.scorecard.targetId === "vamo-place-intelligence-staging"
+      (entry) => entry.scorecard.targetId === "vamo-place-intelligence"
     );
     assert.ok(review?.canaryShipment);
     assert.equal(review.canaryShipment.approvalAuditId, "9");
@@ -208,7 +208,7 @@ describe("progressive control read", () => {
   it("ignores a failed shipment so approval can still be requested", async () => {
     const shipmentRows = [
       {
-        shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:7",
+        shipmentKey: "staging-canary:vamo-place-intelligence:approval:7",
         status: "failed",
         mode: "approved_write",
         createdAt: "2026-06-28T12:00:00.000Z",
@@ -222,13 +222,44 @@ describe("progressive control read", () => {
     assert.ok(snapshot);
     const view = buildProgressiveRunView(snapshot);
     const row = view.rows.find(
-      (candidate) => candidate.targetId === "vamo-place-intelligence-staging"
+      (candidate) => candidate.targetId === "vamo-place-intelligence"
     );
     assert.ok(row);
     // A failed shipment is recorded but not active: the canary slot is unspent.
     assert.equal(row.canaryShipped, false);
     assert.ok(row.canaryShipment, "failed shipment still surfaced for context");
-    assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
+    assert.match(view.nextAction, /Review vamo-place-intelligence/);
+  });
+
+  it("resolves legacy package 13 shipment keys for a canonical proposal target", async () => {
+    const shipmentRows = [
+      {
+        shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:13",
+        status: "succeeded",
+        mode: "approved_write",
+        createdAt: "2026-07-01T12:00:00.000Z",
+        summary: {
+          environment: "production",
+          productionStatus: "consumer_applied",
+          approvalAuditId: 13,
+          packageId: "production-inbox:vamo-place-intelligence-staging:approval:13",
+          itemCount: 2
+        }
+      }
+    ];
+    const snapshot = await loadProgressiveRunSnapshot({
+      client: new StubProgressiveClient(stubRows, shipmentRows),
+      projectKey: "vamo"
+    });
+    assert.ok(snapshot);
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((candidate) => candidate.targetId === "vamo-place-intelligence");
+    assert.ok(row);
+    assert.equal(row.productionInbox?.status, "consumer_applied");
+    assert.equal(row.productionInbox?.packageId, "production-inbox:vamo-place-intelligence-staging:approval:13");
+    assert.equal(row.targetEnvironment, "production");
+    assert.match(row.nextApproval, /applied production inbox package/i);
   });
 
   it("surfaces AI advisory, tier, stage, blockers, next approval, and the dry-run invariant", async () => {

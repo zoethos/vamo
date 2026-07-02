@@ -1,7 +1,7 @@
 {
   "_comment": "IP-14 first Vamo progressive dry-run inputs. Platform-owned test fixture: declared facts about candidate targets plus the bounded schedule parameters. The dry-run source data is the pinned Vamo snapshot at fixtures/imported/vamo-place-intelligence. safety_mode stays dry_run; production writes are impossible.",
   "projectKey": "vamo",
-  "primaryTargetId": "vamo-place-intelligence-staging",
+  "primaryTargetId": "vamo-place-intelligence",
   "tier": "sample_dry_run",
   "safetyMode": "dry_run",
   "scope": {
@@ -33,7 +33,7 @@
   },
   "candidates": [
     {
-      "targetId": "vamo-place-intelligence-staging",
+      "targetId": "vamo-place-intelligence",
       "projectKey": "vamo",
       "sourceId": "fsq-os-places-sample",
       "safetyMode": "dry_run",

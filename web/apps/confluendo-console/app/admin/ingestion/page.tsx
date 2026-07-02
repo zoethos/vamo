@@ -360,6 +360,7 @@ export default async function IngestionDashboardPage() {
             <thead>
               <tr>
                 <th>Target</th>
+                <th>Environment</th>
                 <th>Work</th>
                 <th>Tier / safety</th>
                 <th>Score</th>
@@ -378,6 +379,13 @@ export default async function IngestionDashboardPage() {
                     <span>
                       {row.projectKey} · {row.sourceId}
                     </span>
+                  </td>
+                  <td>
+                    {row.targetEnvironment ? (
+                      <span className="admin-readonly-pill">{row.targetEnvironment}</span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>{row.workStatus.replace(/_/g, " ")}</td>
                   <td>

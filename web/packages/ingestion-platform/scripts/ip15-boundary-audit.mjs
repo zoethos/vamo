@@ -126,6 +126,46 @@ assert(
   `platform runtime files import host/Vamo paths:\n${forbiddenImports.map(toRepoRelative).join("\n")}`
 );
 
+const platformSrcRoots = [
+  path.join(packageRoot, "core", "src"),
+  path.join(packageRoot, "adapters", "source", "src"),
+  path.join(packageRoot, "adapters", "target", "src"),
+  path.join(packageRoot, "policy", "src"),
+  path.join(packageRoot, "spec", "src")
+];
+
+const envFromTargetIdPatterns = [
+  /targetId\s*\.\s*includes\s*\(\s*['"]staging['"]/,
+  /targetId\s*\.\s*includes\s*\(\s*['"]production['"]/,
+  /targetId\s*\.\s*endsWith\s*\(\s*['"]staging['"]/,
+  /targetId\s*\.\s*endsWith\s*\(\s*['"]production['"]/,
+  /targetId\s*\.\s*startsWith\s*\(\s*['"]staging['"]/,
+  /targetId\s*\.\s*startsWith\s*\(\s*['"]production['"]/,
+  /targetKey\s*\.\s*includes\s*\(\s*['"]staging['"]/,
+  /targetKey\s*\.\s*includes\s*\(\s*['"]production['"]/,
+  /targetKey\s*\.\s*endsWith\s*\(\s*['"]staging['"]/,
+  /targetKey\s*\.\s*endsWith\s*\(\s*['"]production['"]/,
+  /target_key\s*\.\s*includes\s*\(\s*['"]staging['"]/,
+  /target_key\s*\.\s*includes\s*\(\s*['"]production['"]/
+];
+
+const envInferenceViolations = platformSrcRoots
+  .flatMap((root) => walk(root))
+  .filter((file) => /\.(js|mjs|ts)$/.test(file))
+  .flatMap((file) => {
+    const source = readFileSync(file, "utf8");
+    const relative = toRepoRelative(file);
+    const hits = envFromTargetIdPatterns
+      .filter((pattern) => pattern.test(source))
+      .map((pattern) => `${relative}: ${pattern}`);
+    return hits;
+  });
+
+assert(
+  envInferenceViolations.length === 0,
+  `platform src must not infer environment from targetId/targetKey substrings:\n${envInferenceViolations.join("\n")}`
+);
+
 console.log("Confluendo boundary audit");
 console.log(`- package: ${platformPackage.name}`);
 console.log(`- console app: ${consolePackage.name}`);
@@ -135,6 +175,7 @@ console.log(`- scanned text files: ${textFiles.length}`);
 console.log(`- scanned site runtime files: ${siteRuntimeFiles.length}`);
 console.log(`- scanned console runtime files: ${consoleRuntimeFiles.length}`);
 console.log(`- scanned platform runtime files: ${platformRuntimeFiles.length}`);
+console.log(`- scanned platform src roots for env-inference guard: ${platformSrcRoots.length}`);
 
 if (failures.length > 0) {
   console.error("\nBoundary audit failed:");

@@ -16,7 +16,7 @@ describe("progressive run dashboard read model", () => {
   it("surfaces tier, rationale, progress, blockers, and the next action", () => {
     const view = buildProgressiveRunView(sampleProgressiveRunSnapshot);
 
-    const vamo = view.rows.find((row) => row.targetId === "vamo-place-intelligence-staging");
+    const vamo = view.rows.find((row) => row.targetId === "vamo-place-intelligence");
     assert.ok(vamo);
     assert.equal(vamo!.workStatus, "review_required");
     assert.equal(vamo!.tier, "sample_dry_run");
@@ -63,7 +63,7 @@ describe("progressive run dashboard read model", () => {
 
     assert.equal(view.summary.reviewRequired, 1);
     assert.equal(view.summary.blocked, 1);
-    assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
+    assert.match(view.nextAction, /Review vamo-place-intelligence/);
   });
 
   it("derives a deterministic, dry-run-only sample proposal", () => {
@@ -104,9 +104,10 @@ describe("progressive run dashboard read model", () => {
     const shipment: CanaryShipmentState = {
       status: "succeeded",
       mode: "approved_write",
-      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:4",
+      shipmentKey: "staging-canary:vamo-place-intelligence:approval:4",
       createdAt: "2026-06-28T12:00:00.000Z",
-      approvalAuditId: "4"
+      approvalAuditId: "4",
+      targetEnvironment: "staging"
     };
     const snapshot: ProgressiveRunSnapshot = {
       entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
@@ -115,18 +116,19 @@ describe("progressive run dashboard read model", () => {
     };
 
     const view = buildProgressiveRunView(snapshot);
-    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence");
     assert.ok(row);
     // The proposal row is untouched (still review_required) but the ledger wins.
     assert.equal(row.workStatus, "review_required");
     assert.equal(row.canaryShipped, true);
     assert.equal(row.canaryShipment?.shipmentKey, shipment.shipmentKey);
+    assert.equal(row.targetEnvironment, "staging");
     assert.match(row.nextApproval, /production inbox delivery/i);
     assert.match(row.nextApproval, /production inbox delivery/i);
 
     // The single next action no longer invites a repeat canary approval; it
     // moves the target forward to the production-inbox approval.
-    assert.doesNotMatch(view.nextAction, /^Review vamo-place-intelligence-staging/);
+    assert.doesNotMatch(view.nextAction, /^Review vamo-place-intelligence/);
     assert.match(view.nextAction, /ready for production inbox approval/i);
   });
 
@@ -134,7 +136,7 @@ describe("progressive run dashboard read model", () => {
     const failed: CanaryShipmentState = {
       status: "failed",
       mode: "approved_write",
-      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:7",
+      shipmentKey: "staging-canary:vamo-place-intelligence:approval:7",
       createdAt: "2026-06-28T12:00:00.000Z",
       approvalAuditId: "7"
     };
@@ -145,27 +147,28 @@ describe("progressive run dashboard read model", () => {
     };
 
     const view = buildProgressiveRunView(snapshot);
-    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence");
     assert.ok(row);
     assert.equal(row.canaryShipped, false);
-    assert.match(view.nextAction, /Review vamo-place-intelligence-staging/);
+    assert.match(view.nextAction, /Review vamo-place-intelligence/);
   });
 
   it("surfaces production inbox delivery as waiting for Vamo apply", () => {
     const canary: CanaryShipmentState = {
       status: "succeeded",
       mode: "approved_write",
-      shipmentKey: "staging-canary:vamo-place-intelligence-staging:approval:8",
+      shipmentKey: "staging-canary:vamo-place-intelligence:approval:8",
       createdAt: "2026-06-28T12:00:00.000Z",
       approvalAuditId: "8"
     };
     const inbox: ProductionInboxState = {
       status: "production_inbox_delivered",
-      shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:12",
+      shipmentKey: "production-inbox:vamo-place-intelligence:approval:12",
       createdAt: "2026-07-01T12:00:00.000Z",
       approvalAuditId: "12",
-      packageId: "production-inbox:vamo-place-intelligence-staging:approval:12",
-      itemCount: 2
+      packageId: "production-inbox:vamo-place-intelligence:approval:12",
+      itemCount: 2,
+      targetEnvironment: "production"
     };
     const snapshot: ProgressiveRunSnapshot = {
       entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
@@ -176,10 +179,11 @@ describe("progressive run dashboard read model", () => {
     };
 
     const view = buildProgressiveRunView(snapshot);
-    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence-staging");
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence");
     assert.ok(row);
     assert.equal(row.productionInboxDelivered, true);
     assert.equal(row.productionInbox?.packageId, inbox.packageId);
+    assert.equal(row.targetEnvironment, "production");
     assert.match(row.nextApproval, /waiting for Vamo apply/i);
     assert.match(view.nextAction, /waiting for Vamo apply/i);
   });
@@ -196,5 +200,30 @@ describe("progressive run dashboard read model", () => {
     assert.equal(isProductionInboxDelivered({ ...base, status: "consumer_applied" }), true);
     assert.equal(isProductionInboxDelivered({ ...base, status: "consumer_apply_failed" }), false);
     assert.equal(isProductionInboxDelivered({ ...base, status: "production_inbox_delivery_failed" }), false);
+  });
+
+  it("surfaces legacy package 13 as consumer_applied with explicit production environment", () => {
+    const inbox: ProductionInboxState = {
+      status: "consumer_applied",
+      shipmentKey: "production-inbox:vamo-place-intelligence-staging:approval:13",
+      createdAt: "2026-07-01T12:00:00.000Z",
+      approvalAuditId: "13",
+      packageId: "production-inbox:vamo-place-intelligence-staging:approval:13",
+      itemCount: 2,
+      targetEnvironment: "production"
+    };
+    const snapshot: ProgressiveRunSnapshot = {
+      entries: sampleProgressiveRunSnapshot.entries.map((entry) =>
+        entry.workStatus === "review_required" ? { ...entry, productionInbox: inbox } : entry
+      )
+    };
+
+    const view = buildProgressiveRunView(snapshot);
+    const row = view.rows.find((r) => r.targetId === "vamo-place-intelligence");
+    assert.ok(row);
+    assert.equal(row.productionInboxDelivered, true);
+    assert.equal(row.productionInbox?.status, "consumer_applied");
+    assert.equal(row.targetEnvironment, "production");
+    assert.match(row.nextApproval, /applied production inbox package/i);
   });
 });
