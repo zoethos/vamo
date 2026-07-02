@@ -232,8 +232,8 @@ retry.
 
 IP-18.5 maps each batch queue unit's `run_report` + `proposal` into the
 `ProgressiveRunReport` + `StagingCanaryBounds` shape IP-16 already accepts (one
-geography, one category, ≤  'rows). If mapping cannot satisfy IP-16 bounds, the
-unit is blocked before any adapter call.
+geography, one category, and at most `STAGING_CANARY_MAX_ROWS`). If mapping
+cannot satisfy IP-16 bounds, the unit is blocked before any adapter call.
 
 **Anti-patterns (explicitly forbidden):**
 
@@ -271,6 +271,10 @@ Implementation slice (IP-18.5.1+) will extend:
 - `ingestion_batch_staging_canary_waves` — wave ledger
 - `ingestion_batch_staging_canary_wave_items` — per-unit outcomes, shipment links
 - `control_bootstrap_confluendo.sql` grants for `confluendo_app`
+
+That moves `CONTROL_TABLES` from **21 to 23**. The IP-18.5.1 done-state must
+include a disposable-Postgres schema smoke that actually runs; skipped DB smokes
+are not acceptable for the persistence slice.
 
 Apply order on live Confluendo control DB (`confluendo-control`, ref
 `agrcvzlkorlzwoxtkcft`):

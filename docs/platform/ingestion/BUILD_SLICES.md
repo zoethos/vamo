@@ -1341,7 +1341,7 @@ Validation (IP-18.5.0):
 
 | Phase | Scope |
 | --- | --- |
-| IP-18.5.1 | Pure wave eligibility/ramp/approval policy + control schema draft + DB smokes |
+| IP-18.5.1 | Pure wave eligibility/ramp/approval policy + control schema draft (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
 | IP-18.5.2 | Wave executor (per-unit `applyPostgresStagingCanary`) + fake/disposable target smokes |
 | IP-18.5.3 | Dashboard approval/execute + CLI `ip18:batch-staging-canary` |
 | IP-18.5.4 | First live wave (1 unit) after ops sign-off |
@@ -1354,7 +1354,8 @@ Future slices:
 
 After IP-18.5.0 lands, **IP-18.5.1 — Pure wave policy + control schema draft** is
 the next slice: implement eligibility/ramp/approval policies and planned control
-tables with disposable Postgres smokes — still no live Vamo staging writes.
+tables with disposable Postgres smokes that actually run — still no live Vamo
+staging writes.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
