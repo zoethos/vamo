@@ -495,6 +495,54 @@ create table if not exists ingestion_platform.ingestion_batch_queue_items (
   )
 );
 
+create table if not exists ingestion_platform.ingestion_batch_dry_run_executions (
+  id bigint generated always as identity primary key,
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  execution_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  max_units integer not null,
+  audit_id text,
+  audit_reason text not null,
+  actor_type text not null,
+  actor_id text not null,
+  status text not null default 'running',
+  summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  finished_at timestamptz,
+  constraint ingestion_batch_dry_run_executions_execution_key_unique unique (batch_plan_id, execution_key),
+  constraint ingestion_batch_dry_run_executions_target_environment_check check (
+    target_environment in ('staging', 'production')
+  ),
+  constraint ingestion_batch_dry_run_executions_status_check check (
+    status in ('running', 'succeeded', 'partial', 'failed')
+  ),
+  constraint ingestion_batch_dry_run_executions_max_units_positive check (max_units > 0),
+  constraint ingestion_batch_dry_run_executions_summary_object check (
+    jsonb_typeof(summary) = 'object'
+  )
+);
+
+alter table ingestion_platform.ingestion_batch_queue_items
+  drop constraint if exists ingestion_batch_queue_items_status_check;
+
+alter table ingestion_platform.ingestion_batch_queue_items
+  add constraint ingestion_batch_queue_items_status_check check (
+    status in (
+      'planned',
+      'blocked',
+      'ready_for_dry_run',
+      'dry_run_ready',
+      'dry_run_running',
+      'dry_run_succeeded',
+      'dry_run_blocked',
+      'staged_ready',
+      'production_ready',
+      'applied'
+    )
+  );
+
 create index if not exists ingestion_specs_project_id_idx
   on ingestion_platform.ingestion_specs (project_id);
 create index if not exists ingestion_specs_project_kind_status_idx
@@ -623,5 +671,8 @@ create index if not exists ingestion_batch_queue_items_plan_status_idx
   on ingestion_platform.ingestion_batch_queue_items (batch_plan_id, status);
 create index if not exists ingestion_batch_queue_items_country_category_idx
   on ingestion_platform.ingestion_batch_queue_items (batch_plan_id, country_code, category);
+
+create index if not exists ingestion_batch_dry_run_executions_plan_status_idx
+  on ingestion_platform.ingestion_batch_dry_run_executions (batch_plan_id, status, updated_at desc);
 
 commit;

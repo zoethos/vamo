@@ -149,14 +149,48 @@ Confluendo control DB so `confluendo_app` receives the queue-item `UPDATE` grant
 needed by the scheduling route. Without that grant, the dashboard remains able to
 read queue rows but scheduling fails closed with a permission error.
 
+## Dry-run execution orchestration (IP-18.4)
+
+IP-18.4 executes bounded dry-run work from persisted `dry_run_ready` queue units.
+It writes only Confluendo control-plane state:
+
+- `ingestion_batch_dry_run_executions` — idempotent execution ledger keyed by
+  `(batch_plan_id, execution_key)`.
+- Queue item transitions: `dry_run_running` → `dry_run_succeeded` or
+  `dry_run_blocked`, with `run_report` JSONB and blockers.
+- Audit action: `execute_batch_dry_run`.
+
+Policy and simulator are pure modules:
+
+- `evaluateBatchDryRunExecution()` selects eligible units with explicit
+  `target_environment`, target key, max-units bound, and audit reason.
+- `simulateBatchDryRunUnit()` produces deterministic fixture reports with
+  `wroteToTarget: false` — no provider calls.
+
+CLI:
+
+```bash
+npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run
+CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES INGESTION_CONTROL_DATABASE_URL=... \
+  npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run -- --execute --max-units 2 --audit-id 15
+```
+
+Preview is the default mode. Execute requires `CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES`.
+
+**IP-18.3 live evidence:** audit id **15** scheduled 36 units to `dry_run_ready`
+with explicit environment **staging** for target key `vamo-place-intelligence`.
+IP-18.4 dry-run execution builds on that scheduled state without touching Vamo
+targets.
+
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.4 | Staged batch canary waves |
-| IP-18.5 | Production inbox package waves |
+| IP-18.5 | Staged batch canary waves |
+| IP-18.6 | Production inbox package waves |
 
 ## Safety
 
-IP-18.0–18.3: planning and Confluendo control-plane queue persistence/scheduling
-only. No live ingestion, no provider calls, no Vamo staging or production writes.
+IP-18.0–18.4: planning and Confluendo control-plane queue persistence/scheduling/
+execution only. No live ingestion, no provider calls, no Vamo staging or
+production writes.

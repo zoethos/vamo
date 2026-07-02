@@ -14,6 +14,9 @@ export type BatchQueueItemStatus =
   | "blocked"
   | "ready_for_dry_run"
   | "dry_run_ready"
+  | "dry_run_running"
+  | "dry_run_succeeded"
+  | "dry_run_blocked"
   | "staged_ready"
   | "production_ready"
   | "applied";
@@ -23,10 +26,29 @@ export const BATCH_QUEUE_ITEM_STATUSES: readonly BatchQueueItemStatus[] = [
   "blocked",
   "ready_for_dry_run",
   "dry_run_ready",
+  "dry_run_running",
+  "dry_run_succeeded",
+  "dry_run_blocked",
   "staged_ready",
   "production_ready",
   "applied"
 ];
+
+export interface BatchDryRunReport {
+  executionKey?: string;
+  wroteToTarget: false;
+  rowsProcessed: number;
+  insertCount: number;
+  updateCount: number;
+  noOpCount: number;
+  checkpoint?: {
+    cursorScope: string;
+    cursorValue: string;
+    processedCount: number;
+  };
+  completedAt?: string;
+  source?: string;
+}
 
 export interface BatchQueueItem {
   unitKey: string;
@@ -41,6 +63,7 @@ export interface BatchQueueItem {
   priority: number;
   status: BatchQueueItemStatus;
   blockReasons: string[];
+  dryRunReport?: BatchDryRunReport | null;
 }
 
 export interface BatchQueueGroup {
@@ -63,12 +86,30 @@ export interface BatchQueueCoverage {
   matrix: Record<string, Record<string, number>>;
 }
 
+export interface BatchQueueExecutionProgress {
+  dryRunReady: number;
+  dryRunRunning: number;
+  dryRunSucceeded: number;
+  dryRunBlocked: number;
+}
+
 export interface BatchQueueProgress {
   total: number;
   planned: number;
   blocked: number;
   ready: number;
   applied: number;
+  execution: BatchQueueExecutionProgress;
+}
+
+export interface BatchQueueLatestExecution {
+  executionKey: string;
+  status: string;
+  succeededCount: number;
+  blockedCount: number;
+  runningCount: number;
+  auditId?: string;
+  finishedAt?: string;
 }
 
 export interface BatchQueueBlockerSummary {
@@ -90,12 +131,14 @@ export interface BatchQueueSnapshot {
   items: BatchQueueItem[];
   blockerSummaries: BatchQueueBlockerSummary[];
   nextAction: string;
+  latestExecution?: BatchQueueLatestExecution | null;
 }
 
 export interface BuildBatchQueueSnapshotInput {
   plan: BatchPlanResult;
   /** Optional per-unit progression overrides keyed by unitKey. */
   progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>;
+  latestExecution?: BatchQueueLatestExecution | null;
 }
 
 const READY_STATUSES: readonly BatchQueueItemStatus[] = [
@@ -118,7 +161,8 @@ export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): Ba
     sourceKey: input.plan.sourceKey,
     safetyMode: input.plan.safetyMode,
     items,
-    planNextAction: input.plan.nextAction
+    planNextAction: input.plan.nextAction,
+    latestExecution: input.latestExecution
   });
 }
 
@@ -131,6 +175,7 @@ export function buildBatchQueueSnapshotFromItems(input: {
   safetyMode: string;
   items: BatchQueueItem[];
   planNextAction?: string;
+  latestExecution?: BatchQueueLatestExecution | null;
 }): BatchQueueSnapshot {
   const items = [...input.items].sort((a, b) => a.runOrder - b.runOrder);
   return finalizeBatchQueueSnapshot({
@@ -141,7 +186,8 @@ export function buildBatchQueueSnapshotFromItems(input: {
     sourceKey: input.sourceKey,
     safetyMode: input.safetyMode,
     items,
-    planNextAction: input.planNextAction
+    planNextAction: input.planNextAction,
+    latestExecution: input.latestExecution
   });
 }
 
@@ -154,6 +200,7 @@ function finalizeBatchQueueSnapshot(input: {
   safetyMode: string;
   items: BatchQueueItem[];
   planNextAction?: string;
+  latestExecution?: BatchQueueLatestExecution | null;
 }): BatchQueueSnapshot {
   const groups = buildGroups(input.items);
   const coverage = summarizeCoverage(input.items, input.sourceKey);
@@ -178,7 +225,8 @@ function finalizeBatchQueueSnapshot(input: {
       progress,
       blockerSummaries,
       input.planNextAction ?? "Review batch queue."
-    )
+    ),
+    latestExecution: input.latestExecution ?? null
   };
 }
 
@@ -281,7 +329,13 @@ function summarizeProgress(items: BatchQueueItem[]): BatchQueueProgress {
     planned: countByStatus(items, "planned"),
     blocked: countByStatus(items, "blocked"),
     ready: countReady(items),
-    applied: countByStatus(items, "applied")
+    applied: countByStatus(items, "applied"),
+    execution: {
+      dryRunReady: countByStatus(items, "dry_run_ready"),
+      dryRunRunning: countByStatus(items, "dry_run_running"),
+      dryRunSucceeded: countByStatus(items, "dry_run_succeeded"),
+      dryRunBlocked: countByStatus(items, "dry_run_blocked")
+    }
   };
 }
 
@@ -310,12 +364,20 @@ function deriveNextAction(
       : `Resolve ${progress.blocked} blocked unit(s) before dry-run scheduling.`;
   }
   const readyForDryRun = countByStatus(items, "ready_for_dry_run");
-  const dryRunReady = countByStatus(items, "dry_run_ready");
   if (readyForDryRun > 0) {
     return `Review batch queue (${readyForDryRun} ready for dry-run) and approve scheduling.`;
   }
+  const dryRunReady = countByStatus(items, "dry_run_ready");
+  const dryRunRunning = countByStatus(items, "dry_run_running");
+  const dryRunSucceeded = countByStatus(items, "dry_run_succeeded");
+  if (dryRunRunning > 0) {
+    return `${dryRunRunning} unit(s) dry-run running; ${dryRunSucceeded} succeeded so far.`;
+  }
   if (dryRunReady > 0) {
     return `${dryRunReady} unit(s) scheduled for dry-run execution.`;
+  }
+  if (dryRunSucceeded > 0) {
+    return `${dryRunSucceeded} unit(s) completed dry-run execution.`;
   }
   return planNextAction;
 }

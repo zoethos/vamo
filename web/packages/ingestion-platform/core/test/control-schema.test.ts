@@ -20,7 +20,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 describe("ingestion control schema", () => {
   it("declares only platform-owned ingestion tables", () => {
     assert.equal(CONTROL_SCHEMA_NAME, "ingestion_platform");
-    assert.equal(CONTROL_TABLES.length, 20);
+    assert.equal(CONTROL_TABLES.length, 21);
 
     for (const table of CONTROL_TABLES) {
       assert.match(table, /^ingestion_[a-z0-9_]+$/);

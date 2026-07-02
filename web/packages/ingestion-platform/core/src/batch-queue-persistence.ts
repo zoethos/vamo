@@ -7,10 +7,12 @@ import type { BatchPlanSpec } from "./batch-plan-spec.js";
 import {
   BATCH_QUEUE_ITEM_STATUSES,
   buildBatchQueueSnapshotFromItems,
+  type BatchDryRunReport,
   type BatchQueueBlockerSummary,
   type BatchQueueCoverage,
   type BatchQueueItem,
   type BatchQueueItemStatus,
+  type BatchQueueLatestExecution,
   type BatchQueueProgress,
   type BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
@@ -92,7 +94,8 @@ export function mapSnapshotToPersistenceBundle(
 export function mapPersistenceBundleToSnapshot(
   projectKey: string,
   plan: PersistedBatchPlanRow,
-  items: PersistedBatchQueueItemRow[]
+  items: PersistedBatchQueueItemRow[],
+  latestExecution?: BatchQueueLatestExecution | null
 ): BatchQueueSnapshot {
   for (const item of items) {
     assertValidQueueItemStatus(item.status);
@@ -110,7 +113,8 @@ export function mapPersistenceBundleToSnapshot(
     sourceKey: plan.sourceKey,
     safetyMode: plan.safetyMode,
     items: queueItems,
-    planNextAction: plan.planSummary.nextAction
+    planNextAction: plan.planSummary.nextAction,
+    latestExecution: latestExecution ?? null
   });
 }
 
@@ -153,7 +157,32 @@ function mapPersistenceRowToQueueItem(row: PersistedBatchQueueItemRow): BatchQue
     sourceKey: row.sourceKey,
     priority: row.priority,
     status: row.status,
-    blockReasons: row.blockers.slice()
+    blockReasons: row.blockers.slice(),
+    dryRunReport: parseDryRunReport(row.runReport)
+  };
+}
+
+function parseDryRunReport(value: Record<string, unknown> | null): BatchDryRunReport | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  return {
+    executionKey: typeof value.executionKey === "string" ? value.executionKey : undefined,
+    wroteToTarget: false,
+    rowsProcessed: Number(value.rowsProcessed ?? 0),
+    insertCount: Number(value.insertCount ?? 0),
+    updateCount: Number(value.updateCount ?? 0),
+    noOpCount: Number(value.noOpCount ?? 0),
+    checkpoint:
+      value.checkpoint && typeof value.checkpoint === "object"
+        ? {
+            cursorScope: String((value.checkpoint as Record<string, unknown>).cursorScope ?? ""),
+            cursorValue: String((value.checkpoint as Record<string, unknown>).cursorValue ?? ""),
+            processedCount: Number((value.checkpoint as Record<string, unknown>).processedCount ?? 0)
+          }
+        : undefined,
+    completedAt: typeof value.completedAt === "string" ? value.completedAt : undefined,
+    source: typeof value.source === "string" ? value.source : undefined
   };
 }
 

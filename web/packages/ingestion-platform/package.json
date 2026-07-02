@@ -65,6 +65,7 @@
     "ip17:production-inbox": "npm run build && node scripts/run-ip17-production-inbox.mjs",
     "ip18:batch-plan": "npm run build && node scripts/run-ip18-batch-plan.mjs",
     "ip18:batch-queue-seed": "npm run build && node scripts/run-ip18-batch-queue-seed.mjs",
+    "ip18:batch-dry-run": "npm run build && node scripts/run-ip18-batch-dry-run.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },
