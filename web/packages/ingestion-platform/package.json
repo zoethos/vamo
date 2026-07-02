@@ -35,6 +35,10 @@
       "types": "./dist/core/src/progressive-control-read.d.ts",
       "default": "./dist/core/src/progressive-control-read.js"
     },
+    "./batch-queue-control-read": {
+      "types": "./dist/core/src/batch-queue-control-read.d.ts",
+      "default": "./dist/core/src/batch-queue-control-read.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"
@@ -56,6 +60,7 @@
     "ip16:staging-canary": "npm run build && node scripts/run-ip16-staging-canary.mjs",
     "ip17:production-inbox": "npm run build && node scripts/run-ip17-production-inbox.mjs",
     "ip18:batch-plan": "npm run build && node scripts/run-ip18-batch-plan.mjs",
+    "ip18:batch-queue-seed": "npm run build && node scripts/run-ip18-batch-queue-seed.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

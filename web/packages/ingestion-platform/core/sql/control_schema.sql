@@ -418,6 +418,83 @@ create table if not exists ingestion_platform.ingestion_schedule_proposals (
   constraint ingestion_schedule_proposals_target_key_unique unique (project_id, target_key)
 );
 
+create table if not exists ingestion_platform.ingestion_batch_plans (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  plan_key text not null,
+  source_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  safety_mode text not null default 'dry_run',
+  spec jsonb not null,
+  plan_summary jsonb not null default '{}'::jsonb,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_plans_plan_key_unique unique (project_id, plan_key),
+  constraint ingestion_batch_plans_target_environment_check check (
+    target_environment in ('staging', 'production')
+  ),
+  constraint ingestion_batch_plans_safety_mode_check check (
+    safety_mode = 'dry_run'
+  ),
+  constraint ingestion_batch_plans_status_check check (
+    status in ('active', 'archived')
+  ),
+  constraint ingestion_batch_plans_spec_object check (
+    jsonb_typeof(spec) = 'object'
+  ),
+  constraint ingestion_batch_plans_plan_summary_object check (
+    jsonb_typeof(plan_summary) = 'object'
+  )
+);
+
+create table if not exists ingestion_platform.ingestion_batch_queue_items (
+  id bigint generated always as identity primary key,
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  unit_key text not null,
+  country_code text not null,
+  geography_key text not null,
+  geography_label text,
+  geography_kind text not null,
+  category text not null,
+  source_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  status text not null,
+  priority integer not null default 0,
+  run_order integer not null,
+  blockers jsonb not null default '[]'::jsonb,
+  proposal jsonb,
+  run_report jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_queue_items_unit_key_unique unique (batch_plan_id, unit_key),
+  constraint ingestion_batch_queue_items_target_environment_check check (
+    target_environment in ('staging', 'production')
+  ),
+  constraint ingestion_batch_queue_items_status_check check (
+    status in (
+      'planned',
+      'blocked',
+      'ready_for_dry_run',
+      'dry_run_ready',
+      'staged_ready',
+      'production_ready',
+      'applied'
+    )
+  ),
+  constraint ingestion_batch_queue_items_blockers_array check (
+    jsonb_typeof(blockers) = 'array'
+  ),
+  constraint ingestion_batch_queue_items_proposal_object check (
+    proposal is null or jsonb_typeof(proposal) = 'object'
+  ),
+  constraint ingestion_batch_queue_items_run_report_object check (
+    run_report is null or jsonb_typeof(run_report) = 'object'
+  )
+);
+
 create index if not exists ingestion_specs_project_id_idx
   on ingestion_platform.ingestion_specs (project_id);
 create index if not exists ingestion_specs_project_kind_status_idx
@@ -536,5 +613,15 @@ create index if not exists ingestion_audit_log_action_target_idx
 
 create index if not exists ingestion_schedule_proposals_project_status_idx
   on ingestion_platform.ingestion_schedule_proposals (project_id, work_status, created_at desc);
+
+create index if not exists ingestion_batch_plans_project_status_idx
+  on ingestion_platform.ingestion_batch_plans (project_id, status, updated_at desc);
+create index if not exists ingestion_batch_plans_project_target_status_idx
+  on ingestion_platform.ingestion_batch_plans (project_id, target_key, status, updated_at desc);
+
+create index if not exists ingestion_batch_queue_items_plan_status_idx
+  on ingestion_platform.ingestion_batch_queue_items (batch_plan_id, status);
+create index if not exists ingestion_batch_queue_items_country_category_idx
+  on ingestion_platform.ingestion_batch_queue_items (batch_plan_id, country_code, category);
 
 commit;

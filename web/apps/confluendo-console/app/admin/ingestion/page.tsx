@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
-  sampleVamoEuPoiBatchQueueSnapshot,
 } from "@confluendo/ingestion-platform/core";
+import { loadIp18BatchQueue } from "@/lib/ip18-batch-queue-data";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
@@ -84,7 +84,7 @@ export default async function IngestionDashboardPage() {
     assuranceLevel: principal.assuranceLevel,
     source,
   };
-  const batchQueue = sampleVamoEuPoiBatchQueueSnapshot();
+  const { snapshot: batchQueue, source: batchQueueSource } = await loadIp18BatchQueue("vamo");
   const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
   const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
 
@@ -467,7 +467,11 @@ export default async function IngestionDashboardPage() {
             <p className="admin-kicker">IP-18.1 · batch queue</p>
             <h2>Automated target batch queue</h2>
           </div>
-          <span className="admin-readonly-pill">Read-only queue · sample fixture</span>
+          <span className="admin-readonly-pill">
+            {batchQueueSource === "live"
+              ? "Live control plane · read-only queue"
+              : "Sample preview · read-only queue"}
+          </span>
         </div>
         <p className="admin-next-action">
           <strong>Next action:</strong> {batchQueue.nextAction}

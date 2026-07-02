@@ -1119,9 +1119,9 @@ Safety:
 
 ## Slice IP-18.1 - Dashboard Batch Queue Read Model
 
-Status: **active / read-model slice**. Queue and progress projection only — no
-live ingestion, no provider calls, no staging writes, no production inbox
-delivery, and no database writes.
+Status: **done** (IP-18.1 merged). Queue and progress projection only — no live
+ingestion, no provider calls, no staging writes, no production inbox delivery,
+and no database writes.
 
 Goal:
 
@@ -1139,18 +1139,43 @@ Delivered in IP-18.1:
 - Unit tests for grouping, coverage (36 units), blockers, progression math, and
   env-neutral target keys.
 
+## Slice IP-18.2 - Persistent Batch Queue / Control Table
+
+Status: **active / implemented**. Writes only to Confluendo control-plane queue
+tables (`ingestion_batch_plans`, `ingestion_batch_queue_items`). No provider
+calls, no Vamo staging writes, no production inbox delivery.
+
+Goal:
+
+Persist IP-18.1 batch queue state so the dashboard can read live queue rows from
+the control DB instead of only bundled sample data.
+
+Delivered in IP-18.2:
+
+- Idempotent control schema tables with status CHECK constraints matching the
+  IP-18.1 queue status set (`CONTROL_TABLES` now 20).
+- Pure persistence mapper and idempotent `persistBatchQueueSnapshot()` upserts.
+- `loadBatchQueueSnapshot()` live read loader with undefined-table fallback.
+- Console prefers live control-plane rows when present; labels **Live control
+  plane** vs **Sample preview**.
+- Seed generator: `npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed`.
+- Disposable Postgres smokes: apply schema, persist sample twice, reload 36 units.
+
+Ops note: live dashboard queue data appears only after `control_schema.sql` (with
+IP-18.2 tables) is applied to the live Confluendo control DB and the seed or
+persist helper has run. Merge alone correctly falls back to sample preview when
+tables or rows are absent.
+
 Future slices:
 
-- **IP-18.2** — persistent batch queue / control table
 - **IP-18.3** — operator scheduling mutations
 - **IP-18.4** — staged batch canary waves
 - **IP-18.5** — production inbox package waves
 
 ## Recommended Immediate Next Slice
 
-After IP-18.1 lands, **IP-18.2 - Persistent Batch Queue** is the next slice:
-idempotent control-schema table/migration and loader wiring so queue state
-survives page reloads without changing the IP-18.1 read-model shape.
+After IP-18.2 lands, **IP-18.3 - Operator Scheduling Mutations** is the next
+slice: queue mutation controls on top of the persisted read model.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends

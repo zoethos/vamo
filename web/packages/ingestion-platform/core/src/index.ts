@@ -273,7 +273,9 @@ export {
 } from "./batch-plan-read-model.js";
 export {
   buildBatchQueueSnapshot,
+  buildBatchQueueSnapshotFromItems,
   sampleVamoEuPoiBatchQueueSnapshot,
+  BATCH_QUEUE_ITEM_STATUSES,
   type BatchQueueSnapshot,
   type BatchQueueGroup,
   type BatchQueueItem,
@@ -283,3 +285,24 @@ export {
   type BatchQueueBlockerSummary,
   type BuildBatchQueueSnapshotInput
 } from "./batch-queue-read-model.js";
+export {
+  mapSnapshotToPersistenceBundle,
+  mapPersistenceBundleToSnapshot,
+  assertValidQueueItemStatus,
+  type PersistedBatchPlanRow,
+  type PersistedBatchQueueItemRow,
+  type BatchQueuePersistenceBundle,
+  type BatchPlanSummaryPayload
+} from "./batch-queue-persistence.js";
+export {
+  persistBatchQueueSnapshot,
+  buildSamplePersistenceBundle,
+  type BatchQueueControlPgClientLike,
+  type PersistBatchQueueSnapshotInput,
+  type PersistBatchQueueSnapshotResult
+} from "./batch-queue-control.js";
+export {
+  loadBatchQueueSnapshot,
+  type BatchQueueControlReadPgClientLike,
+  type LoadBatchQueueSnapshotInput
+} from "./batch-queue-control-read.js";
