@@ -1991,6 +1991,272 @@ a:hover {
   color: var(--go-lime);
 }
 
+/* Confluendo ingestion palette refresh.
+   Keep this late in the cascade so older light/dark one-off colors cannot
+   leak unreadable ink into the operator console. */
+.admin-console {
+  --admin-bg: #f4f7fb;
+  --admin-panel: rgba(255, 255, 255, 0.94);
+  --admin-panel-strong: #ffffff;
+  --admin-panel-soft: #eef3f8;
+  --admin-line: rgba(15, 27, 45, 0.12);
+  --admin-line-strong: rgba(15, 27, 45, 0.2);
+  --admin-text: #0f1b2d;
+  --admin-muted: #52647a;
+  --admin-muted-2: #718096;
+  --admin-coral: #ff6b5c;
+  --admin-amber: #a85d00;
+  --admin-teal: #0f766e;
+  --admin-indigo: #3f4fcf;
+  --admin-shadow: 0 16px 48px rgba(15, 27, 45, 0.08);
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+.admin-console[data-theme="dark"] {
+  --dashboard-toggle-bg: var(--admin-panel-soft);
+  --dashboard-toggle-border: var(--admin-line);
+  --dashboard-toggle-text: var(--admin-text);
+  --dashboard-toggle-track: rgba(233, 237, 244, 0.14);
+  --dashboard-toggle-thumb: var(--admin-teal);
+  --admin-bg: #0e1626;
+  --admin-panel: #141d33;
+  --admin-panel-strong: #18223b;
+  --admin-panel-soft: #1a2440;
+  --admin-line: rgba(255, 255, 255, 0.09);
+  --admin-line-strong: rgba(255, 255, 255, 0.18);
+  --admin-text: #e9edf4;
+  --admin-muted: #96a2b6;
+  --admin-muted-2: #8390a5;
+  --admin-coral: #ff6b5c;
+  --admin-amber: #ffb03a;
+  --admin-teal: #27c2a0;
+  --admin-indigo: #7f89ff;
+  --admin-shadow: none;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+}
+
+.admin-console[data-theme="light"] {
+  --dashboard-toggle-bg: rgba(255, 255, 255, 0.92);
+  --dashboard-toggle-border: var(--admin-line);
+  --dashboard-toggle-text: var(--admin-text);
+  --dashboard-toggle-track: rgba(15, 118, 110, 0.12);
+  --dashboard-toggle-thumb: var(--admin-teal);
+}
+
+.admin-console a,
+.admin-console .admin-brand,
+.admin-console .admin-backlink {
+  color: var(--admin-teal);
+}
+
+.admin-console .admin-brand:hover,
+.admin-console .admin-backlink:hover {
+  color: var(--admin-coral);
+}
+
+.admin-console .admin-nav,
+.admin-console .admin-user-chip,
+.admin-console .admin-stepup-timer,
+.admin-console .admin-logout-button,
+.admin-console .dashboard-theme-toggle,
+.admin-console .admin-readonly-pill,
+.admin-console .admin-table-count {
+  border-color: var(--admin-line);
+  background: var(--admin-panel-soft);
+  color: var(--admin-text);
+}
+
+.admin-console .admin-nav-link {
+  color: var(--admin-muted);
+}
+
+.admin-console .admin-nav-link:hover {
+  color: var(--admin-text);
+  background: rgba(39, 194, 160, 0.1);
+}
+
+.admin-console .admin-nav-link-active {
+  color: var(--admin-bg);
+  background: var(--admin-text);
+}
+
+.admin-console .admin-user-copy span,
+.admin-console .admin-user-copy small,
+.admin-console .admin-stepup-timer span,
+.admin-console .admin-table-count,
+.admin-console .admin-readonly-pill,
+.admin-console .admin-surface-header,
+.admin-console .admin-definition-grid dt,
+.admin-console .admin-target-table th,
+.admin-console .admin-target-table td span,
+.admin-console .admin-event time,
+.admin-console .admin-event-title span,
+.admin-console .admin-command-result span,
+.admin-console .admin-command-confirm label {
+  color: var(--admin-muted-2);
+}
+
+.admin-console .admin-user-copy strong,
+.admin-console .admin-stepup-timer strong {
+  color: var(--admin-text);
+}
+
+.admin-console .admin-stepup-expired {
+  border-color: rgba(255, 107, 92, 0.5);
+  background: rgba(255, 107, 92, 0.12);
+}
+
+.admin-console .admin-hero-copy,
+.admin-console .admin-command-surface,
+.admin-console .admin-instance-card,
+.admin-console .admin-target-table-panel,
+.admin-console .admin-failure-panel,
+.admin-console .admin-panel,
+.admin-console .admin-policy-panel,
+.admin-console .admin-signal,
+.admin-console .admin-canary-control {
+  border-color: var(--admin-line);
+  background: var(--admin-panel);
+  box-shadow: var(--admin-shadow);
+  color: var(--admin-text);
+}
+
+.admin-console .admin-kicker,
+.admin-console .admin-surface-header strong {
+  color: var(--admin-amber);
+}
+
+.admin-console .admin-hero h1,
+.admin-console .admin-section h2,
+.admin-console .admin-failure-panel h2,
+.admin-console .admin-signal strong,
+.admin-console .admin-stat strong,
+.admin-console .admin-card-topline h3,
+.admin-console .admin-target-table td strong,
+.admin-console .admin-event-title strong,
+.admin-console .admin-canary-control h3,
+.admin-console .admin-policy-panel h2 {
+  color: var(--admin-text);
+}
+
+.admin-console .admin-hero p,
+.admin-console .admin-next-action,
+.admin-console .admin-rationale,
+.admin-console .admin-signal p,
+.admin-console .admin-stat p,
+.admin-console .admin-instance-card p,
+.admin-console .admin-target-table td,
+.admin-console .admin-definition-grid dd,
+.admin-console .admin-event p,
+.admin-console .admin-event small,
+.admin-console .admin-policy-panel li,
+.admin-console .admin-canary-note,
+.admin-console .admin-canary-fields label,
+.admin-console .admin-canary-reason {
+  color: var(--admin-muted);
+}
+
+.admin-console .admin-next-action strong,
+.admin-console .admin-rationale strong {
+  color: var(--admin-text);
+}
+
+.admin-console .admin-command-neutral,
+.admin-console .admin-target-table th,
+.admin-console .admin-stat,
+.admin-console .admin-event,
+.admin-console .admin-policy-panel li,
+.admin-console .admin-command-confirm,
+.admin-console .admin-command-result,
+.admin-console .admin-canary-fields input,
+.admin-console .admin-canary-reason textarea,
+.admin-console code {
+  border-color: var(--admin-line);
+  background: var(--admin-panel-soft);
+  color: var(--admin-text);
+}
+
+.admin-console .admin-target-table th,
+.admin-console .admin-target-table td {
+  border-bottom-color: var(--admin-line);
+}
+
+.admin-console .admin-command-primary,
+.admin-console .admin-row-control,
+.admin-console .admin-wide-control {
+  border-color: var(--admin-text);
+  background: var(--admin-text);
+  color: var(--admin-bg);
+}
+
+.admin-console .admin-command-danger {
+  border-color: rgba(255, 107, 92, 0.42);
+  background: rgba(255, 107, 92, 0.12);
+  color: var(--admin-coral);
+}
+
+.admin-console .admin-command:disabled,
+.admin-console .admin-row-control:disabled,
+.admin-console .admin-wide-control:disabled,
+.admin-console textarea:disabled,
+.admin-console input:disabled {
+  opacity: 0.78;
+}
+
+.admin-console .admin-status-running,
+.admin-console .admin-tone-good {
+  border-color: rgba(39, 194, 160, 0.34);
+}
+
+.admin-console .admin-status-running {
+  background: rgba(39, 194, 160, 0.14);
+  color: var(--admin-teal);
+}
+
+.admin-console .admin-status-paused,
+.admin-console .admin-status-queued {
+  background: rgba(255, 176, 58, 0.14);
+  color: var(--admin-amber);
+}
+
+.admin-console .admin-status-stopped,
+.admin-console .admin-status-blocked {
+  background: rgba(255, 107, 92, 0.14);
+  color: var(--admin-coral);
+}
+
+.admin-console .admin-status-complete {
+  background: rgba(39, 194, 160, 0.14);
+  color: var(--admin-teal);
+}
+
+.admin-console .admin-command-result-ok {
+  border-color: rgba(39, 194, 160, 0.34);
+  background: rgba(39, 194, 160, 0.1);
+  color: var(--admin-teal);
+}
+
+.admin-console .admin-command-result-error {
+  border-color: rgba(255, 107, 92, 0.38);
+  background: rgba(255, 107, 92, 0.12);
+  color: var(--admin-coral);
+}
+
+.admin-console .admin-command-result-ok span,
+.admin-console .admin-command-result-error span {
+  color: var(--admin-muted);
+}
+
+.admin-console .admin-canary-disabled {
+  color: var(--admin-coral);
+}
+
+.admin-console .dashboard-theme-toggle-thumb {
+  background: var(--dashboard-toggle-thumb);
+}
+
 .admin-sign-in-page + .site-footer {
   display: none;
 }

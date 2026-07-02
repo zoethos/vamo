@@ -85,7 +85,7 @@ export default async function IngestionDashboardPage() {
   return (
     <main
       className="provider-dashboard admin-console"
-      data-theme="light"
+      data-theme="dark"
       id="ingestion-dashboard-theme-root"
     >
       <nav className="provider-masthead admin-masthead" aria-label="Admin dashboard">
@@ -111,7 +111,7 @@ export default async function IngestionDashboardPage() {
             serverNowMs={serverNowMs}
           />
           <DashboardThemeToggle
-            defaultTheme="light"
+            defaultTheme="dark"
             label="Ingestion dashboard theme"
             rootId="ingestion-dashboard-theme-root"
             storageKey="ingestion-dashboard-theme"
