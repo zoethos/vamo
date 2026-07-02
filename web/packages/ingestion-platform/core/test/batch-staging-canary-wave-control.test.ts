@@ -203,16 +203,15 @@ describe("batch staging-canary wave approval control", () => {
           targetEnvironment: "staging",
           maxUnits: 5,
           maxRows: 50,
-          auditReason: "Second wave should only pick remaining dry_run_succeeded units.",
+          auditReason: "Widening should wait for a succeeded staging canary.",
           waveKey: "batch-staging-canary:vamo-eu-poi-sample:second-wave",
           now: NOW
         });
-        assert.equal(secondWaveDecision.ok, true);
-        if (!secondWaveDecision.ok) {
-          throw new Error("remaining dry_run_succeeded unit should still be eligible");
+        assert.equal(secondWaveDecision.ok, false);
+        if (secondWaveDecision.ok) {
+          throw new Error("expected widening to block before a staging-canary success");
         }
-        assert.equal(secondWaveDecision.plan.unitKeys.length, 1);
-        assert.equal(secondWaveDecision.plan.selectedUnits[0]?.status, "dry_run_succeeded");
+        assert.ok(secondWaveDecision.blocks.some((block) => block.code === "ramp_exceeded"));
 
         const invalidSnapshot = buildBatchQueueSnapshotFromItems({
           planId: afterApproval.planId,

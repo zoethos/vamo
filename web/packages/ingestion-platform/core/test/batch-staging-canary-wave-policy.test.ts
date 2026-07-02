@@ -98,6 +98,7 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
 
   it("respects maxUnits and maxRows bounds", () => {
     const snapshot = snapshotWithItems([
+      { ...succeededItem("already-staged"), status: "staging_canary_succeeded" },
       succeededItem("unit-a", { writeCount: 10 }),
       succeededItem("unit-b", { writeCount: 10 }),
       succeededItem("unit-c", { writeCount: 10 })
@@ -109,6 +110,18 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
     if (!result.ok) return;
     assert.equal(result.plan.unitKeys.length, 1);
     assert.equal(result.plan.totalPlannedRows, 10);
+  });
+
+  it("refuses an oversized first live wave before any staging canary has succeeded", () => {
+    const snapshot = snapshotWithItems([
+      succeededItem("unit-a", { writeCount: 1 }),
+      succeededItem("unit-b", { writeCount: 1 }),
+      succeededItem("unit-c", { writeCount: 1 })
+    ]);
+    const result = evaluateBatchStagingCanaryWaveApproval(
+      validInput({ snapshot, maxUnits: 33, maxRows: 50 })
+    );
+    assertBlocked(result, "ramp_exceeded");
   });
 
   it("counts eligible dry_run_succeeded units for dashboard visibility", () => {

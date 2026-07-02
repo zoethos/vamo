@@ -18,6 +18,8 @@ export type BatchStagingCanaryWaveExecutionBlockCode =
   | "target_environment_mismatch"
   | "max_units_invalid"
   | "max_rows_invalid"
+  | "approved_wave_bounds_exceeded"
+  | "ramp_exceeded"
   | "no_pending_items";
 
 export interface BatchStagingCanaryWaveExecutionBlock {
@@ -73,6 +75,8 @@ const DEFAULT_SAFETY_SUMMARY = [
   "No production writes. No live provider calls.",
   "Execute requires CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES and VAMO_STAGING_DATABASE_URL."
 ] as const;
+
+const FIRST_WAVE_MAX_UNITS = 1;
 
 export function evaluateBatchStagingCanaryWaveExecution(
   input: EvaluateBatchStagingCanaryWaveExecutionInput
@@ -135,6 +139,32 @@ export function evaluateBatchStagingCanaryWaveExecution(
     blocks.push({
       code: "max_rows_invalid",
       message: "maxRows must be a positive integer."
+    });
+  }
+
+  if (Number.isFinite(maxUnits) && maxUnits > input.wave.maxUnits) {
+    blocks.push({
+      code: "approved_wave_bounds_exceeded",
+      message: `Requested maxUnits (${maxUnits}) exceeds the approved wave bound (${input.wave.maxUnits}).`
+    });
+  }
+
+  if (Number.isFinite(maxRows) && maxRows > input.wave.maxRows) {
+    blocks.push({
+      code: "approved_wave_bounds_exceeded",
+      message: `Requested maxRows (${maxRows}) exceeds the approved wave bound (${input.wave.maxRows}).`
+    });
+  }
+
+  if (
+    input.wave.priorSucceededUnitCount === 0 &&
+    Number.isFinite(maxUnits) &&
+    maxUnits > FIRST_WAVE_MAX_UNITS
+  ) {
+    blocks.push({
+      code: "ramp_exceeded",
+      message:
+        "The first live staging-canary wave is hard-capped at 1 unit. Run and verify a 1-unit wave before widening."
     });
   }
 

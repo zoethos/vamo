@@ -1313,8 +1313,9 @@ Key gates documented:
 - Eligibility: `dry_run_succeeded` only, `wroteToTarget=false`, explicit
   `target_environment='staging'`, explicit `target_key='vamo-place-intelligence'`,
   `STAGING_CANARY_MAX_ROWS=50` per unit, wave `maxUnits` + `maxTotalRows` bounds.
-- Ramp: first live wave recommended **1 unit**; widening requires explicit new
-  operator approval; "all 33 remaining units" forbidden as first wave.
+- Ramp: first live wave hard-capped at **1 unit** in approval and execution
+  policy; widening requires explicit new operator approval after prior staging
+  success; "all 33 remaining units" forbidden as first wave.
 - Approval: `ingestion_admin` + verified AAL2 + fresh MFA step-up + audit reason;
   reuse `STAGING_CANARY_APPROVAL_MAX_AGE_MS` (15 minutes); control DB only.
 - Partial failure: **stop-on-first-failure**; succeeded units stay succeeded.

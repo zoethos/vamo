@@ -31,6 +31,7 @@ export type BatchStagingCanaryWaveBlockCode =
   | "target_key_mismatch"
   | "max_units_invalid"
   | "max_rows_invalid"
+  | "ramp_exceeded"
   | "unsafe_safety_mode"
   | "dry_run_report_missing"
   | "dry_run_invariant_violated"
@@ -90,6 +91,8 @@ const DEFAULT_SAFETY_SUMMARY = [
   "No Vamo production writes.",
   "Live staging execution requires a separate confirmation-gated runbook step."
 ] as const;
+
+const FIRST_WAVE_MAX_UNITS = 1;
 
 export function evaluateBatchStagingCanaryWaveApproval(
   input: EvaluateBatchStagingCanaryWaveApprovalInput
@@ -188,6 +191,20 @@ export function evaluateBatchStagingCanaryWaveApproval(
     blocks.push({
       code: "max_rows_invalid",
       message: "maxRows must be a positive integer."
+    });
+  }
+
+  const hasPriorStagingCanarySuccess = input.snapshot.items.some(
+    (item) =>
+      item.targetKey === input.targetKey &&
+      item.targetEnvironment === input.targetEnvironment &&
+      item.status === "staging_canary_succeeded"
+  );
+  if (!hasPriorStagingCanarySuccess && input.maxUnits > FIRST_WAVE_MAX_UNITS) {
+    blocks.push({
+      code: "ramp_exceeded",
+      message:
+        "The first live staging-canary wave is hard-capped at 1 unit. Run and verify a 1-unit wave before widening."
     });
   }
 

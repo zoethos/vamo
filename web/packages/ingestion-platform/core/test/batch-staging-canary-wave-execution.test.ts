@@ -144,6 +144,67 @@ describe("batch staging-canary wave execution", () => {
   );
 
   it(
+    "refuses an oversized first wave before any staging writes",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+
+      try {
+        await resetSchemas(client);
+        const approved = await seedApprovedWave(client);
+        await setupStagingTarget(client, { withSentinel: true });
+        await client.query(
+          `
+            update ingestion_platform.ingestion_batch_canary_waves
+            set max_units = 33
+            where id = $1::bigint
+          `,
+          [approved.waveId]
+        );
+        for (let index = 2; index <= 33; index += 1) {
+          await client.query(
+            `
+              insert into ingestion_platform.ingestion_batch_canary_wave_items (
+                wave_id,
+                unit_key,
+                run_order,
+                status,
+                planned_row_count
+              )
+              values ($1::bigint, $2, $3, 'approved', 1)
+            `,
+            [approved.waveId, `unit-${index}`, index]
+          );
+        }
+
+        await assert.rejects(
+          () =>
+            runWaveExecution(client, databaseUrl, approved.waveKey, {
+              maxUnits: 33,
+              loadCandidates: async () => {
+                throw new Error("loadCandidates must not run when ramp is exceeded");
+              },
+              applyUnit: async () => {
+                throw new Error("applyUnit must not run when ramp is exceeded");
+              }
+            }),
+          /ramp_exceeded|first live staging-canary wave/
+        );
+        assert.equal(await stagingRowCount(client), 0);
+        const wave = await client.query<{ status: string }>(
+          `select status from ingestion_platform.ingestion_batch_canary_waves where id = $1::bigint`,
+          [approved.waveId]
+        );
+        assert.equal(wave.rows[0]?.status, "approved");
+      } finally {
+        await client.end();
+      }
+    }
+  );
+
+  it(
     "fails closed when no eligible wave items remain",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
     async () => {
@@ -278,6 +339,7 @@ async function runWaveExecution(
   waveKey: string,
   deps?: {
     targetEnvironment?: string;
+    maxUnits?: number;
     loadCandidates?: (input: {
       scope: import("../src/batch-staging-canary-wave-candidates.js").BatchWaveUnitScope;
     }) => Promise<StagedCandidate[]>;
@@ -290,6 +352,7 @@ async function runWaveExecution(
     projectKey: "vamo",
     targetEnvironment: deps?.targetEnvironment ?? "staging",
     waveKey,
+    maxUnits: deps?.maxUnits,
     actor: { type: "operator", id: "operator-smoke" },
     reason: "Batch staging-canary wave execution smoke",
     target: stagingTargetSpec(),

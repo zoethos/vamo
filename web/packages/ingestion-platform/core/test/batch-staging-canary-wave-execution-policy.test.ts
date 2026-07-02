@@ -132,6 +132,38 @@ describe("evaluateBatchStagingCanaryWaveExecution", () => {
     assert.deepEqual(result.plan.pendingUnitKeys, ["unit-b"]);
     assert.equal(result.plan.unitPlans.filter((plan) => plan.status === "skip_succeeded").length, 1);
   });
+
+  it("refuses an oversized first live wave even when many items are approved", () => {
+    const result = evaluateBatchStagingCanaryWaveExecution({
+      projectKey: "vamo",
+      targetEnvironment: "staging",
+      wave: sampleWave({
+        maxUnits: 33,
+        items: Array.from({ length: 33 }, (_, index) => ({
+          id: String(index + 1),
+          unitKey: `unit-${index + 1}`,
+          runOrder: index + 1,
+          status: "approved",
+          plannedRowCount: 1,
+          blockers: [],
+          shipmentId: null
+        }))
+      }),
+      now: NOW
+    });
+    assertBlocked(result, "ramp_exceeded");
+  });
+
+  it("refuses execute overrides above the approved wave bounds", () => {
+    const result = evaluateBatchStagingCanaryWaveExecution({
+      projectKey: "vamo",
+      targetEnvironment: "staging",
+      wave: sampleWave({ priorSucceededUnitCount: 1, maxUnits: 1 }),
+      maxUnits: 2,
+      now: NOW
+    });
+    assertBlocked(result, "approved_wave_bounds_exceeded");
+  });
 });
 
 function assertBlocked(
@@ -158,6 +190,7 @@ function sampleWave(overrides: Partial<LoadedStagingCanaryWave> = {}): LoadedSta
     approvalAuditId: "42",
     approvedAt: NOW,
     approvalExpiresAt: FRESH_EXPIRY,
+    priorSucceededUnitCount: 0,
     summary: {},
     items: [
       {

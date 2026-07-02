@@ -35,6 +35,7 @@ export interface LoadedStagingCanaryWave {
   approvalAuditId: string | null;
   approvedAt: string;
   approvalExpiresAt: string;
+  priorSucceededUnitCount: number;
   summary: Record<string, unknown>;
   items: LoadedStagingCanaryWaveItem[];
 }
@@ -60,6 +61,7 @@ interface WaveRow extends Record<string, unknown> {
   auditReason: string;
   approvedAt: string | Date;
   approvalExpiresAt: string | Date;
+  priorSucceededUnitCount: number;
   summary: Record<string, unknown> | null;
   approvalAuditId: string | null;
 }
@@ -119,6 +121,16 @@ export async function loadStagingCanaryWave(
           w.audit_reason as "auditReason",
           w.approved_at as "approvedAt",
           w.approval_expires_at as "approvalExpiresAt",
+          (
+            select count(*)::int
+            from ingestion_platform.ingestion_batch_canary_waves prior_w
+            join ingestion_platform.ingestion_batch_canary_wave_items prior_i on prior_i.wave_id = prior_w.id
+            where prior_w.batch_plan_id = w.batch_plan_id
+              and prior_w.target_key = w.target_key
+              and prior_w.target_environment = w.target_environment
+              and prior_w.id <> w.id
+              and prior_i.status = 'succeeded'
+          ) as "priorSucceededUnitCount",
           w.summary,
           coalesce(w.summary->>'approvalAuditId', a.id::text) as "approvalAuditId"
         from ingestion_platform.ingestion_batch_canary_waves w
@@ -177,6 +189,7 @@ export async function loadStagingCanaryWave(
       approvalAuditId: wave.approvalAuditId,
       approvedAt: toIsoString(wave.approvedAt) ?? "",
       approvalExpiresAt: toIsoString(wave.approvalExpiresAt) ?? "",
+      priorSucceededUnitCount: wave.priorSucceededUnitCount,
       summary: wave.summary ?? {},
       items: items.rows.map((row) => ({
         id: row.id,

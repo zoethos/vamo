@@ -60,8 +60,8 @@ After IP-18.4 merge and live control-schema apply:
 | Dry-run invariant | All three reports show `wroteToTarget=false` |
 
 IP-18.5 waves start from `dry_run_succeeded` units only. The first live staging
-wave should select from the three succeeded units (recommended: **1 unit**), not
-from the 33 still-`dry_run_ready` rows.
+wave is hard-capped to **1 unit** from the three succeeded units, not from the
+33 still-`dry_run_ready` rows.
 
 ## 3. State machine
 
@@ -151,8 +151,8 @@ The first live staging wave must be **minimal**.
 
 | Rule | First wave | Later waves |
 | --- | --- | --- |
-| Recommended `maxUnits` | **1** | Operator-chosen, still bounded |
-| Maximum without extra approval | **1** for first live wave | Widening requires a **new explicit operator approval** with audit reason |
+| Hard `maxUnits` cap | **1** | Operator-chosen, still bounded |
+| Maximum without prior staging success | **1** for first live wave | Widening requires a **new explicit operator approval** with audit reason |
 | Forbidden | Selecting all 33 remaining `dry_run_ready` units | Any wave that skips ramp approval when `maxUnits > priorApprovedMaxUnits` |
 | Ordering | Deterministic: `run_order` asc, then `unit_key` asc | Same |
 
@@ -160,7 +160,7 @@ Ramp policy is separate from eligibility: a unit may be eligible but excluded fr
 the current wave because the wave's approved `maxUnits` / `maxTotalRows` cap is
 lower than the eligible pool size.
 
-Example first-live wave (recommended):
+Example first-live wave:
 
 - `maxUnits = 1`
 - `maxTotalRows = 50`
@@ -335,6 +335,8 @@ Live wave execute requires all of:
 - Explicit `--execute` (preview default)
 - Per-unit `applyPostgresStagingCanary` with `confluendo_guard.environment_sentinel` proof
 - Ramp bounds (`--max-units`, `--max-rows`) ≤ approved wave caps
+- First live staging wave `maxUnits <= 1`; approval and execute both fail closed
+  with `ramp_exceeded` before any Vamo staging write if this cap is exceeded
 
 ### 11.5 Staging grants (disposable Postgres / Vamo staging)
 
