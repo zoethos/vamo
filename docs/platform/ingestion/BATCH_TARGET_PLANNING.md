@@ -215,11 +215,50 @@ DB with `CONFIRM_CONFLUENDO_BATCH_DRY_RUN=YES`:
 This proof wrote only Confluendo control-plane execution state and audit rows.
 It did not call live providers and did not write to Vamo staging or production.
 
+## Staged batch canary waves (IP-18.5) — design only
+
+IP-18.5.0 is **docs/spec only**. See `STAGED_BATCH_CANARY_WAVES.md` for the full
+design. IP-18.5 is the first batch slice that may write to a consumer database
+again; **production is forbidden** in IP-18.5.
+
+Core rule: a staging canary **wave** is a bounded sequence of independent
+**per-unit IP-16 staging canaries**. Each unit calls `applyPostgresStagingCanary`,
+is sentinel-proven, atomic, individually ledgered, idempotent, and individually
+rollback-able. No aggregate multi-unit direct write path.
+
+Queue status extension (no production states):
+
+```text
+dry_run_succeeded -> staging_canary_ready -> staging_canary_approved
+  -> staging_canary_running -> staging_canary_succeeded | staging_canary_blocked
+```
+
+Eligibility summary:
+
+- Only `dry_run_succeeded` units with `run_report.wroteToTarget=false`.
+- Explicit `target_environment='staging'` and `target_key='vamo-place-intelligence'`.
+- Per unit: ≤ `STAGING_CANARY_MAX_ROWS` (50). Wave bounds: `maxUnits` + `maxTotalRows`.
+- First live wave: recommended **1 unit**; widening requires explicit new approval.
+
+Approval reuses IP-16 semantics: admin + AAL2 + fresh MFA step-up + audit reason;
+15-minute approval freshness (`STAGING_CANARY_APPROVAL_MAX_AGE_MS`); decision
+writes only to Confluendo control DB.
+
+Partial failure: **stop-on-first-failure** for the first implementation. Replay
+skips already-succeeded units; per-unit idempotency via IP-16 shipment ledger.
+
+Live baseline for first staging wave: 3 `dry_run_succeeded` units from IP-18.4
+execution key `batch-dry-run:vamo-eu-poi-sample:audit:15`; 33 units remain
+`dry_run_ready` and are not staging-eligible until dry-run succeeds.
+
+Implementation phases after IP-18.5.0: IP-18.5.1 (policy + schema), IP-18.5.2
+(executor + smokes), IP-18.5.3 (dashboard + CLI), IP-18.5.4 (first live 1-unit wave).
+
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.5 | Staged batch canary waves |
+| IP-18.5.1+ | Staged batch canary waves (implementation) |
 | IP-18.6 | Production inbox package waves |
 
 ## Safety
@@ -227,3 +266,8 @@ It did not call live providers and did not write to Vamo staging or production.
 IP-18.0–18.4: planning and Confluendo control-plane queue persistence/scheduling/
 execution only. No live ingestion, no provider calls, no Vamo staging or
 production writes.
+
+IP-18.5.0: design docs only — no code, SQL apply, or live execution.
+
+IP-18.5.1+ (when implemented): staging writes only via existing IP-16 adapter;
+production forbidden until IP-18.6+.
