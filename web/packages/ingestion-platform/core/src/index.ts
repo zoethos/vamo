@@ -279,6 +279,8 @@ export {
   type BatchDryRunReport,
   type BatchQueueExecutionProgress,
   type BatchQueueLatestExecution,
+  type BatchQueueLatestWave,
+  type BatchQueueStagingCanaryProgress,
   type BatchQueueSnapshot,
   type BatchQueueGroup,
   type BatchQueueItem,
@@ -343,3 +345,18 @@ export {
   type ExecuteBatchDryRunInput,
   type ExecuteBatchDryRunResult
 } from "./batch-dry-run-execution.js";
+export {
+  evaluateBatchStagingCanaryWaveApproval,
+  countStagingCanaryWaveEligibleUnits,
+  type BatchStagingCanaryWaveApprovalPlan,
+  type BatchStagingCanaryWaveBlock,
+  type BatchStagingCanaryWaveBlockCode,
+  type EvaluateBatchStagingCanaryWaveApprovalInput,
+  type EvaluateBatchStagingCanaryWaveApprovalResult
+} from "./batch-staging-canary-wave-policy.js";
+export {
+  approveBatchStagingCanaryWave,
+  type ApproveBatchStagingCanaryWaveInput,
+  type ApproveBatchStagingCanaryWaveResult,
+  type BatchStagingCanaryWavePgClientLike
+} from "./batch-staging-canary-wave-control.js";

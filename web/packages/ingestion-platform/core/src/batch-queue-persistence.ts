@@ -13,6 +13,7 @@ import {
   type BatchQueueItem,
   type BatchQueueItemStatus,
   type BatchQueueLatestExecution,
+  type BatchQueueLatestWave,
   type BatchQueueProgress,
   type BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
@@ -95,7 +96,8 @@ export function mapPersistenceBundleToSnapshot(
   projectKey: string,
   plan: PersistedBatchPlanRow,
   items: PersistedBatchQueueItemRow[],
-  latestExecution?: BatchQueueLatestExecution | null
+  latestExecution?: BatchQueueLatestExecution | null,
+  latestWave?: BatchQueueLatestWave | null
 ): BatchQueueSnapshot {
   for (const item of items) {
     assertValidQueueItemStatus(item.status);
@@ -114,7 +116,8 @@ export function mapPersistenceBundleToSnapshot(
     safetyMode: plan.safetyMode,
     items: queueItems,
     planNextAction: plan.planSummary.nextAction,
-    latestExecution: latestExecution ?? null
+    latestExecution: latestExecution ?? null,
+    latestWave: latestWave ?? null
   });
 }
 

@@ -17,6 +17,11 @@ export type BatchQueueItemStatus =
   | "dry_run_running"
   | "dry_run_succeeded"
   | "dry_run_blocked"
+  | "staging_canary_ready"
+  | "staging_canary_approved"
+  | "staging_canary_running"
+  | "staging_canary_succeeded"
+  | "staging_canary_blocked"
   | "staged_ready"
   | "production_ready"
   | "applied";
@@ -29,6 +34,11 @@ export const BATCH_QUEUE_ITEM_STATUSES: readonly BatchQueueItemStatus[] = [
   "dry_run_running",
   "dry_run_succeeded",
   "dry_run_blocked",
+  "staging_canary_ready",
+  "staging_canary_approved",
+  "staging_canary_running",
+  "staging_canary_succeeded",
+  "staging_canary_blocked",
   "staged_ready",
   "production_ready",
   "applied"
@@ -86,6 +96,28 @@ export interface BatchQueueCoverage {
   matrix: Record<string, Record<string, number>>;
 }
 
+export interface BatchQueueStagingCanaryProgress {
+  dryRunSucceededEligible: number;
+  ready: number;
+  approved: number;
+  running: number;
+  succeeded: number;
+  blocked: number;
+}
+
+export interface BatchQueueLatestWave {
+  waveKey: string;
+  status: string;
+  targetEnvironment: string;
+  maxUnits: number;
+  maxRows: number;
+  unitCount: number;
+  totalPlannedRows: number;
+  auditId?: string;
+  approvedAt?: string;
+  approvalExpiresAt?: string;
+}
+
 export interface BatchQueueExecutionProgress {
   dryRunReady: number;
   dryRunRunning: number;
@@ -100,6 +132,7 @@ export interface BatchQueueProgress {
   ready: number;
   applied: number;
   execution: BatchQueueExecutionProgress;
+  stagingCanary: BatchQueueStagingCanaryProgress;
 }
 
 export interface BatchQueueLatestExecution {
@@ -132,6 +165,7 @@ export interface BatchQueueSnapshot {
   blockerSummaries: BatchQueueBlockerSummary[];
   nextAction: string;
   latestExecution?: BatchQueueLatestExecution | null;
+  latestWave?: BatchQueueLatestWave | null;
 }
 
 export interface BuildBatchQueueSnapshotInput {
@@ -139,6 +173,7 @@ export interface BuildBatchQueueSnapshotInput {
   /** Optional per-unit progression overrides keyed by unitKey. */
   progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>;
   latestExecution?: BatchQueueLatestExecution | null;
+  latestWave?: BatchQueueLatestWave | null;
 }
 
 const READY_STATUSES: readonly BatchQueueItemStatus[] = [
@@ -162,7 +197,8 @@ export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): Ba
     safetyMode: input.plan.safetyMode,
     items,
     planNextAction: input.plan.nextAction,
-    latestExecution: input.latestExecution
+    latestExecution: input.latestExecution,
+    latestWave: input.latestWave
   });
 }
 
@@ -176,6 +212,7 @@ export function buildBatchQueueSnapshotFromItems(input: {
   items: BatchQueueItem[];
   planNextAction?: string;
   latestExecution?: BatchQueueLatestExecution | null;
+  latestWave?: BatchQueueLatestWave | null;
 }): BatchQueueSnapshot {
   const items = [...input.items].sort((a, b) => a.runOrder - b.runOrder);
   return finalizeBatchQueueSnapshot({
@@ -187,7 +224,8 @@ export function buildBatchQueueSnapshotFromItems(input: {
     safetyMode: input.safetyMode,
     items,
     planNextAction: input.planNextAction,
-    latestExecution: input.latestExecution
+    latestExecution: input.latestExecution,
+    latestWave: input.latestWave
   });
 }
 
@@ -201,6 +239,7 @@ function finalizeBatchQueueSnapshot(input: {
   items: BatchQueueItem[];
   planNextAction?: string;
   latestExecution?: BatchQueueLatestExecution | null;
+  latestWave?: BatchQueueLatestWave | null;
 }): BatchQueueSnapshot {
   const groups = buildGroups(input.items);
   const coverage = summarizeCoverage(input.items, input.sourceKey);
@@ -226,7 +265,8 @@ function finalizeBatchQueueSnapshot(input: {
       blockerSummaries,
       input.planNextAction ?? "Review batch queue."
     ),
-    latestExecution: input.latestExecution ?? null
+    latestExecution: input.latestExecution ?? null,
+    latestWave: input.latestWave ?? null
   };
 }
 
@@ -335,8 +375,25 @@ function summarizeProgress(items: BatchQueueItem[]): BatchQueueProgress {
       dryRunRunning: countByStatus(items, "dry_run_running"),
       dryRunSucceeded: countByStatus(items, "dry_run_succeeded"),
       dryRunBlocked: countByStatus(items, "dry_run_blocked")
+    },
+    stagingCanary: {
+      dryRunSucceededEligible: countDryRunSucceededEligible(items),
+      ready: countByStatus(items, "staging_canary_ready"),
+      approved: countByStatus(items, "staging_canary_approved"),
+      running: countByStatus(items, "staging_canary_running"),
+      succeeded: countByStatus(items, "staging_canary_succeeded"),
+      blocked: countByStatus(items, "staging_canary_blocked")
     }
   };
+}
+
+function countDryRunSucceededEligible(items: BatchQueueItem[]): number {
+  return items.filter((item) => {
+    if (item.status !== "dry_run_succeeded") {
+      return false;
+    }
+    return item.dryRunReport?.wroteToTarget === false;
+  }).length;
 }
 
 function summarizeBlockers(items: BatchQueueItem[]): BatchQueueBlockerSummary[] {
@@ -377,7 +434,11 @@ function deriveNextAction(
     return `${dryRunReady} unit(s) scheduled for dry-run execution.`;
   }
   if (dryRunSucceeded > 0) {
-    return `${dryRunSucceeded} unit(s) completed dry-run execution.`;
+    const stagingApproved = countByStatus(items, "staging_canary_approved");
+    if (stagingApproved > 0) {
+      return `${stagingApproved} unit(s) approved for staging-canary wave execution.`;
+    }
+    return `${dryRunSucceeded} unit(s) completed dry-run execution; review staging-canary wave eligibility.`;
   }
   return planNextAction;
 }

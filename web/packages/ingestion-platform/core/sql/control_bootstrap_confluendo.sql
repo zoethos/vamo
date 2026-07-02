@@ -82,6 +82,11 @@ grant update (
 -- execution ledger rows. It does not grant access to any consumer database.
 grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to confluendo_app;
 
+-- IP-18.5 batch staging-canary wave approval writes only Confluendo control-plane
+-- wave ledger rows and queue status updates. It does not grant consumer DB access.
+grant insert, update on ingestion_platform.ingestion_batch_canary_waves to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_batch_canary_wave_items to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;
