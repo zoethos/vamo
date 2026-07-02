@@ -1084,9 +1084,9 @@ Live operational note:
 
 ## Slice IP-18 - Automated Batch Target Planning
 
-Status: **foundation / dry-run planning** (IP-18.0). Planning and expansion
-only — no live ingestion, no provider calls, no staging writes, no production
-inbox delivery, and no database writes.
+Status: **done** (IP-18.0 merged). Foundation dry-run planning — no live
+ingestion, no provider calls, no staging writes, no production inbox delivery,
+and no database writes.
 
 Goal:
 
@@ -1106,13 +1106,6 @@ Delivered in IP-18.0:
 - Dashboard read-only preview panel on `/admin/ingestion` (bundled sample only).
 - Docs: `BATCH_TARGET_PLANNING.md`.
 
-Future slices:
-
-- **IP-18.1** — dashboard batch queue
-- **IP-18.2** — batch dry-run persistence
-- **IP-18.3** — staged batch canaries
-- **IP-18.4** — production inbox package waves
-
 Architecture decision: Confluendo owns the planner; Vamo is a consumer example.
 See IP-15 extraction boundary — do not encode Vamo-specific policy into the
 platform core beyond fixtures and sample profiles.
@@ -1124,11 +1117,40 @@ Safety:
 - Generated target keys remain environment-neutral (`vamo-place-intelligence`,
   not `vamo-place-intelligence-staging`).
 
+## Slice IP-18.1 - Dashboard Batch Queue Read Model
+
+Status: **active / read-model slice**. Queue and progress projection only — no
+live ingestion, no provider calls, no staging writes, no production inbox
+delivery, and no database writes.
+
+Goal:
+
+Turn IP-18.0's bundled batch plan into a queue/progress read model the Confluendo
+console can show as operational state: coverage cards, country/category matrix,
+grouped units, blocker summaries, and progress counters.
+
+Delivered in IP-18.1:
+
+- `buildBatchQueueSnapshot()` with `BatchQueueSnapshot`, `BatchQueueGroup`,
+  `BatchQueueItem`, coverage, progress, and blocker summaries.
+- Bundled Vamo EU POI sample queue fixture (`sampleVamoEuPoiBatchQueueSnapshot`).
+- Console **Batch Queue** section on `/admin/ingestion` (read-only, no mutation
+  controls).
+- Unit tests for grouping, coverage (36 units), blockers, progression math, and
+  env-neutral target keys.
+
+Future slices:
+
+- **IP-18.2** — persistent batch queue / control table
+- **IP-18.3** — operator scheduling mutations
+- **IP-18.4** — staged batch canary waves
+- **IP-18.5** — production inbox package waves
+
 ## Recommended Immediate Next Slice
 
-After IP-18.0 lands, **IP-18.1 - Dashboard Batch Queue** is the next slice:
-wire batch plan persistence and operator queue controls on top of the IP-18
-planner read model.
+After IP-18.1 lands, **IP-18.2 - Persistent Batch Queue** is the next slice:
+idempotent control-schema table/migration and loader wiring so queue state
+survives page reloads without changing the IP-18.1 read-model shape.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
