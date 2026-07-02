@@ -241,6 +241,19 @@ IP-17 implements the first version of this path:
 - Vamo owns `confluendo_inbox.apply_confluendo_shipment(...)` and the final
   product-table mutation.
 
+The first bounded Vamo production proof has completed:
+
+- package `production-inbox:vamo-place-intelligence-staging:approval:10`
+  delivered to the inbox but failed apply under the pre-IP-17.1 source-ref
+  payload contract,
+- package `production-inbox:vamo-place-intelligence-staging:approval:13`
+  delivered to the inbox and was Vamo-applied successfully (`applied=2`,
+  `skipped=0`, `rejected=0`).
+
+That proof validates the delivery boundary, not the breadth of the POI corpus.
+Large EU POI coverage still requires batch planning, target scheduling, and
+source breadth work.
+
 Vamo can also use the hosted Confluendo API for preview, admin comparison,
 search assistance, or fallback reads where product latency and availability
 requirements allow it.
@@ -325,10 +338,11 @@ generic JSONB. The generic item table is useful for audit and disaster recovery.
 
 ## Open Follow-Ups
 
-- Promote the Vamo production inbox schema migrations through staging and
-  production under the migration promotion policy.
-- Run the first live, confirmation-gated production inbox delivery after
-  approval and production safety checks.
+- Keep the Vamo production inbox schema migrations promoted through staging and
+  production under the migration promotion policy for each future contract
+  change.
+- Scale beyond the first bounded proof by adding batch planning and source
+  breadth; do not treat one package as a corpus-ingestion strategy.
 - Add Confluendo control-plane package signing on top of checksum verification.
 - Add richer dashboard states for consumer-applied package details and Vamo
   apply failures.

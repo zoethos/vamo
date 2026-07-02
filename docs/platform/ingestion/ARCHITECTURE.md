@@ -75,7 +75,8 @@ web/packages/ingestion-platform/
   policy/
   adapters/
   fixtures/
-web/apps/site/app/admin/ingestion/   # Vamo admin consumer shell only
+web/apps/confluendo-console/         # Confluendo operator console
+web/apps/site/                       # Vamo web/consumer shell
 ```
 
 Implementation code belongs under `web/packages/ingestion-platform/` until the

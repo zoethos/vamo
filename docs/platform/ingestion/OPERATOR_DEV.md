@@ -1,19 +1,20 @@
 # Operator Console Local Dev
 
 The Confluendo operator console runs from
-`Z:\vamo-web-dashboard\web\apps\confluendo-console` on port `4373`.
+`Z:\vamo-ip17\web\apps\confluendo-console` on port `4373` in the current
+incubation worktree.
 
 Use the root helper as the mandatory local entrypoint:
 
 ```powershell
-cd Z:\vamo-web-dashboard
+cd Z:\vamo-ip17
 .\Start-ConfluendoDashboard.ps1
 ```
 
 or from the web workspace:
 
 ```powershell
-cd Z:\vamo-web-dashboard\web
+cd Z:\vamo-ip17\web
 npm run dev:console:fresh
 ```
 
