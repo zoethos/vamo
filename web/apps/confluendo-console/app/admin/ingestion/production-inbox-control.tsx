@@ -7,7 +7,7 @@ import type {
   ProductionInboxState
 } from "@confluendo/ingestion-platform/progressive-read-model";
 
-type DashboardSource = "live" | "sample";
+type DashboardSource = "live" | "sample" | "error";
 
 type ProductionInboxContext = {
   role: AdminRole;
@@ -176,11 +176,21 @@ export function ProductionInboxControl({
 }
 
 function ProductionInboxNotice({ productionInbox }: { productionInbox: ProductionInboxState }) {
+  const failed = productionInbox.status === "consumer_apply_failed";
   return (
-    <div className="admin-command-result admin-command-result-ok" role="status">
+    <div
+      className={
+        failed
+          ? "admin-command-result admin-command-result-error"
+          : "admin-command-result admin-command-result-ok"
+      }
+      role={failed ? "alert" : "status"}
+    >
       <strong>
         {productionInbox.status === "consumer_applied"
           ? "Vamo applied this production package"
+          : failed
+            ? "Previous production inbox delivery failed"
           : "Already delivered to Vamo production inbox"}
       </strong>
       <span>Shipment key: {productionInbox.shipmentKey}</span>
@@ -250,7 +260,9 @@ function disabledReasonFor(
     return "Vamo has already applied this production inbox package.";
   }
   if (context.source !== "live") {
-    return "Production inbox approval requires a live control plane.";
+    return context.source === "error"
+      ? "Live progressive read failed; production inbox approval is disabled."
+      : "Production inbox approval requires a live control plane.";
   }
   if (!bounds) {
     return "Reviewed bounds are missing from the control plane.";

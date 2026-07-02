@@ -121,15 +121,42 @@ then run the seed SQL (or `--execute` mode) before expecting **Live control
 plane** labels in `/admin/ingestion`. Without schema apply + seed, the dashboard
 correctly shows **Sample preview**.
 
+## Operator scheduling mutations (IP-18.3)
+
+IP-18.3 adds the first state-writing operator action for the batch queue. The
+scope is deliberately narrow:
+
+- The dashboard can schedule eligible persisted queue rows from
+  `ready_for_dry_run` to `dry_run_ready`.
+- The route requires an authenticated Confluendo admin/operator session scoped
+  to the project, AAL2 when MFA is required, same-origin JSON, and a non-empty
+  audit reason.
+- `evaluateBatchQueueScheduleDryRun()` is the pure policy decision; it has no DB
+  or provider access.
+- `scheduleBatchDryRun()` performs one Confluendo control-plane transaction:
+  update eligible `ingestion_batch_queue_items` rows and record
+  `schedule_batch_dry_run` in `ingestion_audit_log`.
+- Live-read failures are surfaced as **Live read failed · sample fallback**
+  instead of silently masquerading as sample preview; mutation controls are
+  disabled in that state.
+
+This action still does **not** execute ingestion. It creates queue state for the
+next worker/dry-run slice; no provider calls, Vamo staging writes, or production
+inbox delivery happen in IP-18.3.
+
+**Ops:** after merge, re-run `control_bootstrap_confluendo.sql` on the live
+Confluendo control DB so `confluendo_app` receives the queue-item `UPDATE` grant
+needed by the scheduling route. Without that grant, the dashboard remains able to
+read queue rows but scheduling fails closed with a permission error.
+
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.3 | Operator scheduling mutations |
 | IP-18.4 | Staged batch canary waves |
 | IP-18.5 | Production inbox package waves |
 
 ## Safety
 
-IP-18.0–18.2: planning and control-plane queue persistence only. No live
-ingestion, no provider calls, no Vamo staging or production writes.
+IP-18.0–18.3: planning and Confluendo control-plane queue persistence/scheduling
+only. No live ingestion, no provider calls, no Vamo staging or production writes.

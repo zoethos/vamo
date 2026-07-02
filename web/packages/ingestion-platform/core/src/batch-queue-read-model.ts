@@ -174,6 +174,7 @@ function finalizeBatchQueueSnapshot(input: {
     items: input.items,
     blockerSummaries,
     nextAction: deriveNextAction(
+      input.items,
       progress,
       blockerSummaries,
       input.planNextAction ?? "Review batch queue."
@@ -297,6 +298,7 @@ function summarizeBlockers(items: BatchQueueItem[]): BatchQueueBlockerSummary[] 
 }
 
 function deriveNextAction(
+  items: BatchQueueItem[],
   progress: BatchQueueProgress,
   blockers: BatchQueueBlockerSummary[],
   planNextAction: string
@@ -307,8 +309,13 @@ function deriveNextAction(
       ? `Resolve ${progress.blocked} blocked unit(s) — top blocker: ${top.reason}.`
       : `Resolve ${progress.blocked} blocked unit(s) before dry-run scheduling.`;
   }
-  if (progress.ready > 0 && progress.applied === 0) {
-    return `Review batch queue (${progress.ready} ready for dry-run) and approve scheduling when IP-18.3 lands.`;
+  const readyForDryRun = countByStatus(items, "ready_for_dry_run");
+  const dryRunReady = countByStatus(items, "dry_run_ready");
+  if (readyForDryRun > 0) {
+    return `Review batch queue (${readyForDryRun} ready for dry-run) and approve scheduling.`;
+  }
+  if (dryRunReady > 0) {
+    return `${dryRunReady} unit(s) scheduled for dry-run execution.`;
   }
   return planNextAction;
 }

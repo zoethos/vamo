@@ -306,3 +306,17 @@ export {
   type BatchQueueControlReadPgClientLike,
   type LoadBatchQueueSnapshotInput
 } from "./batch-queue-control-read.js";
+export {
+  evaluateBatchQueueScheduleDryRun,
+  type BatchQueueScheduleDryRunBlock,
+  type BatchQueueScheduleDryRunBlockCode,
+  type BatchQueueScheduleDryRunPlan,
+  type EvaluateBatchQueueScheduleDryRunInput,
+  type EvaluateBatchQueueScheduleDryRunResult
+} from "./batch-queue-policy.js";
+export {
+  scheduleBatchDryRun,
+  type BatchQueueMutationPgClientLike,
+  type ScheduleBatchDryRunInput,
+  type ScheduleBatchDryRunResult
+} from "./batch-queue-mutations.js";
