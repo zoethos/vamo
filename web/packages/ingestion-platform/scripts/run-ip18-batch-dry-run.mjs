@@ -17,6 +17,7 @@ import { evaluateBatchDryRunExecution } from "../dist/core/src/batch-dry-run-exe
 import { executeBatchDryRun } from "../dist/core/src/batch-dry-run-execution.js";
 import { loadBatchQueueSnapshot } from "../dist/core/src/batch-queue-control-read.js";
 import {
+  countCandidateTargetRows,
   defaultLoadWaveUnitCandidates,
   runFixturePipeline,
   simulateBatchDryRunUnit,
@@ -70,6 +71,7 @@ async function buildFixtureDryRunReport({ unit, executionKey, now, pipeline }) {
     targetKey: unit.targetKey,
     targetEnvironment: unit.targetEnvironment,
     candidateCount: candidates.length,
+    targetWriteCount: countCandidateTargetRows(candidates),
     rowLimit: STAGING_CANARY_MAX_ROWS,
     now
   });

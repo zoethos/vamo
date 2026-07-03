@@ -48,6 +48,12 @@ export function filterCandidatesForWaveUnit(
   return candidates.filter((candidate) => candidateMatchesScope(candidate, scope));
 }
 
+export function countCandidateTargetRows(candidates: readonly StagedCandidate[]): number {
+  return candidates.reduce((total, candidate) => {
+    return total + Object.keys(candidate.payload).length;
+  }, 0);
+}
+
 export function buildWaveUnitShipmentKey(waveKey: string, unitKey: string): string {
   return `batch-staging-canary-wave:${waveKey}:unit:${unitKey}`;
 }
