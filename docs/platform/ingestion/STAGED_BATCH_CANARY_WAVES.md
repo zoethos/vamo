@@ -1,8 +1,9 @@
 # Staged Batch Canary Waves (IP-18.5)
 
-Status: **IP-18.5.2 execution implemented** — 2026-07-02. Wave approval (IP-18.5.1) and
-confirmation-gated per-unit execution (IP-18.5.2) are in code; live Vamo staging
-execution remains operator-gated and is not run in CI.
+Status: **IP-18.5.2 execution implemented; first refreshed live wave succeeded**
+— 2026-07-03. Wave approval (IP-18.5.1) and confirmation-gated per-unit
+execution (IP-18.5.2) are in code; live Vamo staging execution remains
+operator-gated and is not run in CI.
 
 IP-18.4 proved bounded fixture-only dry-run execution against the Confluendo
 control plane. IP-18.5 is the first batch slice that may touch a consumer
@@ -46,9 +47,9 @@ Related specs:
 - `BATCH_TARGET_PLANNING.md` — batch queue context (IP-18.0–18.4)
 - `BUILD_SLICES.md` — slice phasing and acceptance
 
-## 2. Live baseline (IP-18.4 evidence)
+## 2. Live baseline and first-wave evidence
 
-After IP-18.4 merge and live control-schema apply:
+### 2.1 Initial IP-18.4 baseline
 
 | Signal | Value |
 | --- | --- |
@@ -62,6 +63,60 @@ After IP-18.4 merge and live control-schema apply:
 IP-18.5 waves start from `dry_run_succeeded` units only. The first live staging
 wave is hard-capped to **1 unit** from the three succeeded units, not from the
 33 still-`dry_run_ready` rows.
+
+### 2.2 Refreshed IP-10.1/IP-18.5 evidence
+
+IP-10.1 replaced the 5-row demo fixture with a bounded EU POI snapshot. After
+PR #135 fixed dry-run target-row counting, the operator helper re-ran IP-18.4
+against the next two wave candidates:
+
+| Signal | Value |
+| --- | --- |
+| IP-18.4 execution id | **4** |
+| IP-18.4 execution audit id | **33** |
+| Refreshed dry-run units | `vamo-place-intelligence:paris-france:landmark`, `vamo-place-intelligence:barcelona-spain:landmark` |
+| Dry-run invariant | Both reports show `insert_count=2`, `wroteToTarget=false`, and no blockers |
+| Wave approval | Dashboard approval audit id **34**, max units **1**, max rows **2** |
+| Wave execution | Status **succeeded**, execution audit id **36**, shipment id **4** |
+| Succeeded wave unit | `vamo-place-intelligence:paris-france:landmark` |
+
+Vamo staging verification for the succeeded unit returned the joined canonical
+and source-ref row:
+
+```sql
+select
+  r.provider,
+  r.source_place_id,
+  r.canonical_id,
+  c.canonical_key,
+  c.display_name,
+  c.feature_type,
+  c.latitude,
+  c.longitude,
+  r.created_at as source_ref_created_at,
+  c.created_at as canonical_created_at
+from public.location_source_refs r
+join public.location_canonicals c on c.id = r.canonical_id
+where r.provider = 'fsq_os_places'
+  and r.source_place_id = 'fsq_paris_louvre_landmark';
+```
+
+Expected/current evidence:
+
+| Field | Value |
+| --- | --- |
+| `canonical_id` | `0b9523e6-07bd-510a-ba3e-d22dfdbecf9a` |
+| `canonical_key` | `fsq-paris-louvre-landmark` |
+| `display_name` | `Louvre Pyramid` |
+| `feature_type` | `landmark` |
+| Coordinates | `48.8606`, `2.3376` |
+| Created at | `2026-07-03 23:03:21.699871+00` |
+
+This is the first successful IP-18.5 live staging wave over refreshed IP-10.1
+supply. It wrote only to Vamo staging via the IP-16 adapter, did not write to
+Vamo production, and did not call a live provider. Continue the ramp with the
+already-`dry_run_succeeded` Barcelona landmark unit before widening beyond one
+unit per wave.
 
 ## 3. State machine
 
