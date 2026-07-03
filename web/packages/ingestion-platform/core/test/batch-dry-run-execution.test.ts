@@ -11,6 +11,7 @@ import {
 } from "../src/batch-queue-read-model.js";
 import { evaluateBatchDryRunExecution } from "../src/batch-dry-run-execution-policy.js";
 import { executeBatchDryRun } from "../src/batch-dry-run-execution.js";
+import { simulateBatchDryRunUnit } from "../src/batch-dry-run-simulator.js";
 import { loadBatchQueueSnapshot } from "../src/batch-queue-control-read.js";
 import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
 import { scheduleBatchDryRun } from "../src/batch-queue-mutations.js";
@@ -20,6 +21,26 @@ const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 
 describe("batch dry-run execution control", () => {
+  it("uses provided fixture candidate counts instead of hash-derived counts", () => {
+    const report = simulateBatchDryRunUnit({
+      executionKey: "dry-run:test",
+      unitKey: "vamo-place-intelligence:paris-france:landmark",
+      geography: "paris-france",
+      category: "landmark",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      candidateCount: 1,
+      rowLimit: 50,
+      now: "2026-07-03T10:00:00.000Z"
+    });
+
+    assert.equal(report.rowsProcessed, 1);
+    assert.equal(report.insertCount, 1);
+    assert.equal(report.updateCount, 0);
+    assert.equal(report.noOpCount, 0);
+    assert.equal(report.wroteToTarget, false);
+  });
+
   it(
     "executes bounded dry-run units idempotently and reloads reports",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },

@@ -74,7 +74,7 @@ steps are split and idempotent. Do not run any of this against production.
 
 ```bash
 # From the Vamo app repo, against the staging DB only:
-psql "$VAMO_STAGING_DATABASE_URL" \
+psql "$VAMO_STAGING_CANARY_APP_DATABASE_URL" \
   -f supabase/migrations/20260625155733_place_intelligence_cache.sql
 # (or: supabase db push targeting the staging project)
 ```
@@ -194,7 +194,7 @@ mandatory; a missing gate hard-fails with no write.
 ```bash
 CONFIRM_VAMO_STAGING_CANARY=YES \
 VAMO_STAGING_CANARY_ENVIRONMENT=staging \
-VAMO_STAGING_DATABASE_URL="postgres://…staging…" \
+VAMO_STAGING_CANARY_APP_DATABASE_URL="postgres://…staging…" \
 VAMO_STAGING_CANARY_APPROVAL_ID="<approve_staging_canary audit id>" \
 INGESTION_CONTROL_DATABASE_URL="postgres://…confluendo-control…" \
 VAMO_STAGING_CANARY_REASON="<the approved audit reason>" \
@@ -204,7 +204,7 @@ node scripts/run-ip16-staging-canary.mjs --execute
 Gates enforced, in order:
 
 1. `CONFIRM_VAMO_STAGING_CANARY=YES` — explicit human confirmation.
-2. `VAMO_STAGING_DATABASE_URL` — the staging DSN must be present.
+2. `VAMO_STAGING_CANARY_APP_DATABASE_URL` — the staging DSN must be present.
 3. `VAMO_STAGING_CANARY_ENVIRONMENT=staging` — anything else (notably
    `production`) is refused.
 4. `--execute` — without it, the CLI previews and stops.

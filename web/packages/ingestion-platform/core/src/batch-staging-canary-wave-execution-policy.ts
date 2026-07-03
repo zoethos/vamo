@@ -73,7 +73,7 @@ const DEFAULT_SAFETY_SUMMARY = [
   "Target DB must expose confluendo_guard.environment_sentinel value=staging.",
   "Stop-on-first-failure; skip already-succeeded wave items.",
   "No production writes. No live provider calls.",
-  "Execute requires CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES and VAMO_STAGING_DATABASE_URL."
+  "Execute requires CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES and VAMO_STAGING_CANARY_APP_DATABASE_URL."
 ] as const;
 
 const FIRST_WAVE_MAX_UNITS = 1;

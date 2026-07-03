@@ -5,7 +5,7 @@ name: Vamo Place Intelligence
 adapter: supabase_postgres
 engine:
   type: supabase_postgres
-  dsnEnv: VAMO_STAGING_DATABASE_URL
+  dsnEnv: VAMO_STAGING_CANARY_APP_DATABASE_URL
   serviceRoleSecretEnv: VAMO_STAGING_SUPABASE_SERVICE_ROLE
   exposeServiceRoleToBrowser: false
 security:
