@@ -144,6 +144,33 @@ function evaluateQualityGates(input: EvaluateRecordPolicyInput): PolicyEvaluatio
       };
     }
 
+    if (gate.type === "allowed_values" || gate.type === "enum") {
+      const allowedValues = gate.values ?? [];
+      const field = gate.field;
+      const rawValue = field ? getPath(input.record, field) : undefined;
+      const normalizedValue = typeof rawValue === "string" ? rawValue.trim() : undefined;
+      const allowed = normalizedValue !== undefined && allowedValues.includes(normalizedValue);
+
+      if (!allowed && gate.severity === "block") {
+        return {
+          policyKey: `quality.${gate.id}`,
+          decision: "deny",
+          reasonCode: "value_not_allowed",
+          reasonMessage: field
+            ? `Value for "${field}" must be one of: ${allowedValues.join(", ")}.`
+            : "Quality gate is missing the field to validate.",
+          subjectKey: input.recordKey,
+          evidence: {
+            gateId: gate.id,
+            gateType: gate.type,
+            field,
+            value: rawValue,
+            allowedValues
+          }
+        };
+      }
+    }
+
     return {
       policyKey: `quality.${gate.id}`,
       decision: "allow",

@@ -97,6 +97,8 @@ export interface QualityGateSpec {
   id: string;
   type: string;
   severity: "warn" | "block";
+  field?: string;
+  values?: string[];
 }
 
 export interface PipelineSpec {

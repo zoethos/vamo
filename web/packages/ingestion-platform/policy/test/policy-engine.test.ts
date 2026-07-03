@@ -24,6 +24,9 @@ describe("policy engine", () => {
           id: "fsq_colosseum",
           name: "Colosseum"
         },
+        scope: {
+          category: "poi"
+        },
         attribution: "FSQ Open Source Places"
       },
       recordKey: "fsq_colosseum"
@@ -43,6 +46,9 @@ describe("policy engine", () => {
         },
         media: {
           bytesBase64: "AAAA"
+        },
+        scope: {
+          category: "poi"
         }
       },
       recordKey: "fsq_trevi_media"
@@ -51,6 +57,29 @@ describe("policy engine", () => {
     assert.equal(hasPolicyDenial(evaluations), true);
     assert.equal(
       evaluations.some((evaluation) => evaluation.reasonCode === "media_bytes_not_cacheable"),
+      true
+    );
+  });
+
+  it("denies rows outside the supported category set", () => {
+    const evaluations = evaluateRecordPolicy({
+      pipeline,
+      record: {
+        source: {
+          id: "fsq_unsupported_category",
+          name: "Unsupported Category"
+        },
+        scope: {
+          category: "nightlife"
+        },
+        attribution: "FSQ Open Source Places"
+      },
+      recordKey: "fsq_unsupported_category"
+    });
+
+    assert.equal(hasPolicyDenial(evaluations), true);
+    assert.equal(
+      evaluations.some((evaluation) => evaluation.reasonCode === "value_not_allowed"),
       true
     );
   });

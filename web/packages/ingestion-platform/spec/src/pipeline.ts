@@ -17,6 +17,7 @@ import {
   optionalBoolean,
   optionalNumber,
   optionalString,
+  optionalStringArray,
   parseYamlDocument,
   requireArray,
   requireBoolean,
@@ -288,11 +289,26 @@ function parseQualityGates(
       errors.shape(`${path}.severity`, 'Expected "warn" or "block".');
     }
 
+    const type = requireString(record, "type", `${path}.type`, errors) ?? "";
+    const field = optionalString(record, "field", `${path}.field`, errors);
+    const values = optionalStringArray(record, "values", `${path}.values`, errors);
+
+    if (type === "allowed_values" || type === "enum") {
+      if (!field) {
+        errors.missing(`${path}.field`, 'Quality gate type "allowed_values" requires a field.');
+      }
+      if (values.length === 0) {
+        errors.missing(`${path}.values`, 'Quality gate type "allowed_values" requires at least one value.');
+      }
+    }
+
     return [
       {
         id: requireString(record, "id", `${path}.id`, errors) ?? "",
-        type: requireString(record, "type", `${path}.type`, errors) ?? "",
-        severity: severity === "block" ? "block" : "warn"
+        type,
+        severity: severity === "block" ? "block" : "warn",
+        ...(field ? { field } : {}),
+        ...(values.length > 0 ? { values } : {})
       }
     ];
   });

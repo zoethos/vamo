@@ -11,7 +11,7 @@ reaches into this repo at runtime.
 | `manifest.yaml` | Ties the bundle together: consumer, profile, version, and the export file list. The platform validates this first. |
 | `pipeline.yaml` | `ingestion.pipeline` spec — source, license/policy flags, cursor, field mappings, quality gates. |
 | `target.yaml` | `ingestion.target` spec — the dry-run target project shape and security posture. |
-| `fixtures/source.jsonl` | A small no-network sample so the platform can validate and dry-run without any provider call. |
+| `fixtures/source.jsonl` | A bounded no-network FSQ OS Places EU snapshot so the platform can validate, dry-run, and batch-plan without any provider call. |
 
 ## How it flows
 
@@ -27,5 +27,7 @@ reaches into this repo at runtime.
 - Paths in `manifest.yaml` are relative to this bundle and may not traverse upward.
 - `pipeline.yaml` and `target.yaml` must pass the platform spec kernel
   (`ingestion.pipeline` / `ingestion.target`).
+- Snapshot rows must carry `scope.geography` and `scope.category`; the platform maps
+  `scope.category` into `location_canonicals.feature_type`.
 - Bump `version` in `manifest.yaml` when the contract shape changes so the platform
   import records a distinct revision.

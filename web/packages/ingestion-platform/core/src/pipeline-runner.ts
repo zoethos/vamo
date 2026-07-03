@@ -92,8 +92,8 @@ interface MappingResult {
 }
 
 export async function runFixturePipeline(input: RunFixturePipelineInput): Promise<PipelineRunResult> {
-  if (input.pipeline.source.adapter !== "fixture") {
-    throw new Error(`Unsupported source adapter for fixture runner: ${input.pipeline.source.adapter}`);
+  if (input.pipeline.source.adapter !== "fixture" && input.pipeline.source.adapter !== "snapshot") {
+    throw new Error(`Unsupported source adapter for bundled runner: ${input.pipeline.source.adapter}`);
   }
 
   return runSourcePipeline({

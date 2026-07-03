@@ -25,10 +25,15 @@ describe("ingestion spec kernel", () => {
     assert.equal(target.ok, true);
 
     if (pipeline.ok) {
-      assert.equal(pipeline.value.source.adapter, "fixture");
+      assert.equal(pipeline.value.source.adapter, "snapshot");
       assert.equal(pipeline.value.target.adapter, "supabase_postgres");
       assert.equal(pipeline.value.policyRequests.storeMediaBytes, false);
       assert.equal(pipeline.value.normalizedSpecVersion, 1);
+      const categoryGate = pipeline.value.qualityGates.find(
+        (gate) => gate.id === "require-supported-category"
+      );
+      assert.deepEqual(categoryGate?.values, ["poi", "landmark", "restaurant", "transport"]);
+      assert.equal(categoryGate?.field, "scope.category");
     }
 
     if (target.ok) {
@@ -261,6 +266,42 @@ mappings:
       });
       assert.equal(result.value.mappings[1]?.transform, "stable_key");
     }
+  });
+
+  it("requires field and values for allowed-values quality gates", () => {
+    const result = parsePipelineSpec(`
+kind: ingestion.pipeline
+version: 1
+id: bad-quality-gate
+name: Bad Quality Gate
+owner: test
+source:
+  id: local
+  name: Local
+  adapter: fixture
+  license:
+    name: Local
+    attribution: Local
+    canStoreFacts: true
+    canStoreContent: false
+    canStoreMediaBytes: false
+target:
+  id: local
+  adapter: postgres
+  project: demo
+  profile: places
+cursor:
+  strategy: snapshot
+mappings: []
+qualityGates:
+  - id: require-category
+    type: allowed_values
+    severity: block
+`);
+
+    assert.equal(result.ok, false);
+    assert.equal(result.errors.some((error) => error.path === "qualityGates[0].field"), true);
+    assert.equal(result.errors.some((error) => error.path === "qualityGates[0].values"), true);
   });
 
   it("rejects mappings without a source field or literal value", () => {

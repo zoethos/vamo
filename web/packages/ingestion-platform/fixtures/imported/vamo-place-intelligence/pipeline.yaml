@@ -1,12 +1,12 @@
 kind: ingestion.pipeline
-version: 3
+version: 4
 id: vamo-place-intelligence
 name: Vamo Place Intelligence
 owner: vamo
 source:
   id: fsq-os-places-sample
-  name: FSQ Open Source Places Sample
-  adapter: fixture
+  name: FSQ Open Source Places EU Snapshot Sample
+  adapter: snapshot
   license:
     name: FSQ Open Source Places
     url: https://github.com/foursquare/os-places
@@ -16,7 +16,8 @@ source:
     canStoreMediaBytes: false
     liveOnly: false
   connection:
-    fixturePath: fixtures/source.jsonl
+    snapshotPath: fixtures/source.jsonl
+    format: jsonl
 target:
   id: vamo-place-intelligence
   adapter: supabase_postgres
@@ -43,7 +44,7 @@ mappings:
   - from: source.name
     to: location_canonicals.name_norm
     transform: lowercase
-  - value: poi
+  - from: scope.category
     to: location_canonicals.feature_type
   - from: source.latitude
     to: location_canonicals.latitude
@@ -75,3 +76,12 @@ qualityGates:
   - id: reject-google-reusable-payloads
     type: live_only_source_guard
     severity: block
+  - id: require-supported-category
+    type: allowed_values
+    severity: block
+    field: scope.category
+    values:
+      - poi
+      - landmark
+      - restaurant
+      - transport
