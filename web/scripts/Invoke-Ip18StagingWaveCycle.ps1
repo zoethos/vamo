@@ -278,16 +278,15 @@ with updated as (
     blockers = '[]'::jsonb,
     updated_at = now()
   where unit_key = any($1::text[])
-  returning unit_key
+  returning unit_key, status, run_report is not null as has_run_report, blockers
 )
 select
-  q.unit_key,
-  q.status,
-  q.run_report is not null as has_run_report,
-  q.blockers
-from ingestion_platform.ingestion_batch_queue_items q
-where q.unit_key = any($1::text[])
-order by q.run_order;
+  updated.unit_key,
+  updated.status,
+  updated.has_run_report,
+  updated.blockers
+from updated
+order by array_position($1::text[], updated.unit_key);
 '@ -Params @(,$UnitKey)
 
   Write-Host ""
@@ -299,15 +298,18 @@ order by q.run_order;
   }
 }
 
-function Assert-OnlyRequestedUnitsAreReady {
+function Assert-RequestedUnitsWillBeSelected {
+  $maxUnits = if ($DryRunMaxUnits -gt 0) { $DryRunMaxUnits } else { $UnitKey.Count }
+
   $readyRows = Invoke-ControlQuery -Sql @'
 select unit_key
 from ingestion_platform.ingestion_batch_queue_items
 where status = 'dry_run_ready'
   and target_key = 'vamo-place-intelligence'
   and target_environment = 'staging'
-order by run_order;
-'@
+order by run_order
+limit $1::int;
+'@ -Params @($maxUnits)
 
   $ready = @($readyRows | ForEach-Object { $_.unit_key })
   $requested = @($UnitKey)
@@ -316,9 +318,9 @@ order by run_order;
   $missing = @($requested | Where-Object { $_ -notin $ready })
 
   if ($unexpected.Count -gt 0 -or $missing.Count -gt 0) {
-    Write-Host "Current dry_run_ready rows:"
+    Write-Host "Next dry_run_ready rows selected by IP-18.4:"
     $ready | ForEach-Object { Write-Host "  - $_" }
-    throw "Dry-run ready set does not exactly match requested units. Refusing to run a batch dry-run over unintended units."
+    throw "The next IP-18.4 dry-run selection does not exactly match requested units. Refusing to run over unintended units."
   }
 }
 
@@ -396,7 +398,7 @@ function Prepare-DryRun {
     Write-Host "Skipping reset because -SkipReset was supplied."
   }
 
-  Assert-OnlyRequestedUnitsAreReady
+  Assert-RequestedUnitsWillBeSelected
   Build-Package
   Invoke-DryRun
   Assert-DryRunReports
