@@ -79,9 +79,12 @@ against the next two wave candidates:
 | Wave approval | Dashboard approval audit id **34**, max units **1**, max rows **2** |
 | Wave execution | Status **succeeded**, execution audit id **36**, shipment id **4** |
 | Succeeded wave unit | `vamo-place-intelligence:paris-france:landmark` |
+| Second wave approval | Dashboard approval audit id **37**, max units **1**, max rows **2** |
+| Second wave execution | Status **succeeded**, execution audit id **39**, shipment id **5** |
+| Second succeeded wave unit | `vamo-place-intelligence:barcelona-spain:landmark` |
 
-Vamo staging verification for the succeeded unit returned the joined canonical
-and source-ref row:
+Vamo staging verification for the Paris unit returned the joined canonical and
+source-ref row:
 
 ```sql
 select
@@ -114,9 +117,43 @@ Expected/current evidence:
 
 This is the first successful IP-18.5 live staging wave over refreshed IP-10.1
 supply. It wrote only to Vamo staging via the IP-16 adapter, did not write to
-Vamo production, and did not call a live provider. Continue the ramp with the
-already-`dry_run_succeeded` Barcelona landmark unit before widening beyond one
-unit per wave.
+Vamo production, and did not call a live provider.
+
+The second 1-unit wave used the same verification shape with the Barcelona
+landmark source id:
+
+```sql
+select
+  r.provider,
+  r.source_place_id,
+  r.canonical_id,
+  c.canonical_key,
+  c.display_name,
+  c.feature_type,
+  c.latitude,
+  c.longitude,
+  r.created_at as source_ref_created_at,
+  c.created_at as canonical_created_at
+from public.location_source_refs r
+join public.location_canonicals c on c.id = r.canonical_id
+where r.provider = 'fsq_os_places'
+  and r.source_place_id = 'fsq_barcelona_gothic_quarter_landmark';
+```
+
+Expected/current evidence:
+
+| Field | Value |
+| --- | --- |
+| `canonical_id` | `2b89c45b-894b-5f87-9560-d3ba23d298b9` |
+| `canonical_key` | `fsq-barcelona-gothic-quarter-landmark` |
+| `display_name` | `Gothic Quarter` |
+| `feature_type` | `landmark` |
+| Coordinates | `41.3839`, `2.1763` |
+| Created at | `2026-07-03 23:37:12.9848+00` |
+
+Paris and Barcelona are now both `staging_canary_succeeded`. Continue the ramp
+one unit at a time unless a fresh approval explicitly widens the batch after
+reviewing the current queue state.
 
 ## 3. State machine
 

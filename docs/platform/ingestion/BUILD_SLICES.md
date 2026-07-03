@@ -1414,7 +1414,7 @@ Validation (IP-18.5.0):
 | IP-18.5.1 | Done — pure wave eligibility/ramp/approval policy + control schema (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
 | IP-18.5.2 | Done — CLI wave executor reusing per-unit `applyPostgresStagingCanary`; first-wave hard cap enforced in approval and execution |
 | IP-18.5.3 | Done in the current console path — dashboard approval surface and read-only wave state |
-| IP-18.5.4 | Active — first refreshed live 1-unit staging wave succeeded; continue 1-unit ramp before widening |
+| IP-18.5.4 | Active — two refreshed live 1-unit staging waves succeeded; continue ramp before widening |
 
 Live IP-18.5 evidence:
 
@@ -1439,13 +1439,27 @@ Live IP-18.5 evidence:
   `display_name='Louvre Pyramid'`, `feature_type='landmark'`, coordinates
   `(48.8606, 2.3376)`, with both rows created at
   `2026-07-03 23:03:21.699871+00`.
+- Dashboard approved a second 1-unit wave with approval audit id **37** for
+  `vamo-place-intelligence:barcelona-spain:landmark`; max rows was **2**.
+- CLI execution completed with wave status **succeeded**, execution audit id
+  **39**, shipment id **5**, and shipment key
+  `batch-staging-canary-wave:batch-staging-canary:vamo-eu-poi-sample:1:vamo-place-intelligence:barcelona-spain:landmark:Approve-fixed-IP-18.5-ra:unit:vamo-place-intelligence:barcelona-spain:landmark`.
+- Live Vamo staging verification found the Barcelona source ref and canonical:
+  `provider='fsq_os_places'`,
+  `source_place_id='fsq_barcelona_gothic_quarter_landmark'`,
+  `canonical_id='2b89c45b-894b-5f87-9560-d3ba23d298b9'`,
+  `canonical_key='fsq-barcelona-gothic-quarter-landmark'`,
+  `display_name='Gothic Quarter'`, `feature_type='landmark'`, coordinates
+  `(41.3839, 2.1763)`, with both rows created at
+  `2026-07-03 23:37:12.9848+00`.
 - This proof wrote Vamo staging only through the IP-16 adapter. It did not write
   to Vamo production and did not call a live provider.
 
 Operational decision: continue the IP-18.5 staging ramp one unit at a time over
-the refreshed IP-10.1 supply. The next candidate is
-`vamo-place-intelligence:barcelona-spain:landmark`, already
-`dry_run_succeeded` with `insert_count=2`.
+the refreshed IP-10.1 supply. Paris landmark and Barcelona landmark are now both
+`staging_canary_succeeded`; the next ramp step should either continue another
+single-unit wave or explicitly approve a small widening only after reviewing the
+latest dashboard state.
 
 Future slices:
 
@@ -1454,9 +1468,10 @@ Future slices:
 ## Recommended Immediate Next Slice
 
 **Continue IP-18.5 — Staged Batch Canary Ramp** is the immediate next slice.
-IP-10.1 landed real candidate supply and the first refreshed live staging wave
-has succeeded. Next, run another 1-unit staging wave for the already
-`dry_run_succeeded` Barcelona landmark unit with max rows **2**, then widen only
+IP-10.1 landed real candidate supply and the first two refreshed live staging
+waves have succeeded. Next, inspect the live queue for the next
+`dry_run_succeeded` candidate; if none are ready, run a bounded IP-18.4 dry-run
+for the next 1-2 units, then continue the one-unit staging ramp. Widen only
 after fresh approval and successful evidence. Only after a green staging ramp
 should IP-18.6 production inbox package waves proceed.
 
