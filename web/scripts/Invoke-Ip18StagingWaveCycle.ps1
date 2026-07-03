@@ -275,7 +275,6 @@ with updated as (
   set
     status = 'dry_run_ready',
     run_report = null,
-    proposal = null,
     blockers = '[]'::jsonb,
     updated_at = now()
   where unit_key = any($1::text[])
