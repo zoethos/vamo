@@ -540,7 +540,7 @@ Acceptance criteria:
 
 ## Slice IP-10.1 - Real EU POI Snapshot Supply
 
-Status: **implemented on `feature/ip10.1-real-eu-poi-snapshot`, pending PR/CI**.
+Status: **done** — merged in PR #133 (`b066e3b7`).
 Source-supply descendant of IP-10; sequenced **before the next live IP-18.5
 wave / IP-18.6 production wave** so orchestration operates on real candidates
 instead of the 5-row demo fixture.
@@ -583,7 +583,7 @@ Acceptance criteria:
   and the new fixture sha256.
 - Spec tests + `ip15:boundary-audit` green; `git diff --check` clean.
 
-Implementation evidence on the feature branch:
+Implementation evidence:
 
 - Contract source now uses `adapter: snapshot`, `snapshotPath:
   fixtures/source.jsonl`, and contract version 4.
@@ -594,6 +594,9 @@ Implementation evidence on the feature branch:
   an `allowed_values` gate for `poi`, `landmark`, `restaurant`, and `transport`.
 - Local no-DB coverage probe: **36 candidates / 36 planned units / 0 missing
   units**, with 2 dead letters and 1 policy block.
+- Review validation for PR #133: ingestion-platform tests **218 pass / 13
+  skipped / 0 failed**, `ip15:boundary-audit` passed, `ip18:batch-plan`
+  returned **36 planned / 0 blocked**, and fixture checksums were regenerated.
 
 ## Slice IP-11 - Authenticated Live Control Mutation API
 
@@ -1327,11 +1330,18 @@ Live evidence:
   `vamo-place-intelligence:barcelona-spain:landmark`.
 - Dashboard reports for all three show `wroteToTarget=false`; no live provider,
   Vamo staging, or Vamo production writes occurred.
+- After IP-10.1 source expansion and PR #135's target-row counting fix,
+  `PrepareDryRun` re-ran IP-18.4 for the next wave candidates. Execution id
+  **4** recorded audit id **33** and left
+  `vamo-place-intelligence:paris-france:landmark` plus
+  `vamo-place-intelligence:barcelona-spain:landmark` as
+  `dry_run_succeeded`, each with `insert_count=2`, `wroteToTarget=false`, and
+  no blockers.
 
 ## Slice IP-18.5 - Staged Batch Canary Waves
 
-Status: **active — control-plane policy/execution merged; live wave paused on
-candidate supply**. IP-18.5 is the first batch slice that may touch a consumer DB
+Status: **active — first live 1-unit staging wave succeeded; continue governed
+ramp**. IP-18.5 is the first batch slice that may touch a consumer DB
 again. **Production is forbidden.** Vamo staging writes must reuse the existing
 IP-16 `applyPostgresStagingCanary` adapter — no second staging write path and no
 aggregate multi-unit direct write.
@@ -1404,24 +1414,38 @@ Validation (IP-18.5.0):
 | IP-18.5.1 | Done — pure wave eligibility/ramp/approval policy + control schema (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
 | IP-18.5.2 | Done — CLI wave executor reusing per-unit `applyPostgresStagingCanary`; first-wave hard cap enforced in approval and execution |
 | IP-18.5.3 | Done in the current console path — dashboard approval surface and read-only wave state |
-| IP-18.5.4 | Paused — first live wave attempted and failed closed on `diff_drift` because current fixture supply is exhausted |
+| IP-18.5.4 | Active — first refreshed live 1-unit staging wave succeeded; continue 1-unit ramp before widening |
 
-Live IP-18.5 evidence after PR #131:
+Live IP-18.5 evidence:
 
-- Dashboard approved a 1-unit wave with audit id **18** for
-  `vamo-place-intelligence:paris-france:landmark`.
-- CLI execution produced execution audit id **19** and failed closed with
-  `diff_drift` (`expected 2i/0u, got 0i/0u`); no Vamo staging writes occurred.
-- A read-only live-staging-diff refresh recorded audit id **20** and moved all
-  36 queue units to `dry_run_blocked`: 33 `no_fixture_candidates`, 3
-  `live_diff_noop`.
-- PR #131 fixed dashboard/read-model rendering so lifecycle-blocked queue rows
-  count as blocked and JSONB blocker payloads no longer render as
-  `[object Object]`.
+- Earlier attempts against the 5-row fixture failed closed and exposed two useful
+  fixes: PR #135 made dry-run reports count target rows rather than source rows,
+  and PRs #136-#138 added the operator helper while keeping resets within
+  `confluendo_app` grants and avoiding unintended unit selection.
+- Refreshed IP-18.4 evidence after IP-10.1: execution id **4**, audit id **33**,
+  Paris landmark and Barcelona landmark both `dry_run_succeeded` with
+  `insert_count=2`, `wroteToTarget=false`, and no blockers.
+- Dashboard approved a 1-unit wave with approval audit id **34** for
+  `vamo-place-intelligence:paris-france:landmark`; max rows was **2**.
+- CLI execution completed with wave status **succeeded**, execution audit id
+  **36**, shipment id **4**, and shipment key
+  `batch-staging-canary-wave:batch-staging-canary:vamo-eu-poi-sample:1:vamo-place-intelligence:paris-france:landmark:Approve-fixed-IP-18.5-ra:unit:vamo-place-intelligence:paris-france:landmark`.
+- Live Vamo staging verification found the source ref and canonical joined by
+  `location_source_refs.canonical_id = location_canonicals.id`:
+  `provider='fsq_os_places'`,
+  `source_place_id='fsq_paris_louvre_landmark'`,
+  `canonical_id='0b9523e6-07bd-510a-ba3e-d22dfdbecf9a'`,
+  `canonical_key='fsq-paris-louvre-landmark'`,
+  `display_name='Louvre Pyramid'`, `feature_type='landmark'`, coordinates
+  `(48.8606, 2.3376)`, with both rows created at
+  `2026-07-03 23:03:21.699871+00`.
+- This proof wrote Vamo staging only through the IP-16 adapter. It did not write
+  to Vamo production and did not call a live provider.
 
-Operational decision: do not keep approving waves from the 5-row fixture. Land
-IP-10.1 source expansion, reseed/re-dry-run the queue with real candidates, then
-retry the IP-18.5.4 first live wave.
+Operational decision: continue the IP-18.5 staging ramp one unit at a time over
+the refreshed IP-10.1 supply. The next candidate is
+`vamo-place-intelligence:barcelona-spain:landmark`, already
+`dry_run_succeeded` with `insert_count=2`.
 
 Future slices:
 
@@ -1429,16 +1453,12 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-10.1 — Real EU POI Snapshot Supply** is the immediate next slice
-(source-first). IP-18.4/18.5 proved the wave machinery works but the queue is
-starved: batch planning expands 36 units over a 5-row demo fixture, so every
-downstream dry-run/wave validates clean orchestration against empty/no-op units.
-Feed real candidate supply first, then reseed/re-dry-run the queue and retry the
-IP-18.5.4 first live staging wave.
-
-After IP-10.1 lands, resume the IP-18.5.x wave track over real candidates:
-fresh dry-run evidence -> 1-unit staging wave -> governed widening. Only after a
-green staging ramp should IP-18.6 production inbox package waves proceed.
+**Continue IP-18.5 — Staged Batch Canary Ramp** is the immediate next slice.
+IP-10.1 landed real candidate supply and the first refreshed live staging wave
+has succeeded. Next, run another 1-unit staging wave for the already
+`dry_run_succeeded` Barcelona landmark unit with max rows **2**, then widen only
+after fresh approval and successful evidence. Only after a green staging ramp
+should IP-18.6 production inbox package waves proceed.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
