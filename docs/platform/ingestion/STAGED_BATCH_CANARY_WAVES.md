@@ -303,6 +303,32 @@ Same checklist as `STAGING_CANARY_RUNBOOK.md`:
 
 ### 11.4 Live wave execution (IP-18.5.2)
 
+Preferred operator helper (Windows/PowerShell):
+
+```powershell
+cd Z:\vamo-ip17\web
+
+# Read-only: inspect the target units and recent wave attempts.
+.\scripts\Invoke-Ip18StagingWaveCycle.ps1 -Mode Status
+
+# Control-plane only: reset selected units, rerun IP-18.4, and verify
+# dry-run reports before asking for a fresh dashboard approval.
+.\scripts\Invoke-Ip18StagingWaveCycle.ps1 -Mode PrepareDryRun
+
+# After dashboard approval, execute the confirmation-gated 1-unit wave.
+.\scripts\Invoke-Ip18StagingWaveCycle.ps1 `
+  -Mode ExecuteWave `
+  -ApprovalAuditId <approval-audit-id>
+```
+
+The helper intentionally does **not** create the dashboard approval. The admin +
+AAL2 + fresh-MFA approval remains a human checkpoint. It only automates the
+repeatable shell work around that checkpoint: env loading, stale queue reset,
+IP-18.4 dry-run execution, report verification, and IP-18.5 execution after an
+approval id is supplied. `PrepareDryRun` writes only Confluendo control-plane
+state. `ExecuteWave` still requires `CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES`
+internally and the Vamo staging canary app DSN.
+
 Preview (CI-safe — no staging writes):
 
 ```powershell
