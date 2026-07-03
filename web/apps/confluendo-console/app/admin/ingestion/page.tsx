@@ -759,7 +759,7 @@ function progressiveSourceLabel(source: "live" | "sample" | "error"): string {
 
 function batchQueueSourceLabel(source: "live" | "sample" | "error"): string {
   if (source === "live") {
-    return "Live control plane · schedulable queue";
+    return "Live control plane";
   }
   if (source === "error") {
     return "Live read failed · sample fallback";
