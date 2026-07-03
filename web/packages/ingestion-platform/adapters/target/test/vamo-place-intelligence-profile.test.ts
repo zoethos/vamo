@@ -21,14 +21,11 @@ describe("vamo place-intelligence consumer profile", () => {
     const { pipeline } = readImportedSpecs();
     const result = await runFixturePipeline({
       pipeline,
-      batchSize: 10,
+      batchSize: 50,
       fixtureRoot: bundleDir
     });
 
-    assert.deepEqual(
-      result.candidates.map((candidate) => candidate.recordKey),
-      ["fsq_colosseum", "fsq_eiffel_tower", "fsq_sagrada_familia"]
-    );
+    assert.equal(result.candidates.length, 36);
 
     const colosseum = result.candidates[0]?.payload;
     assert.ok(colosseum);
@@ -46,13 +43,19 @@ describe("vamo place-intelligence consumer profile", () => {
     assert.equal(sourceRef.provider, "fsq_os_places");
     assert.equal(sourceRef.source_place_id, "fsq_colosseum");
     assert.equal(sourceRef.canonical_id, canonical.id);
+
+    const landmark = result.candidates.find(
+      (candidate) => candidate.sourceScope?.category === "landmark"
+    )?.payload;
+    assert.ok(landmark);
+    assert.equal(tablePayload(landmark, "location_canonicals").feature_type, "landmark");
   });
 
   it("produces a dry-run shipment plan against the Vamo cache schema fixture", async () => {
     const { pipeline, target } = readImportedSpecs();
     const run = await runFixturePipeline({
       pipeline,
-      batchSize: 10,
+      batchSize: 5,
       fixtureRoot: bundleDir
     });
     const client = new VamoPlaceSchemaClient({

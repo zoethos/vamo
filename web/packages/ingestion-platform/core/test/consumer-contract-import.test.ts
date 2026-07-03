@@ -40,7 +40,7 @@ describe("imported vamo consumer contract", () => {
     }
   });
 
-  it("dry-runs the imported fixture through IP-03 against the bundle root", async () => {
+  it("dry-runs the imported snapshot through IP-03 against the bundle root", async () => {
     const pipeline = parsePipelineSpec(read("pipeline.yaml"));
     if (!pipeline.ok) {
       throw new Error(`imported pipeline did not parse: ${JSON.stringify(pipeline.errors)}`);
@@ -48,15 +48,26 @@ describe("imported vamo consumer contract", () => {
 
     const result = await runFixturePipeline({
       pipeline: pipeline.value,
-      batchSize: 10,
+      batchSize: 50,
       fixtureRoot: bundleDir
     });
 
-    // rows 1,2,5 stage; row 3 dead-letters for each missing mapped name field;
-    // row 4 is policy-blocked (media bytes without storage rights).
+    // The bounded IP-10.1 snapshot stages one valid row for every IP-18
+    // geography/category unit, while preserving the legacy edge cases:
+    // row 3 dead-letters for each missing mapped name field and row 4 is
+    // policy-blocked (media bytes without storage rights).
+    assert.equal(result.candidates.length, 36);
     assert.deepEqual(
-      result.candidates.map((candidate) => candidate.recordKey),
-      ["fsq_colosseum", "fsq_eiffel_tower", "fsq_sagrada_familia"]
+      new Set(result.candidates.map((candidate) => candidate.sourceScope?.category)),
+      new Set(["poi", "landmark", "restaurant", "transport"])
+    );
+    assert.equal(
+      result.candidates.some(
+        (candidate) =>
+          candidate.sourceScope?.geography === "munich-germany" &&
+          candidate.sourceScope.category === "transport"
+      ),
+      true
     );
     assert.equal(result.deadLetters.length, 2);
     assert.equal(result.deadLetters[0]?.reasonCode, "missing_mapped_field");

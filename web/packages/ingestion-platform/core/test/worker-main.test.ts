@@ -55,7 +55,7 @@ describe("container worker harness", () => {
     );
   });
 
-  it("resumes from the last committed checkpoint and completes the fixture", async () => {
+  it("resumes from the last committed checkpoint and completes the imported snapshot", async () => {
     const stateDir = await makeStateDir();
     await runTestWorker({
       stateDir,
@@ -68,9 +68,9 @@ describe("container worker harness", () => {
 
     assert.equal(resumed.status, "succeeded");
     assert.equal(resumed.exitReason, "source_exhausted");
-    assert.equal(resumed.checkpoint?.cursorValue.last, 5);
-    assert.equal(resumed.checkpoint?.processedCount, 5);
-    assert.equal(resumed.candidatesStaged, 1);
+    assert.equal(resumed.checkpoint?.cursorValue.last, 38);
+    assert.equal(resumed.checkpoint?.processedCount, 38);
+    assert.equal(resumed.candidatesStaged, 34);
     assert.equal(resumed.deadLetters, 2);
     assert.equal(resumed.policyEvaluations > 0, true);
 

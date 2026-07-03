@@ -2,14 +2,14 @@
   "kind": "ingestion.import_metadata",
   "consumer": "vamo",
   "profile": "place-intelligence",
-  "contractVersion": 3,
+  "contractVersion": 4,
   "source": {
-    "repo": "vamo-ip152",
-    "commit": "75ad7d17606f01bd7a87b5005d55565c113f0844",
+    "repo": "vamo-ip17",
+    "commit": "34beac824e9a4f74705b7a3e164e54685f04698b",
     "dirty": true,
     "contractPath": "contracts/ingestion/vamo-place-intelligence"
   },
-  "importedAt": "2026-07-02T13:14:16.184Z",
+  "importedAt": "2026-07-03T09:25:56.533Z",
   "validation": {
     "manifest": "ok",
     "pipeline": "ok",
@@ -18,11 +18,11 @@
   "files": [
     {
       "path": "manifest.yaml",
-      "sha256": "645b66c5b1b506d0f5c552e710cde7f50d94d95c273323b425a3acc81c3dbb82"
+      "sha256": "4f1a818c7b45247300bc5363a22e1b465b5ac79b18dfdd12118b4f29aa6aae27"
     },
     {
       "path": "pipeline.yaml",
-      "sha256": "21ec6d05f00e633b72dbe795f8ad8908cc036221eaf9a7ef90954a6fda170ac1"
+      "sha256": "5a84b4bea664bcfca4cc3a31791f42a7d4fe0141e50ca417b891b02b980b8d91"
     },
     {
       "path": "target.yaml",
@@ -30,7 +30,7 @@
     },
     {
       "path": "fixtures/source.jsonl",
-      "sha256": "265398cef12df7a1b368ea7b74f6cfd2832fd61c85ed3decca8877b546c8751c"
+      "sha256": "134a3679f394e22000cf2ff55edc6c325ba5870c359b6c1fb40e0f8a449d7a0a"
     }
   ]
 }

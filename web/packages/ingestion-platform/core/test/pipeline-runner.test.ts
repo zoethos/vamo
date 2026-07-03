@@ -84,7 +84,7 @@ describe("fixture pipeline runner", () => {
 
     assert.equal(result.candidates.length, 2);
     assert.equal(result.deadLetters.length, 0);
-    assert.equal(result.policyEvaluations.length, 6);
+    assert.equal(result.policyEvaluations.length, 8);
     assert.equal(result.checkpoint.cursorValue.last, 2);
     assert.equal(result.checkpoint.lastRecordKey, "fsq_eiffel_tower");
     assert.equal(
@@ -101,7 +101,7 @@ describe("fixture pipeline runner", () => {
     });
     const resumed = await runFixturePipeline({
       pipeline,
-      batchSize: 10,
+      batchSize: 3,
       checkpoint: first.checkpoint,
       fixtureRoot
     });

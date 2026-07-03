@@ -540,9 +540,10 @@ Acceptance criteria:
 
 ## Slice IP-10.1 - Real EU POI Snapshot Supply
 
-Status: **proposed** (implementation slice). Source-supply descendant of IP-10;
-sequenced **before the next live IP-18.5 wave / IP-18.6 production wave** so
-orchestration operates on real candidates instead of the 5-row demo fixture.
+Status: **implemented on `feature/ip10.1-real-eu-poi-snapshot`, pending PR/CI**.
+Source-supply descendant of IP-10; sequenced **before the next live IP-18.5
+wave / IP-18.6 production wave** so orchestration operates on real candidates
+instead of the 5-row demo fixture.
 
 Source of truth: `docs/platform/ingestion/IP_10_1_SOURCE_EXPANSION_PROMPT.md`.
 
@@ -564,7 +565,8 @@ Scope:
   `{poi,landmark,restaurant,transport}`), not the hardcoded `value: poi`.
 - Switch the contract source adapter `fixture` → `snapshot` and regenerate the
   pinned consumer contract via `import:contract`.
-- Re-run IP-18 batch planning/seed/dry-run against real candidate supply.
+- Re-run IP-18 batch planning/seed and local candidate-coverage checks against
+  real candidate supply.
 
 Guardrails: no Vamo staging or production writes (ends at dry-run with real
 candidates); IP-16 adapter stays the only staging write boundary;
@@ -580,6 +582,18 @@ Acceptance criteria:
 - `import:contract` regenerates `IMPORT_METADATA.json` with `adapter: snapshot`
   and the new fixture sha256.
 - Spec tests + `ip15:boundary-audit` green; `git diff --check` clean.
+
+Implementation evidence on the feature branch:
+
+- Contract source now uses `adapter: snapshot`, `snapshotPath:
+  fixtures/source.jsonl`, and contract version 4.
+- Bounded local snapshot contains **38 rows**: 36 valid staged candidates covering
+  all 36 IP-18 geography/category units, plus one missing-name dead-letter row
+  and one media-byte policy-block row.
+- `feature_type` derives from `scope.category` and the spec/policy layer enforces
+  an `allowed_values` gate for `poi`, `landmark`, `restaurant`, and `transport`.
+- Local no-DB coverage probe: **36 candidates / 36 planned units / 0 missing
+  units**, with 2 dead letters and 1 policy block.
 
 ## Slice IP-11 - Authenticated Live Control Mutation API
 

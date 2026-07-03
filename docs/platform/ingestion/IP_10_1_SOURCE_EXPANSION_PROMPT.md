@@ -1,9 +1,9 @@
 # IP-10.1 — Real EU POI Snapshot Supply
 
-Status: **proposed** (implementation slice). Descendant of **IP-10 "First Real
-Open Dataset Source."** Chosen over an `IP-18.6` label because IP-18.6 is already
-reserved for *production inbox package waves* — this slice is **supply**, not
-batch orchestration.
+Status: **implemented on `feature/ip10.1-real-eu-poi-snapshot`, pending PR/CI**.
+Descendant of **IP-10 "First Real Open Dataset Source."** Chosen over an
+`IP-18.6` label because IP-18.6 is already reserved for *production inbox package
+waves* — this slice is **supply**, not batch orchestration.
 
 Sequencing: **source-first before the next live wave.** IP-18.5.1/18.5.2 have
 already proved the policy/execution machinery, but the first live wave failed
@@ -105,15 +105,19 @@ Run the existing scripts (all no-network, dry-run only):
 npm --workspace @confluendo/ingestion-platform run import:contract
 npm --workspace @confluendo/ingestion-platform run ip18:batch-plan
 npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed
-npm --workspace @confluendo/ingestion-platform run ip18:batch-dry-run
 ```
+
+`ip18:batch-dry-run` is a live-control preview/execution harness and now requires
+`INGESTION_CONTROL_DATABASE_URL`; do not use it as the no-env proof for this
+source-only slice. The no-DB proof is the imported snapshot coverage check:
+every planned IP-18 unit must have at least one staged candidate.
 
 Expected after run:
 
 - `IMPORT_METADATA.json` regenerated with new `fixtures/source.jsonl` sha256 and
   `adapter: snapshot`.
-- Batch dry-run reports **candidates > 0** for every unit in the coverage set,
-  with `feature_type` matching the unit category (not all `poi`).
+- Imported snapshot coverage reports **candidates > 0** for every unit in the
+  coverage set, with `feature_type` matching the unit category (not all `poi`).
 - `wroteToTarget=false` on every unit — this stays a dry-run; **no** Vamo staging
   or production writes.
 - Dashboard read model (post PR #131) shows non-empty planned rows and
