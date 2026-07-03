@@ -195,6 +195,37 @@ const READY_STATUSES: readonly BatchQueueItemStatus[] = [
   "production_ready"
 ];
 
+const BLOCKED_STATUSES: readonly BatchQueueItemStatus[] = [
+  "blocked",
+  "dry_run_blocked",
+  "staging_canary_blocked"
+];
+
+export function formatBatchQueueBlocker(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const code = typeof record.code === "string" ? record.code.trim() : "";
+    const message = typeof record.message === "string" ? record.message.trim() : "";
+    if (code && message) {
+      return `${code}: ${message}`;
+    }
+    if (code) {
+      return code;
+    }
+    if (message) {
+      return message;
+    }
+  }
+  return String(value);
+}
+
+export function formatBatchQueueBlockers(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(formatBatchQueueBlocker) : [];
+}
+
 export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): BatchQueueSnapshot {
   const items = input.plan.units
     .map((unit) => toQueueItem(unit, input.plan, input.progressionByUnitKey))
@@ -342,7 +373,7 @@ function buildGroups(items: BatchQueueItem[]): BatchQueueGroup[] {
         label: formatCountryLabel(country),
         totalUnits: sortedItems.length,
         plannedUnits: countByStatus(sortedItems, "planned"),
-        blockedUnits: countByStatus(sortedItems, "blocked"),
+        blockedUnits: countBlocked(sortedItems),
         readyUnits: countReady(sortedItems),
         appliedUnits: countByStatus(sortedItems, "applied"),
         items: sortedItems
@@ -379,7 +410,7 @@ function summarizeProgress(items: BatchQueueItem[]): BatchQueueProgress {
   return {
     total: items.length,
     planned: countByStatus(items, "planned"),
-    blocked: countByStatus(items, "blocked"),
+    blocked: countBlocked(items),
     ready: countReady(items),
     applied: countByStatus(items, "applied"),
     execution: {
@@ -429,7 +460,7 @@ function deriveNextAction(
   if (progress.blocked > 0) {
     const top = blockers[0];
     return top
-      ? `Resolve ${progress.blocked} blocked unit(s) — top blocker: ${top.reason}.`
+      ? `Resolve ${progress.blocked} blocked unit(s) — top blocker: ${withTerminalPunctuation(top.reason)}`
       : `Resolve ${progress.blocked} blocked unit(s) before dry-run scheduling.`;
   }
   const readyForDryRun = countByStatus(items, "ready_for_dry_run");
@@ -461,6 +492,14 @@ function countByStatus(items: BatchQueueItem[], status: BatchQueueItemStatus): n
 
 function countReady(items: BatchQueueItem[]): number {
   return items.filter((item) => READY_STATUSES.includes(item.status)).length;
+}
+
+function countBlocked(items: BatchQueueItem[]): number {
+  return items.filter((item) => BLOCKED_STATUSES.includes(item.status)).length;
+}
+
+function withTerminalPunctuation(value: string): string {
+  return /[.!?]$/.test(value) ? value : `${value}.`;
 }
 
 function inferCountry(unit: BatchPlanUnit): string {

@@ -6,6 +6,8 @@ import { parseBatchPlanSpec } from "../src/batch-plan-spec.js";
 import { sampleVamoEuPoiBatchPlan, sampleVamoEuPoiBatchYaml } from "../src/batch-plan-read-model.js";
 import {
   buildBatchQueueSnapshot,
+  buildBatchQueueSnapshotFromItems,
+  formatBatchQueueBlockers,
   sampleVamoEuPoiBatchQueueSnapshot
 } from "../src/batch-queue-read-model.js";
 
@@ -74,6 +76,63 @@ describe("batch queue read model", () => {
     const italyGroup = snapshot.groups.find((group) => group.groupKey === "italy");
     assert.ok(italyGroup);
     assert.equal(italyGroup.appliedUnits, 1);
+  });
+
+  it("counts lifecycle-blocked dry-run units as blocked next-action work", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const [first, second] = base.items;
+    assert.ok(first && second);
+
+    const snapshot = buildBatchQueueSnapshotFromItems({
+      planId: base.planId,
+      projectKey: base.projectKey,
+      targetKey: base.targetKey,
+      targetEnvironment: base.targetEnvironment,
+      sourceKey: base.sourceKey,
+      safetyMode: base.safetyMode,
+      items: [
+        {
+          ...first,
+          status: "dry_run_blocked",
+          blockReasons: [
+            "live_diff_noop: Current Vamo staging diff has no inserts or updates."
+          ]
+        },
+        {
+          ...second,
+          status: "dry_run_blocked",
+          blockReasons: [
+            "no_fixture_candidates: No fixture candidates matched this scope."
+          ]
+        }
+      ],
+      planNextAction: "Review batch queue (36 ready for dry-run) and approve scheduling."
+    });
+
+    assert.equal(snapshot.progress.total, 2);
+    assert.equal(snapshot.progress.blocked, 2);
+    assert.equal(snapshot.progress.execution.dryRunBlocked, 2);
+    assert.equal(snapshot.progress.ready, 0);
+    assert.match(snapshot.nextAction, /Resolve 2 blocked unit/);
+    assert.match(snapshot.nextAction, /live_diff_noop/);
+  });
+
+  it("formats persisted JSON blocker objects for operators", () => {
+    assert.deepEqual(
+      formatBatchQueueBlockers([
+        {
+          code: "diff_drift",
+          message: "Refusing to write: diff drifted from review."
+        },
+        { code: "live_diff_noop" },
+        { message: "No fixture candidates matched this scope." }
+      ]),
+      [
+        "diff_drift: Refusing to write: diff drifted from review.",
+        "live_diff_noop",
+        "No fixture candidates matched this scope."
+      ]
+    );
   });
 
   it("never emits environment-encoded target keys on queue items", () => {

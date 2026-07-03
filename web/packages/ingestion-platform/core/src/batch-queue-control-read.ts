@@ -11,6 +11,7 @@ import type {
   BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
+import { formatBatchQueueBlockers } from "./batch-queue-read-model.js";
 
 /**
  * Live read of persisted batch queue state into `BatchQueueSnapshot`.
@@ -221,7 +222,7 @@ export async function loadBatchQueueSnapshot(
         status: row.status as BatchQueueItemStatus,
         priority: row.priority,
         runOrder: row.runOrder,
-        blockers: Array.isArray(row.blockers) ? row.blockers.map(String) : [],
+        blockers: formatBatchQueueBlockers(row.blockers),
         proposal: row.proposal,
         runReport: row.runReport
       })),
@@ -368,7 +369,7 @@ async function loadLatestWave(
         status: item.status,
         plannedRowCount: item.plannedRowCount,
         shipmentId: item.shipmentId,
-        blockers: Array.isArray(item.blockers) ? item.blockers.map(String) : []
+        blockers: formatBatchQueueBlockers(item.blockers)
       }))
     };
   } catch (error) {
