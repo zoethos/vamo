@@ -21,7 +21,7 @@ const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 
 describe("batch dry-run execution control", () => {
-  it("uses provided fixture candidate counts instead of hash-derived counts", () => {
+  it("uses provided fixture candidate and target-row counts instead of hash-derived counts", () => {
     const report = simulateBatchDryRunUnit({
       executionKey: "dry-run:test",
       unitKey: "vamo-place-intelligence:paris-france:landmark",
@@ -30,12 +30,13 @@ describe("batch dry-run execution control", () => {
       targetKey: "vamo-place-intelligence",
       targetEnvironment: "staging",
       candidateCount: 1,
+      targetWriteCount: 2,
       rowLimit: 50,
       now: "2026-07-03T10:00:00.000Z"
     });
 
     assert.equal(report.rowsProcessed, 1);
-    assert.equal(report.insertCount, 1);
+    assert.equal(report.insertCount, 2);
     assert.equal(report.updateCount, 0);
     assert.equal(report.noOpCount, 0);
     assert.equal(report.wroteToTarget, false);

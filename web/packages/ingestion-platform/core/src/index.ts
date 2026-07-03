@@ -364,6 +364,7 @@ export {
 export {
   buildBatchWaveUnitScope,
   buildWaveUnitShipmentKey,
+  countCandidateTargetRows,
   filterCandidatesForWaveUnit,
   parseDryRunWriteCounts,
   type BatchWaveUnitScope

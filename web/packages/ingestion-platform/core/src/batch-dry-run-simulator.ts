@@ -36,6 +36,7 @@ export interface SimulateBatchDryRunUnitInput {
   targetKey: string;
   targetEnvironment: string;
   candidateCount?: number;
+  targetWriteCount?: number;
   rowLimit?: number;
   now?: string;
 }
@@ -43,8 +44,9 @@ export interface SimulateBatchDryRunUnitInput {
 export function simulateBatchDryRunUnit(input: SimulateBatchDryRunUnitInput): BatchDryRunUnitReport {
   const rowLimit = input.rowLimit ?? 3;
   const sourceRowCount = input.candidateCount ?? deterministicRowCount(input.unitKey);
+  const targetWriteCount = input.targetWriteCount ?? sourceRowCount;
   const rowsProcessed = Math.min(rowLimit, sourceRowCount);
-  const insertCount = rowsProcessed;
+  const insertCount = Math.min(rowLimit, targetWriteCount);
   const updateCount = 0;
   const noOpCount = 0;
 
