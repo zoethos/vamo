@@ -7,7 +7,7 @@
 //   1. It always previews the gated plan first (bundled fixtures, dry).
 //   2. It HARD-FAILS (exit 1) and writes nothing unless ALL of these hold:
 //        - CONFIRM_VAMO_STAGING_CANARY=YES                (explicit confirmation)
-//        - VAMO_STAGING_DATABASE_URL is set               (staging DSN)
+//        - VAMO_STAGING_CANARY_APP_DATABASE_URL is set               (staging DSN)
 //        - VAMO_STAGING_CANARY_ENVIRONMENT=staging         (never "production")
 //        - VAMO_STAGING_CANARY_APPROVAL_ID is set          (dashboard approval)
 //        - INGESTION_CONTROL_DATABASE_URL is set           (approval + ledger)
@@ -36,7 +36,7 @@
 //   green light):
 //     CONFIRM_VAMO_STAGING_CANARY=YES \
 //     VAMO_STAGING_CANARY_ENVIRONMENT=staging \
-//     VAMO_STAGING_DATABASE_URL=postgres://... \
+//     VAMO_STAGING_CANARY_APP_DATABASE_URL=postgres://... \
 //     VAMO_STAGING_CANARY_APPROVAL_ID=123 \
 //     VAMO_STAGING_CANARY_REASON="..." \
 //     node scripts/run-ip16-staging-canary.mjs --execute
@@ -236,7 +236,7 @@ async function findActiveCanaryShipment({ connectionString, projectKey, shipment
 async function main() {
   const execute = process.argv.includes("--execute");
   const confirmed = process.env.CONFIRM_VAMO_STAGING_CANARY === "YES";
-  const stagingDsn = process.env.VAMO_STAGING_DATABASE_URL?.trim();
+  const stagingDsn = process.env.VAMO_STAGING_CANARY_APP_DATABASE_URL?.trim();
   const environment = process.env.VAMO_STAGING_CANARY_ENVIRONMENT?.trim();
   const controlDsn = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
   const approvalId = process.env.VAMO_STAGING_CANARY_APPROVAL_ID?.trim();
@@ -289,7 +289,7 @@ async function main() {
   if (!gatesSatisfied || !execute) {
     console.log("Confirmation gate");
     bullet("CONFIRM_VAMO_STAGING_CANARY=YES", confirmed ? "yes" : "MISSING");
-    bullet("VAMO_STAGING_DATABASE_URL", stagingDsn ? "set" : "MISSING");
+    bullet("VAMO_STAGING_CANARY_APP_DATABASE_URL", stagingDsn ? "set" : "MISSING");
     bullet("VAMO_STAGING_CANARY_ENVIRONMENT", environment === "staging" ? "staging" : `INVALID (${environment ?? "unset"})`);
     bullet("INGESTION_CONTROL_DATABASE_URL", controlDsn ? "set" : "MISSING");
     bullet("VAMO_STAGING_CANARY_APPROVAL_ID", approvalId ? approvalId : "MISSING");

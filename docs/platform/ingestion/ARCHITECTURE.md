@@ -317,7 +317,7 @@ metadata:
 
 engine:
   adapter: supabase_postgres
-  dsnSecret: VAMO_STAGING_DATABASE_URL
+  dsnSecret: VAMO_STAGING_CANARY_APP_DATABASE_URL
   serviceRoleSecret: VAMO_STAGING_SERVICE_ROLE
   exposedSchemas:
     - public

@@ -316,7 +316,7 @@ Execute against Vamo staging (manual only — requires ops sign-off):
 ```powershell
 $env:CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY = "YES"
 $env:VAMO_STAGING_CANARY_ENVIRONMENT = "staging"
-$env:VAMO_STAGING_DATABASE_URL = "<server-side staging DSN>"
+$env:VAMO_STAGING_CANARY_APP_DATABASE_URL = "<server-side staging DSN>"
 $env:INGESTION_CONTROL_DATABASE_URL = "<confluendo control DSN>"
 npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave -- `
   --execute `

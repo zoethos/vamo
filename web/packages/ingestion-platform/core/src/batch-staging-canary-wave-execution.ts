@@ -26,6 +26,8 @@ import {
   type StagingCanaryShipmentItemForLedger
 } from "./staging-canary-control.js";
 
+const DEFAULT_WAVE_CANDIDATE_SCAN_BATCH_SIZE = 1000;
+
 export interface BatchStagingCanaryWaveExecutionPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
@@ -99,14 +101,14 @@ const DEFAULT_EXECUTION_SAFETY_SUMMARY = [
   "Target DB must expose confluendo_guard.environment_sentinel value=staging.",
   "Stop-on-first-failure; skip already-succeeded wave items.",
   "No production writes. No live provider calls.",
-  "Execute requires CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES and VAMO_STAGING_DATABASE_URL."
+  "Execute requires CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES and VAMO_STAGING_CANARY_APP_DATABASE_URL."
 ] as const;
 
 export async function executeBatchStagingCanaryWave(
   input: ExecuteBatchStagingCanaryWaveInput
 ): Promise<ExecuteBatchStagingCanaryWaveResult> {
   if (!input.stagingConnectionString?.trim()) {
-    throw new Error("VAMO_STAGING_DATABASE_URL is required for wave execution.");
+    throw new Error("VAMO_STAGING_CANARY_APP_DATABASE_URL is required for wave execution.");
   }
 
   const controlClient = await openControlClient(input.controlClient, input.controlConnectionString);
@@ -678,7 +680,7 @@ export async function defaultLoadWaveUnitCandidates(input: {
 }): Promise<StagedCandidate[]> {
   const run = await input.runPipeline({
     pipeline: input.pipeline,
-    batchSize: Math.max(input.scope.maxRows, 1),
+    batchSize: Math.max(input.scope.maxRows, DEFAULT_WAVE_CANDIDATE_SCAN_BATCH_SIZE),
     fixtureRoot: input.fixtureRoot
   });
   return filterCandidatesForWaveUnit(run.candidates, input.scope);

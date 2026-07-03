@@ -7,7 +7,7 @@
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave
 //   npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave -- --wave-key batch-staging-canary:vamo-eu-poi-sample:audit:wave-smoke
-//   CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES VAMO_STAGING_DATABASE_URL=... INGESTION_CONTROL_DATABASE_URL=... \
+//   CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES VAMO_STAGING_CANARY_APP_DATABASE_URL=... INGESTION_CONTROL_DATABASE_URL=... \
 //     npm --workspace @confluendo/ingestion-platform run ip18:staging-canary-wave -- --execute --wave-key ...
 
 import { readFileSync } from "node:fs";
@@ -142,14 +142,14 @@ for (const unitKey of decision.plan.pendingUnitKeys) {
 if (!execute) {
   console.log("");
   console.log(
-    "Preview only. Re-run with --execute, CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES, and VAMO_STAGING_DATABASE_URL to write bounded rows to Vamo staging."
+    "Preview only. Re-run with --execute, CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES, and VAMO_STAGING_CANARY_APP_DATABASE_URL to write bounded rows to Vamo staging."
   );
   process.exit(0);
 }
 
-const stagingDsn = process.env.VAMO_STAGING_DATABASE_URL?.trim();
+const stagingDsn = process.env.VAMO_STAGING_CANARY_APP_DATABASE_URL?.trim();
 if (!stagingDsn) {
-  console.error("VAMO_STAGING_DATABASE_URL is required for execute mode.");
+  console.error("VAMO_STAGING_CANARY_APP_DATABASE_URL is required for execute mode.");
   process.exit(1);
 }
 
@@ -161,7 +161,7 @@ if (process.env.CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY !== "YES") {
 console.log("");
 console.log("Confirmation gate");
 console.log(`  CONFIRM_CONFLUENDO_BATCH_STAGING_CANARY=YES`);
-console.log(`  VAMO_STAGING_DATABASE_URL set`);
+console.log(`  VAMO_STAGING_CANARY_APP_DATABASE_URL set`);
 console.log(`  VAMO_STAGING_CANARY_ENVIRONMENT=${process.env.VAMO_STAGING_CANARY_ENVIRONMENT ?? "unset (set to staging)"}`);
 console.log("");
 

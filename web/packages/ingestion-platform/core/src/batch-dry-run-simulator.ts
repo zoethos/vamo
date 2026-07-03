@@ -35,13 +35,15 @@ export interface SimulateBatchDryRunUnitInput {
   category: string;
   targetKey: string;
   targetEnvironment: string;
+  candidateCount?: number;
   rowLimit?: number;
   now?: string;
 }
 
 export function simulateBatchDryRunUnit(input: SimulateBatchDryRunUnitInput): BatchDryRunUnitReport {
   const rowLimit = input.rowLimit ?? 3;
-  const rowsProcessed = Math.min(rowLimit, deterministicRowCount(input.unitKey));
+  const sourceRowCount = input.candidateCount ?? deterministicRowCount(input.unitKey);
+  const rowsProcessed = Math.min(rowLimit, sourceRowCount);
   const insertCount = rowsProcessed;
   const updateCount = 0;
   const noOpCount = 0;

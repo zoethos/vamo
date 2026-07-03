@@ -9,7 +9,11 @@
 import { Client, type QueryResult } from "pg";
 
 import type { BatchDryRunExecutionPlan } from "./batch-dry-run-execution-policy.js";
-import { simulateBatchDryRunUnit } from "./batch-dry-run-simulator.js";
+import {
+  simulateBatchDryRunUnit,
+  type BatchDryRunUnitReport
+} from "./batch-dry-run-simulator.js";
+import type { BatchQueueItem } from "./batch-queue-read-model.js";
 
 export interface BatchDryRunExecutionPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -23,6 +27,13 @@ export interface ExecuteBatchDryRunInput {
   client?: BatchDryRunExecutionPgClientLike;
   projectKey: string;
   plan: BatchDryRunExecutionPlan;
+  deps?: {
+    buildUnitReport?: (input: {
+      unit: BatchQueueItem;
+      executionKey: string;
+      now: string;
+    }) => Promise<BatchDryRunUnitReport> | BatchDryRunUnitReport;
+  };
   now?: string;
 }
 
@@ -169,15 +180,21 @@ export async function executeBatchDryRun(
         [batchPlan.id, unit.unitKey, now]
       );
 
-      const report = simulateBatchDryRunUnit({
-        executionKey: plan.executionKey,
-        unitKey: unit.unitKey,
-        geography: unit.geography,
-        category: unit.category,
-        targetKey: unit.targetKey,
-        targetEnvironment: unit.targetEnvironment,
-        now
-      });
+      const report = input.deps?.buildUnitReport
+        ? await input.deps.buildUnitReport({
+            unit,
+            executionKey: plan.executionKey,
+            now
+          })
+        : simulateBatchDryRunUnit({
+            executionKey: plan.executionKey,
+            unitKey: unit.unitKey,
+            geography: unit.geography,
+            category: unit.category,
+            targetKey: unit.targetKey,
+            targetEnvironment: unit.targetEnvironment,
+            now
+          });
 
       await client.query(
         `

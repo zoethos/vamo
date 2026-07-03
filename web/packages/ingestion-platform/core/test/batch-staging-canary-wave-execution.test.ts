@@ -8,9 +8,13 @@ import type { TargetProjectSpec } from "../../spec/src/index.js";
 import { parseBatchPlanSpec } from "../src/batch-plan-spec.js";
 import { sampleVamoEuPoiBatchYaml } from "../src/batch-plan-read-model.js";
 import { approveBatchStagingCanaryWave } from "../src/batch-staging-canary-wave-control.js";
-import { executeBatchStagingCanaryWave } from "../src/batch-staging-canary-wave-execution.js";
+import {
+  defaultLoadWaveUnitCandidates,
+  executeBatchStagingCanaryWave
+} from "../src/batch-staging-canary-wave-execution.js";
 import { evaluateBatchStagingCanaryWaveApproval } from "../src/batch-staging-canary-wave-policy.js";
 import {
+  type BatchQueueItem,
   buildBatchQueueSnapshotFromItems,
   sampleVamoEuPoiBatchQueueSnapshot
 } from "../src/batch-queue-read-model.js";
@@ -20,7 +24,7 @@ import { executeBatchDryRun } from "../src/batch-dry-run-execution.js";
 import { evaluateBatchDryRunExecution } from "../src/batch-dry-run-execution-policy.js";
 import { scheduleBatchDryRun } from "../src/batch-queue-mutations.js";
 import type { AdminPrincipal } from "../src/admin-auth.js";
-import type { StagedCandidate } from "../src/pipeline-runner.js";
+import type { PipelineRunResult, StagedCandidate } from "../src/pipeline-runner.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -30,6 +34,71 @@ const NOW = "2026-07-02T14:00:00.000Z";
 const WAVE_KEY = "batch-staging-canary:vamo-eu-poi-sample:audit:wave-exec-smoke";
 
 describe("batch staging-canary wave execution", () => {
+  it("scans beyond the per-unit row cap before filtering wave candidates by scope", async () => {
+    const scopedCandidate = stagingCandidate("paris-landmark", {
+      source_id: "paris-landmark",
+      display_name: "Paris Landmark"
+    });
+    scopedCandidate.sourceScope = { geography: "paris-france", category: "landmark" };
+
+    const sourceCandidates = [
+      stagingCandidate("rome-poi-1", { source_id: "rome-poi-1", display_name: "Rome 1" }),
+      stagingCandidate("rome-poi-2", { source_id: "rome-poi-2", display_name: "Rome 2" }),
+      scopedCandidate
+    ];
+    sourceCandidates[0]!.sourceScope = { geography: "rome-italy", category: "poi" };
+    sourceCandidates[1]!.sourceScope = { geography: "rome-italy", category: "poi" };
+
+    let observedBatchSize = 0;
+    const loaded = await defaultLoadWaveUnitCandidates({
+      unit: {
+        unitKey: "vamo-place-intelligence:paris-france:landmark",
+        runOrder: 2,
+        geography: "paris-france",
+        geographyKind: "city",
+        country: "france",
+        category: "landmark",
+        targetKey: "vamo-place-intelligence",
+        targetEnvironment: "staging",
+        sourceKey: "fsq-os-places-sample",
+        priority: 8,
+        status: "staging_canary_approved",
+        blockReasons: [],
+        dryRunReport: null
+      } satisfies BatchQueueItem,
+      scope: {
+        unitKey: "vamo-place-intelligence:paris-france:landmark",
+        geography: "paris-france",
+        category: "landmark",
+        maxRows: 2,
+        expectedWrite: { insert: 2, update: 0 }
+      },
+      pipeline: {} as never,
+      fixtureRoot: "",
+      runPipeline: async ({ batchSize }) => {
+        observedBatchSize = batchSize;
+        return {
+          candidates: sourceCandidates.slice(0, batchSize),
+          policyEvaluations: [],
+          events: [],
+          deadLetters: [],
+          checkpoint: {
+            cursorScope: "source_row_id",
+            cursorStrategy: "monotonic_row_id",
+            cursorValue: { last: batchSize },
+            processedCount: Math.min(batchSize, sourceCandidates.length)
+          }
+        } as PipelineRunResult;
+      }
+    });
+
+    assert.ok(observedBatchSize > 2);
+    assert.deepEqual(
+      loaded.map((candidate) => candidate.recordKey),
+      ["paris-landmark"]
+    );
+  });
+
   it(
     "executes approved wave units, records ledger, and replays idempotently without duplicate staging writes",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
