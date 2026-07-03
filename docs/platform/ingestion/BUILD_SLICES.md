@@ -538,6 +538,49 @@ Acceptance criteria:
 - Policy blocks are visible in telemetry.
 - Shipment remains dry-run until review.
 
+## Slice IP-10.1 - Real EU POI Snapshot Supply
+
+Status: **proposed** (implementation slice). Source-supply descendant of IP-10;
+sequenced **before the next live IP-18.5 wave / IP-18.6 production wave** so
+orchestration operates on real candidates instead of the 5-row demo fixture.
+
+Source of truth: `docs/platform/ingestion/IP_10_1_SOURCE_EXPANSION_PROMPT.md`.
+
+Why: IP-18 batch planning expands `vamo-eu-poi-batch.yaml` into 36 geo/category
+units, but the imported candidate supply is only 5 rows, all `category: poi`, 3
+cities. Downstream dry-run/wave slices are validating clean machinery against a
+starved queue. This slice feeds real, bounded, open/cacheable candidate supply.
+It is **not** an IP-18 batch-orchestration phase; **IP-18.6 stays reserved for
+production-inbox waves.**
+
+Scope:
+
+- Replace/extend the 5-row demo fixture with a bounded real EU POI snapshot
+  (FSQ OS Places), open/cacheable only — local snapshot, no URL/proxy/VPN, no
+  Google, `canStoreMediaBytes: false`.
+- Every source row carries `scope.geography` and `scope.category` matching the
+  batch-plan keys.
+- Fix the mapping so `feature_type` derives from `scope.category` (allowlist
+  `{poi,landmark,restaurant,transport}`), not the hardcoded `value: poi`.
+- Switch the contract source adapter `fixture` → `snapshot` and regenerate the
+  pinned consumer contract via `import:contract`.
+- Re-run IP-18 batch planning/seed/dry-run against real candidate supply.
+
+Guardrails: no Vamo staging or production writes (ends at dry-run with real
+candidates); IP-16 adapter stays the only staging write boundary;
+`ip15:boundary-audit` output unchanged; do not hand-edit the pinned imported
+bundle.
+
+Acceptance criteria:
+
+- Batch dry-run reports candidates > 0 for the 9-geography × 4-category coverage
+  set, with `feature_type` matching the unit category (not all `poi`).
+- `wroteToTarget=false` on every unit; no live provider, staging, or production
+  writes.
+- `import:contract` regenerates `IMPORT_METADATA.json` with `adapter: snapshot`
+  and the new fixture sha256.
+- Spec tests + `ip15:boundary-audit` green; `git diff --check` clean.
+
 ## Slice IP-11 - Authenticated Live Control Mutation API
 
 Status: done.
@@ -1273,10 +1316,11 @@ Live evidence:
 
 ## Slice IP-18.5 - Staged Batch Canary Waves
 
-Status: **active — IP-18.5.0 design only** (docs/spec). IP-18.5 is the first batch
-slice that may touch a consumer DB again. **Production is forbidden.** Vamo staging
-writes must reuse the existing IP-16 `applyPostgresStagingCanary` adapter — no
-second staging write path and no aggregate multi-unit direct write.
+Status: **active — control-plane policy/execution merged; live wave paused on
+candidate supply**. IP-18.5 is the first batch slice that may touch a consumer DB
+again. **Production is forbidden.** Vamo staging writes must reuse the existing
+IP-16 `applyPostgresStagingCanary` adapter — no second staging write path and no
+aggregate multi-unit direct write.
 
 Source of truth:
 
@@ -1338,14 +1382,32 @@ Validation (IP-18.5.0):
 - `git diff --check`
 - Docs-only diff; no secrets.
 
-### Future IP-18.5 phases (not in this slice)
+### IP-18.5 implementation status
 
 | Phase | Scope |
 | --- | --- |
-| IP-18.5.1 | Pure wave eligibility/ramp/approval policy + control schema draft (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
-| IP-18.5.2 | Wave executor (per-unit `applyPostgresStagingCanary`) + fake/disposable target smokes |
-| IP-18.5.3 | Dashboard approval/execute + CLI `ip18:batch-staging-canary` |
-| IP-18.5.4 | First live wave (1 unit) after ops sign-off |
+| IP-18.5.0 | Done — design spec |
+| IP-18.5.1 | Done — pure wave eligibility/ramp/approval policy + control schema (`CONTROL_TABLES` 21 -> 23) + mandatory DB smokes |
+| IP-18.5.2 | Done — CLI wave executor reusing per-unit `applyPostgresStagingCanary`; first-wave hard cap enforced in approval and execution |
+| IP-18.5.3 | Done in the current console path — dashboard approval surface and read-only wave state |
+| IP-18.5.4 | Paused — first live wave attempted and failed closed on `diff_drift` because current fixture supply is exhausted |
+
+Live IP-18.5 evidence after PR #131:
+
+- Dashboard approved a 1-unit wave with audit id **18** for
+  `vamo-place-intelligence:paris-france:landmark`.
+- CLI execution produced execution audit id **19** and failed closed with
+  `diff_drift` (`expected 2i/0u, got 0i/0u`); no Vamo staging writes occurred.
+- A read-only live-staging-diff refresh recorded audit id **20** and moved all
+  36 queue units to `dry_run_blocked`: 33 `no_fixture_candidates`, 3
+  `live_diff_noop`.
+- PR #131 fixed dashboard/read-model rendering so lifecycle-blocked queue rows
+  count as blocked and JSONB blocker payloads no longer render as
+  `[object Object]`.
+
+Operational decision: do not keep approving waves from the 5-row fixture. Land
+IP-10.1 source expansion, reseed/re-dry-run the queue with real candidates, then
+retry the IP-18.5.4 first live wave.
 
 Future slices:
 
@@ -1353,10 +1415,16 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-After IP-18.5.0 lands, **IP-18.5.1 — Pure wave policy + control schema draft** is
-the next slice: implement eligibility/ramp/approval policies and planned control
-tables with disposable Postgres smokes that actually run — still no live Vamo
-staging writes.
+**IP-10.1 — Real EU POI Snapshot Supply** is the immediate next slice
+(source-first). IP-18.4/18.5 proved the wave machinery works but the queue is
+starved: batch planning expands 36 units over a 5-row demo fixture, so every
+downstream dry-run/wave validates clean orchestration against empty/no-op units.
+Feed real candidate supply first, then reseed/re-dry-run the queue and retry the
+IP-18.5.4 first live staging wave.
+
+After IP-10.1 lands, resume the IP-18.5.x wave track over real candidates:
+fresh dry-run evidence -> 1-unit staging wave -> governed widening. Only after a
+green staging ramp should IP-18.6 production inbox package waves proceed.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
