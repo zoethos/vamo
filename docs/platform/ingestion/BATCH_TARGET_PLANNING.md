@@ -268,13 +268,19 @@ Refreshed live evidence after IP-10.1:
 - Vamo staging verification found `fsq_paris_louvre_landmark` joined through
   `location_source_refs.canonical_id` to canonical
   `fsq-paris-louvre-landmark` (`Louvre Pyramid`, `feature_type='landmark'`).
+- IP-18.5 approval audit id **37** and execution audit id **39** then shipped
+  the Barcelona landmark unit to Vamo staging; shipment id **5** succeeded.
+- Vamo staging verification found `fsq_barcelona_gothic_quarter_landmark`
+  joined through `location_source_refs.canonical_id` to canonical
+  `fsq-barcelona-gothic-quarter-landmark` (`Gothic Quarter`,
+  `feature_type='landmark'`).
 - No Vamo production write and no live provider call occurred.
 
 ## Future slices
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.5.x | Continue governed 1-unit staging ramp over refreshed supply, then widen with fresh approvals |
+| IP-18.5.x | Continue governed staging ramp over refreshed supply, then widen with fresh approvals |
 | IP-18.6 | Production inbox package waves |
 
 ## Safety
