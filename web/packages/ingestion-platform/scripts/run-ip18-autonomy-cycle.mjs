@@ -13,17 +13,34 @@ import {
   previewAutonomyCycle
 } from "../dist/core/src/autonomy-executor.js";
 
-function readArg(name, fallback) {
+const positionalArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+
+function npmConfigName(name) {
+  return `npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`;
+}
+
+function readArg(name, fallback, positionalIndex) {
   const index = process.argv.indexOf(name);
   if (index >= 0 && index + 1 < process.argv.length) {
     return process.argv[index + 1];
   }
+  const envValue = process.env[npmConfigName(name)];
+  if (envValue && envValue !== "true") {
+    return envValue;
+  }
+  if (positionalIndex !== undefined && positionalArgs[positionalIndex]) {
+    return positionalArgs[positionalIndex];
+  }
   return fallback;
 }
 
-const execute = process.argv.includes("--execute");
-const projectKey = readArg("--project-key", readArg("--project", "vamo"));
-const policyKey = readArg("--policy-key", undefined);
+function hasFlag(name) {
+  return process.argv.includes(name) || process.env[npmConfigName(name)] === "true";
+}
+
+const execute = hasFlag("--execute");
+const projectKey = readArg("--project-key", readArg("--project", "vamo", 0), 0);
+const policyKey = readArg("--policy-key", undefined, 1);
 const targetKey = readArg("--target-key", undefined);
 const agentId = readArg("--agent-id", "confluendo-autonomy-local");
 const reason = readArg("--reason", "IP-18.7.1 bounded autonomy cycle");

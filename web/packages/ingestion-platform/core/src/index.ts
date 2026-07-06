@@ -460,6 +460,18 @@ export {
   type AutonomyExecutorPgClientLike
 } from "./autonomy-executor.js";
 export {
+  DEFAULT_AUTONOMY_SCHEDULER_MAX_CYCLES,
+  MAX_AUTONOMY_SCHEDULER_CYCLES,
+  runAutonomyScheduler,
+  type AutonomySchedulerCycleExecuteSummary,
+  type AutonomySchedulerCyclePreviewSummary,
+  type AutonomySchedulerCycleResult,
+  type AutonomySchedulerInput,
+  type AutonomySchedulerMode,
+  type AutonomySchedulerResult,
+  type AutonomySchedulerStopReason
+} from "./autonomy-scheduler.js";
+export {
   type BatchControlActor,
   type BatchControlActorType
 } from "./batch-control-actor.js";

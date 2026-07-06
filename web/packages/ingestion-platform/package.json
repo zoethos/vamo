@@ -72,6 +72,7 @@
     "ip18:batch-dry-run": "npm run build && node scripts/run-ip18-batch-dry-run.mjs",
     "ip18:staging-canary-wave": "npm run build && node scripts/run-ip18-staging-canary-wave.mjs",
     "ip18:autonomy-cycle": "npm run build && node scripts/run-ip18-autonomy-cycle.mjs",
+    "ip18:autonomy-scheduler": "npm run build && node scripts/run-ip18-autonomy-scheduler.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },
