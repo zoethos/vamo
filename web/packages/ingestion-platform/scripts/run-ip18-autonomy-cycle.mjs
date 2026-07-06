@@ -13,20 +13,58 @@ import {
   previewAutonomyCycle
 } from "../dist/core/src/autonomy-executor.js";
 
-const positionalArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
-
 function npmConfigName(name) {
   return `npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`;
 }
 
-function readArg(name, fallback, positionalIndex) {
-  const index = process.argv.indexOf(name);
-  if (index >= 0 && index + 1 < process.argv.length) {
-    return process.argv[index + 1];
+function npmConfigValue(name) {
+  return (
+    process.env[npmConfigName(name)] ??
+    process.env[`npm_config_${name.replace(/^--/, "")}`]
+  );
+}
+
+function knownNamedArgValues(names) {
+  return new Set(
+    names
+      .map((name) => npmConfigValue(name))
+      .filter((value) => value && value !== "true")
+  );
+}
+
+function collectPositionalArgs(argv, knownValues) {
+  const args = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg.startsWith("--")) {
+      if (index + 1 < argv.length && !argv[index + 1].startsWith("-")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (!arg.startsWith("-") && !knownValues.has(arg)) {
+      args.push(arg);
+    }
   }
-  const envValue = process.env[npmConfigName(name)];
-  if (envValue && envValue !== "true") {
-    return envValue;
+  return args;
+}
+
+const positionalArgs = collectPositionalArgs(
+  process.argv.slice(2),
+  knownNamedArgValues([
+    "--project-key",
+    "--project",
+    "--policy-key",
+    "--target-key",
+    "--agent-id",
+    "--reason"
+  ])
+);
+
+function readArg(name, fallback, positionalIndex) {
+  const named = readNamedArg(name, undefined);
+  if (named !== undefined) {
+    return named;
   }
   if (positionalIndex !== undefined && positionalArgs[positionalIndex]) {
     return positionalArgs[positionalIndex];
@@ -34,13 +72,38 @@ function readArg(name, fallback, positionalIndex) {
   return fallback;
 }
 
+function readNamedArg(name, fallback) {
+  const index = process.argv.indexOf(name);
+  if (index >= 0 && index + 1 < process.argv.length) {
+    return process.argv[index + 1];
+  }
+  const envValue = npmConfigValue(name);
+  if (envValue && envValue !== "true") {
+    return envValue;
+  }
+  return fallback;
+}
+
 function hasFlag(name) {
-  return process.argv.includes(name) || process.env[npmConfigName(name)] === "true";
+  return process.argv.includes(name) || npmConfigValue(name) === "true";
 }
 
 const execute = hasFlag("--execute");
-const projectKey = readArg("--project-key", readArg("--project", "vamo", 0), 0);
-const policyKey = readArg("--policy-key", undefined, 1);
+const explicitProjectKey = readNamedArg(
+  "--project-key",
+  readNamedArg("--project", undefined)
+);
+const explicitPolicyKey = readNamedArg("--policy-key", undefined);
+const projectKey =
+  explicitProjectKey ??
+  (explicitPolicyKey || positionalArgs.length === 1 ? "vamo" : positionalArgs[0] ?? "vamo");
+const policyKey =
+  explicitPolicyKey ??
+  (explicitProjectKey
+    ? positionalArgs[0]
+    : positionalArgs.length === 1
+      ? positionalArgs[0]
+      : positionalArgs[1]);
 const targetKey = readArg("--target-key", undefined);
 const agentId = readArg("--agent-id", "confluendo-autonomy-local");
 const reason = readArg("--reason", "IP-18.7.1 bounded autonomy cycle");

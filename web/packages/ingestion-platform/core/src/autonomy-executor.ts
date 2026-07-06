@@ -104,7 +104,8 @@ interface ExistingRunRow extends Record<string, unknown> {
 export function buildAutonomyRunKey(
   policy: AutonomyPolicyEnvelope,
   evaluation: EvaluateAutonomyCycleResult,
-  executionChannel?: AutonomyExecutionChannel
+  executionChannel?: AutonomyExecutionChannel,
+  now?: string
 ): string {
   const units = [...evaluation.selectedUnitKeys].sort().join(",");
   const evidence = evaluation.recommendedAction?.evidence as
@@ -112,6 +113,7 @@ export function buildAutonomyRunKey(
     | undefined;
   const waveKey = typeof evidence?.waveKey === "string" ? evidence.waveKey : undefined;
   const waveStatus = typeof evidence?.waveStatus === "string" ? evidence.waveStatus : undefined;
+  const terminalWindow = buildTerminalWindowPart(evaluation, now);
   const parts = [
     "autonomy",
     policy.policyKey,
@@ -120,10 +122,25 @@ export function buildAutonomyRunKey(
     evaluation.requiredAction,
     units || "none",
     executionChannel ? `channel:${executionChannel}` : undefined,
+    terminalWindow,
     waveStatus ? `wave_status:${waveStatus}` : undefined,
     waveKey ? `wave:${waveKey}` : undefined
   ].filter((part): part is string => typeof part === "string" && part.length > 0);
   return parts.join(":");
+}
+
+function buildTerminalWindowPart(
+  evaluation: EvaluateAutonomyCycleResult,
+  now?: string
+): string | undefined {
+  if (evaluation.decision === "continue") {
+    return undefined;
+  }
+  const timestamp = now ? Date.parse(now) : NaN;
+  const date = Number.isFinite(timestamp) ? new Date(timestamp) : new Date();
+  const day = date.toISOString().slice(0, 10);
+  const pauseCode = evaluation.pauseReasonCode ?? evaluation.requiredAction;
+  return `window:${day}:pause:${pauseCode}`;
 }
 
 export async function previewAutonomyCycle(
@@ -421,7 +438,7 @@ async function loadAutonomyCycleContext(
     });
 
     const executionChannel = resolveAutonomyExecutionChannel(evaluation, queueSnapshot);
-    const runKey = buildAutonomyRunKey(policy, evaluation, executionChannel);
+    const runKey = buildAutonomyRunKey(policy, evaluation, executionChannel, input.now);
 
     return {
       projectKey: input.projectKey,

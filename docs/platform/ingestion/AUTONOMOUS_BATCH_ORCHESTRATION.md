@@ -291,8 +291,9 @@ IP-18.7.3 adds a scheduler wrapper around the existing one-cycle executor:
   path and no aggregate bypass around per-cycle policy evaluation.
 - The scheduler stops on policy pause, no eligible work, human-runbook deferral,
   idempotent terminal replay, or the configured max-cycle limit.
-- Policy pauses are recorded once through the existing autonomy run/event
-  telemetry, so rolling-limit stops are visible to dashboards and agents.
+- Policy pauses are recorded through the existing autonomy run/event telemetry.
+  Terminal pause run keys include a UTC day and pause code, so a hosted cron can
+  show a fresh daily pause reason instead of replaying an older terminal row.
 - CLI: `npm run ip18:autonomy-scheduler`.
 
 Execute mode requires:

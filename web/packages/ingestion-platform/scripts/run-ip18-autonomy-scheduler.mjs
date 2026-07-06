@@ -11,23 +11,75 @@
 
 import { runAutonomyScheduler } from "../dist/core/src/autonomy-scheduler.js";
 
-const positionalArgs = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
-
 function npmConfigName(name) {
   return `npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`;
 }
 
+function npmConfigValue(name) {
+  return (
+    process.env[npmConfigName(name)] ??
+    process.env[`npm_config_${name.replace(/^--/, "")}`]
+  );
+}
+
+function knownNamedArgValues(names) {
+  return new Set(
+    names
+      .map((name) => npmConfigValue(name))
+      .filter((value) => value && value !== "true")
+  );
+}
+
+function collectPositionalArgs(argv, knownValues) {
+  const args = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg.startsWith("--")) {
+      if (index + 1 < argv.length && !argv[index + 1].startsWith("-")) {
+        index += 1;
+      }
+      continue;
+    }
+    if (!arg.startsWith("-") && !knownValues.has(arg)) {
+      args.push(arg);
+    }
+  }
+  return args;
+}
+
+const positionalArgs = collectPositionalArgs(
+  process.argv.slice(2),
+  knownNamedArgValues([
+    "--project-key",
+    "--project",
+    "--policy-key",
+    "--target-key",
+    "--agent-id",
+    "--reason",
+    "--max-cycles",
+    "--interval-ms"
+  ])
+);
+
 function readArg(name, fallback, positionalIndex) {
+  const named = readNamedArg(name, undefined);
+  if (named !== undefined) {
+    return named;
+  }
+  if (positionalIndex !== undefined && positionalArgs[positionalIndex]) {
+    return positionalArgs[positionalIndex];
+  }
+  return fallback;
+}
+
+function readNamedArg(name, fallback) {
   const index = process.argv.indexOf(name);
   if (index >= 0 && index + 1 < process.argv.length) {
     return process.argv[index + 1];
   }
-  const envValue = process.env[npmConfigName(name)];
+  const envValue = npmConfigValue(name);
   if (envValue && envValue !== "true") {
     return envValue;
-  }
-  if (positionalIndex !== undefined && positionalArgs[positionalIndex]) {
-    return positionalArgs[positionalIndex];
   }
   return fallback;
 }
@@ -44,16 +96,39 @@ function readIntArg(name, fallback, positionalIndex) {
 }
 
 function hasFlag(name) {
-  return process.argv.includes(name) || process.env[npmConfigName(name)] === "true";
+  return process.argv.includes(name) || npmConfigValue(name) === "true";
 }
 
 const execute = hasFlag("--execute");
-const projectKey = readArg("--project-key", readArg("--project", "vamo", 0), 0);
-const policyKey = readArg("--policy-key", undefined, 1);
+const explicitProjectKey = readNamedArg(
+  "--project-key",
+  readNamedArg("--project", undefined)
+);
+const explicitPolicyKey = readNamedArg("--policy-key", undefined);
+const positionalLooksLikePolicyAndMaxCycles =
+  positionalArgs.length >= 2 && Number.isInteger(Number(positionalArgs[1]));
+const projectKey =
+  explicitProjectKey ??
+  (explicitPolicyKey || positionalArgs.length === 1 || positionalLooksLikePolicyAndMaxCycles
+    ? "vamo"
+    : positionalArgs[0] ?? "vamo");
+const policyKey =
+  explicitPolicyKey ??
+  (explicitProjectKey
+    ? positionalArgs[0]
+    : positionalLooksLikePolicyAndMaxCycles || positionalArgs.length === 1
+      ? positionalArgs[0]
+      : positionalArgs[1]);
 const targetKey = readArg("--target-key", undefined);
 const agentId = readArg("--agent-id", "confluendo-autonomy-scheduler");
 const reason = readArg("--reason", "IP-18.7.3 bounded autonomy scheduler cycle");
-const maxCycles = readIntArg("--max-cycles", undefined, 2);
+const positionalMaxCycles =
+  positionalLooksLikePolicyAndMaxCycles
+    ? Number(positionalArgs[1])
+    : Number.isInteger(Number(positionalArgs[2]))
+      ? Number(positionalArgs[2])
+      : undefined;
+const maxCycles = readIntArg("--max-cycles", positionalMaxCycles);
 const intervalMs = readIntArg("--interval-ms", 0);
 
 const dsn = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
