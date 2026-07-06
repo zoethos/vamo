@@ -90,6 +90,7 @@ grant insert, update on ingestion_platform.ingestion_batch_canary_wave_items to 
 -- IP-18.7 autonomy foundation: read policies; append/update cycle ledger rows.
 -- Policy authoring remains owner-run — no INSERT/UPDATE on ingestion_autonomy_policies.
 grant insert, update on ingestion_platform.ingestion_autonomy_runs to confluendo_app;
+grant insert on ingestion_platform.ingestion_events to confluendo_app;
 
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 

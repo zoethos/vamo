@@ -726,7 +726,7 @@ export default async function IngestionDashboardPage() {
       <section className="admin-section" aria-label="IP-18.7 autonomy">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18.7 · autonomy foundation</p>
+            <p className="admin-kicker">IP-18.7 · autonomy executor</p>
             <h2>Governed batch orchestration preview</h2>
           </div>
           <span className="admin-readonly-pill">
@@ -748,6 +748,20 @@ export default async function IngestionDashboardPage() {
         {autonomyView.nextCycle.recommendedAction ? (
           <p className="admin-next-action">
             <strong>Recommended:</strong> {autonomyView.nextCycle.recommendedAction.summary}
+          </p>
+        ) : null}
+        <p className="admin-next-action">
+          <strong>Execution channel:</strong> {autonomyView.executionChannelLabel}
+        </p>
+        {autonomyView.latestRun ? (
+          <p className="admin-next-action">
+            <strong>Latest run evidence:</strong> {autonomyView.latestRun.runKey} ·{" "}
+            {autonomyView.latestRun.status}
+            {autonomyView.latestRun.dryRunExecutionKey
+              ? ` · dry-run ${autonomyView.latestRun.dryRunExecutionKey}`
+              : ""}
+            {autonomyView.latestRun.waveKey ? ` · wave ${autonomyView.latestRun.waveKey}` : ""}
+            {autonomyView.latestRun.pauseReason ? ` · ${autonomyView.latestRun.pauseReason}` : ""}
           </p>
         ) : null}
         <div className="admin-stat-grid">
