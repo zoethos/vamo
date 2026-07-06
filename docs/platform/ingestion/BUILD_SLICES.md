@@ -1501,6 +1501,8 @@ Scope IP-18.7.0 before adding more manual wave UX:
   drift/blocker thresholds, and production-inbox handoff rules.
 - Define an autonomy run ledger that records selected units, phase, bounds,
   stop reason, and linked dry-run/wave/package evidence.
+- Define the agent-as-operator contract: agent identity, telemetry requirements,
+  diagnosis payloads, and which corrective actions may run without a human.
 - Define the first safe executor loop: dry-run and staging-only at the proven
   bound, with production inbox still requiring IP-18.6 package-wave support.
 - Define when the orchestrator may continue unattended and when it must pause
