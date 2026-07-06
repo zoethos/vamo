@@ -280,8 +280,9 @@ Refreshed live evidence after IP-10.1:
 
 | Slice | Scope |
 | --- | --- |
-| IP-18.5.x | Continue governed staging ramp over refreshed supply, then widen with fresh approvals |
-| IP-18.6 | Production inbox package waves |
+| IP-18.5.x | Commissioning-only staging ramp over refreshed supply; do not make per-wave operator approval the steady-state workflow |
+| IP-18.6 | Production inbox package waves for staging-proven units, reusing IP-17 |
+| IP-18.7 | Autonomous batch orchestrator: source/target policy advances dry-run, staging, and production-inbox work inside approved bounds |
 
 ## Safety
 
@@ -291,3 +292,8 @@ production writes.
 
 IP-18.5: staging writes only via existing IP-16 adapter; production forbidden
 until IP-18.6+.
+
+IP-18.7 is the intended steady-state operating model. Operators approve source
+and target policy bounds; Confluendo runs eligible batches autonomously and
+pauses only on drift, blocker thresholds, missing target proof, write-limit
+breaches, or policy widening.
