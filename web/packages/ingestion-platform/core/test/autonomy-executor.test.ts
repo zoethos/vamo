@@ -174,6 +174,49 @@ describe("autonomy executor", () => {
     }
   });
 
+  it("retries a failed run key after the operator fixes the underlying condition", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, { dryRunReady: 1 });
+      const preview = await previewAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:28:00.000Z"
+      });
+      const failedRunId = await insertFailedAutonomyRun(client, preview.context.runKey);
+
+      const result = await executeAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:29:00.000Z"
+      });
+
+      assert.equal(result.runId, failedRunId);
+      assert.equal(result.idempotentReplay, false);
+      assert.equal(result.runStatus, "advanced");
+      assert.equal(result.actionApplied, "execute_dry_run");
+      assert.equal(await countTable(client, "ingestion_autonomy_runs"), 1);
+      assert.equal(await countTable(client, "ingestion_batch_dry_run_executions"), 1);
+
+      const run = await client.query<{ status: string; dry_run_execution_key: string | null }>(
+        `
+          select status, dry_run_execution_key
+          from ingestion_platform.ingestion_autonomy_runs
+          where id = $1::bigint
+        `,
+        [failedRunId]
+      );
+      assert.equal(run.rows[0]?.status, "advanced");
+      assert.ok(run.rows[0]?.dry_run_execution_key);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
   it("staging path approves a wave but does not execute live staging", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
     const client = await setupDb();
     try {
@@ -608,8 +651,11 @@ async function seedPolicyAndQueue(
   }
 }
 
-async function insertFailedAutonomyRun(client: Client): Promise<void> {
-  await client.query(
+async function insertFailedAutonomyRun(
+  client: Client,
+  runKey = "failed-cycle-for-rolling-limit"
+): Promise<string> {
+  const result = await client.query<{ id: string }>(
     `
       insert into ingestion_platform.ingestion_autonomy_runs (
         project_id,
@@ -629,7 +675,7 @@ async function insertFailedAutonomyRun(client: Client): Promise<void> {
       select
         p.id,
         ap.id,
-        'failed-cycle-for-rolling-limit',
+        $2,
         'dry_run',
         'failed',
         'autonomous_agent',
@@ -644,9 +690,15 @@ async function insertFailedAutonomyRun(client: Client): Promise<void> {
       join ingestion_platform.ingestion_autonomy_policies ap on ap.project_id = p.id
       where p.project_key = 'vamo'
         and ap.policy_key = 'vamo-eu-poi-staging-v1'
+      returning id::text as id
     `,
-    [agentId]
+    [agentId, runKey]
   );
+  const id = result.rows[0]?.id;
+  if (!id) {
+    throw new Error("Failed autonomy run fixture was not inserted.");
+  }
+  return id;
 }
 
 function baseItem(unitKey: string, status: BatchQueueItemStatus): BatchQueueItem {

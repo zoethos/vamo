@@ -383,6 +383,14 @@ create table if not exists ingestion_platform.ingestion_audit_log (
   )
 );
 
+alter table ingestion_platform.ingestion_audit_log
+  drop constraint if exists ingestion_audit_log_actor_type_check;
+
+alter table ingestion_platform.ingestion_audit_log
+  add constraint ingestion_audit_log_actor_type_check check (
+    actor_type in ('operator', 'system', 'worker', 'api', 'autonomous_agent')
+  );
+
 -- Progressive scheduling backlog: one row per target candidate/proposal. Stores
 -- the deterministic scorecard, the bounded schedule proposal, and the latest
 -- progressive dry-run report as JSONB produced by platform-core policy. This is
