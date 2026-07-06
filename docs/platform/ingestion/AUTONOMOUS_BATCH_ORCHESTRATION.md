@@ -28,6 +28,12 @@ for monitoring, diagnosis, retry, and bounded corrective action. Human approval
 is still required for new sources, new target environments, production-policy
 widening, destructive actions, or any action outside stored bounds.
 
+AI/LLM output remains advisory. The autonomous agent may use reasoning to
+diagnose telemetry and propose corrective actions, but it must not decide new
+sources, new target scopes, target environments, or write bounds outside stored
+policy. Every executable decision must reduce to deterministic policy state,
+ledger evidence, and approved bounds.
+
 ## Commissioning vs Steady State
 
 | Mode | Purpose | Operator involvement |
@@ -59,6 +65,17 @@ An autonomous run may proceed only when all of these are true:
   (`confluendo_guard.environment_sentinel` for Vamo staging; production inbox
   safety checks for Vamo production).
 - The ledger can make every step idempotent and auditable.
+
+The first implementation should name those control-plane objects explicitly:
+
+| Object | Purpose |
+| --- | --- |
+| `ingestion_autonomy_policies` | Human-approved envelope for a source/target pair: allowed tiers, environments, transitions, row/unit bounds, rolling limits, guard thresholds, and production-inbox handoff policy. |
+| `ingestion_autonomy_runs` | Append-only cycle ledger: selected units, phase, highest safety mode, scanned/advanced counts, guard outcome, pause reason, telemetry links, corrective actions, and actor. |
+
+These tables live in the Confluendo control DB only. They do not grant consumer
+target access by themselves; target writes still go through the existing staging
+canary and production inbox adapters.
 
 ## Agent Operator Responsibilities
 
@@ -95,6 +112,23 @@ Corrective actions that require human approval include:
 - destructive rollback/delete operations; and
 - overriding a drift, target-proof, or policy failure.
 
+## Agent Actor Model
+
+Implementation should extend the platform command/audit actor model with an
+`autonomous_agent` actor type. The agent's authority is the intersection of:
+
+1. one active `ingestion_autonomy_policies` row;
+2. the standing platform gates for the current phase;
+3. existing source/target contracts and policy checks;
+4. any still-valid human approval required by that policy; and
+5. idempotent ledger state showing the action has not already succeeded.
+
+The agent must have fewer rights than a broad machine token. It may execute only
+the transitions the active policy permits, against the named source/target pair,
+inside the configured bounds. It cannot approve its own policy, widen its own
+bounds, change source terms, change target environment, bypass MFA-required
+approval, or override stop conditions.
+
 ## Telemetry Contract
 
 The platform must emit enough telemetry for the agent to trace failures without
@@ -118,6 +152,17 @@ identifiers and linkable evidence:
 Telemetry must be structured enough for dashboards, automated monitors, and
 agent diagnosis. Free-text logs are useful context, but they are not the source
 of truth for corrective action.
+
+Use existing telemetry tables where possible:
+
+- `ingestion_events` for structured lifecycle events such as
+  `autonomy.cycle.started`, `autonomy.cycle.advanced`,
+  `autonomy.cycle.paused`, `autonomy.cycle.completed`, and
+  `autonomy.action.applied`;
+- `ingestion_audit_log` for human approvals, policy changes, agent cycle
+  executions, pauses, resumes, and corrective actions; and
+- `ingestion_autonomy_runs` as the first-class cycle spine joining queue units,
+  dry-run reports, staging waves, production packages, blockers, and audit rows.
 
 ## Stop Conditions
 
@@ -153,13 +198,20 @@ source/target pair paused, and recommend the smallest safe corrective action.
 
 The next autonomy slice should be control-plane first:
 
-- Store an `autonomy_policy` for a source/target pair.
-- Store an `autonomy_run` ledger with selected units, bounds, current phase, and
-  actor (`agent` or human), telemetry links, corrective actions, and stop reason.
+- Add `ingestion_autonomy_policies` and `ingestion_autonomy_runs` to
+  `control_schema.sql`, `CONTROL_TABLES`, and the Confluendo bootstrap grants.
+- Extend `CommandActorType` / audit actor handling with `autonomous_agent`.
+- Implement a pure `autonomy-policy.ts` module with `evaluateAutonomyCycle()`.
+  It must be DB-free, deterministic, and reuse the existing dry-run,
+  staging-canary, and production-inbox policy decisions rather than forking
+  their rules.
 - Implement a dry-run-only or staging-only planner/executor loop that selects the
-  next eligible units and stops before any unapproved widening.
+  next eligible units, records an `ingestion_autonomy_runs` cycle, and stops
+  before any unapproved widening.
 - Keep production inbox delivery behind IP-18.6 until the staging loop has green
   evidence at the configured bound.
+- Add a read-model panel that explains what the agent did, why it stopped, and
+  what corrective action it recommends next.
 
 The first autonomous implementation should still be conservative, but the
 operator interaction changes from "approve each wave" to "approve policy bounds

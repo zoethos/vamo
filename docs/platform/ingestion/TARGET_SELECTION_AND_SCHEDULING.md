@@ -72,6 +72,12 @@ Not allowed:
 - Hide uncertainty. Every AI recommendation needs confidence and evidence.
 - Rewrite target schema or RLS rules without a migration review.
 
+This does not prohibit an autonomous Confluendo agent from executing
+already-approved policy. The distinction is authority: AI may analyze and
+recommend, while an `autonomous_agent` may act only when deterministic control
+state, stored policy, approval bounds, and ledger evidence already authorize the
+transition.
+
 ## 4. Scheduling Model
 
 The scheduler should create explicit work proposals before tasks are started.
