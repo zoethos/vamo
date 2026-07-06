@@ -11,6 +11,7 @@ import type {
   AutonomyPolicyStatus,
   AutonomyRunPhase
 } from "./control-models.js";
+import type { AutonomyRampMode } from "./autonomy-ramp-policy.js";
 import { evaluateBatchDryRunExecution } from "./batch-dry-run-execution-policy.js";
 import type {
   BatchQueueItem,
@@ -64,6 +65,7 @@ export interface AutonomyPolicyEnvelope {
   guardThresholds: Record<string, unknown>;
   productionInboxHandoffPolicy: Record<string, unknown>;
   policyVersion: number;
+  rampMode?: AutonomyRampMode;
   approvedBy?: string;
   approvedAuditId?: string;
   approvalReason?: string;

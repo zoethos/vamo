@@ -775,6 +775,17 @@ export default async function IngestionDashboardPage() {
             </p>
           </article>
           <article className="admin-stat">
+            <span>Ramp</span>
+            <strong>{autonomyView.policy?.rampLabel ?? "—"}</strong>
+            <p>
+              {autonomyView.policy
+                ? autonomyView.policy.recommendedNextRampMode
+                  ? `next: ${autonomyView.policy.recommendedNextRampMode.replace(/_/g, " ")}`
+                  : "terminal mode"
+                : "No ramp envelope"}
+            </p>
+          </article>
+          <article className="admin-stat">
             <span>Bounds</span>
             <strong>
               {autonomyView.policy
@@ -801,6 +812,11 @@ export default async function IngestionDashboardPage() {
             </p>
           </article>
         </div>
+        {autonomyView.policy?.rampWarnings.length ? (
+          <p className="admin-command-result admin-command-result-warning" role="alert">
+            Ramp warning: {autonomyView.policy.rampWarnings.join("; ")}
+          </p>
+        ) : null}
         {autonomyView.nextCycle.selectedUnitKeys.length > 0 ? (
           <p className="admin-next-action">
             <strong>Selected units:</strong>{" "}

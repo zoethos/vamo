@@ -1662,6 +1662,12 @@ a:hover {
   color: #991b1b;
 }
 
+.admin-command-result-warning {
+  border-color: rgba(161, 98, 7, 0.28);
+  background: rgba(254, 249, 195, 0.82);
+  color: #854d0e;
+}
+
 .admin-wide-control {
   width: 100%;
   min-height: 2.65rem;
@@ -1961,6 +1967,12 @@ a:hover {
   border-color: rgba(255, 91, 77, 0.22);
   background: rgba(255, 91, 77, 0.12);
   color: #ff8a7f;
+}
+
+.admin-console[data-theme="dark"] .admin-command-result-warning {
+  border-color: rgba(255, 184, 77, 0.24);
+  background: rgba(255, 184, 77, 0.12);
+  color: #ffd28a;
 }
 
 .admin-console[data-theme="dark"] code {

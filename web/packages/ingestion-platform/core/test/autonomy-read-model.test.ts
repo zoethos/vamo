@@ -31,11 +31,44 @@ describe("autonomy read model", () => {
       approvedBy: "operator@example.com",
       approvedAuditId: "audit-9",
       approvalReason: "bounded autonomy",
-      summary: { note: "live" }
+      summary: { ramp: { mode: "staging_ramp" }, note: "live" }
     });
     assert.equal(envelope.policyId, "12");
     assert.deepEqual(envelope.allowedGeographies, ["fr"]);
     assert.equal(envelope.policyVersion, 3);
+    assert.equal(envelope.rampMode, "staging_ramp");
+  });
+
+  it("surfaces ramp mode and profile warnings in policy summaries", () => {
+    const envelope = mapPersistedPolicyRow({
+      id: "12",
+      policyKey: "vamo-eu",
+      projectKey: "vamo",
+      sourceKey: "fixture-source",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      status: "active",
+      allowedTiers: ["staging_canary"],
+      allowedGeographies: ["fr"],
+      allowedCategories: ["city"],
+      allowedTransitions: ["execute_dry_run"],
+      maxUnitsPerCycle: 10,
+      maxRowsPerCycle: 100,
+      rollingLimits: { maxCyclesPerDay: 4 },
+      guardThresholds: {},
+      productionInboxHandoffPolicy: {},
+      policyVersion: 3,
+      summary: {}
+    });
+    const view = buildAutonomyDashboardView({
+      projectKey: "vamo",
+      policy: envelope,
+      queueSnapshot: null,
+      actor: { type: "autonomous_agent", id: "preview" }
+    });
+    assert.equal(view.policy?.rampMode, "bootstrap");
+    assert.equal(view.policy?.rampLabel, "Bootstrap proof");
+    assert.ok(view.policy?.rampWarnings.some((warning) => warning.includes("max_units_per_cycle")));
   });
 
   it("maps persisted run rows", () => {
