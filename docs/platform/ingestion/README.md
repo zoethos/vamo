@@ -5,6 +5,7 @@ This is the documentation home for the reusable ingestion platform.
 | File | Purpose |
 | --- | --- |
 | `ARCHITECTURE.md` | Product, runtime, policy, target-shipment, and market architecture. |
+| `AUTONOMOUS_BATCH_ORCHESTRATION.md` | North-star operating model: approved sources/policy in, autonomous guarded batch runs out. |
 | `AUTH_ARCHITECTURE.md` | Admin authentication, authorization, audit actor, and secret-boundary design. |
 | `BUILD_SLICES.md` | Implementation slices from spec kernel through Vamo consumer profile. |
 | `CONFLUENDO_EXTRACTION_PREP.md` | IP-15 prep plan: namespace, ownership, target repo shape, extraction gates. |

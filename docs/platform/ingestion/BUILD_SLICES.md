@@ -1,6 +1,6 @@
 # Ingestion Platform Build Slices
 
-Status: implementation slicing record - updated 2026-06-28.
+Status: implementation slicing record - updated 2026-07-06.
 
 This plan turns `docs/platform/ingestion/ARCHITECTURE.md` into
 buildable slices. The platform is incubated in this repo, but it must stay
@@ -19,6 +19,23 @@ portable. Vamo is customer zero, not the platform boundary.
   abstraction.
 - Keep production target writes disabled until auth, control API, leases, audit
   logs, target guards, CI smokes, and operator approvals exist.
+
+## Product Goal: Governed Autonomy
+
+The end-state is not an operator watching and approving every wave. Confluendo's
+target workflow is:
+
+1. Operator approves data sources, consumer target, geography/category coverage,
+   and policy bounds.
+2. Confluendo plans deterministic batch work.
+3. Confluendo executes dry-runs, staging canaries, and production-inbox packages
+   autonomously inside those bounds.
+4. Confluendo stops and asks for operator review only when a guard trips, a new
+   blocker appears, drift is detected, or the policy must widen.
+
+Manual one-unit waves are **commissioning evidence**, not the steady-state
+product. See `AUTONOMOUS_BATCH_ORCHESTRATION.md` for the autonomy contract and
+stop conditions.
 
 ## Incubation Layout
 
@@ -1463,19 +1480,38 @@ latest dashboard state.
 
 Future slices:
 
-- **IP-18.6** — production inbox package waves
+- **IP-18.6** — production inbox package waves, reusing the IP-17 delivery
+  boundary for staging-proven units.
+- **IP-18.7** — autonomous batch orchestrator, converting source/target policy
+  into unattended dry-run/staging/production-inbox progress inside configured
+  bounds.
 
 ## Recommended Immediate Next Slice
 
-**Continue IP-18.5 — Staged Batch Canary Ramp** is the immediate next slice.
-IP-10.1 landed real candidate supply and the first two refreshed live staging
-waves have succeeded. Next, inspect the live queue for the next
-`dry_run_succeeded` candidate; if none are ready, run a bounded IP-18.4 dry-run
-for the next 1-2 units, then continue the one-unit staging ramp. Widen only
-after fresh approval and successful evidence. Only after a green staging ramp
-should IP-18.6 production inbox package waves proceed.
+**IP-18.7.0 — Autonomous Batch Orchestration Design + Control Policy** is the
+recommended immediate platform slice. IP-10.1 landed real candidate supply and
+the first two refreshed live staging waves have succeeded, so the manual wave
+path has served its commissioning purpose. Do not turn "approve each wave" into
+the product workflow.
+
+Scope IP-18.7.0 before adding more manual wave UX:
+
+- Define the stored autonomy policy for a source/target pair: allowed sources,
+  geographies, categories, environments, max units, max rows, rolling limits,
+  drift/blocker thresholds, and production-inbox handoff rules.
+- Define an autonomy run ledger that records selected units, phase, bounds,
+  stop reason, and linked dry-run/wave/package evidence.
+- Define the first safe executor loop: dry-run and staging-only at the proven
+  bound, with production inbox still requiring IP-18.6 package-wave support.
+- Define when the orchestrator may continue unattended and when it must pause
+  for operator review.
+
+Operational commissioning can continue in parallel with small, explicit staging
+waves if needed, but new implementation work should move toward policy-driven
+autonomy.
 
 Operationally, IP-17 proved the production inbox path at tiny scale. IP-18
 automates the planning surface so broad EU city/POI coverage no longer depends
 on one-off manual target creation. IP-18.5 adds governed batch staging canaries
-on top of the IP-16 per-unit adapter.
+on top of the IP-16 per-unit adapter; IP-18.7 turns those proven steps into a
+bounded autonomous control loop.

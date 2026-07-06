@@ -1,8 +1,8 @@
 # Staged Batch Canary Waves (IP-18.5)
 
-Status: **IP-18.5.2 execution implemented; first refreshed live wave succeeded**
-— 2026-07-03. Wave approval (IP-18.5.1) and confirmation-gated per-unit
-execution (IP-18.5.2) are in code; live Vamo staging execution remains
+Status: **IP-18.5.2 execution implemented; first two refreshed live waves
+succeeded** — 2026-07-04. Wave approval (IP-18.5.1) and confirmation-gated
+per-unit execution (IP-18.5.2) are in code; live Vamo staging execution remains
 operator-gated and is not run in CI.
 
 IP-18.4 proved bounded fixture-only dry-run execution against the Confluendo
@@ -155,6 +155,12 @@ Paris and Barcelona are now both `staging_canary_succeeded`. Continue the ramp
 one unit at a time unless a fresh approval explicitly widens the batch after
 reviewing the current queue state.
 
+Manual wave approvals are a **commissioning mode**. They prove a source/target
+pair and establish safe initial bounds. The steady-state Confluendo product
+should move eligible units automatically inside stored policy and pause only for
+guard failures, drift, new blocker types, threshold breaches, or policy widening.
+See `AUTONOMOUS_BATCH_ORCHESTRATION.md`.
+
 ## 3. State machine
 
 ### 3.1 Queue item statuses (IP-18.5 extension)
@@ -251,6 +257,10 @@ The first live staging wave must be **minimal**.
 Ramp policy is separate from eligibility: a unit may be eligible but excluded from
 the current wave because the wave's approved `maxUnits` / `maxTotalRows` cap is
 lower than the eligible pool size.
+
+Ramp policy is also separate from steady-state autonomy. After commissioning
+evidence exists for a source/target pair, the approved bounds should move into an
+autonomy policy so the operator approves limits rather than each individual wave.
 
 Example first-live wave:
 
