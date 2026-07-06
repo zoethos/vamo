@@ -307,3 +307,7 @@ breaches, or policy widening.
 one policy-evaluated action per cycle (`schedule_dry_run`, `execute_dry_run`, or
 staging wave approval only). It does not execute live staging canary writes or
 production inbox delivery (`waiting_for_ip18_6`).
+
+**IP-18.6.1** (2026-07-07) adds production package-wave control-plane foundation:
+queue statuses (`production_package_*`, `consumer_apply_*`), wave ledger tables,
+pure eligibility/approval policy, and read model — no inbox delivery.

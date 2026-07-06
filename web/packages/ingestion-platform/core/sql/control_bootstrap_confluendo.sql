@@ -87,6 +87,10 @@ grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to
 grant insert, update on ingestion_platform.ingestion_batch_canary_waves to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_batch_canary_wave_items to confluendo_app;
 
+-- IP-18.6.1 production package-wave ledger (control-plane only; no consumer DB grants)
+grant insert, update on ingestion_platform.ingestion_batch_production_package_waves to confluendo_app;
+grant insert, update on ingestion_platform.ingestion_batch_production_package_wave_items to confluendo_app;
+
 -- IP-18.7 autonomy foundation: read policies; append/update cycle ledger rows.
 -- Policy authoring remains owner-run — no INSERT/UPDATE on ingestion_autonomy_policies.
 grant insert, update on ingestion_platform.ingestion_autonomy_runs to confluendo_app;

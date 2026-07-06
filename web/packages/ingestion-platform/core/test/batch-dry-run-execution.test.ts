@@ -53,7 +53,7 @@ describe("batch dry-run execution control", () => {
       try {
         await client.query("drop schema if exists ingestion_platform cascade");
         await client.query(controlSchemaSql);
-        assert.equal(CONTROL_TABLES.length, 25);
+        assert.equal(CONTROL_TABLES.length, 27);
 
         await client.query(
           `

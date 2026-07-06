@@ -18,6 +18,12 @@ proves a different trust boundary.
 | --- | --- | --- | --- | --- |
 | 1 | Confluendo control DB schema | `../../../../web/packages/ingestion-platform/core/sql/control_schema.sql` | Confluendo DBA | Confluendo control DB |
 | 2 | Runtime role grants | `../../../../web/packages/ingestion-platform/core/sql/control_bootstrap_confluendo.sql` | Confluendo DBA | Confluendo control DB |
+
+After IP-18.6.1, phases 1–2 must include the production package-wave tables
+(`ingestion_batch_production_package_waves`,
+`ingestion_batch_production_package_wave_items`) before the dashboard or CLI
+can load live package-wave state. Missing tables degrade gracefully to no
+package-wave projection.
 | 3 | Vamo live proposal seed | `sql/ip16_vamo_live_proposal_seed.sql` | Confluendo DBA | Confluendo control DB |
 | 4 | Vamo target cache schema | `VAMO_CUSTOMER_ZERO_BOOTSTRAP.md` | Vamo DBA/operator | Vamo staging, then production schema-only |
 | 5 | Vamo staging proof and canary role | `VAMO_CUSTOMER_ZERO_BOOTSTRAP.md` | Vamo DBA/operator | Vamo staging only |

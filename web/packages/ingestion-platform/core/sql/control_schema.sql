@@ -552,7 +552,15 @@ alter table ingestion_platform.ingestion_batch_queue_items
       'staging_canary_blocked',
       'staged_ready',
       'production_ready',
-      'applied'
+      'applied',
+      'production_package_ready',
+      'production_package_approved',
+      'production_package_delivering',
+      'production_package_delivered',
+      'consumer_apply_pending',
+      'consumer_applied',
+      'consumer_apply_failed',
+      'production_package_blocked'
     )
   );
 
@@ -615,6 +623,111 @@ create table if not exists ingestion_platform.ingestion_batch_canary_wave_items 
     jsonb_typeof(blockers) = 'array'
   ),
   constraint ingestion_batch_canary_wave_items_planned_row_count_nonnegative check (
+    planned_row_count >= 0
+  )
+);
+
+create table if not exists ingestion_platform.ingestion_batch_production_package_waves (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id),
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  wave_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  schema_contract text not null,
+  max_units integer not null,
+  max_rows integer not null,
+  max_packages integer not null,
+  approval_audit_id text,
+  approval_reason text not null,
+  approved_by jsonb not null default '{}'::jsonb,
+  approved_at timestamptz not null,
+  approval_expires_at timestamptz not null,
+  actor_type text not null,
+  actor_id text not null,
+  status text not null default 'approved',
+  package_id text,
+  package_key text,
+  package_checksum text,
+  delivery_audit_id text,
+  delivery_status text,
+  consumer_apply_status text,
+  consumer_apply_evidence jsonb,
+  blockers jsonb not null default '[]'::jsonb,
+  summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_production_package_waves_wave_key_unique unique (batch_plan_id, wave_key),
+  constraint ingestion_batch_production_package_waves_target_environment_check check (
+    target_environment = 'production'
+  ),
+  constraint ingestion_batch_production_package_waves_status_check check (
+    status in (
+      'planned',
+      'approval_pending',
+      'approved',
+      'delivering',
+      'delivered',
+      'consumer_apply_pending',
+      'consumer_applied',
+      'consumer_apply_failed',
+      'blocked'
+    )
+  ),
+  constraint ingestion_batch_production_package_waves_max_units_positive check (max_units > 0),
+  constraint ingestion_batch_production_package_waves_max_rows_positive check (max_rows > 0),
+  constraint ingestion_batch_production_package_waves_max_packages_positive check (max_packages > 0),
+  constraint ingestion_batch_production_package_waves_blockers_array check (
+    jsonb_typeof(blockers) = 'array'
+  ),
+  constraint ingestion_batch_production_package_waves_summary_object check (
+    jsonb_typeof(summary) = 'object'
+  ),
+  constraint ingestion_batch_production_package_waves_approved_by_object check (
+    jsonb_typeof(approved_by) = 'object'
+  )
+);
+
+create table if not exists ingestion_platform.ingestion_batch_production_package_wave_items (
+  id bigint generated always as identity primary key,
+  wave_id bigint not null references ingestion_platform.ingestion_batch_production_package_waves(id) on delete cascade,
+  queue_item_id bigint not null references ingestion_platform.ingestion_batch_queue_items(id),
+  unit_key text not null,
+  run_order integer not null,
+  planned_row_count integer not null default 0,
+  schema_contract text not null,
+  package_key text,
+  package_id text,
+  dry_run_evidence jsonb not null default '{}'::jsonb,
+  staging_evidence jsonb not null default '{}'::jsonb,
+  status text not null default 'approved',
+  checksum text,
+  apply_evidence jsonb,
+  blockers jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_batch_production_package_wave_items_unit_key_unique unique (wave_id, unit_key),
+  constraint ingestion_batch_production_package_wave_items_status_check check (
+    status in (
+      'approved',
+      'delivering',
+      'delivered',
+      'consumer_apply_pending',
+      'consumer_applied',
+      'consumer_apply_failed',
+      'blocked'
+    )
+  ),
+  constraint ingestion_batch_production_package_wave_items_blockers_array check (
+    jsonb_typeof(blockers) = 'array'
+  ),
+  constraint ingestion_batch_production_package_wave_items_dry_run_evidence_object check (
+    jsonb_typeof(dry_run_evidence) = 'object'
+  ),
+  constraint ingestion_batch_production_package_wave_items_staging_evidence_object check (
+    jsonb_typeof(staging_evidence) = 'object'
+  ),
+  constraint ingestion_batch_production_package_wave_items_planned_row_count_nonnegative check (
     planned_row_count >= 0
   )
 );
@@ -753,6 +866,15 @@ create index if not exists ingestion_batch_dry_run_executions_plan_status_idx
 
 create index if not exists ingestion_batch_canary_waves_plan_status_idx
   on ingestion_platform.ingestion_batch_canary_waves (batch_plan_id, status, updated_at desc);
+
+create index if not exists ingestion_batch_production_package_waves_plan_status_idx
+  on ingestion_platform.ingestion_batch_production_package_waves (batch_plan_id, status, updated_at desc);
+
+create index if not exists ingestion_batch_production_package_waves_project_target_idx
+  on ingestion_platform.ingestion_batch_production_package_waves (project_id, target_key, target_environment, status);
+
+create index if not exists ingestion_batch_production_package_wave_items_wave_status_idx
+  on ingestion_platform.ingestion_batch_production_package_wave_items (wave_id, status, run_order asc);
 
 create index if not exists ingestion_batch_canary_wave_items_wave_status_idx
   on ingestion_platform.ingestion_batch_canary_wave_items (wave_id, status, run_order asc);

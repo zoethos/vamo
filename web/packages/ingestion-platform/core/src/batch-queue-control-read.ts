@@ -8,6 +8,8 @@ import {
 import type {
   BatchQueueItemStatus,
   BatchQueueLatestExecution,
+  BatchQueueLatestProductionPackageWave,
+  BatchQueueLatestProductionPackageWaveItem,
   BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
@@ -93,6 +95,38 @@ interface ExecutionRow extends Record<string, unknown> {
 
 interface WaveItemCountRow extends Record<string, unknown> {
   count: string;
+}
+
+interface ProductionPackageWaveRow extends Record<string, unknown> {
+  id: string;
+  waveKey: string;
+  status: string;
+  targetKey: string;
+  targetEnvironment: string;
+  schemaContract: string;
+  maxUnits: number;
+  maxRows: number;
+  maxPackages: number;
+  summary: Record<string, unknown> | null;
+  approvalAuditId: string | null;
+  deliveryAuditId: string | null;
+  packageKey: string | null;
+  packageId: string | null;
+  deliveryStatus: string | null;
+  consumerApplyStatus: string | null;
+  approvedAt: string | Date;
+  approvalExpiresAt: string | Date;
+}
+
+interface ProductionPackageWaveItemRow extends Record<string, unknown> {
+  unitKey: string;
+  runOrder: number;
+  status: string;
+  plannedRowCount: number;
+  schemaContract: string;
+  packageKey: string | null;
+  packageId: string | null;
+  blockers: unknown;
 }
 
 const UNDEFINED_TABLE = "42P01";
@@ -196,6 +230,7 @@ export async function loadBatchQueueSnapshot(
 
     const latestExecution = await loadLatestExecution(client, batchPlanId);
     const latestWave = await loadLatestWave(client, batchPlanId);
+    const latestProductionPackageWave = await loadLatestProductionPackageWave(client, batchPlanId);
 
     return mapPersistenceBundleToSnapshot(
       plan.projectKey,
@@ -227,7 +262,8 @@ export async function loadBatchQueueSnapshot(
         runReport: row.runReport
       })),
       latestExecution,
-      latestWave
+      latestWave,
+      latestProductionPackageWave
     );
   } catch (error) {
     if (isUndefinedTable(error)) {
@@ -369,6 +405,112 @@ async function loadLatestWave(
         status: item.status,
         plannedRowCount: item.plannedRowCount,
         shipmentId: item.shipmentId,
+        blockers: formatBatchQueueBlockers(item.blockers)
+      }))
+    };
+  } catch (error) {
+    if (isUndefinedTable(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function loadLatestProductionPackageWave(
+  client: BatchQueueControlReadPgClientLike,
+  batchPlanId: string
+): Promise<BatchQueueLatestProductionPackageWave | null> {
+  try {
+    const result = await client.query<ProductionPackageWaveRow>(
+      `
+        select
+          id::text as id,
+          wave_key as "waveKey",
+          status,
+          target_key as "targetKey",
+          target_environment as "targetEnvironment",
+          schema_contract as "schemaContract",
+          max_units as "maxUnits",
+          max_rows as "maxRows",
+          max_packages as "maxPackages",
+          summary,
+          approval_audit_id as "approvalAuditId",
+          delivery_audit_id as "deliveryAuditId",
+          package_key as "packageKey",
+          package_id as "packageId",
+          delivery_status as "deliveryStatus",
+          consumer_apply_status as "consumerApplyStatus",
+          approved_at as "approvedAt",
+          approval_expires_at as "approvalExpiresAt"
+        from ingestion_platform.ingestion_batch_production_package_waves
+        where batch_plan_id = $1::bigint
+        order by updated_at desc, id desc
+        limit 1
+      `,
+      [batchPlanId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const itemCount = await client.query<WaveItemCountRow>(
+      `
+        select count(*)::text as count
+        from ingestion_platform.ingestion_batch_production_package_wave_items wi
+        join ingestion_platform.ingestion_batch_production_package_waves w on w.id = wi.wave_id
+        where w.batch_plan_id = $1::bigint
+          and w.wave_key = $2
+      `,
+      [batchPlanId, row.waveKey]
+    );
+
+    const waveItems = await client.query<ProductionPackageWaveItemRow>(
+      `
+        select
+          unit_key as "unitKey",
+          run_order as "runOrder",
+          status,
+          planned_row_count as "plannedRowCount",
+          schema_contract as "schemaContract",
+          package_key as "packageKey",
+          package_id as "packageId",
+          blockers
+        from ingestion_platform.ingestion_batch_production_package_wave_items
+        where wave_id = $1::bigint
+        order by run_order asc, unit_key asc
+      `,
+      [row.id]
+    );
+
+    const summary = row.summary ?? {};
+    return {
+      waveKey: row.waveKey,
+      status: row.status,
+      targetEnvironment: "production",
+      targetKey: row.targetKey,
+      schemaContract: row.schemaContract,
+      maxUnits: row.maxUnits,
+      maxRows: row.maxRows,
+      maxPackages: row.maxPackages,
+      unitCount: Number.parseInt(itemCount.rows[0]?.count ?? "0", 10),
+      totalPlannedRows: Number(summary.totalPlannedRows ?? 0),
+      approvalAuditId: row.approvalAuditId ?? (typeof summary.approvalAuditId === "string" ? summary.approvalAuditId : null),
+      deliveryAuditId: row.deliveryAuditId,
+      packageKey: row.packageKey,
+      packageId: row.packageId,
+      deliveryStatus: row.deliveryStatus,
+      consumerApplyStatus: row.consumerApplyStatus,
+      approvedAt: toIsoString(row.approvedAt),
+      approvalExpiresAt: toIsoString(row.approvalExpiresAt),
+      items: waveItems.rows.map((item) => ({
+        unitKey: item.unitKey,
+        runOrder: item.runOrder,
+        status: item.status,
+        plannedRowCount: item.plannedRowCount,
+        schemaContract: item.schemaContract,
+        packageKey: item.packageKey,
+        packageId: item.packageId,
         blockers: formatBatchQueueBlockers(item.blockers)
       }))
     };
