@@ -1488,13 +1488,38 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.7.0 — Autonomous Batch Orchestration Design + Control Policy** is the
-recommended immediate platform slice. IP-10.1 landed real candidate supply and
-the first two refreshed live staging waves have succeeded, so the manual wave
-path has served its commissioning purpose. Do not turn "approve each wave" into
-the product workflow.
+**IP-18.7.0 — Autonomous Batch Orchestration Foundation** is **implemented**
+(control-plane only). IP-10.1 landed real candidate supply and the first two
+refreshed live staging waves have succeeded, so the manual wave path has served
+its commissioning purpose. Do not turn "approve each wave" into the product
+workflow.
 
-Scope IP-18.7.0 before adding more manual wave UX:
+### IP-18.7.0 — done (foundation only)
+
+Status: **implemented** — no live executor, no provider calls, no staging/prod writes.
+
+Landed:
+
+- `ingestion_autonomy_policies` + `ingestion_autonomy_runs` (`CONTROL_TABLES` 23 → 25).
+- `autonomous_agent` actor type on commands and audit log.
+- Pure `evaluateAutonomyCycle()` in `autonomy-policy.ts`.
+- Read model + `/admin/ingestion` autonomy panel (read-only).
+- Telemetry name contract reserved (`autonomy.cycle.*`, `autonomy.action.applied`).
+
+Ops: apply updated `control_schema.sql` and `control_bootstrap_confluendo.sql`
+to the live Confluendo control DB for live dashboard rows; code merge alone falls
+back to sample preview when tables are absent.
+
+### IP-18.7.1+ — recommended next
+
+Scope before adding more manual wave UX:
+
+- Bounded executor loop that records `ingestion_autonomy_runs` and calls existing
+  dry-run / staging-canary adapters inside policy bounds.
+- Emit structured `autonomy.cycle.*` telemetry from the executor.
+- Production inbox phase remains blocked until IP-18.6 package-wave support exists.
+
+Previously planned IP-18.7.0 design items (now landed in foundation):
 
 - Define the stored autonomy policy for a source/target pair: allowed sources,
   geographies, categories, environments, max units, max rows, rolling limits,
@@ -1514,8 +1539,6 @@ Scope IP-18.7.0 before adding more manual wave UX:
 - Define `autonomy.cycle.*` and `autonomy.action.*` telemetry events plus audit
   rows linking policy, run, unit, blocker, shipment/package, and corrective
   action evidence.
-- Define the first safe executor loop: dry-run and staging-only at the proven
-  bound, with production inbox still requiring IP-18.6 package-wave support.
 - Define when the orchestrator may continue unattended and when it must pause
   for operator review.
 

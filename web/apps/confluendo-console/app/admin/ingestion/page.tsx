@@ -4,6 +4,7 @@ import {
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
 } from "@confluendo/ingestion-platform/core";
 import { loadIp18BatchQueue } from "@/lib/ip18-batch-queue-data";
+import { loadIp187Autonomy } from "@/lib/ip18-autonomy-data";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
@@ -91,6 +92,11 @@ export default async function IngestionDashboardPage() {
     source: batchQueueSource,
     error: batchQueueError
   } = await loadIp18BatchQueue("vamo");
+  const {
+    view: autonomyView,
+    source: autonomySource,
+    error: autonomyError
+  } = await loadIp187Autonomy("vamo");
   const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
   const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
   const batchQueueEligibleCount = batchQueue.items.filter(
@@ -717,6 +723,96 @@ export default async function IngestionDashboardPage() {
         </div>
       </section>
 
+      <section className="admin-section" aria-label="IP-18.7 autonomy">
+        <div className="admin-section-heading admin-section-heading-compact">
+          <div>
+            <p className="admin-kicker">IP-18.7 · autonomy foundation</p>
+            <h2>Governed batch orchestration preview</h2>
+          </div>
+          <span className="admin-readonly-pill">
+            {autonomySourceLabel(autonomySource)}
+          </span>
+        </div>
+        {autonomyError ? (
+          <p className="admin-command-result admin-command-result-error" role="alert">
+            {autonomyError}
+          </p>
+        ) : null}
+        <p className="admin-next-action">
+          <strong>Next cycle decision:</strong> {autonomyView.nextCycle.decision} · phase{" "}
+          {autonomyView.nextCycle.phase} · action {autonomyView.nextCycle.requiredAction}
+          {autonomyView.nextCycle.pauseReason
+            ? ` · paused: ${autonomyView.nextCycle.pauseReason}`
+            : ""}
+        </p>
+        {autonomyView.nextCycle.recommendedAction ? (
+          <p className="admin-next-action">
+            <strong>Recommended:</strong> {autonomyView.nextCycle.recommendedAction.summary}
+          </p>
+        ) : null}
+        <div className="admin-stat-grid">
+          <article className="admin-stat">
+            <span>Policy</span>
+            <strong>{autonomyView.policy?.policyKey ?? "—"}</strong>
+            <p>
+              {autonomyView.policy
+                ? `${autonomyView.policy.status} · v${autonomyView.policy.policyVersion} · ${autonomyView.policy.targetEnvironment}`
+                : "No active policy envelope"}
+            </p>
+          </article>
+          <article className="admin-stat">
+            <span>Bounds</span>
+            <strong>
+              {autonomyView.policy
+                ? `${autonomyView.policy.maxUnitsPerCycle}u / ${autonomyView.policy.maxRowsPerCycle}r`
+                : "—"}
+            </strong>
+            <p>max units / rows per cycle</p>
+          </article>
+          <article className="admin-stat">
+            <span>Selection</span>
+            <strong>{autonomyView.nextCycle.selectedUnitKeys.length}</strong>
+            <p>
+              {autonomyView.nextCycle.maxUnitsApplied} units · {autonomyView.nextCycle.maxRowsApplied}{" "}
+              rows applied
+            </p>
+          </article>
+          <article className="admin-stat">
+            <span>Latest run</span>
+            <strong>{autonomyView.latestRun?.runKey ?? "—"}</strong>
+            <p>
+              {autonomyView.latestRun
+                ? `${autonomyView.latestRun.phase} · ${autonomyView.latestRun.status}`
+                : "No cycle ledger rows yet"}
+            </p>
+          </article>
+        </div>
+        {autonomyView.nextCycle.selectedUnitKeys.length > 0 ? (
+          <p className="admin-next-action">
+            <strong>Selected units:</strong>{" "}
+            {autonomyView.nextCycle.selectedUnitKeys.map((key) => (
+              <code key={key}>{key} </code>
+            ))}
+          </p>
+        ) : null}
+        {(autonomyView.evidence.dryRunExecution || autonomyView.evidence.stagingWave) && (
+          <p className="admin-next-action">
+            <strong>Evidence:</strong>
+            {autonomyView.evidence.dryRunExecution
+              ? ` dry-run ${autonomyView.evidence.dryRunExecution.executionKey} (${autonomyView.evidence.dryRunExecution.status})`
+              : ""}
+            {autonomyView.evidence.stagingWave
+              ? ` · wave ${autonomyView.evidence.stagingWave.waveKey} (${autonomyView.evidence.stagingWave.status})`
+              : ""}
+          </p>
+        )}
+        <ul>
+          {autonomyView.safetySummary.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
+
       <section className="admin-section admin-policy-panel">
         <div>
           <p className="admin-kicker">Policy locks</p>
@@ -765,4 +861,14 @@ function batchQueueSourceLabel(source: "live" | "sample" | "error"): string {
     return "Live read failed · sample fallback";
   }
   return "Sample preview · planning-only queue";
+}
+
+function autonomySourceLabel(source: "live" | "sample" | "error"): string {
+  if (source === "live") {
+    return "Live control plane";
+  }
+  if (source === "error") {
+    return "Live read failed · sample fallback";
+  }
+  return "Sample preview · foundation only";
 }

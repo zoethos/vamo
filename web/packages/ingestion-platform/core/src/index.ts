@@ -6,6 +6,9 @@ export {
   type CheckpointScopeKey,
   type ControlTableName,
   type ControlTableRef,
+  type AutonomyPolicyStatus,
+  type AutonomyRunPhase,
+  type AutonomyRunStatus,
   type IngestionRunStatus,
   type IngestionShipmentMode,
   type IngestionShipmentStatus,
@@ -393,3 +396,37 @@ export {
   type ExecuteBatchStagingCanaryWaveResult,
   type ExecuteBatchStagingCanaryWaveUnitResult
 } from "./batch-staging-canary-wave-execution.js";
+export {
+  AUTONOMY_CYCLE_EVENT_NAMES,
+  isAutonomyCycleEventName,
+  type AutonomyCycleEventName,
+  type AutonomyCycleTelemetryPayload
+} from "./autonomy-telemetry.js";
+export {
+  evaluateAutonomyCycle,
+  type AutonomyActorContext,
+  type AutonomyCycleDecision,
+  type AutonomyPauseReasonCode,
+  type AutonomyPolicyEnvelope,
+  type AutonomyProductionPackageState,
+  type AutonomyRecommendedAction,
+  type AutonomyRequiredAction,
+  type AutonomyRollingCounts,
+  type EvaluateAutonomyCycleInput,
+  type EvaluateAutonomyCycleResult
+} from "./autonomy-policy.js";
+export {
+  buildAutonomyDashboardView,
+  mapPersistedPolicyRow,
+  mapPersistedRunRow,
+  sampleVamoAutonomyDashboardView,
+  type AutonomyDashboardView,
+  type AutonomyPolicySummary,
+  type AutonomyRunSummary,
+  type BuildAutonomyDashboardViewInput
+} from "./autonomy-read-model.js";
+export {
+  loadAutonomyDashboard,
+  type AutonomyControlReadPgClientLike,
+  type LoadAutonomyDashboardInput
+} from "./autonomy-control-read.js";
