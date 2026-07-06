@@ -314,9 +314,13 @@ Live dashboard autonomy rows require applying the updated
 control DB when schema or grant files change. IP-18.7.3 has no schema change;
 it composes existing autonomy policy, run, queue, event, and audit tables.
 
-The next autonomy slice after IP-18.7.3:
+The next production-handoff slice after IP-18.7.3:
 
-- IP-18.6 production inbox package waves, then autonomous production-inbox phases.
+- IP-18.6 production inbox package waves, then autonomous production-inbox
+  phases. Design source: `PRODUCTION_INBOX_PACKAGE_WAVES.md`.
+- IP-18.7.4 operator-controlled ramp promotion can run in parallel, but it does
+  not replace IP-18.6. Ramp promotion widens autonomy throughput; IP-18.6
+  defines the governed production handoff path.
 - Optional hosted cron/daemon invocation of `ip18:autonomy-scheduler` with
   monitoring and alerting.
 - Autonomous corrective actions beyond pause/recommend when explicitly allowed by policy.
