@@ -39,6 +39,10 @@
       "types": "./dist/core/src/batch-queue-control-read.d.ts",
       "default": "./dist/core/src/batch-queue-control-read.js"
     },
+    "./autonomy-control-read": {
+      "types": "./dist/core/src/autonomy-control-read.d.ts",
+      "default": "./dist/core/src/autonomy-control-read.js"
+    },
     "./batch-queue-mutations": {
       "types": "./dist/core/src/batch-queue-mutations.d.ts",
       "default": "./dist/core/src/batch-queue-mutations.js"

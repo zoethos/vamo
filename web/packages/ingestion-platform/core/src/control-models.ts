@@ -23,8 +23,27 @@ export const CONTROL_TABLES = [
   "ingestion_batch_queue_items",
   "ingestion_batch_dry_run_executions",
   "ingestion_batch_canary_waves",
-  "ingestion_batch_canary_wave_items"
+  "ingestion_batch_canary_wave_items",
+  "ingestion_autonomy_policies",
+  "ingestion_autonomy_runs"
 ] as const;
+
+export type AutonomyPolicyStatus = "active" | "paused" | "disabled" | "archived";
+
+export type AutonomyRunPhase =
+  | "planning"
+  | "dry_run"
+  | "staging_canary"
+  | "production_inbox"
+  | "corrective_action";
+
+export type AutonomyRunStatus =
+  | "started"
+  | "advanced"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "skipped";
 
 export type ControlTableName = (typeof CONTROL_TABLES)[number];
 

@@ -20,7 +20,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 describe("ingestion control schema", () => {
   it("declares only platform-owned ingestion tables", () => {
     assert.equal(CONTROL_SCHEMA_NAME, "ingestion_platform");
-    assert.equal(CONTROL_TABLES.length, 23);
+    assert.equal(CONTROL_TABLES.length, 25);
 
     for (const table of CONTROL_TABLES) {
       assert.match(table, /^ingestion_[a-z0-9_]+$/);
@@ -43,9 +43,25 @@ describe("ingestion control schema", () => {
     assert.match(confluendoBootstrapSql, /\bconfluendo_app\b/);
     assert.match(confluendoBootstrapSql, /\bgrant select on all tables\b/i);
     assert.match(confluendoBootstrapSql, /\bgrant insert on ingestion_platform\.ingestion_audit_log\b/i);
+    assert.match(
+      confluendoBootstrapSql,
+      /\bgrant insert, update on ingestion_platform\.ingestion_autonomy_runs\b/i
+    );
+    assert.doesNotMatch(
+      confluendoBootstrapSql,
+      /\bgrant delete on ingestion_platform\.ingestion_autonomy_/i
+    );
     assert.doesNotMatch(confluendoBootstrapSql, /\bgrant all privileges\b/i);
     assert.doesNotMatch(confluendoBootstrapSql, /\bservice_role\b/i);
     assert.doesNotMatch(confluendoBootstrapSql, /\bcreate role\b/i);
+  });
+
+  it("declares autonomy control tables in the SQL artifact", () => {
+    assert.match(controlSchemaSql, /ingestion_autonomy_policies/);
+    assert.match(controlSchemaSql, /ingestion_autonomy_runs/);
+    assert.match(controlSchemaSql, /autonomous_agent/);
+    assert.match(controlSchemaSql, /ingestion_autonomy_policies_target_environment_check/);
+    assert.match(controlSchemaSql, /ingestion_autonomy_runs_actor_type_check/);
   });
 
   it(
@@ -419,6 +435,80 @@ describe("ingestion control schema", () => {
             `,
             [shipmentId]
           )
+        );
+
+        const policyId = await insertReturningId(
+          client,
+          `
+            insert into ingestion_platform.ingestion_autonomy_policies (
+              project_id,
+              policy_key,
+              source_key,
+              target_key,
+              target_environment,
+              status,
+              allowed_tiers,
+              allowed_geographies,
+              allowed_categories,
+              allowed_transitions,
+              max_units_per_cycle,
+              max_rows_per_cycle,
+              policy_version,
+              approval_reason
+            )
+            values (
+              $1,
+              'demo-autonomy',
+              'fixture-source',
+              'warehouse',
+              'staging',
+              'active',
+              '["sample_dry_run"]'::jsonb,
+              '["eu"]'::jsonb,
+              '["city"]'::jsonb,
+              '["execute_dry_run"]'::jsonb,
+              2,
+              100,
+              1,
+              'db smoke autonomy envelope'
+            )
+          `,
+          [projectId]
+        );
+
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_autonomy_runs (
+              project_id,
+              policy_id,
+              run_key,
+              phase,
+              status,
+              actor_type,
+              actor_id,
+              selected_units,
+              scanned_count
+            )
+            values ($1, $2, 'cycle-smoke-1', 'planning', 'paused', 'autonomous_agent', 'agent-smoke', '[]'::jsonb, 0)
+          `,
+          [projectId, policyId]
+        );
+
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_audit_log (
+              project_id,
+              actor_type,
+              actor_id,
+              action,
+              target_type,
+              target_id,
+              reason,
+              payload
+            )
+            values ($1, 'autonomous_agent', 'agent-smoke', 'autonomy.cycle.paused', 'policy', $2, 'db smoke', '{}'::jsonb)
+          `,
+          [projectId, String(policyId)]
         );
       } finally {
         await client.query("drop schema if exists ingestion_platform cascade");

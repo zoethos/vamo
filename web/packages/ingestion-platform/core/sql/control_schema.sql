@@ -376,7 +376,7 @@ create table if not exists ingestion_platform.ingestion_audit_log (
   payload jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   constraint ingestion_audit_log_actor_type_check check (
-    actor_type in ('operator', 'system', 'worker', 'api')
+    actor_type in ('operator', 'system', 'worker', 'api', 'autonomous_agent')
   ),
   constraint ingestion_audit_log_payload_object check (
     jsonb_typeof(payload) = 'object'
@@ -748,5 +748,138 @@ create index if not exists ingestion_batch_canary_waves_plan_status_idx
 
 create index if not exists ingestion_batch_canary_wave_items_wave_status_idx
   on ingestion_platform.ingestion_batch_canary_wave_items (wave_id, status, run_order asc);
+
+-- IP-18.7: human-approved autonomy envelope per source/target pair. Authority is
+-- explicit target_environment plus stored bounds — never inferred from target key.
+create table if not exists ingestion_platform.ingestion_autonomy_policies (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  policy_key text not null,
+  source_key text not null,
+  target_key text not null,
+  target_environment text not null,
+  status text not null default 'paused',
+  allowed_tiers jsonb not null default '[]'::jsonb,
+  allowed_geographies jsonb not null default '[]'::jsonb,
+  allowed_categories jsonb not null default '[]'::jsonb,
+  allowed_transitions jsonb not null default '[]'::jsonb,
+  max_units_per_cycle integer not null,
+  max_rows_per_cycle integer not null,
+  rolling_limits jsonb not null default '{}'::jsonb,
+  guard_thresholds jsonb not null default '{}'::jsonb,
+  production_inbox_handoff_policy jsonb not null default '{}'::jsonb,
+  policy_version integer not null default 1,
+  approved_by text,
+  approved_audit_id text,
+  approval_reason text,
+  summary jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_autonomy_policies_policy_key_unique unique (project_id, policy_key),
+  constraint ingestion_autonomy_policies_target_environment_check check (
+    target_environment in ('staging', 'production')
+  ),
+  constraint ingestion_autonomy_policies_status_check check (
+    status in ('active', 'paused', 'disabled', 'archived')
+  ),
+  constraint ingestion_autonomy_policies_max_units_positive check (max_units_per_cycle > 0),
+  constraint ingestion_autonomy_policies_max_rows_positive check (max_rows_per_cycle > 0),
+  constraint ingestion_autonomy_policies_allowed_tiers_array check (
+    jsonb_typeof(allowed_tiers) = 'array'
+  ),
+  constraint ingestion_autonomy_policies_allowed_geographies_array check (
+    jsonb_typeof(allowed_geographies) = 'array'
+  ),
+  constraint ingestion_autonomy_policies_allowed_categories_array check (
+    jsonb_typeof(allowed_categories) = 'array'
+  ),
+  constraint ingestion_autonomy_policies_allowed_transitions_array check (
+    jsonb_typeof(allowed_transitions) = 'array'
+  ),
+  constraint ingestion_autonomy_policies_rolling_limits_object check (
+    jsonb_typeof(rolling_limits) = 'object'
+  ),
+  constraint ingestion_autonomy_policies_guard_thresholds_object check (
+    jsonb_typeof(guard_thresholds) = 'object'
+  ),
+  constraint ingestion_autonomy_policies_production_inbox_handoff_object check (
+    jsonb_typeof(production_inbox_handoff_policy) = 'object'
+  ),
+  constraint ingestion_autonomy_policies_summary_object check (
+    jsonb_typeof(summary) = 'object'
+  )
+);
+
+-- IP-18.7: append-mostly autonomy cycle ledger joining policy, queue units,
+-- dry-run executions, staging waves, and future production packages.
+create table if not exists ingestion_platform.ingestion_autonomy_runs (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  policy_id bigint not null references ingestion_platform.ingestion_autonomy_policies(id) on delete cascade,
+  run_key text not null,
+  phase text not null,
+  status text not null default 'started',
+  actor_type text not null,
+  actor_id text not null,
+  selected_units jsonb not null default '[]'::jsonb,
+  scanned_count integer not null default 0,
+  advanced_count integer not null default 0,
+  blocked_count integer not null default 0,
+  skipped_count integer not null default 0,
+  highest_safety_mode text,
+  guard_outcome jsonb not null default '{}'::jsonb,
+  pause_reason text,
+  recommended_action jsonb,
+  telemetry_links jsonb not null default '{}'::jsonb,
+  corrective_actions jsonb not null default '[]'::jsonb,
+  dry_run_execution_key text,
+  wave_key text,
+  package_key text,
+  started_at timestamptz not null default now(),
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_autonomy_runs_run_key_unique unique (policy_id, run_key),
+  constraint ingestion_autonomy_runs_phase_check check (
+    phase in ('planning', 'dry_run', 'staging_canary', 'production_inbox', 'corrective_action')
+  ),
+  constraint ingestion_autonomy_runs_status_check check (
+    status in ('started', 'advanced', 'paused', 'completed', 'failed', 'skipped')
+  ),
+  constraint ingestion_autonomy_runs_actor_type_check check (
+    actor_type in ('operator', 'system', 'worker', 'api', 'autonomous_agent')
+  ),
+  constraint ingestion_autonomy_runs_selected_units_array check (
+    jsonb_typeof(selected_units) = 'array'
+  ),
+  constraint ingestion_autonomy_runs_guard_outcome_object check (
+    jsonb_typeof(guard_outcome) = 'object'
+  ),
+  constraint ingestion_autonomy_runs_recommended_action_object check (
+    recommended_action is null or jsonb_typeof(recommended_action) = 'object'
+  ),
+  constraint ingestion_autonomy_runs_telemetry_links_object check (
+    jsonb_typeof(telemetry_links) = 'object'
+  ),
+  constraint ingestion_autonomy_runs_corrective_actions_array check (
+    jsonb_typeof(corrective_actions) = 'array'
+  ),
+  constraint ingestion_autonomy_runs_scanned_count_nonnegative check (scanned_count >= 0),
+  constraint ingestion_autonomy_runs_advanced_count_nonnegative check (advanced_count >= 0),
+  constraint ingestion_autonomy_runs_blocked_count_nonnegative check (blocked_count >= 0),
+  constraint ingestion_autonomy_runs_skipped_count_nonnegative check (skipped_count >= 0)
+);
+
+create index if not exists ingestion_autonomy_policies_project_status_idx
+  on ingestion_platform.ingestion_autonomy_policies (project_id, status, updated_at desc);
+
+create index if not exists ingestion_autonomy_runs_policy_status_idx
+  on ingestion_platform.ingestion_autonomy_runs (policy_id, status, created_at desc);
+
+create index if not exists ingestion_autonomy_runs_run_key_idx
+  on ingestion_platform.ingestion_autonomy_runs (policy_id, run_key);
+
+create index if not exists ingestion_autonomy_runs_created_at_idx
+  on ingestion_platform.ingestion_autonomy_runs (created_at desc);
 
 commit;

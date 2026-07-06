@@ -12,7 +12,17 @@ import {
   type TaskTransitionSkipped
 } from "./run-state.js";
 
-export type CommandActorType = "operator" | "system" | "worker" | "api";
+/**
+ * `autonomous_agent` is not a broad machine token. Its authority is limited to an
+ * active autonomy policy envelope, standing platform guards, still-valid human
+ * approvals when required, and idempotent ledger state.
+ */
+export type CommandActorType =
+  | "operator"
+  | "system"
+  | "worker"
+  | "api"
+  | "autonomous_agent";
 
 export interface CommandActor {
   type: CommandActorType;

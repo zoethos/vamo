@@ -1,6 +1,6 @@
 # Autonomous Batch Orchestration
 
-Status: roadmap guardrail — updated 2026-07-06.
+Status: **IP-18.7.0 foundation implemented** — control-plane policy + read model only (2026-07-06).
 
 Confluendo's steady-state product is **not** an operator manually approving and
 executing every wave. Manual approvals and command-line execution are
@@ -196,23 +196,47 @@ source/target pair paused, and recommend the smallest safe corrective action.
 
 ## First Autonomy Slice
 
-The next autonomy slice should be control-plane first:
+**IP-18.7.0 (implemented — foundation only)** landed the control-plane objects
+and pure policy seam. It does **not** execute live cycles, provider calls,
+staging writes, or production inbox delivery.
 
-- Add `ingestion_autonomy_policies` and `ingestion_autonomy_runs` to
-  `control_schema.sql`, `CONTROL_TABLES`, and the Confluendo bootstrap grants.
-- Extend `CommandActorType` / audit actor handling with `autonomous_agent`.
-- Implement a pure `autonomy-policy.ts` module with `evaluateAutonomyCycle()`.
-  It must be DB-free, deterministic, and reuse the existing dry-run,
-  staging-canary, and production-inbox policy decisions rather than forking
-  their rules.
-- Implement a dry-run-only or staging-only planner/executor loop that selects the
-  next eligible units, records an `ingestion_autonomy_runs` cycle, and stops
-  before any unapproved widening.
-- Keep production inbox delivery behind IP-18.6 until the staging loop has green
-  evidence at the configured bound.
-- Add a read-model panel that explains what the agent did, why it stopped, and
-  what corrective action it recommends next.
+Implemented in IP-18.7.0:
 
-The first autonomous implementation should still be conservative, but the
-operator interaction changes from "approve each wave" to "approve policy bounds
-and respond to exceptions."
+- `ingestion_autonomy_policies` and `ingestion_autonomy_runs` in
+  `control_schema.sql`, `CONTROL_TABLES` (25 tables), and Confluendo bootstrap
+  grants (`SELECT` on policies; `INSERT`/`UPDATE` on runs; no `DELETE`).
+- `CommandActorType` / audit `actor_type` extended with `autonomous_agent`.
+  Authority is limited to an active policy envelope, existing guards, still-valid
+  human approvals when required, and idempotent ledger state — not a broad
+  machine token.
+- Pure `autonomy-policy.ts::evaluateAutonomyCycle()` — DB-free, deterministic,
+  reusing batch dry-run and staging-canary policy concepts.
+- `autonomy-read-model.ts` + `autonomy-control-read.ts` and a read-only
+  `/admin/ingestion` panel (Sample / Live control plane labels).
+- Reserved telemetry contract: `autonomy.cycle.started`, `autonomy.cycle.advanced`,
+  `autonomy.cycle.paused`, `autonomy.cycle.completed`, `autonomy.action.applied`.
+
+Still deferred after IP-18.7.0:
+
+- Live executor loop that appends `ingestion_autonomy_runs` cycles and performs
+  bounded dry-run / staging actions.
+- Production inbox phase execution (requires IP-18.6 package-wave support).
+- Autonomous corrective actions beyond pause/recommend.
+
+### Ops note — live control DB
+
+Live dashboard autonomy rows require applying the updated
+`control_schema.sql` and `control_bootstrap_confluendo.sql` to the Confluendo
+control DB. Merging code alone degrades gracefully: missing tables fall back to
+the bundled sample preview on `/admin/ingestion`.
+
+The next autonomy slice should add the executor loop on top of this foundation:
+
+- Record `ingestion_autonomy_runs` cycles from a bounded dry-run / staging-only
+  executor that calls existing batch adapters.
+- Emit `autonomy.cycle.*` / `autonomy.action.applied` events from the executor.
+- Keep production inbox delivery behind IP-18.6 until staging evidence is green
+  at the configured bound.
+
+The steady-state operator interaction changes from "approve each wave" to
+"approve policy bounds and respond to exceptions."

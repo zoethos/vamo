@@ -1,0 +1,214 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import {
+  evaluateAutonomyCycle,
+  type AutonomyPolicyEnvelope
+} from "../src/autonomy-policy.js";
+import { sampleVamoEuPoiBatchQueueSnapshot } from "../src/batch-queue-read-model.js";
+
+const autonomousActor = { type: "autonomous_agent" as const, id: "agent-smoke" };
+
+function activePolicy(overrides: Partial<AutonomyPolicyEnvelope> = {}): AutonomyPolicyEnvelope {
+  const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+  return {
+    policyId: "policy-1",
+    policyKey: "vamo-eu-poi-staging",
+    projectKey: "vamo",
+    sourceKey: snapshot.sourceKey,
+    targetKey: snapshot.targetKey,
+    targetEnvironment: "staging",
+    status: "active",
+    allowedTiers: ["sample_dry_run"],
+    allowedGeographies: [],
+    allowedCategories: [],
+    allowedTransitions: ["schedule_dry_run", "execute_dry_run", "approve_staging_wave"],
+    maxUnitsPerCycle: 3,
+    maxRowsPerCycle: 1000,
+    rollingLimits: {},
+    guardThresholds: {},
+    productionInboxHandoffPolicy: {},
+    policyVersion: 1,
+    approvalReason: "Autonomy policy smoke",
+    approvedAuditId: "audit-1",
+    ...overrides
+  };
+}
+
+describe("autonomy policy", () => {
+  it("pauses with no active policy", () => {
+    const result = evaluateAutonomyCycle({
+      policy: null,
+      queueSnapshot: sampleVamoEuPoiBatchQueueSnapshot(),
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.pauseReasonCode, "policy_missing");
+    assert.equal(result.requiredAction, "wait_for_human");
+  });
+
+  it("pauses if target_environment mismatches", () => {
+    const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({ targetEnvironment: "production" }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.pauseReasonCode, "target_environment_mismatch");
+    assert.match(result.pauseReason ?? "", /never inferred from target key/i);
+  });
+
+  it("pauses on queue blockers", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "blocked" as const,
+        blockReasons: ["fixture:blocked"]
+      })),
+      blockerSummaries: [{ reason: "fixture:blocked", count: 3 }],
+      progress: {
+        ...sampleVamoEuPoiBatchQueueSnapshot().progress,
+        blocked: 3
+      }
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy(),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.pauseReasonCode, "queue_blockers");
+    assert.equal(result.requiredAction, "pause_for_blocker");
+  });
+
+  it("selects dry_run_ready units inside bounds for dry_run phase", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "dry_run_ready" as const
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 2,
+        allowedTransitions: ["execute_dry_run"]
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "dry_run");
+    assert.equal(result.requiredAction, "execute_dry_run");
+    assert.equal(result.selectedUnitKeys.length, 2);
+    assert.ok(result.recommendedAction);
+  });
+
+  it("refuses to exceed max_units_per_cycle", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "dry_run_ready" as const,
+        dryRunReport: { wroteToTarget: false as const, rowsProcessed: 400, insertCount: 1, updateCount: 0, noOpCount: 0 }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({ maxUnitsPerCycle: 1, maxRowsPerCycle: 500 }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.selectedUnitKeys.length, 1);
+    assert.equal(result.maxUnitsApplied, 1);
+  });
+
+  it("refuses to exceed max_rows_per_cycle", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item, index) => ({
+        ...item,
+        status: "dry_run_ready" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: index === 0 ? 300 : 300,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 5,
+        maxRowsPerCycle: 500,
+        allowedTransitions: ["execute_dry_run"]
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.selectedUnitKeys.length, 1);
+    assert.ok(result.maxRowsApplied <= 500);
+  });
+
+  it("refuses production inbox execution in this slice", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "production_ready" as const
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        allowedTransitions: ["schedule_dry_run", "execute_dry_run", "deliver_production_inbox"]
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "waiting_for_ip18_6");
+    assert.equal(result.pauseReasonCode, "production_inbox_not_executable");
+  });
+
+  it("never infers environment from target key text", () => {
+    const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        targetKey: "vamo-place-intelligence-staging",
+        targetEnvironment: "staging"
+      }),
+      queueSnapshot: {
+        ...snapshot,
+        targetKey: "vamo-place-intelligence-staging",
+        targetEnvironment: "production"
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.pauseReasonCode, "target_environment_mismatch");
+  });
+
+  it("emits a structured recommended action", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item, index) =>
+        index === 0 ? { ...item, status: "ready_for_dry_run" as const } : item
+      )
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({ allowedTransitions: ["schedule_dry_run"] }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.requiredAction, "schedule_dry_run");
+    assert.ok(result.recommendedAction);
+    assert.match(result.recommendedAction!.summary, /Schedule/i);
+    assert.ok(result.telemetry.eventName);
+  });
+});
