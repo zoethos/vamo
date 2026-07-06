@@ -777,8 +777,7 @@ function isTerminalRunStatus(status: AutonomyRunStatus): boolean {
     status === "advanced" ||
     status === "completed" ||
     status === "paused" ||
-    status === "skipped" ||
-    status === "failed"
+    status === "skipped"
   );
 }
 
