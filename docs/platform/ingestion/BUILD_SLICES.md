@@ -1503,6 +1503,17 @@ Scope IP-18.7.0 before adding more manual wave UX:
   stop reason, and linked dry-run/wave/package evidence.
 - Define the agent-as-operator contract: agent identity, telemetry requirements,
   diagnosis payloads, and which corrective actions may run without a human.
+- Name the first control-plane objects: `ingestion_autonomy_policies` for the
+  human-approved source/target envelope and `ingestion_autonomy_runs` for the
+  append-only cycle ledger.
+- Extend the actor model with `autonomous_agent`, whose authority is limited to
+  the active policy envelope, existing guards, and idempotent ledger state.
+- Add the deterministic pure policy seam:
+  `autonomy-policy.ts::evaluateAutonomyCycle()`, reusing existing dry-run,
+  staging-canary, and production-inbox policy decisions.
+- Define `autonomy.cycle.*` and `autonomy.action.*` telemetry events plus audit
+  rows linking policy, run, unit, blocker, shipment/package, and corrective
+  action evidence.
 - Define the first safe executor loop: dry-run and staging-only at the proven
   bound, with production inbox still requiring IP-18.6 package-wave support.
 - Define when the orchestrator may continue unattended and when it must pause
