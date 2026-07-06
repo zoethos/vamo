@@ -197,6 +197,63 @@ describe("autonomy executor", () => {
       assert.ok(result.waveKey);
       assert.equal(await countTable(client, "ingestion_batch_canary_waves"), 1);
       assert.equal(await countTable(client, "ingestion_shipments"), 0);
+      const wave = await client.query<{
+        actor_type: string;
+        actor_id: string;
+        summary: {
+          approvedBy?: {
+            email?: string;
+            role?: string;
+            assuranceLevel?: string;
+            policyApprovedBy?: string | null;
+            policyApprovalAuditId?: string | null;
+          };
+        };
+      }>(
+        `
+          select actor_type, actor_id, summary
+          from ingestion_platform.ingestion_batch_canary_waves
+        `
+      );
+      assert.equal(wave.rows[0]?.actor_type, "autonomous_agent");
+      assert.equal(wave.rows[0]?.actor_id, agentId);
+      assert.equal(wave.rows[0]?.summary.approvedBy?.email, agentId);
+      assert.equal(wave.rows[0]?.summary.approvedBy?.role, "autonomous_agent");
+      assert.equal(wave.rows[0]?.summary.approvedBy?.assuranceLevel, "policy");
+      assert.equal(wave.rows[0]?.summary.approvedBy?.policyApprovedBy, "policy-owner@example.com");
+      assert.equal(wave.rows[0]?.summary.approvedBy?.policyApprovalAuditId, "policy-audit-42");
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
+  it("refuses an oversized autonomous first wave before creating a wave", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, {
+        dryRunSucceeded: 2,
+        maxUnitsPerCycle: 2,
+        maxRowsPerCycle: 4
+      });
+
+      await assert.rejects(
+        () =>
+          executeAutonomyCycle({
+            client,
+            projectKey: "vamo",
+            policyKey: "vamo-eu-poi-staging-v1",
+            agentId,
+            now: "2026-07-06T12:35:00.000Z"
+          }),
+        /first-wave cap/
+      );
+
+      assert.equal(await countTable(client, "ingestion_batch_canary_waves"), 0);
+      const run = await client.query<{ status: string; pause_reason: string | null }>(
+        `select status, pause_reason from ingestion_platform.ingestion_autonomy_runs`
+      );
+      assert.equal(run.rows[0]?.status, "failed");
+      assert.match(run.rows[0]?.pause_reason ?? "", /first-wave cap/);
     } finally {
       await teardownDb(client);
     }
@@ -263,6 +320,29 @@ describe("autonomy executor", () => {
       assert.equal(second.idempotentReplay, true);
       assert.equal(await countTable(client, "ingestion_autonomy_runs"), 1);
       assert.equal(await countEvents(client, "autonomy.cycle.paused"), 1);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
+  it("counts failed runs toward the rolling daily cycle limit", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, {
+        readyForDryRun: 1,
+        rollingLimits: { maxCyclesPerDay: 1 }
+      });
+      await insertFailedAutonomyRun(client);
+
+      const preview = await previewAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId
+      });
+
+      assert.equal(preview.context.evaluation.decision, "pause");
+      assert.equal(preview.context.evaluation.pauseReasonCode, "rolling_limit_exceeded");
     } finally {
       await teardownDb(client);
     }
@@ -359,6 +439,31 @@ describe("autonomy executor", () => {
       buildAutonomyRunKey(policy, evaluation),
       buildAutonomyRunKey(policy, evaluation)
     );
+    assert.notEqual(
+      buildAutonomyRunKey(policy, evaluation, "human_runbook"),
+      buildAutonomyRunKey(policy, evaluation, "autonomy_cli")
+    );
+    const deferredEvaluation = {
+      ...evaluation,
+      phase: "staging_canary" as const,
+      requiredAction: "approve_or_execute_staging_wave_later" as const,
+      recommendedAction: {
+        action: "approve_or_execute_staging_wave_later" as const,
+        summary: "Wave approval waits for human runbook.",
+        evidence: { waveKey: "wave-a", waveStatus: "approved" }
+      }
+    };
+    const executedEvaluation = {
+      ...deferredEvaluation,
+      recommendedAction: {
+        ...deferredEvaluation.recommendedAction,
+        evidence: { waveKey: "wave-a", waveStatus: "succeeded" }
+      }
+    };
+    assert.notEqual(
+      buildAutonomyRunKey(policy, deferredEvaluation, "human_runbook"),
+      buildAutonomyRunKey(policy, executedEvaluation, "autonomy_cli")
+    );
   });
 });
 
@@ -384,6 +489,9 @@ async function seedPolicyAndQueue(
     dryRunSucceeded?: number;
     blocked?: boolean;
     rowsProcessed?: number;
+    maxUnitsPerCycle?: number;
+    maxRowsPerCycle?: number;
+    rollingLimits?: Record<string, unknown>;
   }
 ): Promise<void> {
   const project = await client.query<{ id: string }>(
@@ -396,7 +504,8 @@ async function seedPolicyAndQueue(
       insert into ingestion_platform.ingestion_autonomy_policies (
         project_id, policy_key, source_key, target_key, target_environment, status,
         allowed_tiers, allowed_geographies, allowed_categories, allowed_transitions,
-        max_units_per_cycle, max_rows_per_cycle, policy_version, approval_reason
+        max_units_per_cycle, max_rows_per_cycle, rolling_limits, policy_version, approved_by,
+        approved_audit_id, approval_reason
       )
       values (
         $1::bigint,
@@ -409,13 +518,21 @@ async function seedPolicyAndQueue(
         '[]'::jsonb,
         '[]'::jsonb,
         '["schedule_dry_run","execute_dry_run","approve_staging_wave"]'::jsonb,
+        $2,
+        $3,
+        $4::jsonb,
         1,
-        2,
-        1,
+        'policy-owner@example.com',
+        'policy-audit-42',
         'autonomy executor smoke'
       )
     `,
-    [projectId]
+    [
+      projectId,
+      shape.maxUnitsPerCycle ?? 1,
+      shape.maxRowsPerCycle ?? 2,
+      JSON.stringify(shape.rollingLimits ?? {})
+    ]
   );
 
   const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
@@ -489,6 +606,47 @@ async function seedPolicyAndQueue(
       [shape.rowsProcessed ?? 1]
     );
   }
+}
+
+async function insertFailedAutonomyRun(client: Client): Promise<void> {
+  await client.query(
+    `
+      insert into ingestion_platform.ingestion_autonomy_runs (
+        project_id,
+        policy_id,
+        run_key,
+        phase,
+        status,
+        actor_type,
+        actor_id,
+        selected_units,
+        scanned_count,
+        highest_safety_mode,
+        guard_outcome,
+        started_at,
+        completed_at
+      )
+      select
+        p.id,
+        ap.id,
+        'failed-cycle-for-rolling-limit',
+        'dry_run',
+        'failed',
+        'autonomous_agent',
+        $1,
+        '[]'::jsonb,
+        0,
+        'dry_run',
+        '{}'::jsonb,
+        now(),
+        now()
+      from ingestion_platform.ingestion_projects p
+      join ingestion_platform.ingestion_autonomy_policies ap on ap.project_id = p.id
+      where p.project_key = 'vamo'
+        and ap.policy_key = 'vamo-eu-poi-staging-v1'
+    `,
+    [agentId]
+  );
 }
 
 function baseItem(unitKey: string, status: BatchQueueItemStatus): BatchQueueItem {

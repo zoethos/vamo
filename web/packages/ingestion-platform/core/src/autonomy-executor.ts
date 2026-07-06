@@ -36,6 +36,8 @@ import type { AutonomyRunStatus } from "./control-models.js";
 
 export type AutonomyExecutionChannel = import("./autonomy-read-model.js").AutonomyExecutionChannel;
 
+const FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS = 1;
+
 export interface AutonomyCycleContext {
   projectKey: string;
   policy: AutonomyPolicyEnvelope;
@@ -101,17 +103,27 @@ interface ExistingRunRow extends Record<string, unknown> {
 
 export function buildAutonomyRunKey(
   policy: AutonomyPolicyEnvelope,
-  evaluation: EvaluateAutonomyCycleResult
+  evaluation: EvaluateAutonomyCycleResult,
+  executionChannel?: AutonomyExecutionChannel
 ): string {
   const units = [...evaluation.selectedUnitKeys].sort().join(",");
-  return [
+  const evidence = evaluation.recommendedAction?.evidence as
+    | { waveKey?: unknown; waveStatus?: unknown }
+    | undefined;
+  const waveKey = typeof evidence?.waveKey === "string" ? evidence.waveKey : undefined;
+  const waveStatus = typeof evidence?.waveStatus === "string" ? evidence.waveStatus : undefined;
+  const parts = [
     "autonomy",
     policy.policyKey,
     `v${policy.policyVersion}`,
     evaluation.phase,
     evaluation.requiredAction,
-    units || "none"
-  ].join(":");
+    units || "none",
+    executionChannel ? `channel:${executionChannel}` : undefined,
+    waveStatus ? `wave_status:${waveStatus}` : undefined,
+    waveKey ? `wave:${waveKey}` : undefined
+  ].filter((part): part is string => typeof part === "string" && part.length > 0);
+  return parts.join(":");
 }
 
 export async function previewAutonomyCycle(
@@ -408,8 +420,8 @@ async function loadAutonomyCycleContext(
       now: input.now
     });
 
-    const runKey = buildAutonomyRunKey(policy, evaluation);
     const executionChannel = resolveAutonomyExecutionChannel(evaluation, queueSnapshot);
+    const runKey = buildAutonomyRunKey(policy, evaluation, executionChannel);
 
     return {
       projectKey: input.projectKey,
@@ -531,6 +543,7 @@ async function applyAutonomyAction(
       policy,
       queueSnapshot,
       evaluation,
+      actor,
       auditReason,
       now
     });
@@ -603,6 +616,7 @@ export function buildAutonomousStagingWavePlan(input: {
   policy: AutonomyPolicyEnvelope;
   queueSnapshot: BatchQueueSnapshot;
   evaluation: EvaluateAutonomyCycleResult;
+  actor: BatchControlActor;
   auditReason: string;
   now: string;
 }): BatchStagingCanaryWaveApprovalPlan {
@@ -623,6 +637,11 @@ export function buildAutonomousStagingWavePlan(input: {
   }
   if (selectedUnits.length > input.policy.maxUnitsPerCycle) {
     throw new Error("Staging wave selection exceeds policy max_units_per_cycle.");
+  }
+  if (selectedUnits.length > FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS) {
+    throw new Error(
+      `Autonomous staging wave approval exceeds the first-wave cap of ${FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS} unit.`
+    );
   }
   if (totalPlannedRows > input.policy.maxRowsPerCycle) {
     throw new Error("Staging wave selection exceeds policy max_rows_per_cycle.");
@@ -652,13 +671,16 @@ export function buildAutonomousStagingWavePlan(input: {
     approvedAt,
     approvalExpiresAt,
     approvedBy: {
-      email: input.policy.approvedBy ?? `autonomy:${input.policy.policyKey}`,
-      role: "admin",
-      assuranceLevel: "aal2"
+      email: input.actor.id,
+      role: "autonomous_agent",
+      assuranceLevel: "policy",
+      policyApprovedBy: input.policy.approvedBy ?? null,
+      policyApprovalAuditId: input.policy.approvedAuditId ?? null
     },
     safetySummary: [
-      "Policy-authorized control-plane wave approval only.",
+      "Policy-authorized autonomous control-plane wave approval only.",
       "No Vamo staging writes in this autonomous action.",
+      "Approval identity is the autonomous agent; the governing policy audit is referenced separately.",
       "Live staging execution requires the human confirmation-gated runbook."
     ]
   };
@@ -712,13 +734,12 @@ async function loadRollingCounts(
   }>(
     `
       select
-        count(*)::text as "cyclesToday",
-        coalesce(sum(advanced_count), 0)::text as "unitsAdvancedToday",
-        coalesce(sum((guard_outcome->>'rowsAdvanced')::int), 0)::text as "rowsAdvancedToday"
+        count(*) filter (where status in ('advanced', 'completed', 'failed'))::text as "cyclesToday",
+        coalesce(sum(advanced_count) filter (where status in ('advanced', 'completed')), 0)::text as "unitsAdvancedToday",
+        coalesce(sum((guard_outcome->>'rowsAdvanced')::int) filter (where status in ('advanced', 'completed')), 0)::text as "rowsAdvancedToday"
       from ingestion_platform.ingestion_autonomy_runs
       where policy_id = $1::bigint
         and created_at >= date_trunc('day', now())
-        and status in ('advanced', 'completed')
     `,
     [policyId]
   );
