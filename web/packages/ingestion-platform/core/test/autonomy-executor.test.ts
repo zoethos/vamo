@@ -17,6 +17,7 @@ import {
   executeAutonomyCycle,
   previewAutonomyCycle
 } from "../src/autonomy-executor.js";
+import { runAutonomyScheduler } from "../src/autonomy-scheduler.js";
 import { evaluateAutonomyCycle } from "../src/autonomy-policy.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -107,6 +108,87 @@ describe("autonomy executor", () => {
       assert.ok(result.dryRunExecutionKey);
       assert.equal(await countQueueStatus(client, "dry_run_succeeded"), 1);
       assert.equal(await countTable(client, "ingestion_batch_dry_run_executions"), 1);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
+  it("scheduler preview reports the next cycle without writing", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, { dryRunReady: 3, maxUnitsPerCycle: 2 });
+      const result = await runAutonomyScheduler({
+        client,
+        mode: "preview",
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        maxCycles: 5
+      });
+      assert.equal(result.mode, "preview");
+      assert.equal(result.stopReason, "preview_only");
+      assert.equal(result.cyclesEvaluated, 1);
+      assert.equal(result.actionsApplied, 0);
+      assert.equal(result.cycles[0]?.preview.selectedUnitKeys.length, 2);
+      assert.equal(await countTable(client, "ingestion_autonomy_runs"), 0);
+      assert.equal(await countQueueStatus(client, "dry_run_ready"), 3);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
+  it("scheduler executes repeated bounded cycles and stops at max cycles", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, {
+        dryRunReady: 5,
+        maxUnitsPerCycle: 1,
+        rollingLimits: { maxUnitsPerDay: 100, maxRowsPerDay: 100, maxCyclesPerDay: 100 }
+      });
+      const result = await runAutonomyScheduler({
+        client,
+        mode: "execute",
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        maxCycles: 3,
+        delay: async () => {}
+      });
+      assert.equal(result.stopReason, "max_cycles_reached");
+      assert.equal(result.cyclesEvaluated, 3);
+      assert.equal(result.actionsApplied, 3);
+      assert.equal(await countQueueStatus(client, "dry_run_succeeded"), 3);
+      assert.equal(await countQueueStatus(client, "dry_run_ready"), 2);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
+  it("scheduler records a policy pause when rolling limits stop the loop", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, {
+        dryRunReady: 3,
+        maxUnitsPerCycle: 1,
+        rollingLimits: { maxUnitsPerDay: 2, maxRowsPerDay: 10, maxCyclesPerDay: 10 }
+      });
+      const result = await runAutonomyScheduler({
+        client,
+        mode: "execute",
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        maxCycles: 5,
+        delay: async () => {}
+      });
+      assert.equal(result.stopReason, "policy_pause");
+      assert.equal(result.cyclesEvaluated, 3);
+      assert.equal(result.actionsApplied, 2);
+      assert.equal(result.cycles[2]?.preview.decision, "pause");
+      assert.equal(result.cycles[2]?.execute?.runStatus, "paused");
+      assert.equal(await countQueueStatus(client, "dry_run_succeeded"), 2);
+      assert.equal(await countQueueStatus(client, "dry_run_ready"), 1);
+      assert.ok(await countEvents(client, "autonomy.cycle.paused") >= 1);
     } finally {
       await teardownDb(client);
     }

@@ -1,7 +1,7 @@
 # Autonomous Batch Orchestration
 
-Status: **IP-18.7.2 ramp modes implemented** - control-plane policy vocabulary
-and read model only (2026-07-06).
+Status: **IP-18.7.3 scheduler foundation implemented** - bounded recurring
+control-plane autonomy cycles (2026-07-06).
 
 Confluendo's steady-state product is **not** an operator manually approving and
 executing every wave. Manual approvals and command-line execution are
@@ -280,17 +280,44 @@ Live policy widening remains an owner/operator SQL step with audit evidence.
 After widening, the autonomy executor can continue advancing work inside the new
 stored bounds.
 
+## IP-18.7.3 - Scheduler Foundation (implemented)
+
+IP-18.7.3 adds a scheduler wrapper around the existing one-cycle executor:
+
+- `runAutonomyScheduler()` previews the next cycle in preview mode without
+  writing.
+- Execute mode runs repeated bounded cycles up to a configured `maxCycles`.
+- Each cycle still uses `executeAutonomyCycle()`; there is no parallel write
+  path and no aggregate bypass around per-cycle policy evaluation.
+- The scheduler stops on policy pause, no eligible work, human-runbook deferral,
+  idempotent terminal replay, or the configured max-cycle limit.
+- Policy pauses are recorded once through the existing autonomy run/event
+  telemetry, so rolling-limit stops are visible to dashboards and agents.
+- CLI: `npm run ip18:autonomy-scheduler`.
+
+Execute mode requires:
+
+```powershell
+$env:CONFIRM_CONFLUENDO_AUTONOMY_SCHEDULER = "YES"
+npm --workspace @confluendo/ingestion-platform run ip18:autonomy-scheduler -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1 --max-cycles 10
+```
+
+The scheduler still does not call providers, Vamo staging DSNs, live
+staging-canary execution, or production inbox delivery. It only composes
+approved control-plane transitions that the active policy already permits.
+
 ### Ops note — live control DB
 
 Live dashboard autonomy rows require applying the updated
 `control_schema.sql` and `control_bootstrap_confluendo.sql` to the Confluendo
-control DB when schema or grant files change. IP-18.7.2 has no schema change;
-it reads existing policy metadata and degrades to `bootstrap` for legacy rows.
+control DB when schema or grant files change. IP-18.7.3 has no schema change;
+it composes existing autonomy policy, run, queue, event, and audit tables.
 
-The next autonomy slice after IP-18.7.2:
+The next autonomy slice after IP-18.7.3:
 
 - IP-18.6 production inbox package waves, then autonomous production-inbox phases.
-- Optional scheduled/cron invocation of `ip18:autonomy-cycle` with monitoring.
+- Optional hosted cron/daemon invocation of `ip18:autonomy-scheduler` with
+  monitoring and alerting.
 - Autonomous corrective actions beyond pause/recommend when explicitly allowed by policy.
 
 The steady-state operator interaction changes from "approve each wave" to

@@ -1540,12 +1540,30 @@ Scope:
 - Keep live policy widening as an owner/operator SQL step with audit evidence;
   this slice does not mutate the live control DB.
 
-### IP-18.7.3+ — recommended next
+### IP-18.7.3 — implemented (scheduler foundation)
+
+Status: **implemented** — bounded recurring control-plane autonomy cycles; no
+provider calls, no live staging writes, no production inbox delivery.
+
+Scope:
+
+- Add `runAutonomyScheduler()` as a thin loop over the existing one-cycle
+  executor.
+- Add CLI `npm run ip18:autonomy-scheduler` (preview default; execute gated by
+  `CONFIRM_CONFLUENDO_AUTONOMY_SCHEDULER=YES`).
+- Stop cleanly on policy pause, no eligible work, human-runbook deferral,
+  idempotent terminal replay, or max-cycle cap.
+- Record terminal policy pauses through existing autonomy run/event telemetry.
+- Keep the scheduler control-plane-only; it composes existing approved
+  transitions and does not introduce a target write path.
+
+### IP-18.7.4+ — recommended next
 
 Scope:
 
 - IP-18.6 production inbox package waves, then autonomous production-inbox phases.
-- Scheduled operator for `ip18:autonomy-cycle` with external monitoring.
+- Hosted cron/daemon wrapper for `ip18:autonomy-scheduler` with external
+  monitoring and alerting.
 - Autonomous corrective actions when explicitly allowed by policy.
 
 Previously planned IP-18.7.1 items (now landed):
