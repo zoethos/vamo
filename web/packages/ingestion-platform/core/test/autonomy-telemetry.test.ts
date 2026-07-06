@@ -13,6 +13,7 @@ describe("autonomy telemetry", () => {
       "autonomy.cycle.advanced",
       "autonomy.cycle.paused",
       "autonomy.cycle.completed",
+      "autonomy.cycle.failed",
       "autonomy.action.applied"
     ]);
     assert.equal(isAutonomyCycleEventName("autonomy.cycle.paused"), true);

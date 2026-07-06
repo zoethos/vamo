@@ -45,6 +45,10 @@ describe("ingestion control schema", () => {
     assert.match(confluendoBootstrapSql, /\bgrant insert on ingestion_platform\.ingestion_audit_log\b/i);
     assert.match(
       confluendoBootstrapSql,
+      /\bgrant insert on ingestion_platform\.ingestion_events\b/i
+    );
+    assert.match(
+      confluendoBootstrapSql,
       /\bgrant insert, update on ingestion_platform\.ingestion_autonomy_runs\b/i
     );
     assert.doesNotMatch(

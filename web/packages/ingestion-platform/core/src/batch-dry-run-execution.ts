@@ -8,6 +8,7 @@
 
 import { Client, type QueryResult } from "pg";
 
+import type { BatchControlActor } from "./batch-control-actor.js";
 import type { BatchDryRunExecutionPlan } from "./batch-dry-run-execution-policy.js";
 import {
   simulateBatchDryRunUnit,

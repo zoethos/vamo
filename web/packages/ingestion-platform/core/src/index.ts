@@ -419,14 +419,33 @@ export {
   buildAutonomyDashboardView,
   mapPersistedPolicyRow,
   mapPersistedRunRow,
+  resolveAutonomyExecutionChannel,
   sampleVamoAutonomyDashboardView,
   type AutonomyDashboardView,
+  type AutonomyExecutionChannel,
   type AutonomyPolicySummary,
   type AutonomyRunSummary,
   type BuildAutonomyDashboardViewInput
 } from "./autonomy-read-model.js";
 export {
   loadAutonomyDashboard,
+  loadAutonomyPolicy,
+  loadLatestAutonomyRun,
   type AutonomyControlReadPgClientLike,
   type LoadAutonomyDashboardInput
 } from "./autonomy-control-read.js";
+export {
+  buildAutonomyRunKey,
+  buildAutonomousStagingWavePlan,
+  executeAutonomyCycle,
+  previewAutonomyCycle,
+  type AutonomyCycleBaseInput,
+  type AutonomyCycleExecuteResult,
+  type AutonomyCyclePreviewResult,
+  type AutonomyCycleContext,
+  type AutonomyExecutorPgClientLike
+} from "./autonomy-executor.js";
+export {
+  type BatchControlActor,
+  type BatchControlActorType
+} from "./batch-control-actor.js";

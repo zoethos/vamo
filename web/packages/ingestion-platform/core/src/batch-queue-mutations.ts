@@ -7,6 +7,8 @@
 
 import { Client, type QueryResult } from "pg";
 
+import type { BatchControlActor } from "./batch-control-actor.js";
+
 export interface BatchQueueMutationPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
@@ -20,9 +22,11 @@ export interface ScheduleBatchDryRunInput {
   projectKey: string;
   planId: string;
   targetKey: string;
-  actor: { type: "operator" | "api"; id: string };
+  actor: BatchControlActor;
   reason: string;
   payload: Record<string, unknown>;
+  /** When set, only these queue unit keys may transition to dry_run_ready. */
+  unitKeys?: string[];
   now?: string;
 }
 
@@ -71,6 +75,15 @@ export async function scheduleBatchDryRun(
       throw new Error(`Active batch plan "${input.planId}" was not found.`);
     }
 
+    const unitFilter =
+      input.unitKeys && input.unitKeys.length > 0
+        ? "and unit_key = any($3::text[])"
+        : "";
+    const updateValues: unknown[] = [plan.id, now];
+    if (input.unitKeys && input.unitKeys.length > 0) {
+      updateValues.push(input.unitKeys);
+    }
+
     const updated = await client.query<UpdatedItemRow>(
       `
         update ingestion_platform.ingestion_batch_queue_items
@@ -78,9 +91,10 @@ export async function scheduleBatchDryRun(
             updated_at = $2::timestamptz
         where batch_plan_id = $1::bigint
           and status = 'ready_for_dry_run'
+          ${unitFilter}
         returning unit_key as "unitKey"
       `,
-      [plan.id, now]
+      updateValues
     );
 
     const alreadyScheduled = await client.query<CountRow>(

@@ -7,6 +7,7 @@
 
 import { Client, type QueryResult } from "pg";
 
+import type { BatchControlActor } from "./batch-control-actor.js";
 import type { BatchStagingCanaryWaveApprovalPlan } from "./batch-staging-canary-wave-policy.js";
 
 export interface BatchStagingCanaryWavePgClientLike {
@@ -21,7 +22,7 @@ export interface ApproveBatchStagingCanaryWaveInput {
   client?: BatchStagingCanaryWavePgClientLike;
   projectKey: string;
   plan: BatchStagingCanaryWaveApprovalPlan;
-  actor: { type: "operator" | "api"; id: string };
+  actor: BatchControlActor;
   now?: string;
 }
 

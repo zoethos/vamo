@@ -218,10 +218,31 @@ Implemented in IP-18.7.0:
 
 Still deferred after IP-18.7.0:
 
-- Live executor loop that appends `ingestion_autonomy_runs` cycles and performs
-  bounded dry-run / staging actions.
+- ~~Live executor loop that appends `ingestion_autonomy_runs` cycles and performs
+  bounded dry-run / staging actions.~~ **Implemented in IP-18.7.1 (control-plane only).**
 - Production inbox phase execution (requires IP-18.6 package-wave support).
 - Autonomous corrective actions beyond pause/recommend.
+- Live staging-canary **execution** (human confirmation-gated runbook remains required).
+
+## IP-18.7.1 — Bounded Executor (implemented)
+
+**IP-18.7.1** adds `autonomy-executor.ts` and `npm run ip18:autonomy-cycle`:
+
+- Evaluates the active policy, records one `ingestion_autonomy_runs` cycle per
+  invocation, and performs **at most one** bounded control-plane action:
+  - `schedule_dry_run` via `scheduleBatchDryRun`
+  - `execute_dry_run` via `executeBatchDryRun` (fixture simulation only)
+  - `approve_staging_wave` via `approveBatchStagingCanaryWave` (control-plane approval only)
+- Emits `autonomy.cycle.*` and `autonomy.action.applied` rows in
+  `ingestion_events`.
+- Preview by default; execute requires `--execute` and
+  `CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES`.
+- **Does not** call `executeBatchStagingCanaryWave`, providers, Vamo staging DSNs,
+  or production inbox delivery. Production inbox remains `waiting_for_ip18_6`.
+
+Human operators approve policy bounds once; they respond to exceptions instead of
+approving every wave in steady state. Live staging writes still require the
+existing human confirmation-gated runbook.
 
 ### Ops note — live control DB
 
@@ -230,13 +251,11 @@ Live dashboard autonomy rows require applying the updated
 control DB. Merging code alone degrades gracefully: missing tables fall back to
 the bundled sample preview on `/admin/ingestion`.
 
-The next autonomy slice should add the executor loop on top of this foundation:
+The next autonomy slice after IP-18.7.1:
 
-- Record `ingestion_autonomy_runs` cycles from a bounded dry-run / staging-only
-  executor that calls existing batch adapters.
-- Emit `autonomy.cycle.*` / `autonomy.action.applied` events from the executor.
-- Keep production inbox delivery behind IP-18.6 until staging evidence is green
-  at the configured bound.
+- IP-18.6 production inbox package waves, then autonomous production-inbox phases.
+- Optional scheduled/cron invocation of `ip18:autonomy-cycle` with monitoring.
+- Autonomous corrective actions beyond pause/recommend when explicitly allowed by policy.
 
 The steady-state operator interaction changes from "approve each wave" to
 "approve policy bounds and respond to exceptions."

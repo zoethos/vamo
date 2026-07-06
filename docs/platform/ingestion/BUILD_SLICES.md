@@ -1510,16 +1510,28 @@ Ops: apply updated `control_schema.sql` and `control_bootstrap_confluendo.sql`
 to the live Confluendo control DB for live dashboard rows; code merge alone falls
 back to sample preview when tables are absent.
 
-### IP-18.7.1+ — recommended next
+### IP-18.7.1 — done (bounded control-plane executor)
 
-Scope before adding more manual wave UX:
+Status: **implemented** — one bounded control-plane action per cycle; no live staging execution.
 
-- Bounded executor loop that records `ingestion_autonomy_runs` and calls existing
-  dry-run / staging-canary adapters inside policy bounds.
-- Emit structured `autonomy.cycle.*` telemetry from the executor.
-- Production inbox phase remains blocked until IP-18.6 package-wave support exists.
+Landed:
 
-Previously planned IP-18.7.0 design items (now landed in foundation):
+- `autonomy-executor.ts` with `previewAutonomyCycle()` / `executeAutonomyCycle()`.
+- CLI `npm run ip18:autonomy-cycle` (preview default; execute gated by
+  `CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES`).
+- May schedule dry-run, execute dry-run (fixture/control-plane), or approve staging wave.
+- Records `ingestion_autonomy_runs` + `ingestion_events` telemetry.
+- Does **not** execute live staging canary writes or production inbox delivery.
+
+### IP-18.7.2+ — recommended next
+
+Scope:
+
+- IP-18.6 production inbox package waves, then autonomous production-inbox phases.
+- Scheduled operator for `ip18:autonomy-cycle` with external monitoring.
+- Autonomous corrective actions when explicitly allowed by policy.
+
+Previously planned IP-18.7.1 items (now landed):
 
 - Define the stored autonomy policy for a source/target pair: allowed sources,
   geographies, categories, environments, max units, max rows, rolling limits,

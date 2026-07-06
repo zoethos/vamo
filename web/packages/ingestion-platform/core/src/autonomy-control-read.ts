@@ -127,6 +127,17 @@ export async function loadAutonomyDashboard(
   }
 }
 
+export async function loadAutonomyPolicy(
+  client: AutonomyControlReadPgClientLike,
+  input: Pick<LoadAutonomyDashboardInput, "projectKey" | "policyKey" | "targetKey">
+) {
+  return loadActivePolicy(client, input);
+}
+
+export async function loadLatestAutonomyRun(client: AutonomyControlReadPgClientLike, policyId: string) {
+  return loadLatestRun(client, policyId);
+}
+
 async function loadActivePolicy(
   client: AutonomyControlReadPgClientLike,
   input: LoadAutonomyDashboardInput

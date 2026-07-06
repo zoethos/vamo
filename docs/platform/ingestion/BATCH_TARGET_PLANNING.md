@@ -297,3 +297,8 @@ IP-18.7 is the intended steady-state operating model. Operators approve source
 and target policy bounds; Confluendo runs eligible batches autonomously and
 pauses only on drift, blocker thresholds, missing target proof, write-limit
 breaches, or policy widening.
+
+**IP-18.7.1** (2026-07-06) adds the bounded control-plane executor loop:
+one policy-evaluated action per cycle (`schedule_dry_run`, `execute_dry_run`, or
+staging wave approval only). It does not execute live staging canary writes or
+production inbox delivery (`waiting_for_ip18_6`).

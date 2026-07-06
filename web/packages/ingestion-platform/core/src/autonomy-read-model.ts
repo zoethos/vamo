@@ -58,11 +58,15 @@ export interface AutonomyRunSummary {
   createdAt?: string;
 }
 
+export type AutonomyExecutionChannel = "autonomy_cli" | "human_runbook" | "none";
+
 export interface AutonomyDashboardView {
   projectKey: string;
   policy: AutonomyPolicySummary | null;
   latestRun: AutonomyRunSummary | null;
   nextCycle: EvaluateAutonomyCycleResult;
+  executionChannel: AutonomyExecutionChannel;
+  executionChannelLabel: string;
   evidence: {
     dryRunExecution?: BatchQueueLatestExecution | null;
     stagingWave?: BatchQueueLatestWave | null;
@@ -84,12 +88,48 @@ export interface BuildAutonomyDashboardViewInput {
   actor?: { type: "autonomous_agent"; id: string };
 }
 
-const FOUNDATION_SAFETY_SUMMARY = [
-  "IP-18.7.0 foundation only — no live executor in this slice.",
-  "No provider calls. No Vamo staging writes. No production inbox writes.",
-  "Agent authority is limited to an active policy envelope plus existing guards.",
-  "Target environment is explicit — never inferred from target key text."
+const EXECUTOR_SAFETY_SUMMARY = [
+  "IP-18.7.1 bounded executor — one control-plane action per cycle.",
+  "May schedule dry-run, execute dry-run, or approve a staging wave in the control DB only.",
+  "Does not execute live staging canary writes or production inbox delivery.",
+  "No provider calls. Target environment is explicit — never inferred from target key text."
 ] as const;
+
+export function resolveAutonomyExecutionChannel(
+  evaluation: EvaluateAutonomyCycleResult,
+  queueSnapshot: BatchQueueSnapshot | null
+): AutonomyExecutionChannel {
+  if (evaluation.decision === "pause" || evaluation.decision === "no_op") {
+    return "none";
+  }
+  if (evaluation.requiredAction === "waiting_for_ip18_6") {
+    return "none";
+  }
+  if (evaluation.requiredAction === "approve_or_execute_staging_wave_later") {
+    const wave = queueSnapshot?.latestWave;
+    if (wave && ["approved", "running", "partial"].includes(wave.status)) {
+      return "human_runbook";
+    }
+    return "autonomy_cli";
+  }
+  if (
+    evaluation.requiredAction === "schedule_dry_run" ||
+    evaluation.requiredAction === "execute_dry_run"
+  ) {
+    return "autonomy_cli";
+  }
+  return "none";
+}
+
+function executionChannelLabel(channel: AutonomyExecutionChannel): string {
+  if (channel === "autonomy_cli") {
+    return "Runnable via ip18:autonomy-cycle --execute with CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES";
+  }
+  if (channel === "human_runbook") {
+    return "Requires human confirmation-gated staging runbook — not autonomous in IP-18.7.1";
+  }
+  return "Not executable by the autonomy CLI in the current state";
+}
 
 export function buildAutonomyDashboardView(
   input: BuildAutonomyDashboardViewInput
@@ -108,17 +148,21 @@ export function buildAutonomyDashboardView(
     actor
   });
 
+  const executionChannel = resolveAutonomyExecutionChannel(nextCycle, queueSnapshot);
+
   return {
     projectKey: input.projectKey,
     policy: input.policy ? toPolicySummary(input.policy) : null,
     latestRun: input.latestRun ?? null,
     nextCycle,
+    executionChannel,
+    executionChannelLabel: executionChannelLabel(executionChannel),
     evidence: {
       dryRunExecution: input.latestDryRunExecution ?? queueSnapshot?.latestExecution ?? null,
       stagingWave: input.latestStagingWave ?? queueSnapshot?.latestWave ?? null,
       productionPackage: input.productionPackage ?? null
     },
-    safetySummary: [...FOUNDATION_SAFETY_SUMMARY]
+    safetySummary: [...EXECUTOR_SAFETY_SUMMARY]
   };
 }
 

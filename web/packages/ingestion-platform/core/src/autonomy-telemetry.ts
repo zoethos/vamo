@@ -10,6 +10,7 @@ export const AUTONOMY_CYCLE_EVENT_NAMES = [
   "autonomy.cycle.advanced",
   "autonomy.cycle.paused",
   "autonomy.cycle.completed",
+  "autonomy.cycle.failed",
   "autonomy.action.applied"
 ] as const;
 
