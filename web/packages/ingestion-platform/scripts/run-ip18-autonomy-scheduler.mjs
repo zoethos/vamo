@@ -30,12 +30,27 @@ function knownNamedArgValues(names) {
   );
 }
 
+const VALUE_FLAGS = new Set([
+  "--project-key",
+  "--project",
+  "--policy-key",
+  "--target-key",
+  "--agent-id",
+  "--reason",
+  "--max-cycles",
+  "--interval-ms"
+]);
+
 function collectPositionalArgs(argv, knownValues) {
   const args = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg.startsWith("--")) {
-      if (index + 1 < argv.length && !argv[index + 1].startsWith("-")) {
+      if (
+        VALUE_FLAGS.has(arg) &&
+        index + 1 < argv.length &&
+        !argv[index + 1].startsWith("-")
+      ) {
         index += 1;
       }
       continue;
@@ -49,16 +64,7 @@ function collectPositionalArgs(argv, knownValues) {
 
 const positionalArgs = collectPositionalArgs(
   process.argv.slice(2),
-  knownNamedArgValues([
-    "--project-key",
-    "--project",
-    "--policy-key",
-    "--target-key",
-    "--agent-id",
-    "--reason",
-    "--max-cycles",
-    "--interval-ms"
-  ])
+  knownNamedArgValues([...VALUE_FLAGS])
 );
 
 function readArg(name, fallback, positionalIndex) {
