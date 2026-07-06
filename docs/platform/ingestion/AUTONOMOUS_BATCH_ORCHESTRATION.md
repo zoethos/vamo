@@ -1,6 +1,7 @@
 # Autonomous Batch Orchestration
 
-Status: **IP-18.7.0 foundation implemented** — control-plane policy + read model only (2026-07-06).
+Status: **IP-18.7.2 ramp modes implemented** - control-plane policy vocabulary
+and read model only (2026-07-06).
 
 Confluendo's steady-state product is **not** an operator manually approving and
 executing every wave. Manual approvals and command-line execution are
@@ -244,14 +245,49 @@ Human operators approve policy bounds once; they respond to exceptions instead o
 approving every wave in steady state. Live staging writes still require the
 existing human confirmation-gated runbook.
 
+## IP-18.7.2 - Autonomy Ramp Modes (implemented)
+
+The first live policy intentionally used `2 units/day` because it was a
+bootstrap proof of the autonomous executor, audit actor, telemetry, and
+fail-closed behavior. That limit is not the product's steady-state ingestion
+model.
+
+IP-18.7.2 names the operating ramp explicitly:
+
+| Ramp mode | Purpose | Profile |
+| --- | --- | --- |
+| `bootstrap` | Commissioning proof for a new source/target/write path. | 1 unit/cycle, 2 rows/cycle, 2 units/day. |
+| `staging_ramp` | Controlled staging expansion after bootstrap evidence is green. | 5 units/cycle, 100 rows/cycle, 25 units/day. |
+| `volume_ramp` | Higher-volume staging and production-prep mode. | 25 units/cycle, 5,000 rows/cycle, 250 units/day. |
+| `steady_state` | Production-scale autonomous operation after IP-18.6 package waves and apply telemetry. | 100 units/cycle, 25,000 rows/cycle, 1,000 units/day. |
+
+The ramp mode is stored as control-plane policy metadata, for example
+`summary.ramp.mode = "bootstrap"`, and `/admin/ingestion` surfaces both the
+active mode and profile warnings when a stored policy exceeds its declared
+profile.
+
+Ramp widening is deliberately a human/operator decision:
+
+- only an admin operator may promote the ramp;
+- the autonomous agent cannot widen its own policy;
+- promotions advance one step at a time (`bootstrap` -> `staging_ramp` ->
+  `volume_ramp` -> `steady_state`);
+- `steady_state` is blocked until production inbox package waves and apply
+  telemetry are implemented; and
+- this slice does not mutate the live control DB.
+
+Live policy widening remains an owner/operator SQL step with audit evidence.
+After widening, the autonomy executor can continue advancing work inside the new
+stored bounds.
+
 ### Ops note — live control DB
 
 Live dashboard autonomy rows require applying the updated
 `control_schema.sql` and `control_bootstrap_confluendo.sql` to the Confluendo
-control DB. Merging code alone degrades gracefully: missing tables fall back to
-the bundled sample preview on `/admin/ingestion`.
+control DB when schema or grant files change. IP-18.7.2 has no schema change;
+it reads existing policy metadata and degrades to `bootstrap` for legacy rows.
 
-The next autonomy slice after IP-18.7.1:
+The next autonomy slice after IP-18.7.2:
 
 - IP-18.6 production inbox package waves, then autonomous production-inbox phases.
 - Optional scheduled/cron invocation of `ip18:autonomy-cycle` with monitoring.

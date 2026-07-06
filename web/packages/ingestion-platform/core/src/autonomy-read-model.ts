@@ -12,6 +12,11 @@ import {
   type AutonomyRollingCounts,
   type EvaluateAutonomyCycleResult
 } from "./autonomy-policy.js";
+import {
+  readAutonomyRampMode,
+  resolveAutonomyRamp,
+  type AutonomyRampMode
+} from "./autonomy-ramp-policy.js";
 import type { AutonomyRunPhase, AutonomyRunStatus } from "./control-models.js";
 import type {
   BatchQueueLatestExecution,
@@ -30,6 +35,20 @@ export interface AutonomyPolicySummary {
   policyVersion: number;
   maxUnitsPerCycle: number;
   maxRowsPerCycle: number;
+  rampMode: AutonomyRampMode;
+  rampLabel: string;
+  rampDescription: string;
+  recommendedNextRampMode?: AutonomyRampMode;
+  rampWarnings: string[];
+  rampProfile: {
+    maxUnitsPerCycle: number;
+    maxRowsPerCycle: number;
+    rollingLimits: {
+      maxCyclesPerDay: number;
+      maxUnitsPerDay: number;
+      maxRowsPerDay: number;
+    };
+  };
   approvedBy?: string;
   approvedAuditId?: string;
   approvalReason?: string;
@@ -208,6 +227,7 @@ export function mapPersistedPolicyRow(row: {
     guardThresholds: row.guardThresholds ?? {},
     productionInboxHandoffPolicy: row.productionInboxHandoffPolicy ?? {},
     policyVersion: row.policyVersion,
+    rampMode: readAutonomyRampMode(row.summary ?? undefined),
     approvedBy: row.approvedBy ?? undefined,
     approvedAuditId: row.approvedAuditId ?? undefined,
     approvalReason: row.approvalReason ?? undefined,
@@ -277,10 +297,11 @@ export function sampleVamoAutonomyDashboardView(): AutonomyDashboardView {
     guardThresholds: { maxBlockerRate: 0.1 },
     productionInboxHandoffPolicy: { requiresIp186: true },
     policyVersion: 1,
+    rampMode: "staging_ramp",
     approvedBy: "operator@example.com",
     approvedAuditId: "sample-approval",
     approvalReason: "Sample autonomy envelope for dashboard preview.",
-    summary: { note: "Bundled sample — not live control-plane data." }
+    summary: { ramp: { mode: "staging_ramp" }, note: "Bundled sample — not live control-plane data." }
   };
 
   const previewQueue: BatchQueueSnapshot = {
@@ -301,6 +322,7 @@ export function sampleVamoAutonomyDashboardView(): AutonomyDashboardView {
 }
 
 function toPolicySummary(policy: AutonomyPolicyEnvelope): AutonomyPolicySummary {
+  const ramp = resolveAutonomyRamp(policy);
   return {
     policyId: policy.policyId,
     policyKey: policy.policyKey,
@@ -311,6 +333,16 @@ function toPolicySummary(policy: AutonomyPolicyEnvelope): AutonomyPolicySummary 
     policyVersion: policy.policyVersion,
     maxUnitsPerCycle: policy.maxUnitsPerCycle,
     maxRowsPerCycle: policy.maxRowsPerCycle,
+    rampMode: ramp.mode,
+    rampLabel: ramp.label,
+    rampDescription: ramp.description,
+    recommendedNextRampMode: ramp.recommendedNextMode,
+    rampWarnings: ramp.warnings,
+    rampProfile: {
+      maxUnitsPerCycle: ramp.profile.maxUnitsPerCycle,
+      maxRowsPerCycle: ramp.profile.maxRowsPerCycle,
+      rollingLimits: ramp.profile.rollingLimits
+    },
     approvedBy: policy.approvedBy,
     approvedAuditId: policy.approvedAuditId,
     approvalReason: policy.approvalReason,

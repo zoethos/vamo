@@ -1523,7 +1523,24 @@ Landed:
 - Records `ingestion_autonomy_runs` + `ingestion_events` telemetry.
 - Does **not** execute live staging canary writes or production inbox delivery.
 
-### IP-18.7.2+ — recommended next
+### IP-18.7.2 — implemented (policy ramp modes)
+
+Status: **implemented** — control-plane policy vocabulary only; no live SQL or
+consumer writes.
+
+Scope:
+
+- Name autonomy ramp modes in code and docs: `bootstrap`, `staging_ramp`,
+  `volume_ramp`, `steady_state`.
+- Treat the current `2 units/day` policy as **bootstrap proof**, not the
+  steady-state ingestion model.
+- Add pure ramp-promotion policy: only an admin operator can widen policy, the
+  agent cannot widen itself, and modes advance one step at a time.
+- Surface the current ramp mode and profile warnings in `/admin/ingestion`.
+- Keep live policy widening as an owner/operator SQL step with audit evidence;
+  this slice does not mutate the live control DB.
+
+### IP-18.7.3+ — recommended next
 
 Scope:
 

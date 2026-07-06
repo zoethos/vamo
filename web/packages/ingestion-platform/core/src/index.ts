@@ -416,6 +416,20 @@ export {
   type EvaluateAutonomyCycleResult
 } from "./autonomy-policy.js";
 export {
+  AUTONOMY_RAMP_MODES,
+  AUTONOMY_RAMP_PROFILES,
+  evaluateAutonomyRampPromotion,
+  isAutonomyRampMode,
+  readAutonomyRampMode,
+  resolveAutonomyRamp,
+  type AutonomyRampMode,
+  type AutonomyRampProfile,
+  type AutonomyRampPromotionBlockCode,
+  type AutonomyRampResolution,
+  type EvaluateAutonomyRampPromotionInput,
+  type EvaluateAutonomyRampPromotionResult
+} from "./autonomy-ramp-policy.js";
+export {
   buildAutonomyDashboardView,
   mapPersistedPolicyRow,
   mapPersistedRunRow,
