@@ -264,13 +264,53 @@ export async function executeAutonomyCycle(
       });
     }
 
-    const actionOutcome = await applyAutonomyAction({
-      client,
-      input,
-      context,
-      actor,
-      now
-    });
+    let actionOutcome: ApplyAutonomyActionOutcome;
+    try {
+      actionOutcome = await applyAutonomyAction({
+        client,
+        input,
+        context,
+        actor,
+        now
+      });
+    } catch (error) {
+      const actionError = summarizeAutonomyActionError(error);
+      const failureReason = `Autonomy action failed: ${actionError.message}`;
+      const correctiveActions = [
+        {
+          action: "inspect_autonomy_action_failure",
+          message:
+            "Review the failed autonomy cycle evidence, fix the blocking control-plane condition, then rerun the same bounded cycle.",
+          runKey: context.runKey,
+          requiredAction: context.evaluation.requiredAction
+        }
+      ];
+      await finalizeAutonomyRun(client, {
+        runId,
+        evaluation: context.evaluation,
+        status: "failed",
+        pauseReason: failureReason,
+        guardOutcome: {
+          actionError
+        },
+        correctiveActions,
+        now
+      });
+      await insertAutonomyEvent(client, {
+        projectId: project.id,
+        eventName: "autonomy.cycle.failed",
+        evaluation: context.evaluation,
+        policy: context.policy,
+        runKey: context.runKey,
+        actor,
+        now,
+        extra: {
+          actionError,
+          correctiveActions
+        }
+      });
+      throw error;
+    }
 
     const runStatus: AutonomyRunStatus = actionOutcome.idempotentReplay ? "completed" : "advanced";
     await finalizeAutonomyRun(client, {
@@ -401,6 +441,12 @@ interface ApplyAutonomyActionOutcome {
   waveKey?: string | null;
   guardOutcome?: Record<string, unknown>;
   telemetryEvidence: Record<string, unknown>;
+}
+
+interface AutonomyActionErrorSummary extends Record<string, unknown> {
+  name: string;
+  message: string;
+  code?: string;
 }
 
 async function applyAutonomyAction(
@@ -819,6 +865,7 @@ async function finalizeAutonomyRun(
     dryRunExecutionKey?: string | null;
     waveKey?: string | null;
     guardOutcome?: Record<string, unknown>;
+    correctiveActions?: Record<string, unknown>[];
     now: string;
   }
 ): Promise<void> {
@@ -828,14 +875,18 @@ async function finalizeAutonomyRun(
       set status = $2,
           advanced_count = case when $2 = 'advanced' then greatest(advanced_count, $3) else advanced_count end,
           pause_reason = coalesce($4, pause_reason),
-          dry_run_execution_key = coalesce($5, dry_run_execution_key),
-          wave_key = coalesce($6, wave_key),
-          guard_outcome = guard_outcome || $7::jsonb,
-          recommended_action = coalesce($8::jsonb, recommended_action),
-          completed_at = $9::timestamptz,
-          updated_at = $9::timestamptz
-      where id = $1::bigint
-    `,
+           dry_run_execution_key = coalesce($5, dry_run_execution_key),
+           wave_key = coalesce($6, wave_key),
+           guard_outcome = guard_outcome || $7::jsonb,
+           recommended_action = coalesce($8::jsonb, recommended_action),
+           corrective_actions = case
+             when $9::jsonb is null then corrective_actions
+             else $9::jsonb
+           end,
+           completed_at = $10::timestamptz,
+           updated_at = $10::timestamptz
+       where id = $1::bigint
+     `,
     [
       input.runId,
       input.status,
@@ -848,6 +899,7 @@ async function finalizeAutonomyRun(
         rowsAdvanced: input.evaluation.maxRowsApplied
       }),
       input.evaluation.recommendedAction ? JSON.stringify(input.evaluation.recommendedAction) : null,
+      input.correctiveActions ? JSON.stringify(input.correctiveActions) : null,
       input.now
     ]
   );
@@ -884,6 +936,7 @@ async function insertAutonomyEvent(
     selectedUnitKeys: input.evaluation.selectedUnitKeys,
     evidence: input.extra
   };
+  const severity = input.eventName === "autonomy.cycle.failed" ? "error" : "info";
 
   await client.query(
     `
@@ -896,16 +949,36 @@ async function insertAutonomyEvent(
         payload,
         created_at
       )
-      values ($1::bigint, $2, 'info', 'autonomy_cycle', $3, $4::jsonb, $5::timestamptz)
+      values ($1::bigint, $2, $3, 'autonomy_cycle', $4, $5::jsonb, $6::timestamptz)
     `,
     [
       input.projectId,
       input.eventName,
+      severity,
       `Autonomy ${input.eventName} for ${input.policy.policyKey}`,
       JSON.stringify(payload),
       input.now
     ]
   );
+}
+
+function summarizeAutonomyActionError(error: unknown): AutonomyActionErrorSummary {
+  if (error instanceof Error) {
+    const summary: AutonomyActionErrorSummary = {
+      name: error.name,
+      message: error.message
+    };
+    const maybeCode = (error as { code?: unknown }).code;
+    if (typeof maybeCode === "string" && maybeCode.length > 0) {
+      summary.code = maybeCode;
+    }
+    return summary;
+  }
+
+  return {
+    name: typeof error,
+    message: String(error)
+  };
 }
 
 async function insertAutonomyAudit(

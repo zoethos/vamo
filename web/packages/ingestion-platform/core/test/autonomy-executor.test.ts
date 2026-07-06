@@ -112,6 +112,68 @@ describe("autonomy executor", () => {
     }
   });
 
+  it("marks an opened run failed when applying the action throws", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, { dryRunReady: 1 });
+      await client.query("drop table ingestion_platform.ingestion_batch_dry_run_executions");
+
+      await assert.rejects(
+        () =>
+          executeAutonomyCycle({
+            client,
+            projectKey: "vamo",
+            policyKey: "vamo-eu-poi-staging-v1",
+            agentId,
+            now: "2026-07-06T12:25:00.000Z"
+          }),
+        /ingestion_batch_dry_run_executions|does not exist|relation/
+      );
+
+      const run = await client.query<{
+        status: string;
+        pause_reason: string | null;
+        guard_outcome: Record<string, unknown>;
+        corrective_actions: Record<string, unknown>[];
+      }>(
+        `
+          select status, pause_reason, guard_outcome, corrective_actions
+          from ingestion_platform.ingestion_autonomy_runs
+        `
+      );
+      assert.equal(run.rows.length, 1);
+      assert.equal(run.rows[0]?.status, "failed");
+      assert.match(run.rows[0]?.pause_reason ?? "", /Autonomy action failed/);
+      assert.equal(
+        (run.rows[0]?.guard_outcome.actionError as { code?: string } | undefined)?.code,
+        "42P01"
+      );
+      assert.equal(run.rows[0]?.corrective_actions.length, 1);
+
+      const event = await client.query<{
+        severity: string;
+        payload: {
+          evidence?: {
+            actionError?: { code?: string };
+            correctiveActions?: unknown[];
+          };
+        };
+      }>(
+        `
+          select severity, payload
+          from ingestion_platform.ingestion_events
+          where event_type = 'autonomy.cycle.failed'
+        `
+      );
+      assert.equal(event.rows.length, 1);
+      assert.equal(event.rows[0]?.severity, "error");
+      assert.equal(event.rows[0]?.payload.evidence?.actionError?.code, "42P01");
+      assert.equal(event.rows[0]?.payload.evidence?.correctiveActions?.length, 1);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
   it("staging path approves a wave but does not execute live staging", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
     const client = await setupDb();
     try {
