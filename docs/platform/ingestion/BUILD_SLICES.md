@@ -1481,18 +1481,20 @@ latest dashboard state.
 Future slices:
 
 - **IP-18.6** — production inbox package waves, reusing the IP-17 delivery
-  boundary for staging-proven units.
+  boundary for staging-proven units. Design source:
+  [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md).
 - **IP-18.7** — autonomous batch orchestrator, converting source/target policy
   into unattended dry-run/staging/production-inbox progress inside configured
   bounds.
 
 ## Recommended Immediate Next Slice
 
-**IP-18.7.0 — Autonomous Batch Orchestration Foundation** is **implemented**
-(control-plane only). IP-10.1 landed real candidate supply and the first two
-refreshed live staging waves have succeeded, so the manual wave path has served
-its commissioning purpose. Do not turn "approve each wave" into the product
-workflow.
+**IP-18.6.1 — Production Inbox Package-Wave Policy and Schema** should be the
+next implementation slice. IP-10.1 landed real candidate supply, the first live
+staging waves succeeded, and IP-18.7 can autonomously drain dry-run work inside
+policy bounds. The missing production-handoff layer is now IP-18.6: bounded
+package waves over staging-proven units, reusing the IP-17 inbox delivery path.
+Do not turn "approve each wave" into the product workflow.
 
 ### IP-18.7.0 — done (foundation only)
 
@@ -1559,11 +1561,45 @@ Scope:
 - Keep the scheduler control-plane-only; it composes existing approved
   transitions and does not introduce a target write path.
 
+### IP-18.6.0 — design ready (production inbox package waves)
+
+Status: **design ready** — [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)
+defines the production package-wave contract before implementation.
+
+Scope:
+
+- Scale the proven IP-17 production-inbox path from one manually approved
+  package to bounded package waves over staging-proven units.
+- Keep consumer production product-table writes out of Confluendo. Delivery is
+  to the consumer inbox; consumer apply remains consumer-owned.
+- Reuse `buildProductionInboxPackage(...)` and
+  `deliverPostgresProductionInboxPackage(...)`; do not create a second
+  production delivery adapter.
+- Track package wave state, package/checksum evidence, consumer apply status,
+  blockers, and corrective actions in the Confluendo control plane.
+- Keep the first live Vamo run to one staging-proven unit, one fresh approval,
+  one confirmation-gated inbox delivery, and Vamo-owned apply verification.
+
+Recommended implementation split:
+
+- **IP-18.6.1** — package-wave policy, schema, read model, and DB smokes; no
+  live delivery.
+- **IP-18.6.2** — dashboard approval route/card with admin + AAL2 + fresh MFA;
+  no delivery.
+- **IP-18.6.3** — confirmation-gated delivery CLI reusing IP-17 builder/adapter.
+- **IP-18.6.4** — consumer apply telemetry and dashboard states.
+- **IP-18.6.5** — autonomy hook after package waves and apply telemetry are
+  proven.
+
 ### IP-18.7.4+ — recommended next
 
 Scope:
 
-- IP-18.6 production inbox package waves, then autonomous production-inbox phases.
+- Implement IP-18.6 production inbox package waves, then autonomous
+  production-inbox phases.
+- Operator-controlled ramp promotion (`bootstrap` -> `staging_ramp` ->
+  `volume_ramp`) in the admin console, with DB-guarded mutation and effective
+  bounds enforcement.
 - Hosted cron/daemon wrapper for `ip18:autonomy-scheduler` with external
   monitoring and alerting.
 - Autonomous corrective actions when explicitly allowed by policy.
