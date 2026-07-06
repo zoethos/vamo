@@ -589,6 +589,49 @@ describe("autonomy executor", () => {
       buildAutonomyRunKey(policy, deferredEvaluation, "human_runbook"),
       buildAutonomyRunKey(policy, executedEvaluation, "autonomy_cli")
     );
+    const pausedEvaluation = {
+      decision: "pause" as const,
+      phase: "planning" as const,
+      selectedUnitKeys: [],
+      maxUnitsApplied: 0,
+      maxRowsApplied: 0,
+      requiredAction: "wait_for_human" as const,
+      pauseReason: "Rolling daily unit limit (25) would be exceeded.",
+      pauseReasonCode: "rolling_limit_exceeded" as const,
+      scannedCount: 10,
+      blockedCount: 0,
+      skippedCount: 10,
+      highestSafetyMode: "dry_run" as const,
+      telemetry: { eventName: "autonomy.cycle.paused" as const }
+    };
+    assert.equal(
+      buildAutonomyRunKey(
+        policy,
+        pausedEvaluation,
+        "none",
+        "2026-07-06T10:00:00.000Z"
+      ),
+      buildAutonomyRunKey(
+        policy,
+        pausedEvaluation,
+        "none",
+        "2026-07-06T22:00:00.000Z"
+      )
+    );
+    assert.notEqual(
+      buildAutonomyRunKey(
+        policy,
+        pausedEvaluation,
+        "none",
+        "2026-07-06T10:00:00.000Z"
+      ),
+      buildAutonomyRunKey(
+        policy,
+        pausedEvaluation,
+        "none",
+        "2026-07-07T10:00:00.000Z"
+      )
+    );
   });
 });
 

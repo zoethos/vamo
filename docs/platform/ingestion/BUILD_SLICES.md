@@ -1553,7 +1553,9 @@ Scope:
   `CONFIRM_CONFLUENDO_AUTONOMY_SCHEDULER=YES`).
 - Stop cleanly on policy pause, no eligible work, human-runbook deferral,
   idempotent terminal replay, or max-cycle cap.
-- Record terminal policy pauses through existing autonomy run/event telemetry.
+- Record terminal policy pauses through existing autonomy run/event telemetry;
+  pause run keys include the UTC day and pause code so recurring schedulers
+  preserve fresh daily pause visibility.
 - Keep the scheduler control-plane-only; it composes existing approved
   transitions and does not introduce a target write path.
 
