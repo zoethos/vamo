@@ -344,9 +344,15 @@ Live proof (2026-07-07):
 
 - Read-only `confluendo_inbox_telemetry` role and adapter:
   `readPostgresProductionInboxApplyTelemetry`.
+- The pooler login role (`confluendo_inbox_telemetry_app`) also needs explicit
+  RLS `SELECT` policies on `confluendo_inbox.shipments`,
+  `confluendo_inbox.shipment_items`, and `confluendo_inbox.apply_log`. Grants to
+  the no-login group role were not enough in the live Supabase proof.
 - Env: `VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL` (read-only inbox scope).
   Do not reuse `VAMO_PRODUCTION_INBOX_DATABASE_URL` writer credentials for
   dashboard/API telemetry.
+- Env: `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production` is also required; the
+  console refuses telemetry when the production proof flag is absent.
 - `refreshProductionPackageApplyTelemetry` mirrors observed inbox status into
   control-plane wave/item/queue rows and enriches `BatchQueueSnapshot`.
 - `/admin/ingestion` distinguishes delivered vs consumer apply pending vs
@@ -356,6 +362,10 @@ Live proof (2026-07-07):
 - Delivery blocks/failures persist to control-plane wave/item/queue rows and
   audit log (`deliver_batch_production_package_wave_blocked`) so the dashboard
   shows durable truth, not only CLI output.
+- Live proof (2026-07-08): package wave `58` / delivery audit `59` read back
+  through the `confluendo_inbox_telemetry_app` role after adding explicit login
+  role RLS policies, and the control-plane queue row advanced to
+  `consumer_applied`.
 
 ### Pre-volume-ramp hardening — staged-content hash (required before ramp)
 
@@ -397,6 +407,9 @@ The first live IP-18.6 Vamo run completed on 2026-07-07:
 - apply proof: `location_canonicals:fsq-paris-louvre-landmark` and
   `location_source_refs:fsq_os_places:fsq_paris_louvre_landmark` both
   `applied`.
+- apply telemetry proof: `/admin/ingestion` read the same package through the
+  read-only inbox telemetry role and showed the package wave as
+  `consumer_applied`.
 
 This is a production-volume ramp proof, not the final EU corpus rollout.
 

@@ -1498,7 +1498,10 @@ evidence at approval and compare at delivery (see
 Previously recommended:
 
 - **IP-18.6.4 — Apply Telemetry** — **done** — read-only inbox polling,
-  control-plane mirror, dashboard states, persisted delivery blocks.
+  control-plane mirror, dashboard states, persisted delivery blocks. Live proof
+  required explicit RLS `SELECT` policies for the pooler login role
+  `confluendo_inbox_telemetry_app` on `confluendo_inbox.shipments`,
+  `shipment_items`, and `apply_log`; group-role grants alone returned no rows.
 
 ### IP-18.7.0 — done (foundation only)
 
@@ -1598,7 +1601,10 @@ Recommended implementation split:
   -> Vamo apply marked both inbox items `applied`.
 - **IP-18.6.4** — **done** — read-only consumer apply telemetry
   (`VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL`), control-plane mirror,
-  dashboard states, persisted delivery-block state.
+  dashboard states, persisted delivery-block state. The live Vamo proof read
+  package wave `58` / delivery audit `59` back through
+  `confluendo_inbox_telemetry_app` after adding explicit login-role RLS
+  policies, and advanced the queue row to `consumer_applied`.
 - **Pre-volume-ramp hardening (not IP-18.6.4)** — staged-content hash at
   approval with compare-before-delivery; see
   [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md).
