@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
+  type BatchQueueItem,
+  type BatchQueueItemStatus,
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
   countStagingProvenPackageEligibleUnits,
   describeProductionPackageWaveStatus,
@@ -53,6 +55,74 @@ const toneLabels: Record<IngestionTone, string> = {
   watch: "Watch",
   danger: "Needs action",
   neutral: "Info",
+};
+
+type OperatorTone = "good" | "watch" | "danger" | "info" | "neutral";
+
+interface OperatorMetric {
+  label: string;
+  value: string | number;
+  detail: string;
+  tone: OperatorTone;
+}
+
+interface StatusSlice {
+  label: string;
+  value: number;
+  percent: number;
+  tone: OperatorTone;
+}
+
+const queueStatusLabels: Record<BatchQueueItemStatus, string> = {
+  planned: "Planned",
+  blocked: "Blocked",
+  ready_for_dry_run: "Ready to simulate",
+  dry_run_ready: "Simulation queued",
+  dry_run_running: "Simulating",
+  dry_run_succeeded: "Simulation passed",
+  dry_run_blocked: "Simulation blocked",
+  staging_canary_ready: "Ready for staging",
+  staging_canary_approved: "Staging approved",
+  staging_canary_running: "Writing to staging",
+  staging_canary_succeeded: "Staging verified",
+  staging_canary_blocked: "Staging blocked",
+  staged_ready: "Ready after staging",
+  production_ready: "Ready for delivery",
+  applied: "Applied",
+  production_package_ready: "Ready for delivery",
+  production_package_approved: "Delivery approved",
+  production_package_delivering: "Delivering",
+  production_package_delivered: "Delivered to inbox",
+  consumer_apply_pending: "Waiting for consumer apply",
+  consumer_applied: "Applied by consumer",
+  consumer_apply_failed: "Consumer apply failed",
+  production_package_blocked: "Delivery blocked"
+};
+
+const queueStatusTones: Record<BatchQueueItemStatus, OperatorTone> = {
+  planned: "neutral",
+  blocked: "danger",
+  ready_for_dry_run: "info",
+  dry_run_ready: "info",
+  dry_run_running: "info",
+  dry_run_succeeded: "good",
+  dry_run_blocked: "danger",
+  staging_canary_ready: "info",
+  staging_canary_approved: "watch",
+  staging_canary_running: "info",
+  staging_canary_succeeded: "good",
+  staging_canary_blocked: "danger",
+  staged_ready: "good",
+  production_ready: "info",
+  applied: "good",
+  production_package_ready: "info",
+  production_package_approved: "watch",
+  production_package_delivering: "info",
+  production_package_delivered: "info",
+  consumer_apply_pending: "watch",
+  consumer_applied: "good",
+  consumer_apply_failed: "danger",
+  production_package_blocked: "danger"
 };
 
 export default async function IngestionDashboardPage() {
@@ -159,11 +229,119 @@ export default async function IngestionDashboardPage() {
         )
       }
     : null;
+  const attentionRows = batchQueue.items
+    .filter((item) => queueStatusTones[item.status] === "danger" || item.blockReasons.length > 0)
+    .slice(0, 6);
+  const operatorHealth =
+    attentionRows.length > 0
+      ? {
+          title: `${attentionRows.length} unit${attentionRows.length === 1 ? "" : "s"} need attention`,
+          detail: "The agent can continue everything else inside policy, but these units need operator review.",
+          tone: "watch" as const
+        }
+      : {
+          title: "Healthy",
+          detail: "No queue blockers are active. The platform can keep advancing bounded work.",
+          tone: "good" as const
+        };
+  const operatorNextAction =
+    autonomyView.nextCycle.recommendedAction?.summary ??
+    (productionPackageEligibleCount > 0
+      ? "Approve the next production delivery wave when the current evidence looks right."
+      : batchQueue.nextAction);
+  const pipelineMetrics: OperatorMetric[] = [
+    {
+      label: "Ready to simulate",
+      value: batchQueue.progress.ready + batchQueue.progress.execution.dryRunReady,
+      detail: "Units waiting for the agent's simulation step.",
+      tone: "info"
+    },
+    {
+      label: "Simulation passed",
+      value: batchQueue.progress.execution.dryRunSucceeded,
+      detail: "Safe dry-run evidence with no target writes.",
+      tone: "good"
+    },
+    {
+      label: "Staging verified",
+      value: batchQueue.progress.stagingCanary.succeeded,
+      detail: "Consumer-shaped writes proven in staging.",
+      tone: "good"
+    },
+    {
+      label: "Delivered to inbox",
+      value:
+        batchQueue.progress.productionPackage.delivered +
+        batchQueue.progress.productionPackage.applyPending +
+        batchQueue.progress.productionPackage.applied +
+        batchQueue.progress.productionPackage.applyFailed,
+      detail: "Production packages handed to the consumer inbox.",
+      tone: "info"
+    },
+    {
+      label: "Applied by consumer",
+      value: batchQueue.progress.productionPackage.applied,
+      detail: "Consumer confirmed product-table apply.",
+      tone: "good"
+    },
+    {
+      label: "Needs attention",
+      value:
+        batchQueue.progress.blocked +
+        batchQueue.progress.execution.dryRunBlocked +
+        batchQueue.progress.stagingCanary.blocked +
+        batchQueue.progress.productionPackage.blocked +
+        batchQueue.progress.productionPackage.applyFailed,
+      detail: "Blocked, failed, or outside current policy.",
+      tone: attentionRows.length > 0 ? "danger" : "neutral"
+    }
+  ];
+  const statusDistribution = buildStatusDistribution(batchQueue.items);
+  const deliveryTotal = Math.max(
+    1,
+    batchQueue.progress.productionPackage.delivered +
+      batchQueue.progress.productionPackage.applyPending +
+      batchQueue.progress.productionPackage.applied +
+      batchQueue.progress.productionPackage.applyFailed
+  );
+  const deliverySplit: StatusSlice[] = [
+    {
+      label: "Delivered only",
+      value: batchQueue.progress.productionPackage.delivered,
+      percent: percentOf(batchQueue.progress.productionPackage.delivered, deliveryTotal),
+      tone: "info"
+    },
+    {
+      label: "Waiting for apply",
+      value: batchQueue.progress.productionPackage.applyPending,
+      percent: percentOf(batchQueue.progress.productionPackage.applyPending, deliveryTotal),
+      tone: "watch"
+    },
+    {
+      label: "Applied by consumer",
+      value: batchQueue.progress.productionPackage.applied,
+      percent: percentOf(batchQueue.progress.productionPackage.applied, deliveryTotal),
+      tone: "good"
+    },
+    {
+      label: "Apply failed",
+      value: batchQueue.progress.productionPackage.applyFailed,
+      percent: percentOf(batchQueue.progress.productionPackage.applyFailed, deliveryTotal),
+      tone: "danger"
+    }
+  ];
+  const coverageRows = batchCountries.map((country) => ({
+    country,
+    cells: batchCategories.map((category) => ({
+      category,
+      value: batchQueue.coverage.matrix[country]?.[category] ?? 0
+    }))
+  }));
 
   return (
     <main
       className="provider-dashboard admin-console"
-      data-theme="light"
+      data-theme="dark"
       id="ingestion-dashboard-theme-root"
     >
       <nav className="provider-masthead admin-masthead" aria-label="Admin dashboard">
@@ -189,7 +367,7 @@ export default async function IngestionDashboardPage() {
             serverNowMs={serverNowMs}
           />
           <DashboardThemeToggle
-            defaultTheme="light"
+            defaultTheme="dark"
             label="Ingestion dashboard theme"
             rootId="ingestion-dashboard-theme-root"
             storageKey="ingestion-dashboard-theme"
@@ -197,7 +375,163 @@ export default async function IngestionDashboardPage() {
         </div>
       </nav>
 
-      <section className="admin-hero">
+      <nav className="admin-ux-tabs" aria-label="Ingestion console views">
+        <a href="#overview">Overview</a>
+        <a href="#batch-queue">Batch queue</a>
+        <a href="#autonomy">Autonomy</a>
+        <a href="#staging-verification">Staging verification</a>
+        <a href="#production-delivery">Production delivery</a>
+        <a href="#diagnostics">Diagnostics</a>
+      </nav>
+
+      <section className="admin-ux-overview" id="overview" aria-label="Ingestion overview">
+        <div className={`admin-ux-health admin-ux-tone-${operatorHealth.tone}`}>
+          <div>
+            <span className="admin-ux-label">Ingestion health</span>
+            <h1>{operatorHealth.title}</h1>
+            <p>{operatorHealth.detail}</p>
+          </div>
+          <div className="admin-ux-next-action">
+            <span className="admin-ux-label">Next recommended action</span>
+            <strong>{operatorNextAction}</strong>
+          </div>
+        </div>
+        <aside className="admin-ux-control-panel" aria-label="Cluster controls">
+          <div className="admin-surface-header">
+            <span>Cluster controls</span>
+            <strong>{source === "live" ? "Live control plane" : "Sample preview"}</strong>
+          </div>
+          <ClusterCommandControls
+            actions={ingestionActions}
+            context={commandContext}
+          />
+        </aside>
+      </section>
+
+      <section className="admin-ux-metrics" aria-label="Pipeline status">
+        {pipelineMetrics.map((metric) => (
+          <article className={`admin-ux-metric admin-ux-tone-${metric.tone}`} key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <p>{metric.detail}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="admin-ux-analytics" aria-label="Operational charts">
+        <div className="admin-ux-panel">
+          <div className="admin-ux-panel-heading">
+            <div>
+              <span className="admin-ux-label">Queue</span>
+              <h2>Status distribution</h2>
+            </div>
+            <strong>{batchQueue.progress.total} units</strong>
+          </div>
+          <div className="admin-ux-bars">
+            {statusDistribution.map((slice) => (
+              <div className="admin-ux-bar-row" key={slice.label}>
+                <span>{slice.label}</span>
+                <div className="admin-ux-bar-track">
+                  <span
+                    className={`admin-ux-bar-fill admin-ux-fill-${slice.tone}`}
+                    style={{ width: `${slice.percent}%` }}
+                  />
+                </div>
+                <strong>{slice.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-ux-panel">
+          <div className="admin-ux-panel-heading">
+            <div>
+              <span className="admin-ux-label">Production</span>
+              <h2>Delivery and consumer apply</h2>
+            </div>
+            <strong>
+              {applyTelemetrySource === "inbox" ? "Inbox telemetry" : "Control ledger"}
+            </strong>
+          </div>
+          <div className="admin-ux-stacked-bar" aria-hidden="true">
+            {deliverySplit.map((slice) => (
+              <span
+                className={`admin-ux-fill-${slice.tone}`}
+                key={slice.label}
+                style={{ width: `${slice.percent}%` }}
+              />
+            ))}
+          </div>
+          <div className="admin-ux-split-list">
+            {deliverySplit.map((slice) => (
+              <div key={slice.label}>
+                <span className={`admin-ux-dot admin-ux-fill-${slice.tone}`} />
+                <span>{slice.label}</span>
+                <strong>{slice.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="admin-ux-panel admin-ux-coverage-panel">
+          <div className="admin-ux-panel-heading">
+            <div>
+              <span className="admin-ux-label">Coverage</span>
+              <h2>Country and category matrix</h2>
+            </div>
+            <strong>{batchQueue.sourceKey}</strong>
+          </div>
+          <div className="admin-ux-matrix-wrap">
+            <table className="admin-ux-matrix">
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  {batchCategories.map((category) => (
+                    <th key={category}>{friendlyCategory(category)}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {coverageRows.map((row) => (
+                  <tr key={row.country}>
+                    <th>{friendlyGeo(row.country)}</th>
+                    {row.cells.map((cell) => (
+                      <td key={`${row.country}-${cell.category}`} data-empty={cell.value === 0}>
+                        {cell.value || "·"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="admin-ux-panel">
+          <div className="admin-ux-panel-heading">
+            <div>
+              <span className="admin-ux-label">Attention</span>
+              <h2>What needs a human</h2>
+            </div>
+            <strong>{attentionRows.length}</strong>
+          </div>
+          {attentionRows.length > 0 ? (
+            <ol className="admin-ux-attention-list">
+              {attentionRows.map((item) => (
+                <li key={item.unitKey}>
+                  <strong>{friendlyUnit(item.unitKey)}</strong>
+                  <span>{queueStatusLabels[item.status]}</span>
+                  <p>{item.blockReasons[0] ?? "Review the latest ledger evidence."}</p>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="admin-ux-empty">No operator action is currently required.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="admin-hero admin-legacy-section" id="diagnostics">
         <div className="admin-hero-copy">
           <p className="admin-kicker">Vamo project · place intelligence</p>
           <h1>Ingestion control</h1>
@@ -219,7 +553,7 @@ export default async function IngestionDashboardPage() {
         </div>
       </section>
 
-      <section className="admin-signal-grid" aria-label="Ingestion summary">
+      <section className="admin-signal-grid admin-legacy-section" aria-label="Ingestion summary">
         {ingestionSignals.map((signal) => (
           <article
             className={`admin-signal admin-tone-${signal.tone}`}
@@ -232,7 +566,7 @@ export default async function IngestionDashboardPage() {
         ))}
       </section>
 
-      <section className="admin-section">
+      <section className="admin-section admin-legacy-section">
         <div className="admin-section-heading">
           <div>
             <p className="admin-kicker">Instances</p>
@@ -281,7 +615,7 @@ export default async function IngestionDashboardPage() {
         </div>
       </section>
 
-      <section className="admin-section admin-target-layout">
+      <section className="admin-section admin-target-layout admin-legacy-section">
         <div className="admin-target-table-panel">
           <div className="admin-section-heading admin-section-heading-compact">
             <div>
@@ -375,7 +709,7 @@ export default async function IngestionDashboardPage() {
         )}
       </section>
 
-      <section className="admin-section admin-two-column">
+      <section className="admin-section admin-two-column admin-legacy-section">
         <div className="admin-panel">
           <div className="admin-section-heading admin-section-heading-compact">
             <div>
@@ -419,7 +753,7 @@ export default async function IngestionDashboardPage() {
         </div>
       </section>
 
-      <section className="admin-section" aria-label="IP-14 progressive dry run">
+      <section className="admin-section admin-legacy-section" aria-label="IP-14 progressive dry run">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
             <p className="admin-kicker">IP-14 · progressive dry run</p>
@@ -538,11 +872,11 @@ export default async function IngestionDashboardPage() {
         ) : null}
       </section>
 
-      <section className="admin-section" aria-label="IP-18 batch queue">
+      <section className="admin-section admin-ux-section admin-ux-batch-section" id="batch-queue" aria-label="IP-18 batch queue">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
-            <p className="admin-kicker">IP-18.5 · batch queue</p>
-            <h2>Automated target batch queue</h2>
+            <p className="admin-kicker">Batch queue</p>
+            <h2>Scopes moving through the pipeline</h2>
           </div>
           <span className="admin-readonly-pill">
             {batchQueueSourceLabel(batchQueueSource)}
@@ -566,29 +900,33 @@ export default async function IngestionDashboardPage() {
             source: batchQueueSource
           }}
         />
-        <BatchCanaryWaveApprovalControl
-          projectKey={batchQueue.projectKey}
-          targetKey={batchQueue.targetKey}
-          targetEnvironment={batchQueue.targetEnvironment}
-          eligibleCount={batchCanaryWaveEligibleCount}
-          context={{
-            role: principal.role,
-            assuranceLevel: principal.assuranceLevel,
-            source: batchQueueSource
-          }}
-        />
-        <ProductionPackageWaveApprovalControl
-          projectKey={batchQueue.projectKey}
-          targetKey={batchQueue.targetKey}
-          eligibleCount={productionPackageEligibleCount}
-          packageProgress={batchQueue.progress.productionPackage}
-          latestWave={latestProductionPackageWave}
-          context={{
-            role: principal.role,
-            assuranceLevel: principal.assuranceLevel,
-            source: batchQueueSource
-          }}
-        />
+        <div className="admin-ux-control-anchor" id="staging-verification">
+          <BatchCanaryWaveApprovalControl
+            projectKey={batchQueue.projectKey}
+            targetKey={batchQueue.targetKey}
+            targetEnvironment={batchQueue.targetEnvironment}
+            eligibleCount={batchCanaryWaveEligibleCount}
+            context={{
+              role: principal.role,
+              assuranceLevel: principal.assuranceLevel,
+              source: batchQueueSource
+            }}
+          />
+        </div>
+        <div className="admin-ux-control-anchor" id="production-delivery">
+          <ProductionPackageWaveApprovalControl
+            projectKey={batchQueue.projectKey}
+            targetKey={batchQueue.targetKey}
+            eligibleCount={productionPackageEligibleCount}
+            packageProgress={batchQueue.progress.productionPackage}
+            latestWave={latestProductionPackageWave}
+            context={{
+              role: principal.role,
+              assuranceLevel: principal.assuranceLevel,
+              source: batchQueueSource
+            }}
+          />
+        </div>
         <div className="admin-stat-grid">
           <article className="admin-stat">
             <span>Queue</span>
@@ -644,7 +982,7 @@ export default async function IngestionDashboardPage() {
         {batchQueue.latestWave ? (
           <>
             <p className="admin-next-action">
-              <strong>Latest wave:</strong> {batchQueue.latestWave.waveKey} ·{" "}
+              <strong>Latest staging verification:</strong> {batchQueue.latestWave.waveKey} ·{" "}
               {batchQueue.latestWave.status} · {batchQueue.latestWave.targetEnvironment} ·{" "}
               {batchQueue.latestWave.unitCount} unit(s)
               {batchQueue.latestWave.approvalAuditId
@@ -677,7 +1015,7 @@ export default async function IngestionDashboardPage() {
                         <td>
                           <code>{item.unitKey}</code>
                         </td>
-                        <td>{item.status}</td>
+                        <td>{queueStatusLabels[item.status as BatchQueueItemStatus] ?? item.status}</td>
                         <td>{item.plannedRowCount}</td>
                         <td>{item.shipmentId ?? "—"}</td>
                         <td>{item.blockers.length > 0 ? item.blockers.join(", ") : "—"}</td>
@@ -693,7 +1031,7 @@ export default async function IngestionDashboardPage() {
         {batchQueue.latestProductionPackageWave ? (
           <>
             <p className="admin-next-action">
-              <strong>Latest production package wave:</strong>{" "}
+              <strong>Latest production delivery:</strong>{" "}
               {batchQueue.latestProductionPackageWave.waveKey} ·{" "}
               {latestProductionPackageWave?.statusPresentation.label ??
                 batchQueue.latestProductionPackageWave.status}{" "}
@@ -839,7 +1177,7 @@ export default async function IngestionDashboardPage() {
                 <th>Environment</th>
                 <th>Priority</th>
                 <th>Status</th>
-                <th>Dry-run report</th>
+                <th>Simulation report</th>
               </tr>
             </thead>
             <tbody>
@@ -854,10 +1192,14 @@ export default async function IngestionDashboardPage() {
                   <td>{item.category}</td>
                   <td>{item.targetEnvironment}</td>
                   <td>{item.priority}</td>
-                  <td>{item.status}</td>
+                  <td>
+                    <span className={`admin-ux-status admin-ux-tone-${queueStatusTones[item.status]}`}>
+                      {queueStatusLabels[item.status]}
+                    </span>
+                  </td>
                   <td>
                     {item.dryRunReport
-                      ? `${item.dryRunReport.rowsProcessed} rows · wroteToTarget=false`
+                      ? `${item.dryRunReport.rowsProcessed} rows · no target write`
                       : item.blockReasons.length > 0
                         ? item.blockReasons.join(", ")
                         : "—"}
@@ -869,7 +1211,7 @@ export default async function IngestionDashboardPage() {
         </div>
       </section>
 
-      <section className="admin-section" aria-label="IP-18.7 autonomy">
+      <section className="admin-section admin-ux-section admin-ux-autonomy-section" id="autonomy" aria-label="IP-18.7 autonomy">
         <div className="admin-section-heading admin-section-heading-compact">
           <div>
             <p className="admin-kicker">IP-18.7 · autonomy executor</p>
@@ -989,7 +1331,7 @@ export default async function IngestionDashboardPage() {
         </ul>
       </section>
 
-      <section className="admin-section admin-policy-panel">
+      <section className="admin-section admin-policy-panel admin-legacy-section">
         <div>
           <p className="admin-kicker">Policy locks</p>
           <h2>Efficient without poisoning the cache</h2>
@@ -1047,4 +1389,68 @@ function autonomySourceLabel(source: "live" | "sample" | "error"): string {
     return "Live read failed · sample fallback";
   }
   return "Sample preview · foundation only";
+}
+
+function buildStatusDistribution(items: readonly BatchQueueItem[]): StatusSlice[] {
+  const slices = [
+    {
+      label: "Simulation",
+      value: items.filter((item) => item.status.startsWith("dry_run") || item.status === "ready_for_dry_run").length,
+      tone: "info" as const
+    },
+    {
+      label: "Staging verification",
+      value: items.filter((item) => item.status.startsWith("staging_canary") || item.status === "staged_ready").length,
+      tone: "good" as const
+    },
+    {
+      label: "Production delivery",
+      value: items.filter((item) => item.status.startsWith("production_package") || item.status === "production_ready").length,
+      tone: "info" as const
+    },
+    {
+      label: "Consumer apply",
+      value: items.filter((item) => item.status.startsWith("consumer_") || item.status === "applied").length,
+      tone: "watch" as const
+    },
+    {
+      label: "Blocked or failed",
+      value: items.filter((item) => queueStatusTones[item.status] === "danger").length,
+      tone: "danger" as const
+    }
+  ];
+  const max = Math.max(1, ...slices.map((slice) => slice.value));
+  return slices.map((slice) => ({
+    ...slice,
+    percent: percentOf(slice.value, max)
+  }));
+}
+
+function percentOf(value: number, total: number): number {
+  if (total <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
+}
+
+function friendlyGeo(value: string): string {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function friendlyCategory(value: string): string {
+  if (value === "poi") {
+    return "POI";
+  }
+  return friendlyGeo(value);
+}
+
+function friendlyUnit(value: string): string {
+  const [, geography, category] = value.split(":");
+  if (!geography || !category) {
+    return value;
+  }
+  return `${friendlyGeo(geography)} · ${friendlyCategory(category)}`;
 }
