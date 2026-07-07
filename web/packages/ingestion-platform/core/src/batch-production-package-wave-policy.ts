@@ -139,11 +139,9 @@ export interface EvaluateProductionPackageWaveApprovalInput {
   maxRows: number;
   maxPackages: number;
   auditReason: string;
-  approvalAuditId: string;
   stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>;
   occupiedUnitKeys?: ReadonlySet<string>;
   hasPriorDeliveredPackage?: boolean;
-  waveKey?: string;
   now?: string;
 }
 
@@ -181,6 +179,46 @@ export function buildProductionPackageWaveKey(
   unitKey: string
 ): string {
   return `batch-production-inbox:${planKey}:wave:${approvalAuditId}:unit:${unitKey}`;
+}
+
+export function finalizeProductionPackageWaveApprovalPlan(
+  plan: BatchProductionPackageWaveApprovalPlan,
+  approvalAuditId: string
+): BatchProductionPackageWaveApprovalPlan {
+  const primaryUnitKey = plan.unitKeys[0] ?? "none";
+  const waveKey = buildProductionPackageWaveKey(plan.planId, approvalAuditId, primaryUnitKey);
+  return {
+    ...plan,
+    waveKey,
+    selectedUnits: plan.selectedUnits.map((entry) => ({
+      ...entry,
+      plannedPackageKey: buildProductionPackageWaveKey(
+        plan.planId,
+        approvalAuditId,
+        entry.item.unitKey
+      )
+    }))
+  };
+}
+
+export function countStagingProvenPackageEligibleUnits(
+  snapshot: BatchQueueSnapshot,
+  targetKey: string,
+  stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>
+): number {
+  return snapshot.items.filter((item) => {
+    if (item.status !== "staging_canary_succeeded" || item.targetKey !== targetKey) {
+      return false;
+    }
+    if (item.blockReasons.length > 0) {
+      return false;
+    }
+    const staging = stagingEvidenceByUnitKey[item.unitKey];
+    if (!staging || !SUCCEEDED_STAGING_STATUSES.has(staging.status)) {
+      return false;
+    }
+    return item.dryRunReport?.wroteToTarget === false;
+  }).length;
 }
 
 export function isLegacyProductionTargetKey(targetKey: string): boolean {
@@ -426,11 +464,6 @@ export function evaluateProductionPackageWaveApproval(
   }
 
   const unitKeys = eligibility.selectedUnits.map((entry) => entry.item.unitKey);
-  const primaryUnitKey = unitKeys[0] ?? "none";
-  const waveKey =
-    input.waveKey?.trim() ||
-    buildProductionPackageWaveKey(input.snapshot.planId, input.approvalAuditId, primaryUnitKey);
-
   const approvedAt = now;
   const approvalExpiresAt = new Date(
     Date.parse(approvedAt) + PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS
@@ -438,11 +471,7 @@ export function evaluateProductionPackageWaveApproval(
 
   const selectedUnits = eligibility.selectedUnits.map((entry) => ({
     ...entry,
-    plannedPackageKey: buildProductionPackageWaveKey(
-      input.snapshot.planId,
-      input.approvalAuditId,
-      entry.item.unitKey
-    )
+    plannedPackageKey: ""
   }));
 
   return {
@@ -450,7 +479,7 @@ export function evaluateProductionPackageWaveApproval(
     warnings,
     plan: {
       action: "approve_batch_production_package_wave",
-      waveKey,
+      waveKey: "",
       projectKey: input.projectKey,
       queueId: input.snapshot.queueId,
       planId: input.snapshot.planId,

@@ -1,14 +1,18 @@
 /**
- * Production package-wave control-plane persistence (IP-18.6.1).
+ * Production package-wave control-plane persistence (IP-18.6.1 / IP-18.6.2).
  *
  * Records an approved package wave and selected wave items in the Confluendo
- * control DB only. No provider calls and no production inbox delivery.
+ * control DB only. Creates the real audit row first, then finalizes wave keys
+ * from that audit id. No provider calls and no production inbox delivery.
  */
 
 import { Client, type QueryResult } from "pg";
 
 import type { BatchControlActor } from "./batch-control-actor.js";
-import type { BatchProductionPackageWaveApprovalPlan } from "./batch-production-package-wave-policy.js";
+import {
+  finalizeProductionPackageWaveApprovalPlan,
+  type BatchProductionPackageWaveApprovalPlan
+} from "./batch-production-package-wave-policy.js";
 
 export interface BatchProductionPackageWavePgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -22,7 +26,6 @@ export interface ApproveBatchProductionPackageWaveInput {
   client?: BatchProductionPackageWavePgClientLike;
   projectKey: string;
   plan: BatchProductionPackageWaveApprovalPlan;
-  approvalAuditId: string;
   actor: BatchControlActor;
   now?: string;
 }
@@ -31,7 +34,7 @@ export interface ApproveBatchProductionPackageWaveResult {
   ok: true;
   batchPlanId: string;
   waveId: string;
-  auditId: string | null;
+  auditId: string;
   waveKey: string;
   unitKeys: string[];
   idempotentReplay: boolean;
@@ -48,6 +51,7 @@ interface PlanRow extends Record<string, unknown> {
 interface WaveRow extends Record<string, unknown> {
   id: string;
   waveKey: string;
+  approvalAuditId: string | null;
 }
 
 interface QueueItemRow extends Record<string, unknown> {
@@ -60,6 +64,7 @@ export async function approveBatchProductionPackageWave(
 ): Promise<ApproveBatchProductionPackageWaveResult> {
   const { client, ownedClient } = await openClient(input.client, input.connectionString);
   const now = input.now ?? input.plan.approvedAt;
+  const sortedUnitKeys = [...input.plan.unitKeys].sort();
 
   try {
     await client.query("begin");
@@ -75,17 +80,8 @@ export async function approveBatchProductionPackageWave(
       throw new Error(`Active batch plan "${input.plan.planId}" was not found.`);
     }
 
-    const existing = await client.query<WaveRow>(
-      `
-        select id::text as id, wave_key as "waveKey"
-        from ingestion_platform.ingestion_batch_production_package_waves
-        where batch_plan_id = $1::bigint
-          and wave_key = $2
-      `,
-      [plan.id, input.plan.waveKey]
-    );
-
-    if (existing.rows[0]) {
+    const existing = await findExistingApprovedWave(client, plan.id, sortedUnitKeys);
+    if (existing) {
       const items = await client.query<{ unitKey: string }>(
         `
           select unit_key as "unitKey"
@@ -93,18 +89,72 @@ export async function approveBatchProductionPackageWave(
           where wave_id = $1::bigint
           order by run_order asc, unit_key asc
         `,
-        [existing.rows[0].id]
+        [existing.id]
       );
       await client.query("commit");
       return {
         ok: true,
         batchPlanId: plan.id,
-        waveId: existing.rows[0].id,
-        auditId: input.approvalAuditId,
-        waveKey: existing.rows[0].waveKey,
+        waveId: existing.id,
+        auditId: existing.approvalAuditId ?? "",
+        waveKey: existing.waveKey,
         unitKeys: items.rows.map((row) => row.unitKey),
         idempotentReplay: true
       };
+    }
+
+    const audit = await client.query<{ id: string }>(
+      `
+        insert into ingestion_platform.ingestion_audit_log (
+          project_id,
+          actor_type,
+          actor_id,
+          action,
+          target_type,
+          target_id,
+          reason,
+          payload,
+          created_at
+        )
+        values (
+          $1::bigint,
+          $2,
+          $3,
+          'approve_batch_production_package_wave',
+          'batch_production_package_wave',
+          $4,
+          $5,
+          $6::jsonb,
+          $7::timestamptz
+        )
+        returning id::text as id
+      `,
+      [
+        project.id,
+        input.actor.type,
+        input.actor.id,
+        plan.id,
+        input.plan.auditReason,
+        JSON.stringify({
+          accepted: true,
+          planId: input.plan.planId,
+          unitKeys: input.plan.unitKeys,
+          targetKey: input.plan.targetKey,
+          targetEnvironment: input.plan.targetEnvironment,
+          schemaContract: input.plan.schemaContract
+        }),
+        now
+      ]
+    );
+
+    const auditId = audit.rows[0]?.id;
+    if (!auditId) {
+      throw new Error("Failed to create production package-wave approval audit row.");
+    }
+
+    const finalizedPlan = finalizeProductionPackageWaveApprovalPlan(input.plan, auditId);
+    if (!finalizedPlan.waveKey.includes(auditId)) {
+      throw new Error("Production package-wave key must embed the real approval audit id.");
     }
 
     const wave = await client.query<WaveRow>(
@@ -155,29 +205,29 @@ export async function approveBatchProductionPackageWave(
           $18::timestamptz,
           $18::timestamptz
         )
-        returning id::text as id, wave_key as "waveKey"
+        returning id::text as id, wave_key as "waveKey", approval_audit_id as "approvalAuditId"
       `,
       [
         project.id,
         plan.id,
-        input.plan.waveKey,
-        input.plan.targetKey,
-        input.plan.targetEnvironment,
-        input.plan.schemaContract,
-        input.plan.maxUnits,
-        input.plan.maxRows,
-        input.plan.maxPackages,
-        input.approvalAuditId,
-        input.plan.auditReason,
-        JSON.stringify(input.plan.approvedBy),
-        input.plan.approvedAt,
-        input.plan.approvalExpiresAt,
+        finalizedPlan.waveKey,
+        finalizedPlan.targetKey,
+        finalizedPlan.targetEnvironment,
+        finalizedPlan.schemaContract,
+        finalizedPlan.maxUnits,
+        finalizedPlan.maxRows,
+        finalizedPlan.maxPackages,
+        auditId,
+        finalizedPlan.auditReason,
+        JSON.stringify(finalizedPlan.approvedBy),
+        finalizedPlan.approvedAt,
+        finalizedPlan.approvalExpiresAt,
         input.actor.type,
         input.actor.id,
         JSON.stringify({
-          unitKeys: input.plan.unitKeys,
-          totalPlannedRows: input.plan.totalPlannedRows,
-          approvalAuditId: input.approvalAuditId
+          unitKeys: finalizedPlan.unitKeys,
+          totalPlannedRows: finalizedPlan.totalPlannedRows,
+          approvalAuditId: auditId
         }),
         now
       ]
@@ -185,11 +235,12 @@ export async function approveBatchProductionPackageWave(
 
     const waveId = wave.rows[0]?.id;
     const waveKey = wave.rows[0]?.waveKey;
-    if (!waveId || !waveKey) {
-      throw new Error("Failed to create production package wave row.");
+    const storedAuditId = wave.rows[0]?.approvalAuditId;
+    if (!waveId || !waveKey || storedAuditId !== auditId) {
+      throw new Error("Failed to create production package wave row with matching approval audit id.");
     }
 
-    for (const selected of input.plan.selectedUnits) {
+    for (const selected of finalizedPlan.selectedUnits) {
       const queueItem = await client.query<QueueItemRow>(
         `
           select id::text as id, unit_key as "unitKey"
@@ -243,7 +294,7 @@ export async function approveBatchProductionPackageWave(
           selected.item.unitKey,
           selected.item.runOrder,
           selected.writeCount,
-          input.plan.schemaContract,
+          finalizedPlan.schemaContract,
           selected.plannedPackageKey,
           JSON.stringify(selected.dryRunEvidence),
           JSON.stringify(selected.stagingEvidence),
@@ -261,71 +312,30 @@ export async function approveBatchProductionPackageWave(
           and unit_key = any($2::text[])
           and status = 'staging_canary_succeeded'
       `,
-      [plan.id, input.plan.unitKeys, now]
+      [plan.id, finalizedPlan.unitKeys, now]
     );
-    if (claimedUnits.rowCount !== input.plan.unitKeys.length) {
+    if (claimedUnits.rowCount !== finalizedPlan.unitKeys.length) {
       throw new Error(
-        `Production package-wave approval could not claim all selected units (${claimedUnits.rowCount ?? 0}/${input.plan.unitKeys.length}).`
+        `Production package-wave approval could not claim all selected units (${claimedUnits.rowCount ?? 0}/${finalizedPlan.unitKeys.length}).`
       );
     }
 
-    const audit = await client.query<{ id: string }>(
-      `
-        insert into ingestion_platform.ingestion_audit_log (
-          project_id,
-          actor_type,
-          actor_id,
-          action,
-          target_type,
-          target_id,
-          reason,
-          payload,
-          created_at
-        )
-        values (
-          $1::bigint,
-          $2,
-          $3,
-          'approve_batch_production_package_wave',
-          'batch_production_package_wave',
-          $4,
-          $5,
-          $6::jsonb,
-          $7::timestamptz
-        )
-        returning id::text as id
-      `,
-      [
-        project.id,
-        input.actor.type,
-        input.actor.id,
-        waveId,
-        input.plan.auditReason,
-        JSON.stringify({
-          accepted: true,
-          waveKey: input.plan.waveKey,
-          plan: input.plan,
-          unitKeys: input.plan.unitKeys,
-          approvalAuditId: input.approvalAuditId
-        }),
-        now
-      ]
-    );
-
-    const auditId = audit.rows[0]?.id ?? input.approvalAuditId;
     await client.query(
       `
-        update ingestion_platform.ingestion_batch_production_package_waves
-        set approval_audit_id = $2,
-            summary = coalesce(summary, '{}'::jsonb) || $3::jsonb,
-            updated_at = $4::timestamptz
+        update ingestion_platform.ingestion_audit_log
+        set target_id = $2,
+            payload = coalesce(payload, '{}'::jsonb) || $3::jsonb
         where id = $1::bigint
       `,
       [
-        waveId,
         auditId,
-        JSON.stringify({ approvalAuditId: auditId, totalPlannedRows: input.plan.totalPlannedRows }),
-        now
+        waveId,
+        JSON.stringify({
+          accepted: true,
+          waveKey: finalizedPlan.waveKey,
+          approvalAuditId: auditId,
+          unitKeys: finalizedPlan.unitKeys
+        })
       ]
     );
 
@@ -337,7 +347,7 @@ export async function approveBatchProductionPackageWave(
       waveId,
       auditId,
       waveKey,
-      unitKeys: input.plan.unitKeys,
+      unitKeys: finalizedPlan.unitKeys,
       idempotentReplay: false
     };
   } catch (error) {
@@ -346,6 +356,33 @@ export async function approveBatchProductionPackageWave(
   } finally {
     await closeClient(ownedClient);
   }
+}
+
+async function findExistingApprovedWave(
+  client: BatchProductionPackageWavePgClientLike,
+  batchPlanId: string,
+  sortedUnitKeys: string[]
+): Promise<WaveRow | null> {
+  const result = await client.query<WaveRow>(
+    `
+      select
+        w.id::text as id,
+        w.wave_key as "waveKey",
+        w.approval_audit_id as "approvalAuditId"
+      from ingestion_platform.ingestion_batch_production_package_waves w
+      where w.batch_plan_id = $1::bigint
+        and w.status = 'approved'
+        and (
+          select coalesce(array_agg(wi.unit_key order by wi.unit_key), '{}'::text[])
+          from ingestion_platform.ingestion_batch_production_package_wave_items wi
+          where wi.wave_id = w.id
+        ) = $2::text[]
+      order by w.updated_at desc, w.id desc
+      limit 1
+    `,
+    [batchPlanId, sortedUnitKeys]
+  );
+  return result.rows[0] ?? null;
 }
 
 async function openClient(

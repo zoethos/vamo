@@ -16,6 +16,7 @@ import {
   evaluateProductionPackageWaveApproval,
   evaluateProductionPackageWaveDeliveryDrift,
   evaluateProductionPackageWaveEligibility,
+  finalizeProductionPackageWaveApprovalPlan,
   isApprovedProductionPackageWaveFresh,
   isLegacyProductionTargetKey,
   type BatchProductionPackageWaveBlockCode
@@ -175,8 +176,9 @@ describe("evaluateProductionPackageWaveApproval", () => {
     assert.equal(result.plan.targetEnvironment, "production");
     assert.equal(result.plan.schemaContract, VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT);
     assert.equal(result.plan.unitKeys.length, 1);
+    const finalized = finalizeProductionPackageWaveApprovalPlan(result.plan, "audit:99");
     assert.equal(
-      result.plan.waveKey,
+      finalized.waveKey,
       buildProductionPackageWaveKey("vamo-eu-poi-sample", "audit:99", "unit-a")
     );
     const expiresMs =
@@ -292,7 +294,6 @@ function validApprovalInput(
     maxRows: 10,
     maxPackages: 1,
     auditReason: "Approve first production package wave.",
-    approvalAuditId: "audit:99",
     stagingEvidenceByUnitKey: {
       "unit-a": { status: "succeeded", shipmentKey: "staging:unit-a" }
     },

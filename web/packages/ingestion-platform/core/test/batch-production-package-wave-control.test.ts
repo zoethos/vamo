@@ -100,7 +100,6 @@ describe("batch production package-wave approval control", () => {
           maxRows: 10,
           maxPackages: 1,
           auditReason: "Approve first production package wave smoke.",
-          approvalAuditId: "audit:package-smoke",
           stagingEvidenceByUnitKey: {
             [stagingUnitKey]: {
               status: "succeeded",
@@ -117,23 +116,36 @@ describe("batch production package-wave approval control", () => {
           client,
           projectKey: "vamo",
           plan: decision.plan,
-          approvalAuditId: "audit:package-smoke",
           actor: { type: "operator", id: "admin-smoke" },
           now: NOW
         });
         assert.equal(first.idempotentReplay, false);
         assert.equal(first.unitKeys.length, 1);
+        assert.ok(first.auditId);
+        assert.match(first.waveKey, new RegExp(`:wave:${first.auditId}:unit:`));
+
+        const waveRow = await client.query<{ approvalAuditId: string | null; waveKey: string }>(
+          `
+            select approval_audit_id as "approvalAuditId", wave_key as "waveKey"
+            from ingestion_platform.ingestion_batch_production_package_waves
+            where id = $1::bigint
+          `,
+          [first.waveId]
+        );
+        assert.equal(waveRow.rows[0]?.approvalAuditId, first.auditId);
+        assert.equal(waveRow.rows[0]?.waveKey, first.waveKey);
 
         const replay = await approveBatchProductionPackageWave({
           client,
           projectKey: "vamo",
           plan: decision.plan,
-          approvalAuditId: "audit:package-smoke",
           actor: { type: "operator", id: "admin-smoke" },
           now: NOW
         });
         assert.equal(replay.idempotentReplay, true);
         assert.equal(replay.waveId, first.waveId);
+        assert.equal(replay.auditId, first.auditId);
+        assert.equal(replay.waveKey, first.waveKey);
 
         const waveCount = await client.query<{ count: string }>(
           `select count(*)::text as count from ingestion_platform.ingestion_batch_production_package_waves`

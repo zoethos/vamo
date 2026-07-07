@@ -294,10 +294,16 @@ This document and roadmap updates only.
 - Schema contract pinned: `vamo-place-intelligence@1`.
 - No live delivery in this slice.
 
-### IP-18.6.2 - Dashboard Approval
+**Ops note (IP-18.6.2):** after applying IP-18.6.1 schema/bootstrap, re-persist or
+reseed the live batch queue from fixed code before testing approvals. Verify
+`staging_canary_succeeded` rows have non-null `run_report`; missing dry-run
+evidence fails closed at approval time.
 
-- Add read-only package-wave panel.
-- Add admin+AAL2+fresh-MFA approval route.
+### IP-18.6.2 - Dashboard Approval (implemented)
+
+- Admin + AAL2 + fresh MFA approval route/card on `/admin/ingestion`.
+- Real `ingestion_audit_log` id is created first; `wave_key` and package keys
+  are finalized from that id inside the control adapter.
 - No delivery execution.
 
 ### IP-18.6.3 - Confirmation-Gated Delivery CLI
