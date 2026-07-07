@@ -398,12 +398,44 @@ export {
   type ProductionPackageWaveApproveRequest
 } from "./batch-production-package-wave-approve-request.js";
 export {
-  PRODUCTION_PACKAGE_WAVE_BLOCK_LABELS,
   describeProductionPackageWaveStatus,
   summarizeProductionPackageWaveDashboard,
+  PRODUCTION_PACKAGE_WAVE_BLOCK_LABELS,
   type ProductionPackageWaveStatusPresentation,
   type ProductionPackageWaveStatusTone
 } from "./production-package-wave-dashboard.js";
+export {
+  loadProductionPackageWave,
+  type LoadedProductionPackageWave,
+  type LoadedProductionPackageWaveItem,
+  type LoadProductionPackageWaveInput
+} from "./batch-production-package-wave-load.js";
+export {
+  releaseExpiredProductionPackageWaves,
+  type ReleaseExpiredProductionPackageWavesInput,
+  type ReleaseExpiredProductionPackageWavesResult,
+  type ReleasedExpiredProductionPackageWave
+} from "./batch-production-package-wave-expiry-control.js";
+export {
+  evaluateBatchProductionPackageWaveDelivery,
+  type BatchProductionPackageWaveDeliveryBlock,
+  type BatchProductionPackageWaveDeliveryBlockCode,
+  type BatchProductionPackageWaveDeliveryPlan,
+  type BatchProductionPackageWaveDeliveryUnitPlan,
+  type EvaluateBatchProductionPackageWaveDeliveryInput,
+  type EvaluateBatchProductionPackageWaveDeliveryResult
+} from "./batch-production-package-wave-delivery-policy.js";
+export {
+  buildBatchUnitProgressiveRunReport
+} from "./batch-production-package-wave-run-report.js";
+export {
+  defaultLoadProductionPackageWaveCandidates,
+  executeBatchProductionPackageWave,
+  type BatchProductionPackageWaveDeliveryDeps,
+  type ExecuteBatchProductionPackageWaveInput,
+  type ExecuteBatchProductionPackageWaveResult,
+  type ExecuteBatchProductionPackageWaveUnitResult
+} from "./batch-production-package-wave-delivery.js";
 export {
   approveBatchStagingCanaryWave,
   type ApproveBatchStagingCanaryWaveInput,

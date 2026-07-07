@@ -65,6 +65,8 @@ describe("ingestion control schema", () => {
     assert.match(controlSchemaSql, /ingestion_batch_production_package_wave_items/);
     assert.match(controlSchemaSql, /production_package_approved/);
     assert.match(controlSchemaSql, /consumer_apply_failed/);
+    assert.match(controlSchemaSql, /'expired'/);
+    assert.match(controlSchemaSql, /'released'/);
     assert.match(
       controlSchemaSql,
       /ingestion_batch_production_package_waves_target_environment_check/

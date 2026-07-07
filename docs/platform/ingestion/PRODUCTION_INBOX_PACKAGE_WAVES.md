@@ -1,8 +1,8 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.1 foundation implemented** — control-plane schema, pure policy,
-persistence/read model, and DB smokes (2026-07-07). No live delivery, provider
-calls, Vamo staging write, or Vamo production product-table write.
+Status: **IP-18.6.3 delivery CLI implemented** — expired approval release,
+confirmation-gated delivery harness, DB smokes (2026-07-07). No live production
+delivery in CI. Consumer apply remains Vamo-owned.
 
 ## Purpose
 
@@ -177,6 +177,7 @@ Execution should be CLI/runbook first, then autonomous later:
 - requires consumer inbox DSN, for Vamo:
   `VAMO_PRODUCTION_INBOX_DATABASE_URL`;
 - requires explicit `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production`;
+- run `releaseExpiredProductionPackageWaves` before selecting a deliverable wave;
 - refuses staging sentinels or non-production proof;
 - stop-on-first-failure for the first live wave;
 - skip already delivered/applied packages on idempotent replay;
@@ -306,13 +307,19 @@ evidence fails closed at approval time.
   are finalized from that id inside the control adapter.
 - No delivery execution.
 
-### IP-18.6.3 - Confirmation-Gated Delivery CLI
+### IP-18.6.3 - Confirmation-Gated Delivery CLI (implemented)
 
-- Build packages from approved wave state.
-- Reuse IP-17 builder and target adapter.
-- Execute one bounded package wave.
-- Record package/checksum evidence.
-- No consumer apply.
+- Expired approval release path: `releaseExpiredProductionPackageWaves` marks
+  waves `expired`, wave items `released`, and restores queue rows to
+  `staging_canary_succeeded` with audit evidence. Never touches production inbox.
+- Delivery CLI: `npm --workspace @confluendo/ingestion-platform run ip18:production-package-wave`
+- Preview by default; execute requires `CONFIRM_CONFLUENDO_PRODUCTION_PACKAGE_WAVE=YES`,
+  `INGESTION_CONTROL_DATABASE_URL`, `VAMO_PRODUCTION_INBOX_DATABASE_URL`, and
+  `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production`.
+- Reuses `buildProductionInboxPackage` and `deliverPostgresProductionInboxPackage`.
+- Package ids/keys come from IP-18.6.2 wave item `package_key` values.
+- **Delivered ≠ applied:** inbox delivery is recorded in control plane;
+  Vamo-owned consumer apply remains separate (IP-18.6.4 telemetry).
 
 ### IP-18.6.4 - Apply Telemetry
 

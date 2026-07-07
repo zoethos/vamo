@@ -1586,7 +1586,8 @@ Recommended implementation split:
   smokes; no live delivery (`CONTROL_TABLES` 25 → 27).
 - **IP-18.6.2** — **done** — dashboard approval route/card with admin + AAL2 +
   fresh MFA; real audit id owns wave/package keys; no delivery.
-- **IP-18.6.3** — confirmation-gated delivery CLI reusing IP-17 builder/adapter.
+- **IP-18.6.3** — **done** — expired approval release + confirmation-gated
+  delivery CLI (`ip18:production-package-wave`) reusing IP-17 builder/adapter.
 - **IP-18.6.4** — consumer apply telemetry and dashboard states.
 - **IP-18.6.5** — autonomy hook after package waves and apply telemetry are
   proven.

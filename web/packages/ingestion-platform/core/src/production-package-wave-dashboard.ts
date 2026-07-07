@@ -89,6 +89,14 @@ export function describeProductionPackageWaveStatus(
       return { label: "Wave delivering", tone: "watch" };
     case "delivered":
       return { label: "Wave delivered", tone: "good" };
+    case "expired":
+      return {
+        label: "Approval expired",
+        tone: "danger",
+        detail: "Approval freshness elapsed; queue units were released to staging_canary_succeeded."
+      };
+    case "released":
+      return { label: "Released (approval expired)", tone: "neutral" };
     default:
       return { label: status.replaceAll("_", " "), tone: "neutral" };
   }
