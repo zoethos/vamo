@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
+  countStagingProvenPackageEligibleUnits,
+  describeProductionPackageWaveStatus,
+  loadProductionPackageWaveApprovalContext
 } from "@confluendo/ingestion-platform/core";
 import { loadIp18BatchQueue } from "@/lib/ip18-batch-queue-data";
 import { loadIp187Autonomy } from "@/lib/ip18-autonomy-data";
@@ -22,6 +25,7 @@ import {
 } from "./ingestion-command-controls";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
+import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 
@@ -103,6 +107,37 @@ export default async function IngestionDashboardPage() {
     (item) => item.status === "ready_for_dry_run"
   ).length;
   const batchCanaryWaveEligibleCount = batchQueue.progress.stagingCanary.dryRunSucceededEligible;
+  let productionPackageEligibleCount = 0;
+  if (batchQueueSource === "live") {
+    const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+    if (controlDb) {
+      try {
+        const packageContext = await loadProductionPackageWaveApprovalContext({
+          connectionString: controlDb,
+          projectKey: batchQueue.projectKey,
+          targetKey: batchQueue.targetKey
+        });
+        productionPackageEligibleCount = countStagingProvenPackageEligibleUnits(
+          batchQueue,
+          batchQueue.targetKey,
+          packageContext.stagingEvidenceByUnitKey
+        );
+      } catch (error) {
+        console.error("Production package-wave context read failed", error);
+      }
+    }
+  }
+  const latestProductionPackageWave = batchQueue.latestProductionPackageWave
+    ? {
+        waveKey: batchQueue.latestProductionPackageWave.waveKey,
+        status: batchQueue.latestProductionPackageWave.status,
+        schemaContract: batchQueue.latestProductionPackageWave.schemaContract,
+        approvalExpiresAt: batchQueue.latestProductionPackageWave.approvalExpiresAt,
+        statusPresentation: describeProductionPackageWaveStatus(
+          batchQueue.latestProductionPackageWave.status
+        )
+      }
+    : null;
 
   return (
     <main
@@ -521,6 +556,18 @@ export default async function IngestionDashboardPage() {
             source: batchQueueSource
           }}
         />
+        <ProductionPackageWaveApprovalControl
+          projectKey={batchQueue.projectKey}
+          targetKey={batchQueue.targetKey}
+          eligibleCount={productionPackageEligibleCount}
+          packageProgress={batchQueue.progress.productionPackage}
+          latestWave={latestProductionPackageWave}
+          context={{
+            role: principal.role,
+            assuranceLevel: principal.assuranceLevel,
+            source: batchQueueSource
+          }}
+        />
         <div className="admin-stat-grid">
           <article className="admin-stat">
             <span>Queue</span>
@@ -553,6 +600,15 @@ export default async function IngestionDashboardPage() {
               {batchQueue.progress.stagingCanary.dryRunSucceededEligible} eligible ·{" "}
               {batchQueue.progress.stagingCanary.succeeded} succeeded ·{" "}
               {batchQueue.progress.stagingCanary.blocked} blocked
+            </p>
+          </article>
+          <article className="admin-stat">
+            <span>Production package</span>
+            <strong>{batchQueue.progress.productionPackage.approved}</strong>
+            <p>
+              {productionPackageEligibleCount} eligible ·{" "}
+              {batchQueue.progress.productionPackage.delivered} delivered ·{" "}
+              {batchQueue.progress.productionPackage.applyFailed} apply failed
             </p>
           </article>
           <article className="admin-stat">
@@ -609,6 +665,23 @@ export default async function IngestionDashboardPage() {
               </div>
             ) : null}
           </>
+        ) : null}
+
+        {batchQueue.latestProductionPackageWave ? (
+          <p className="admin-next-action">
+            <strong>Latest production package wave:</strong>{" "}
+            {batchQueue.latestProductionPackageWave.waveKey} ·{" "}
+            {latestProductionPackageWave?.statusPresentation.label ??
+              batchQueue.latestProductionPackageWave.status}{" "}
+            · {batchQueue.latestProductionPackageWave.targetEnvironment} ·{" "}
+            {batchQueue.latestProductionPackageWave.unitCount} unit(s)
+            {batchQueue.latestProductionPackageWave.approvalAuditId
+              ? ` · approval audit ${batchQueue.latestProductionPackageWave.approvalAuditId}`
+              : ""}
+            {batchQueue.latestProductionPackageWave.approvalExpiresAt
+              ? ` · expires ${batchQueue.latestProductionPackageWave.approvalExpiresAt}`
+              : ""}
+          </p>
         ) : null}
 
         {batchQueue.latestExecution ? (
