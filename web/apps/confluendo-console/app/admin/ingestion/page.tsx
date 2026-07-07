@@ -94,7 +94,8 @@ export default async function IngestionDashboardPage() {
   const {
     snapshot: batchQueue,
     source: batchQueueSource,
-    error: batchQueueError
+    error: batchQueueError,
+    applyTelemetrySource
   } = await loadIp18BatchQueue("vamo");
   const {
     view: autonomyView,
@@ -133,6 +134,26 @@ export default async function IngestionDashboardPage() {
         status: batchQueue.latestProductionPackageWave.status,
         schemaContract: batchQueue.latestProductionPackageWave.schemaContract,
         approvalExpiresAt: batchQueue.latestProductionPackageWave.approvalExpiresAt,
+        consumerApplyStatus: batchQueue.latestProductionPackageWave.consumerApplyStatus,
+        telemetrySource: batchQueue.latestProductionPackageWave.telemetrySource,
+        packageId: batchQueue.latestProductionPackageWave.packageId,
+        items: batchQueue.latestProductionPackageWave.items?.map((item) => ({
+          unitKey: item.unitKey,
+          runOrder: item.runOrder,
+          status: item.status,
+          packageId: item.packageId ?? item.packageKey,
+          consumerApplyStatus: item.consumerApplyStatus,
+          telemetrySource: item.telemetrySource,
+          statusPresentation: describeProductionPackageWaveStatus(
+            item.consumerApplyStatus === "applied"
+              ? "consumer_applied"
+              : item.consumerApplyStatus === "failed"
+                ? "consumer_apply_failed"
+                : item.consumerApplyStatus === "pending"
+                  ? "consumer_apply_pending"
+                  : item.status
+          )
+        })),
         statusPresentation: describeProductionPackageWaveStatus(
           batchQueue.latestProductionPackageWave.status
         )
@@ -608,6 +629,8 @@ export default async function IngestionDashboardPage() {
             <p>
               {productionPackageEligibleCount} eligible ·{" "}
               {batchQueue.progress.productionPackage.delivered} delivered ·{" "}
+              {batchQueue.progress.productionPackage.applyPending} apply pending ·{" "}
+              {batchQueue.progress.productionPackage.applied} applied ·{" "}
               {batchQueue.progress.productionPackage.applyFailed} apply failed
             </p>
           </article>
@@ -668,20 +691,70 @@ export default async function IngestionDashboardPage() {
         ) : null}
 
         {batchQueue.latestProductionPackageWave ? (
-          <p className="admin-next-action">
-            <strong>Latest production package wave:</strong>{" "}
-            {batchQueue.latestProductionPackageWave.waveKey} ·{" "}
-            {latestProductionPackageWave?.statusPresentation.label ??
-              batchQueue.latestProductionPackageWave.status}{" "}
-            · {batchQueue.latestProductionPackageWave.targetEnvironment} ·{" "}
-            {batchQueue.latestProductionPackageWave.unitCount} unit(s)
-            {batchQueue.latestProductionPackageWave.approvalAuditId
-              ? ` · approval audit ${batchQueue.latestProductionPackageWave.approvalAuditId}`
-              : ""}
-            {batchQueue.latestProductionPackageWave.approvalExpiresAt
-              ? ` · expires ${batchQueue.latestProductionPackageWave.approvalExpiresAt}`
-              : ""}
-          </p>
+          <>
+            <p className="admin-next-action">
+              <strong>Latest production package wave:</strong>{" "}
+              {batchQueue.latestProductionPackageWave.waveKey} ·{" "}
+              {latestProductionPackageWave?.statusPresentation.label ??
+                batchQueue.latestProductionPackageWave.status}{" "}
+              · {batchQueue.latestProductionPackageWave.targetEnvironment} ·{" "}
+              {batchQueue.latestProductionPackageWave.unitCount} unit(s)
+              {batchQueue.latestProductionPackageWave.approvalAuditId
+                ? ` · approval audit ${batchQueue.latestProductionPackageWave.approvalAuditId}`
+                : ""}
+              {batchQueue.latestProductionPackageWave.approvalExpiresAt
+                ? ` · expires ${batchQueue.latestProductionPackageWave.approvalExpiresAt}`
+                : ""}
+              {batchQueue.latestProductionPackageWave.deliveryAuditId
+                ? ` · delivery audit ${batchQueue.latestProductionPackageWave.deliveryAuditId}`
+                : ""}
+              {applyTelemetrySource === "inbox"
+                ? " · apply telemetry from inbox"
+                : batchQueue.latestProductionPackageWave.status === "delivered" ||
+                    batchQueue.latestProductionPackageWave.status === "consumer_apply_pending" ||
+                    batchQueue.latestProductionPackageWave.status === "consumer_applied" ||
+                    batchQueue.latestProductionPackageWave.status === "consumer_apply_failed"
+                  ? " · apply telemetry unavailable"
+                  : ""}
+            </p>
+            {latestProductionPackageWave?.items &&
+            latestProductionPackageWave.items.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-target-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Unit</th>
+                      <th>Delivery</th>
+                      <th>Consumer apply</th>
+                      <th>Package id</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {latestProductionPackageWave.items.map((item) => (
+                      <tr key={item.unitKey}>
+                        <td>{item.runOrder}</td>
+                        <td>
+                          <code>{item.unitKey}</code>
+                        </td>
+                        <td>{item.status}</td>
+                        <td>
+                          {item.statusPresentation.label}
+                          {item.telemetrySource === "missing" &&
+                          (item.status === "delivered" ||
+                            item.status === "production_package_delivered" ||
+                            item.status === "consumer_apply_pending")
+                            ? " (telemetry missing)"
+                            : ""}
+                        </td>
+                        <td>{item.packageId ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {batchQueue.latestExecution ? (

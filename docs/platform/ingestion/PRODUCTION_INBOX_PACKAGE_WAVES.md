@@ -1,9 +1,8 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.3 delivery CLI implemented and live-proven** — expired
-approval release, confirmation-gated delivery harness, DB smokes, and one live
-Vamo production inbox delivery + Vamo-owned apply proof (2026-07-07). Consumer
-apply remains Vamo-owned.
+Status: **IP-18.6.4 apply telemetry implemented** — read-only inbox polling,
+control-plane mirror, and dashboard apply states (2026-07-07). IP-18.6.3
+delivery CLI is live-proven. Consumer apply execution remains Vamo-owned.
 
 ## Purpose
 
@@ -186,7 +185,9 @@ Execution should be CLI/runbook first, then autonomous later:
 - never call the consumer apply function.
 
 Consumer apply telemetry is read/recorded after the consumer applies the
-package.
+package. Use `VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL` with the
+`confluendo_inbox_telemetry` read-only role — never the writer DSN and never
+product-table reads from Confluendo.
 
 ## Control Tables
 
@@ -339,11 +340,42 @@ Live proof (2026-07-07):
 - This proof preserves the boundary: Confluendo delivered to
   `confluendo_inbox`; Vamo applied into product tables separately.
 
-### IP-18.6.4 - Apply Telemetry
+### IP-18.6.4 - Apply Telemetry (implemented)
 
-- Read consumer inbox/apply status.
-- Surface applied/failed/pending states.
-- Feed apply status into autonomy and ramp readiness.
+- Read-only `confluendo_inbox_telemetry` role and adapter:
+  `readPostgresProductionInboxApplyTelemetry`.
+- Env: `VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL` (read-only inbox scope).
+  Do not reuse `VAMO_PRODUCTION_INBOX_DATABASE_URL` writer credentials for
+  dashboard/API telemetry.
+- `refreshProductionPackageApplyTelemetry` mirrors observed inbox status into
+  control-plane wave/item/queue rows and enriches `BatchQueueSnapshot`.
+- `/admin/ingestion` distinguishes delivered vs consumer apply pending vs
+  applied vs failed.
+- **Delivered ≠ applied:** inbox delivery is recorded separately from Vamo-owned
+  consumer apply.
+- Delivery blocks/failures persist to control-plane wave/item/queue rows and
+  audit log (`deliver_batch_production_package_wave_blocked`) so the dashboard
+  shows durable truth, not only CLI output.
+
+### Pre-volume-ramp hardening — staged-content hash (required before ramp)
+
+IP-18.6.4 does **not** implement staged-content hash evidence. The current
+`staging_evidence` model stores staging shipment key/id/status and optional
+returned package checksum from the staging-canary path, but it does not capture
+a hash of the staged candidate payloads at approval time or compare that hash at
+delivery time.
+
+Before widening production package volume:
+
+1. Record a staged-content hash on each wave item at approval (from the same
+   candidate payload set used for dry-run/staging proof).
+2. Recompute and compare that hash immediately before delivery; block when
+   staged content drifted since approval.
+3. Keep Postgres-side package checksum authority unchanged for inbox delivery.
+
+This is intentionally deferred from IP-18.6.4 because it belongs in the
+approval/delivery policy path (IP-18.6.1/18.6.3), not the read-only apply
+telemetry slice.
 
 ### IP-18.6.5 - Autonomy Hook
 

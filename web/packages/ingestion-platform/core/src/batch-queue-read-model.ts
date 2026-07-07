@@ -140,6 +140,9 @@ export interface BatchQueueLatestProductionPackageWaveItem {
   schemaContract: string;
   packageKey?: string | null;
   packageId?: string | null;
+  consumerApplyStatus?: string | null;
+  applyEvidence?: Record<string, unknown> | null;
+  telemetrySource?: "control" | "inbox" | "missing";
   blockers: string[];
 }
 
@@ -160,6 +163,8 @@ export interface BatchQueueLatestProductionPackageWave {
   packageId?: string | null;
   deliveryStatus?: string | null;
   consumerApplyStatus?: string | null;
+  consumerApplyEvidence?: Record<string, unknown> | null;
+  telemetrySource?: "control" | "inbox" | "missing";
   approvedAt?: string;
   approvalExpiresAt?: string;
   items?: BatchQueueLatestProductionPackageWaveItem[];

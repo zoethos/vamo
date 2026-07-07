@@ -218,6 +218,18 @@ export async function executeBatchProductionPackageWave(
 
     const queueItem = queueItemsByUnitKey[unitPlan.unitKey];
     if (!queueItem) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "queue_status_drift",
+        blockMessage: `Queue item "${unitPlan.unitKey}" is missing at delivery time.`,
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
       unitResults.push({
         unitKey: unitPlan.unitKey,
         packageId: unitPlan.packageKey,
@@ -241,6 +253,18 @@ export async function executeBatchProductionPackageWave(
 
     const scope = buildBatchWaveUnitScope(queueItem);
     if (!scope) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "dry_run_evidence_drift",
+        blockMessage: `Unit "${unitPlan.unitKey}" no longer has valid dry-run scope.`,
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
       unitResults.push({
         unitKey: unitPlan.unitKey,
         packageId: unitPlan.packageKey,
@@ -262,6 +286,18 @@ export async function executeBatchProductionPackageWave(
       : [];
 
     if (candidates.length === 0) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "dry_run_evidence_drift",
+        blockMessage: `No deliverable candidates were resolved for unit "${unitPlan.unitKey}".`,
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
       unitResults.push({
         unitKey: unitPlan.unitKey,
         packageId: unitPlan.packageKey,
@@ -280,6 +316,37 @@ export async function executeBatchProductionPackageWave(
 
     const approvedBy =
       typeof wave!.approvedBy?.email === "string" ? wave!.approvedBy.email : input.actor.id;
+
+    const callerProof = input.proveProduction ? await input.proveProduction() : true;
+    if (!callerProof) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "production_not_proven",
+        blockMessage: "Caller-side production proof failed; no inbox write was attempted.",
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
+      unitResults.push({
+        unitKey: unitPlan.unitKey,
+        packageId: unitPlan.packageKey,
+        packageKey: unitPlan.packageKey,
+        checksum: "",
+        itemCount: 0,
+        status: "blocked",
+        idempotentReplay: false,
+        blockCode: "production_not_proven",
+        blockMessage: "Caller-side production proof failed; no inbox write was attempted."
+      });
+      blockedCount += 1;
+      stop = true;
+      continue;
+    }
+
     const pkg = buildProductionInboxPackage({
       packageId: unitPlan.packageKey,
       consumerKey: input.projectKey,
@@ -301,6 +368,18 @@ export async function executeBatchProductionPackageWave(
     });
 
     if (!delivered.ok) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: delivered.code,
+        blockMessage: delivered.message,
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
       unitResults.push({
         unitKey: unitPlan.unitKey,
         packageId: unitPlan.packageKey,
@@ -380,7 +459,22 @@ export async function executeBatchProductionPackageWave(
     }
   }
 
-  const waveStatus = blockedCount > 0 ? "blocked" : deliveredCount > 0 || skippedCount > 0 ? "delivered" : wave?.status ?? "approved";
+  if (blockedCount > 0) {
+    await finalizeProductionPackageWaveBlocked(controlClient, {
+      waveId: plan.waveId,
+      unitResults,
+      actor: input.actor,
+      reason: input.reason,
+      now
+    });
+  }
+
+  const waveStatus =
+    blockedCount > 0
+      ? "blocked"
+      : deliveredCount > 0 || skippedCount > 0
+        ? "delivered"
+        : wave?.status ?? "approved";
 
     return {
       ok: true,
@@ -402,6 +496,131 @@ export async function executeBatchProductionPackageWave(
       await ownedClient.end();
     }
   }
+}
+
+async function markProductionPackageUnitBlocked(
+  client: BatchProductionPackageWaveDeliveryPgClientLike,
+  input: {
+    waveId: string;
+    waveItemId: string;
+    batchPlanId: string;
+    unitKey: string;
+    packageKey: string;
+    blockCode: string;
+    blockMessage: string;
+    actor: { type: "operator" | "api"; id: string };
+    reason: string;
+    now: string;
+  }
+): Promise<void> {
+  const blockers = [{ code: input.blockCode, message: input.blockMessage }];
+  await client.query(
+    `
+      update ingestion_platform.ingestion_batch_production_package_wave_items
+      set status = 'blocked',
+          package_key = coalesce(package_key, $2),
+          blockers = $3::jsonb,
+          updated_at = $4::timestamptz
+      where id = $1::bigint
+    `,
+    [input.waveItemId, input.packageKey, JSON.stringify(blockers), input.now]
+  );
+  await client.query(
+    `
+      update ingestion_platform.ingestion_batch_queue_items
+      set status = 'production_package_blocked',
+          blockers = $3::jsonb,
+          updated_at = $4::timestamptz
+      where batch_plan_id = $1::bigint
+        and unit_key = $2
+        and status in (
+          'production_package_approved',
+          'production_package_delivering',
+          'production_package_blocked'
+        )
+    `,
+    [input.batchPlanId, input.unitKey, JSON.stringify([input.blockMessage]), input.now]
+  );
+  await client.query(
+    `
+      insert into ingestion_platform.ingestion_audit_log (
+        project_id,
+        actor_type,
+        actor_id,
+        action,
+        target_type,
+        target_id,
+        reason,
+        payload,
+        created_at
+      )
+      select
+        bp.project_id,
+        $2,
+        $3,
+        'deliver_batch_production_package_wave_blocked',
+        'batch_production_package_wave',
+        w.id::text,
+        $4,
+        $5::jsonb,
+        $6::timestamptz
+      from ingestion_platform.ingestion_batch_production_package_waves w
+      join ingestion_platform.ingestion_batch_plans bp on bp.id = w.batch_plan_id
+      where w.id = $1::bigint
+    `,
+    [
+      input.waveId,
+      input.actor.type,
+      input.actor.id,
+      input.reason,
+      JSON.stringify({
+        unitKey: input.unitKey,
+        packageKey: input.packageKey,
+        blockCode: input.blockCode,
+        blockMessage: input.blockMessage
+      }),
+      input.now
+    ]
+  );
+}
+
+async function finalizeProductionPackageWaveBlocked(
+  client: BatchProductionPackageWaveDeliveryPgClientLike,
+  input: {
+    waveId: string;
+    unitResults: ExecuteBatchProductionPackageWaveUnitResult[];
+    actor: { type: "operator" | "api"; id: string };
+    reason: string;
+    now: string;
+  }
+): Promise<void> {
+  const blockedUnits = input.unitResults.filter((unit) => unit.status === "blocked");
+  await client.query(
+    `
+      update ingestion_platform.ingestion_batch_production_package_waves
+      set status = 'blocked',
+          delivery_status = 'production_package_blocked',
+          blockers = $2::jsonb,
+          summary = coalesce(summary, '{}'::jsonb) || $3::jsonb,
+          updated_at = $4::timestamptz
+      where id = $1::bigint
+        and status in ('approved', 'delivering', 'blocked')
+    `,
+    [
+      input.waveId,
+      JSON.stringify(
+        blockedUnits.map((unit) => ({
+          code: unit.blockCode ?? "delivery_blocked",
+          message: unit.blockMessage ?? "Production package-wave delivery blocked."
+        }))
+      ),
+      JSON.stringify({
+        blockedUnitKeys: blockedUnits.map((unit) => unit.unitKey),
+        blockedCount: blockedUnits.length
+      }),
+      input.now
+    ]
+  );
 }
 
 async function recordPackageWaveUnitDelivery(

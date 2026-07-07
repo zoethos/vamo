@@ -437,6 +437,25 @@ export {
   type ExecuteBatchProductionPackageWaveUnitResult
 } from "./batch-production-package-wave-delivery.js";
 export {
+  mapProductionInboxApplyTelemetry,
+  mapProductionInboxApplyTelemetryByPackageId,
+  collectDeliveredProductionPackageIds,
+  enrichBatchQueueSnapshotWithApplyTelemetry,
+  type MappedProductionPackageApplyTelemetry,
+  type ProductionPackageConsumerApplyStatus
+} from "./production-package-wave-apply-telemetry.js";
+export {
+  syncProductionPackageWaveApplyTelemetry,
+  type SyncProductionPackageWaveApplyTelemetryInput,
+  type SyncProductionPackageWaveApplyTelemetryResult
+} from "./batch-production-package-wave-apply-telemetry-control.js";
+export {
+  refreshProductionPackageApplyTelemetry,
+  withProductionPackageApplyTelemetryClient,
+  type RefreshProductionPackageApplyTelemetryInput,
+  type RefreshProductionPackageApplyTelemetryResult
+} from "./batch-production-package-wave-apply-telemetry.js";
+export {
   approveBatchStagingCanaryWave,
   type ApproveBatchStagingCanaryWaveInput,
   type ApproveBatchStagingCanaryWaveResult,
