@@ -1,8 +1,9 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.3 delivery CLI implemented** — expired approval release,
-confirmation-gated delivery harness, DB smokes (2026-07-07). No live production
-delivery in CI. Consumer apply remains Vamo-owned.
+Status: **IP-18.6.3 delivery CLI implemented and live-proven** — expired
+approval release, confirmation-gated delivery harness, DB smokes, and one live
+Vamo production inbox delivery + Vamo-owned apply proof (2026-07-07). Consumer
+apply remains Vamo-owned.
 
 ## Purpose
 
@@ -321,6 +322,23 @@ evidence fails closed at approval time.
 - **Delivered ≠ applied:** inbox delivery is recorded in control plane;
   Vamo-owned consumer apply remains separate (IP-18.6.4 telemetry).
 
+Live proof (2026-07-07):
+
+- Production package-wave approval audit id: `58`.
+- Delivery audit id: `59`.
+- Package id / wave key:
+  `batch-production-inbox:vamo-eu-poi-sample:wave:58:unit:vamo-place-intelligence:paris-france:landmark`.
+- Package checksum:
+  `d696d0467e12167be8309a04fe5fc575caf38b581bb8aa307c1bffc2e8876acf`.
+- Inbox items delivered: `2` (`location_canonicals`,
+  `location_source_refs`), both initially pending apply.
+- Vamo-owned apply result: both items `applied`, no apply errors.
+- Product proof after apply: `fsq_paris_louvre_landmark` landed as
+  `fsq-paris-louvre-landmark` / `Louvre Pyramid`, `feature_type=landmark`,
+  `promotion_state=seeded`.
+- This proof preserves the boundary: Confluendo delivered to
+  `confluendo_inbox`; Vamo applied into product tables separately.
+
 ### IP-18.6.4 - Apply Telemetry
 
 - Read consumer inbox/apply status.
@@ -336,16 +354,19 @@ evidence fails closed at approval time.
 
 ## First Live Vamo Run
 
-The first live IP-18.6 Vamo run should be:
+The first live IP-18.6 Vamo run completed on 2026-07-07:
 
-- one staging-proven unit;
-- one fresh production package approval;
-- one confirmation-gated delivery;
+- one staging-proven unit: `vamo-place-intelligence:paris-france:landmark`;
+- one fresh production package approval: audit id `58`;
+- one confirmation-gated production inbox delivery: delivery audit id `59`;
+- one package: `batch-production-inbox:vamo-eu-poi-sample:wave:58:unit:vamo-place-intelligence:paris-france:landmark`;
 - Vamo-owned apply;
 - read-only verification of canonical/source-ref rows after apply;
-- dashboard proof that the package is `consumer_applied`.
+- apply proof: `location_canonicals:fsq-paris-louvre-landmark` and
+  `location_source_refs:fsq_os_places:fsq_paris_louvre_landmark` both
+  `applied`.
 
-This is a production-volume ramp step, not the final EU corpus rollout.
+This is a production-volume ramp proof, not the final EU corpus rollout.
 
 ## Safety Statement
 
