@@ -13,6 +13,7 @@ import {
   type BatchQueueItem,
   type BatchQueueItemStatus,
   type BatchQueueLatestExecution,
+  type BatchQueueLatestProductionPackageWave,
   type BatchQueueLatestWave,
   type BatchQueueProgress,
   type BatchQueueSnapshot
@@ -97,7 +98,8 @@ export function mapPersistenceBundleToSnapshot(
   plan: PersistedBatchPlanRow,
   items: PersistedBatchQueueItemRow[],
   latestExecution?: BatchQueueLatestExecution | null,
-  latestWave?: BatchQueueLatestWave | null
+  latestWave?: BatchQueueLatestWave | null,
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null
 ): BatchQueueSnapshot {
   for (const item of items) {
     assertValidQueueItemStatus(item.status);
@@ -117,7 +119,8 @@ export function mapPersistenceBundleToSnapshot(
     items: queueItems,
     planNextAction: plan.planSummary.nextAction,
     latestExecution: latestExecution ?? null,
-    latestWave: latestWave ?? null
+    latestWave: latestWave ?? null,
+    latestProductionPackageWave: latestProductionPackageWave ?? null
   });
 }
 
@@ -143,7 +146,7 @@ function mapQueueItemToPersistenceRow(item: BatchQueueItem): PersistedBatchQueue
     runOrder: item.runOrder,
     blockers: item.blockReasons.slice(),
     proposal: null,
-    runReport: null
+    runReport: item.dryRunReport ? { ...item.dryRunReport } : null
   };
 }
 

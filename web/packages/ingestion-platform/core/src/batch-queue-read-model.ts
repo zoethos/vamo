@@ -24,7 +24,15 @@ export type BatchQueueItemStatus =
   | "staging_canary_blocked"
   | "staged_ready"
   | "production_ready"
-  | "applied";
+  | "applied"
+  | "production_package_ready"
+  | "production_package_approved"
+  | "production_package_delivering"
+  | "production_package_delivered"
+  | "consumer_apply_pending"
+  | "consumer_applied"
+  | "consumer_apply_failed"
+  | "production_package_blocked";
 
 export const BATCH_QUEUE_ITEM_STATUSES: readonly BatchQueueItemStatus[] = [
   "planned",
@@ -41,7 +49,15 @@ export const BATCH_QUEUE_ITEM_STATUSES: readonly BatchQueueItemStatus[] = [
   "staging_canary_blocked",
   "staged_ready",
   "production_ready",
-  "applied"
+  "applied",
+  "production_package_ready",
+  "production_package_approved",
+  "production_package_delivering",
+  "production_package_delivered",
+  "consumer_apply_pending",
+  "consumer_applied",
+  "consumer_apply_failed",
+  "production_package_blocked"
 ];
 
 export interface BatchDryRunReport {
@@ -105,6 +121,50 @@ export interface BatchQueueStagingCanaryProgress {
   blocked: number;
 }
 
+export interface BatchQueueProductionPackageProgress {
+  ready: number;
+  approved: number;
+  delivering: number;
+  delivered: number;
+  applyPending: number;
+  applied: number;
+  applyFailed: number;
+  blocked: number;
+}
+
+export interface BatchQueueLatestProductionPackageWaveItem {
+  unitKey: string;
+  runOrder: number;
+  status: string;
+  plannedRowCount: number;
+  schemaContract: string;
+  packageKey?: string | null;
+  packageId?: string | null;
+  blockers: string[];
+}
+
+export interface BatchQueueLatestProductionPackageWave {
+  waveKey: string;
+  status: string;
+  targetEnvironment: "production";
+  targetKey: string;
+  schemaContract: string;
+  maxUnits: number;
+  maxRows: number;
+  maxPackages: number;
+  unitCount: number;
+  totalPlannedRows: number;
+  approvalAuditId?: string | null;
+  deliveryAuditId?: string | null;
+  packageKey?: string | null;
+  packageId?: string | null;
+  deliveryStatus?: string | null;
+  consumerApplyStatus?: string | null;
+  approvedAt?: string;
+  approvalExpiresAt?: string;
+  items?: BatchQueueLatestProductionPackageWaveItem[];
+}
+
 export interface BatchQueueLatestWaveItem {
   unitKey: string;
   runOrder: number;
@@ -145,6 +205,7 @@ export interface BatchQueueProgress {
   applied: number;
   execution: BatchQueueExecutionProgress;
   stagingCanary: BatchQueueStagingCanaryProgress;
+  productionPackage: BatchQueueProductionPackageProgress;
 }
 
 export interface BatchQueueLatestExecution {
@@ -178,6 +239,7 @@ export interface BatchQueueSnapshot {
   nextAction: string;
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
 }
 
 export interface BuildBatchQueueSnapshotInput {
@@ -186,6 +248,7 @@ export interface BuildBatchQueueSnapshotInput {
   progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>;
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
 }
 
 const READY_STATUSES: readonly BatchQueueItemStatus[] = [
@@ -198,7 +261,8 @@ const READY_STATUSES: readonly BatchQueueItemStatus[] = [
 const BLOCKED_STATUSES: readonly BatchQueueItemStatus[] = [
   "blocked",
   "dry_run_blocked",
-  "staging_canary_blocked"
+  "staging_canary_blocked",
+  "production_package_blocked"
 ];
 
 export function formatBatchQueueBlocker(value: unknown): string {
@@ -241,7 +305,8 @@ export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): Ba
     items,
     planNextAction: input.plan.nextAction,
     latestExecution: input.latestExecution,
-    latestWave: input.latestWave
+    latestWave: input.latestWave,
+    latestProductionPackageWave: input.latestProductionPackageWave
   });
 }
 
@@ -256,6 +321,7 @@ export function buildBatchQueueSnapshotFromItems(input: {
   planNextAction?: string;
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
 }): BatchQueueSnapshot {
   const items = [...input.items].sort((a, b) => a.runOrder - b.runOrder);
   return finalizeBatchQueueSnapshot({
@@ -268,7 +334,8 @@ export function buildBatchQueueSnapshotFromItems(input: {
     items,
     planNextAction: input.planNextAction,
     latestExecution: input.latestExecution,
-    latestWave: input.latestWave
+    latestWave: input.latestWave,
+    latestProductionPackageWave: input.latestProductionPackageWave
   });
 }
 
@@ -283,6 +350,7 @@ function finalizeBatchQueueSnapshot(input: {
   planNextAction?: string;
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
 }): BatchQueueSnapshot {
   const groups = buildGroups(input.items);
   const coverage = summarizeCoverage(input.items, input.sourceKey);
@@ -309,7 +377,8 @@ function finalizeBatchQueueSnapshot(input: {
       input.planNextAction ?? "Review batch queue."
     ),
     latestExecution: input.latestExecution ?? null,
-    latestWave: input.latestWave ?? null
+    latestWave: input.latestWave ?? null,
+    latestProductionPackageWave: input.latestProductionPackageWave ?? null
   };
 }
 
@@ -426,6 +495,16 @@ function summarizeProgress(items: BatchQueueItem[]): BatchQueueProgress {
       running: countByStatus(items, "staging_canary_running"),
       succeeded: countByStatus(items, "staging_canary_succeeded"),
       blocked: countByStatus(items, "staging_canary_blocked")
+    },
+    productionPackage: {
+      ready: countByStatus(items, "production_package_ready"),
+      approved: countByStatus(items, "production_package_approved"),
+      delivering: countByStatus(items, "production_package_delivering"),
+      delivered: countByStatus(items, "production_package_delivered"),
+      applyPending: countByStatus(items, "consumer_apply_pending"),
+      applied: countByStatus(items, "consumer_applied"),
+      applyFailed: countByStatus(items, "consumer_apply_failed"),
+      blocked: countByStatus(items, "production_package_blocked")
     }
   };
 }

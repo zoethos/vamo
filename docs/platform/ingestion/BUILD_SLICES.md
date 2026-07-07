@@ -1582,8 +1582,8 @@ Scope:
 
 Recommended implementation split:
 
-- **IP-18.6.1** — package-wave policy, schema, read model, and DB smokes; no
-  live delivery.
+- **IP-18.6.1** — **done** — package-wave policy, schema, read model, and DB
+  smokes; no live delivery (`CONTROL_TABLES` 25 → 27).
 - **IP-18.6.2** — dashboard approval route/card with admin + AAL2 + fresh MFA;
   no delivery.
 - **IP-18.6.3** — confirmation-gated delivery CLI reusing IP-17 builder/adapter.

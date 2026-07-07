@@ -1,8 +1,8 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **design-first slice**. No implementation, schema mutation, live
-delivery, provider call, Vamo staging write, or Vamo production product-table
-write is introduced by this document.
+Status: **IP-18.6.1 foundation implemented** — control-plane schema, pure policy,
+persistence/read model, and DB smokes (2026-07-07). No live delivery, provider
+calls, Vamo staging write, or Vamo production product-table write.
 
 ## Purpose
 
@@ -277,13 +277,22 @@ IP-18.6 package waves plus apply telemetry are proven.
 
 This document and roadmap updates only.
 
-### IP-18.6.1 - Policy and Schema
+### IP-18.6.1 - Policy and Schema (implemented)
 
-- Add package-wave control tables and status types.
-- Add pure eligibility and approval policy.
-- Add persistence/read model.
-- Add DB smokes proving grants and idempotency.
-- No live delivery.
+- Package-wave control tables (`ingestion_batch_production_package_waves`,
+  `ingestion_batch_production_package_wave_items`) and queue statuses added.
+- Pure eligibility/approval policy with 15-minute approval freshness
+  (`PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS`).
+- Persistence/read model with idempotent wave approval and
+  `latestProductionPackageWave` on batch queue snapshots.
+- Delivery-time drift evidence persisted for IP-18.6.3 recheck.
+- Apply telemetry in IP-18.6.4 must use a **read-only inbox-scoped credential**
+  (`VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL` or equivalent) — not the
+  writer DSN and not product-table reads.
+- Production delivery (IP-18.6.3) uses `VAMO_PRODUCTION_INBOX_DATABASE_URL`
+  and reuses the IP-17 builder/adapter only.
+- Schema contract pinned: `vamo-place-intelligence@1`.
+- No live delivery in this slice.
 
 ### IP-18.6.2 - Dashboard Approval
 

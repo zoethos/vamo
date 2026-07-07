@@ -359,6 +359,34 @@ export {
   type EvaluateBatchStagingCanaryWaveApprovalResult
 } from "./batch-staging-canary-wave-policy.js";
 export {
+  VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
+  buildProductionPackageWaveKey,
+  collectOccupiedProductionPackageUnitKeys,
+  evaluateProductionPackageWaveApproval,
+  evaluateProductionPackageWaveDeliveryDrift,
+  evaluateProductionPackageWaveEligibility,
+  isApprovedProductionPackageWaveFresh,
+  isLegacyProductionTargetKey,
+  type BatchProductionPackageWaveApprovalPlan,
+  type BatchProductionPackageWaveBlock,
+  type BatchProductionPackageWaveBlockCode,
+  type EvaluateProductionPackageWaveApprovalInput,
+  type EvaluateProductionPackageWaveApprovalResult,
+  type EvaluateProductionPackageWaveDeliveryDriftInput,
+  type EvaluateProductionPackageWaveEligibilityInput,
+  type EvaluateProductionPackageWaveEligibilityResult,
+  type ProductionPackageDryRunEvidence,
+  type ProductionPackageSchemaContract,
+  type ProductionPackageStagingEvidence,
+  type ProductionPackageWaveSelectedUnit
+} from "./batch-production-package-wave-policy.js";
+export {
+  approveBatchProductionPackageWave,
+  type ApproveBatchProductionPackageWaveInput,
+  type ApproveBatchProductionPackageWaveResult,
+  type BatchProductionPackageWavePgClientLike
+} from "./batch-production-package-wave-control.js";
+export {
   approveBatchStagingCanaryWave,
   type ApproveBatchStagingCanaryWaveInput,
   type ApproveBatchStagingCanaryWaveResult,
