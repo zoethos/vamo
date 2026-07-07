@@ -71,6 +71,7 @@
     "ip18:batch-queue-seed": "npm run build && node scripts/run-ip18-batch-queue-seed.mjs",
     "ip18:batch-dry-run": "npm run build && node scripts/run-ip18-batch-dry-run.mjs",
     "ip18:staging-canary-wave": "npm run build && node scripts/run-ip18-staging-canary-wave.mjs",
+    "ip18:production-package-wave": "npm run build && node scripts/run-ip18-production-package-wave.mjs",
     "ip18:autonomy-cycle": "npm run build && node scripts/run-ip18-autonomy-cycle.mjs",
     "ip18:autonomy-scheduler": "npm run build && node scripts/run-ip18-autonomy-scheduler.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
