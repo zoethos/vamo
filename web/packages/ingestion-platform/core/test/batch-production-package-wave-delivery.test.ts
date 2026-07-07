@@ -268,7 +268,92 @@ describe("executeBatchProductionPackageWave", () => {
   );
 
   it(
-    "delivers first package wave via IP-17 adapter and replays without duplicate inbox rows",
+    "orchestration refuses delivery when proveProduction is false before any inbox write",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+
+      try {
+        await resetControlSchema(client);
+        await setupProductionInboxTarget(client);
+        const approved = await seedApprovedProductionPackageWave(client, { now: FRESH_NOW });
+
+        let deliverCalled = false;
+        const result = await executeBatchProductionPackageWave({
+          controlClient: client,
+          productionInboxConnectionString: databaseUrl,
+          projectKey: "vamo",
+          targetEnvironment: "production",
+          waveKey: approved.waveKey,
+          execute: true,
+          actor: { type: "operator", id: "delivery-smoke" },
+          reason: "production proof gate",
+          proveProduction: () => false,
+          deps: {
+            deliverPackage: async () => {
+              deliverCalled = true;
+              throw new Error("deliverPackage must not run when production proof fails");
+            },
+            loadCandidates: async () => deliveryCandidates()
+          },
+          now: FRESH_NOW
+        });
+
+        assert.equal(deliverCalled, false);
+        assert.equal(result.blockedCount, 1);
+        assert.equal(result.waveStatus, "blocked");
+        assert.equal(result.unitResults[0]?.blockCode, "production_not_proven");
+
+        const inboxCount = await client.query<{ count: string }>(
+          `select count(*)::text as count from confluendo_inbox.shipments`
+        );
+        assert.equal(inboxCount.rows[0]?.count, "0");
+
+        const wave = await client.query<{ status: string; deliveryStatus: string | null }>(
+          `
+            select status, delivery_status as "deliveryStatus"
+            from ingestion_platform.ingestion_batch_production_package_waves
+            where id = $1::bigint
+          `,
+          [approved.waveId]
+        );
+        assert.equal(wave.rows[0]?.status, "blocked");
+        assert.equal(wave.rows[0]?.deliveryStatus, "production_package_blocked");
+
+        const waveItem = await client.query<{ status: string }>(
+          `
+            select status
+            from ingestion_platform.ingestion_batch_production_package_wave_items
+            where wave_id = $1::bigint
+          `,
+          [approved.waveId]
+        );
+        assert.equal(waveItem.rows[0]?.status, "blocked");
+
+        const queue = await client.query<{ status: string }>(
+          `select status from ingestion_platform.ingestion_batch_queue_items where unit_key = $1`,
+          [STAGING_UNIT_KEY]
+        );
+        assert.equal(queue.rows[0]?.status, "production_package_blocked");
+
+        const auditCount = await client.query<{ count: string }>(
+          `
+            select count(*)::text as count
+            from ingestion_platform.ingestion_audit_log
+            where action = 'deliver_batch_production_package_wave_blocked'
+          `
+        );
+        assert.equal(auditCount.rows[0]?.count, "1");
+      } finally {
+        await cleanupProductionInbox(client);
+        await client.end();
+      }
+    }
+  );
+
+  it(
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
     async () => {
       assert.ok(databaseUrl);
@@ -426,6 +511,29 @@ describe("executeBatchProductionPackageWave", () => {
         });
         assert.equal(result.blockedCount, 1);
         assert.equal(result.unitResults[0]?.blockCode, "checksum_mismatch");
+        assert.equal(result.waveStatus, "blocked");
+
+        const wave = await client.query<{ status: string }>(
+          `select status from ingestion_platform.ingestion_batch_production_package_waves where id = $1::bigint`,
+          [approved.waveId]
+        );
+        assert.equal(wave.rows[0]?.status, "blocked");
+
+        const waveItem = await client.query<{ status: string }>(
+          `
+            select status
+            from ingestion_platform.ingestion_batch_production_package_wave_items
+            where wave_id = $1::bigint
+          `,
+          [approved.waveId]
+        );
+        assert.equal(waveItem.rows[0]?.status, "blocked");
+
+        const queue = await client.query<{ status: string }>(
+          `select status from ingestion_platform.ingestion_batch_queue_items where unit_key = $1`,
+          [STAGING_UNIT_KEY]
+        );
+        assert.equal(queue.rows[0]?.status, "production_package_blocked");
       } finally {
         await cleanupProductionInbox(client);
         await client.end();

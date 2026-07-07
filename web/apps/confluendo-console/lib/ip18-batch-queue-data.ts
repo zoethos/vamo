@@ -2,6 +2,7 @@ import "server-only";
 
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
 import {
+  refreshProductionPackageApplyTelemetry,
   sampleVamoEuPoiBatchQueueSnapshot,
   type BatchQueueSnapshot
 } from "@confluendo/ingestion-platform/core";
@@ -12,6 +13,7 @@ export interface Ip18BatchQueueData {
   snapshot: BatchQueueSnapshot;
   source: Ip18BatchQueueSource;
   error?: string;
+  applyTelemetrySource?: "inbox" | "missing";
 }
 
 /**
@@ -22,7 +24,10 @@ export interface Ip18BatchQueueData {
  * failures are labeled as errors so operators do not mistake a broken control
  * database for an intentionally bundled preview.
  *
- * Read-path only: never schedules, executes, or mutates queue rows.
+ * When `VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL` is set, delivered package
+ * waves are enriched with read-only confluendo_inbox apply telemetry.
+ *
+ * Read-path only: never schedules delivery, executes apply, or mutates inbox rows.
  */
 export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18BatchQueueData> {
   const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
@@ -31,7 +36,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
   }
 
   try {
-    const snapshot = await loadBatchQueueSnapshot({
+    let snapshot = await loadBatchQueueSnapshot({
       connectionString: controlDb,
       projectKey
     });
@@ -39,7 +44,25 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
       return sample();
     }
 
-    return { snapshot, source: "live" };
+    const telemetryDb = process.env.VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL?.trim();
+    let applyTelemetrySource: Ip18BatchQueueData["applyTelemetrySource"] = "missing";
+    if (telemetryDb) {
+      try {
+        const refreshed = await refreshProductionPackageApplyTelemetry({
+          snapshot,
+          controlConnectionString: controlDb,
+          telemetryConnectionString: telemetryDb,
+          proveTelemetry: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production",
+          syncControl: true
+        });
+        snapshot = refreshed.snapshot;
+        applyTelemetrySource = refreshed.telemetryAvailable ? "inbox" : "missing";
+      } catch (error) {
+        console.error("Production package apply telemetry refresh failed", error);
+      }
+    }
+
+    return { snapshot, source: "live", applyTelemetrySource };
   } catch (error) {
     console.error("IP-18 batch queue live read failed", error);
     return {

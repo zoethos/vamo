@@ -27,6 +27,13 @@ export {
   type ProductionInboxDeliveryResult
 } from "./postgres-production-inbox.js";
 export {
+  readPostgresProductionInboxApplyTelemetry,
+  type ProductionInboxPackageApplyTelemetry,
+  type ProductionInboxTelemetryBlockCode,
+  type ReadProductionInboxApplyTelemetryInput,
+  type ReadProductionInboxApplyTelemetryResult
+} from "./postgres-production-inbox-telemetry.js";
+export {
   evaluateSupabaseTargetSpecSecurity,
   hasBlockingSupabaseSecurityFindings,
   inspectSupabaseTargetSecurity,

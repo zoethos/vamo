@@ -1489,13 +1489,16 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.6.4 — Apply Telemetry** should be the next implementation slice.
-IP-18.6.3 is now live-proven: production package-wave approval `58` delivered
-package `batch-production-inbox:vamo-eu-poi-sample:wave:58:unit:vamo-place-intelligence:paris-france:landmark`
-to Vamo production inbox under delivery audit `59`, and Vamo-owned apply marked
-both inbox items `applied`. The next gap is read-only consumer apply telemetry:
-Confluendo should surface pending/applied/failed consumer status without taking
-ownership of product-table apply.
+**IP-18.6.5 — Autonomy Hook** should be the next implementation slice.
+IP-18.6.4 landed read-only consumer apply telemetry and durable delivery-block
+persistence. Before production volume ramp, implement **staged-content hash**
+evidence at approval and compare at delivery (see
+[PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)).
+
+Previously recommended:
+
+- **IP-18.6.4 — Apply Telemetry** — **done** — read-only inbox polling,
+  control-plane mirror, dashboard states, persisted delivery blocks.
 
 ### IP-18.7.0 — done (foundation only)
 
@@ -1593,7 +1596,12 @@ Recommended implementation split:
   package
   `batch-production-inbox:vamo-eu-poi-sample:wave:58:unit:vamo-place-intelligence:paris-france:landmark`
   -> Vamo apply marked both inbox items `applied`.
-- **IP-18.6.4** — **next** — consumer apply telemetry and dashboard states.
+- **IP-18.6.4** — **done** — read-only consumer apply telemetry
+  (`VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL`), control-plane mirror,
+  dashboard states, persisted delivery-block state.
+- **Pre-volume-ramp hardening (not IP-18.6.4)** — staged-content hash at
+  approval with compare-before-delivery; see
+  [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md).
 - **IP-18.6.5** — autonomy hook after package waves and apply telemetry are
   proven.
 
