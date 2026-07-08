@@ -132,6 +132,75 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
     ]);
     assert.equal(countStagingCanaryWaveEligibleUnits(snapshot), 1);
   });
+
+  it("honors explicit unitKeys over run_order when selecting a later 1-row unit", () => {
+    const snapshot = snapshotWithItems([
+      { ...succeededItem("unit-a", { writeCount: 3 }), runOrder: 1 },
+      { ...succeededItem("unit-b", { writeCount: 1 }), runOrder: 2 }
+    ]);
+    const fallback = evaluateBatchStagingCanaryWaveApproval(validInput({ snapshot, maxUnits: 1, maxRows: 50 }));
+    assert.equal(fallback.ok, true);
+    if (!fallback.ok) return;
+    assert.equal(fallback.plan.unitKeys[0], "unit-a");
+
+    const explicit = evaluateBatchStagingCanaryWaveApproval(
+      validInput({
+        snapshot,
+        maxUnits: 1,
+        maxRows: 50,
+        unitKeys: ["unit-b"]
+      })
+    );
+    assert.equal(explicit.ok, true);
+    if (!explicit.ok) return;
+    assert.deepEqual(explicit.plan.unitKeys, ["unit-b"]);
+    assert.equal(explicit.plan.totalPlannedRows, 1);
+  });
+
+  it("rejects browser-supplied invalid unitKeys with per-unit reasons", () => {
+    const snapshot = snapshotWithItems([succeededItem("unit-a")]);
+    const result = evaluateBatchStagingCanaryWaveApproval(
+      validInput({
+        snapshot,
+        unitKeys: ["unit-missing"]
+      })
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.ok(result.unitIssues?.some((issue) => issue.code === "unit_key_not_found"));
+  });
+
+  it("rejects stale unitKeys that are no longer dry_run_succeeded", () => {
+    const snapshot = snapshotWithItems([
+      { ...succeededItem("unit-a"), status: "staging_canary_ready" }
+    ]);
+    const result = evaluateBatchStagingCanaryWaveApproval(
+      validInput({
+        snapshot,
+        unitKeys: ["unit-a"]
+      })
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.ok(result.unitIssues?.some((issue) => issue.code === "unit_not_dry_run_succeeded"));
+  });
+
+  it("enforces maxRows for explicit unit selection", () => {
+    const snapshot = snapshotWithItems([
+      { ...succeededItem("already-staged"), status: "staging_canary_succeeded" },
+      succeededItem("unit-a", { writeCount: 2 }),
+      succeededItem("unit-b", { writeCount: 2 })
+    ]);
+    const result = evaluateBatchStagingCanaryWaveApproval(
+      validInput({
+        snapshot,
+        maxUnits: 2,
+        maxRows: 3,
+        unitKeys: ["unit-a", "unit-b"]
+      })
+    );
+    assertBlocked(result, "wave_row_bound_exceeded");
+  });
 });
 
 function validInput(

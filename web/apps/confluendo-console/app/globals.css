@@ -1154,6 +1154,35 @@ a:hover {
   background: rgba(248, 250, 252, 0.88);
 }
 
+.admin-staging-approval-queue .admin-queue-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.admin-queue-filter-chip {
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 999px;
+  background: #fff;
+  color: rgba(12, 14, 22, 0.78);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.admin-queue-filter-chip.is-active {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: rgb(29, 78, 216);
+}
+
+.admin-staging-approval-table code {
+  font-size: 0.72rem;
+  word-break: break-all;
+}
+
 .admin-queue-filter {
   display: flex;
   flex-direction: column;

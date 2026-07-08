@@ -37,7 +37,11 @@ export type BatchStagingCanaryWaveBlockCode =
   | "dry_run_invariant_violated"
   | "unit_row_bound_exceeded"
   | "wave_row_bound_exceeded"
-  | "no_eligible_items";
+  | "no_eligible_items"
+  | "unit_key_not_found"
+  | "unit_not_dry_run_succeeded"
+  | "unit_target_mismatch"
+  | "unit_selection_exceeds_max_units";
 
 export interface BatchStagingCanaryWaveBlock {
   code: BatchStagingCanaryWaveBlockCode;
@@ -70,9 +74,15 @@ export interface BatchStagingCanaryWaveApprovalPlan {
   safetySummary: string[];
 }
 
+export interface BatchStagingCanaryWaveUnitSelectionIssue {
+  unitKey: string;
+  code: BatchStagingCanaryWaveBlockCode;
+  message: string;
+}
+
 export type EvaluateBatchStagingCanaryWaveApprovalResult =
   | { ok: true; plan: BatchStagingCanaryWaveApprovalPlan }
-  | { ok: false; blocks: BatchStagingCanaryWaveBlock[] };
+  | { ok: false; blocks: BatchStagingCanaryWaveBlock[]; unitIssues?: BatchStagingCanaryWaveUnitSelectionIssue[] };
 
 export interface EvaluateBatchStagingCanaryWaveApprovalInput {
   projectKey: string;
@@ -83,6 +93,7 @@ export interface EvaluateBatchStagingCanaryWaveApprovalInput {
   maxUnits: number;
   maxRows: number;
   auditReason: string;
+  unitKeys?: readonly string[];
   waveKey?: string;
   now?: string;
 }
@@ -220,6 +231,17 @@ export function evaluateBatchStagingCanaryWaveApproval(
     .filter((item) => item.targetEnvironment === input.targetEnvironment)
     .sort((a, b) => a.runOrder - b.runOrder);
 
+  const hintedUnitKeys = normalizeUnitKeyHints(input.unitKeys);
+  if (hintedUnitKeys.length > 0) {
+    return finalizeExplicitUnitSelection({
+      input,
+      hintedUnitKeys,
+      candidates,
+      auditReason,
+      now
+    });
+  }
+
   const eligible: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }> = [];
   let firstSkipBlock: BatchStagingCanaryWaveBlock | undefined;
 
@@ -276,12 +298,175 @@ export function evaluateBatchStagingCanaryWaveApproval(
     };
   }
 
-  const unitKeys = selected.map((entry) => entry.item.unitKey);
-  const waveKey =
-    input.waveKey?.trim() ||
-    buildWaveKey(input.snapshot.planId, unitKeys, auditReason);
+  return buildApprovalPlan({
+    input,
+    selected,
+    totalPlannedRows,
+    auditReason,
+    now
+  });
+}
 
-  const approvedAt = now;
+export function countStagingCanaryWaveEligibleUnits(snapshot: BatchQueueSnapshot): number {
+  return snapshot.items.filter((item) => isStagingCanaryWaveEligibleUnit(item).ok).length;
+}
+
+export function isStagingCanaryWaveEligibleUnit(
+  item: BatchQueueItem
+): { ok: true; writeCount: number } | { ok: false; code: BatchStagingCanaryWaveBlockCode } {
+  if (item.status !== "dry_run_succeeded") {
+    return { ok: false, code: "unit_not_dry_run_succeeded" };
+  }
+  const parsed = parseDryRunReport(item);
+  if (!parsed.ok) {
+    return { ok: false, code: parsed.block.code };
+  }
+  if (parsed.writeCount > STAGING_CANARY_MAX_ROWS) {
+    return { ok: false, code: "unit_row_bound_exceeded" };
+  }
+  return { ok: true, writeCount: parsed.writeCount };
+}
+
+function finalizeExplicitUnitSelection(input: {
+  input: EvaluateBatchStagingCanaryWaveApprovalInput;
+  hintedUnitKeys: string[];
+  candidates: BatchQueueItem[];
+  auditReason: string;
+  now: string;
+}): EvaluateBatchStagingCanaryWaveApprovalResult {
+  const candidateByKey = new Map(input.candidates.map((item) => [item.unitKey, item]));
+  const unitIssues: BatchStagingCanaryWaveUnitSelectionIssue[] = [];
+  const selected: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }> = [];
+
+  for (const unitKey of input.hintedUnitKeys) {
+    const item = input.input.snapshot.items.find((entry) => entry.unitKey === unitKey);
+    if (!item) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_key_not_found",
+        message: `Unit "${unitKey}" is not present in the active batch queue.`
+      });
+      continue;
+    }
+    if (item.status !== "dry_run_succeeded") {
+      unitIssues.push({
+        unitKey,
+        code: "unit_not_dry_run_succeeded",
+        message: `Unit "${unitKey}" must be dry_run_succeeded; got ${item.status}.`
+      });
+      continue;
+    }
+    if (
+      item.targetKey !== input.input.targetKey ||
+      item.targetEnvironment !== input.input.targetEnvironment
+    ) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_target_mismatch",
+        message: `Unit "${unitKey}" target ${item.targetKey}/${item.targetEnvironment} does not match wave target ${input.input.targetKey}/${input.input.targetEnvironment}.`
+      });
+      continue;
+    }
+    if (!candidateByKey.has(unitKey)) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_not_dry_run_succeeded",
+        message: `Unit "${unitKey}" is not an eligible dry_run_succeeded candidate for this wave.`
+      });
+      continue;
+    }
+    const parsed = parseDryRunReport(item);
+    if (!parsed.ok) {
+      unitIssues.push({
+        unitKey,
+        code: parsed.block.code,
+        message: parsed.block.message
+      });
+      continue;
+    }
+    if (parsed.writeCount > STAGING_CANARY_MAX_ROWS) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_row_bound_exceeded",
+        message: `Unit "${unitKey}" exceeds STAGING_CANARY_MAX_ROWS (${STAGING_CANARY_MAX_ROWS}).`
+      });
+      continue;
+    }
+    selected.push({ item, report: parsed.report, writeCount: parsed.writeCount });
+  }
+
+  if (unitIssues.length > 0) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "no_eligible_items",
+          message: "One or more selected units failed staging-canary wave revalidation."
+        }
+      ],
+      unitIssues
+    };
+  }
+
+  if (selected.length === 0) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "no_eligible_items",
+          message: "No valid dry_run_succeeded units were selected for staging-canary wave approval."
+        }
+      ]
+    };
+  }
+
+  if (selected.length > input.input.maxUnits) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "unit_selection_exceeds_max_units",
+          message: `Selected ${selected.length} unit(s) exceeds maxUnits (${input.input.maxUnits}).`
+        }
+      ]
+    };
+  }
+
+  const totalPlannedRows = selected.reduce((sum, entry) => sum + entry.writeCount, 0);
+  if (totalPlannedRows > input.input.maxRows) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "wave_row_bound_exceeded",
+          message: `Selected units exceed the wave maxRows bound (${input.input.maxRows}).`
+        }
+      ]
+    };
+  }
+
+  selected.sort((a, b) => a.item.runOrder - b.item.runOrder);
+  return buildApprovalPlan({
+    input: input.input,
+    selected,
+    totalPlannedRows,
+    auditReason: input.auditReason,
+    now: input.now
+  });
+}
+
+function buildApprovalPlan(input: {
+  input: EvaluateBatchStagingCanaryWaveApprovalInput;
+  selected: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }>;
+  totalPlannedRows: number;
+  auditReason: string;
+  now: string;
+}): EvaluateBatchStagingCanaryWaveApprovalResult {
+  const unitKeys = input.selected.map((entry) => entry.item.unitKey);
+  const waveKey =
+    input.input.waveKey?.trim() ||
+    buildWaveKey(input.input.snapshot.planId, unitKeys, input.auditReason);
+  const approvedAt = input.now;
   const approvalExpiresAt = new Date(
     Date.parse(approvedAt) + STAGING_CANARY_APPROVAL_MAX_AGE_MS
   ).toISOString();
@@ -291,37 +476,44 @@ export function evaluateBatchStagingCanaryWaveApproval(
     plan: {
       action: "approve_batch_staging_canary_wave",
       waveKey,
-      projectKey: input.projectKey,
-      queueId: input.snapshot.queueId,
-      planId: input.snapshot.planId,
-      targetKey: input.targetKey,
+      projectKey: input.input.projectKey,
+      queueId: input.input.snapshot.queueId,
+      planId: input.input.snapshot.planId,
+      targetKey: input.input.targetKey,
       targetEnvironment: "staging",
-      maxUnits: input.maxUnits,
-      maxRows: input.maxRows,
+      maxUnits: input.input.maxUnits,
+      maxRows: input.input.maxRows,
       unitKeys,
-      selectedUnits: selected.map((entry) => entry.item),
-      totalPlannedRows,
-      auditReason,
+      selectedUnits: input.selected.map((entry) => entry.item),
+      totalPlannedRows: input.totalPlannedRows,
+      auditReason: input.auditReason,
       approvedAt,
       approvalExpiresAt,
       approvedBy: {
-        email: input.principal.email,
-        role: input.principal.role,
-        assuranceLevel: input.principal.assuranceLevel
+        email: input.input.principal.email,
+        role: input.input.principal.role,
+        assuranceLevel: input.input.principal.assuranceLevel
       },
       safetySummary: [...DEFAULT_SAFETY_SUMMARY]
     }
   };
 }
 
-export function countStagingCanaryWaveEligibleUnits(snapshot: BatchQueueSnapshot): number {
-  return snapshot.items.filter((item) => {
-    if (item.status !== "dry_run_succeeded") {
-      return false;
+function normalizeUnitKeyHints(unitKeys: readonly string[] | undefined): string[] {
+  if (!unitKeys || unitKeys.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const unitKey of unitKeys) {
+    const trimmed = unitKey.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
     }
-    const parsed = parseDryRunReport(item);
-    return parsed.ok && parsed.writeCount <= STAGING_CANARY_MAX_ROWS;
-  }).length;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
 }
 
 function parseDryRunReport(
