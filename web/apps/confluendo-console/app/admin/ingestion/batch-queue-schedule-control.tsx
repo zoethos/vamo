@@ -161,16 +161,23 @@ export function BatchQueueScheduleControl({
           disabled={Boolean(disabledReason) || pending}
         />
       </label>
-      <button
-        type="button"
-        className="admin-command admin-command-primary"
-        onClick={() => void submit()}
-        disabled={Boolean(disabledReason) || pending}
-        title={disabledReason ?? undefined}
-      >
-        {pending ? "Scheduling..." : "Schedule dry-run batch"}
-      </button>
-      {disabledReason ? <p className="admin-canary-disabled">{disabledReason}</p> : null}
+      <div className="admin-action-row">
+        <button
+          type="button"
+          className="admin-command admin-command-primary admin-stateful-command"
+          data-state={pending ? "busy" : disabledReason ? "unavailable" : "ready"}
+          onClick={() => void submit()}
+          disabled={Boolean(disabledReason) || pending}
+          title={disabledReason ?? undefined}
+        >
+          {pending ? "Scheduling..." : "Schedule dry-run batch"}
+        </button>
+        {disabledReason ? (
+          <p className="admin-action-status" data-state="unavailable">
+            Unavailable: {disabledReason}
+          </p>
+        ) : null}
+      </div>
       <DecisionView decision={decision} />
     </div>
   );
