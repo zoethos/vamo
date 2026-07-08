@@ -1489,14 +1489,15 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.6.5 — Autonomy Hook** should be the next implementation slice.
-IP-18.6.4 landed read-only consumer apply telemetry and durable delivery-block
-persistence. Before production volume ramp, implement **staged-content hash**
-evidence at approval and compare at delivery (see
-[PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)).
+**IP-18.6.6 — Autonomy Hook** should be the next implementation slice.
+IP-18.6.5 landed staged/delivery content-hash equivalence at approval and
+delivery (see [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)).
 
 Previously recommended:
 
+- **IP-18.6.5 — Delivery content equivalence** — **done** — deterministic
+  `stagedContentHash` at approval, recompute/compare before inbox delivery,
+  blocked-state persistence, Delivery view evidence labels.
 - **IP-18.6.4 — Apply Telemetry** — **done** — read-only inbox polling,
   control-plane mirror, dashboard states, persisted delivery blocks. Live proof
   required explicit RLS `SELECT` policies for the pooler login role
@@ -1605,11 +1606,11 @@ Recommended implementation split:
   package wave `58` / delivery audit `59` back through
   `confluendo_inbox_telemetry_app` after adding explicit login-role RLS
   policies, and advanced the queue row to `consumer_applied`.
-- **Pre-volume-ramp hardening (not IP-18.6.4)** — staged-content hash at
-  approval with compare-before-delivery; see
-  [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md).
-- **IP-18.6.5** — autonomy hook after package waves and apply telemetry are
-  proven.
+- **IP-18.6.5** — **done** — delivery content equivalence hardening:
+  `stagedContentHash` on wave-item `staging_evidence`, compare before IP-17
+  inbox write, block with audit evidence on drift.
+- **IP-18.6.6** — autonomy hook after package waves, apply telemetry, and
+  content equivalence are proven.
 
 ### IP-18.7.4+ — recommended next
 

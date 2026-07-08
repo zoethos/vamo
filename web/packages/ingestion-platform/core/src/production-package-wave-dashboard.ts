@@ -44,8 +44,68 @@ export const PRODUCTION_PACKAGE_WAVE_BLOCK_LABELS: Record<BatchProductionPackage
   dry_run_evidence_drift: "Dry-run evidence drifted since approval.",
   staging_evidence_drift: "Staging evidence drifted since approval.",
   schema_contract_drift: "Schema contract drifted since approval.",
-  checksum_incompatible: "Package checksum evidence is incompatible."
+  checksum_incompatible: "Package checksum evidence is incompatible.",
+  staged_content_drift: "Deliverable content drifted since approval.",
+  staged_content_hash_missing: "Staged content hash evidence is missing."
 };
+
+export type ProductionPackageContentEquivalenceStatus =
+  | "match"
+  | "drift_blocked"
+  | "unavailable";
+
+export interface ProductionPackageContentEquivalencePresentation {
+  label: string;
+  status: ProductionPackageContentEquivalenceStatus;
+  tone: ProductionPackageWaveStatusTone;
+}
+
+export function describeProductionPackageContentEquivalence(input: {
+  stagingEvidence?: ProductionPackageStagingEvidence | null;
+  itemStatus?: string;
+  blockers?: readonly string[];
+}): ProductionPackageContentEquivalencePresentation {
+  const stagedContentHash = input.stagingEvidence?.stagedContentHash?.trim();
+  const deliveryContentHash = input.stagingEvidence?.deliveryContentHash?.trim();
+  const blockedForDrift =
+    input.itemStatus === "blocked" &&
+    (input.blockers?.some((blocker) => blocker.includes("staged_content_drift")) ||
+      input.blockers?.some((blocker) => blocker.includes("staged_content_hash_missing")));
+
+  if (blockedForDrift) {
+    return {
+      status: "drift_blocked",
+      label: "Content drift blocked",
+      tone: "danger"
+    };
+  }
+  if (!stagedContentHash) {
+    return {
+      status: "unavailable",
+      label: "Hash unavailable",
+      tone: "watch"
+    };
+  }
+  if (deliveryContentHash && deliveryContentHash === stagedContentHash) {
+    return {
+      status: "match",
+      label: "Content match",
+      tone: "good"
+    };
+  }
+  if (deliveryContentHash && deliveryContentHash !== stagedContentHash) {
+    return {
+      status: "drift_blocked",
+      label: "Content drift blocked",
+      tone: "danger"
+    };
+  }
+  return {
+    status: "match",
+    label: "Content match",
+    tone: "good"
+  };
+}
 
 export function describeProductionPackageWaveStatus(
   status: string

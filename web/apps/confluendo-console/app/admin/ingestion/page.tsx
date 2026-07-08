@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import {
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
   countStagingProvenPackageEligibleUnits,
+  describeProductionPackageContentEquivalence,
   describeProductionPackageWaveStatus,
   loadProductionPackageWaveApprovalContext
 } from "@confluendo/ingestion-platform/core";
@@ -96,13 +97,21 @@ export default async function IngestionDashboardPage() {
         consumerApplyStatus: batchQueue.latestProductionPackageWave.consumerApplyStatus,
         telemetrySource: batchQueue.latestProductionPackageWave.telemetrySource,
         packageId: batchQueue.latestProductionPackageWave.packageId,
-        items: batchQueue.latestProductionPackageWave.items?.map((item) => ({
+        items: batchQueue.latestProductionPackageWave.items?.map((item) => {
+          const contentEquivalence = describeProductionPackageContentEquivalence({
+            stagingEvidence: undefined,
+            itemStatus: item.status,
+            blockers: item.blockers
+          });
+          return {
           unitKey: item.unitKey,
           runOrder: item.runOrder,
           status: item.status,
           packageId: item.packageId ?? item.packageKey,
           consumerApplyStatus: item.consumerApplyStatus,
           telemetrySource: item.telemetrySource,
+          contentEquivalenceLabel: item.contentEquivalenceLabel ?? contentEquivalence.label,
+          contentEquivalenceStatus: item.contentEquivalenceStatus ?? contentEquivalence.status,
           statusPresentation: describeProductionPackageWaveStatus(
             item.consumerApplyStatus === "applied"
               ? "consumer_applied"
@@ -112,7 +121,8 @@ export default async function IngestionDashboardPage() {
                   ? "consumer_apply_pending"
                   : item.status
           )
-        })),
+        };
+        }),
         statusPresentation: describeProductionPackageWaveStatus(
           batchQueue.latestProductionPackageWave.status
         )

@@ -399,11 +399,31 @@ export {
 } from "./batch-production-package-wave-approve-request.js";
 export {
   describeProductionPackageWaveStatus,
+  describeProductionPackageContentEquivalence,
   summarizeProductionPackageWaveDashboard,
   PRODUCTION_PACKAGE_WAVE_BLOCK_LABELS,
+  type ProductionPackageContentEquivalencePresentation,
+  type ProductionPackageContentEquivalenceStatus,
   type ProductionPackageWaveStatusPresentation,
   type ProductionPackageWaveStatusTone
 } from "./production-package-wave-dashboard.js";
+export {
+  enrichProductionPackageWaveApprovalPlanWithStagedContentHashes,
+  type ProductionPackageWaveCandidateLoader
+} from "./batch-production-package-wave-approval-content.js";
+export {
+  createDefaultProductionPackageWaveCandidateLoader,
+  loadDefaultProductionPackagePipeline,
+  resolveDefaultProductionPackagePipelineBundleDir
+} from "./batch-production-package-wave-candidate-loader.js";
+export {
+  PRODUCTION_PACKAGE_CONTENT_HASH_VERSION,
+  buildProductionPackageContentUnits,
+  canonicalizeJson,
+  hashProductionPackageCandidateContent,
+  type ProductionPackageContentHashUnit
+} from "./production-package-content-hash.js";
+export { extractDeliverablePackageContentItems } from "./shipment-package.js";
 export {
   loadProductionPackageWave,
   type LoadedProductionPackageWave,

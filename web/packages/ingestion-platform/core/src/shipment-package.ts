@@ -64,7 +64,9 @@ export function buildProductionInboxPackage(
     throw new Error("Production inbox approvalReason is required.");
   }
 
-  const items = input.candidates.flatMap((candidate) => candidateToItems(candidate));
+  const items = input.candidates.flatMap((candidate) =>
+    extractDeliverablePackageContentItems(candidate)
+  );
   if (items.length === 0) {
     throw new Error("Production inbox package has no deliverable items.");
   }
@@ -96,7 +98,9 @@ export function buildProductionInboxPackage(
   };
 }
 
-function candidateToItems(candidate: StagedCandidate): ProductionInboxPackageItem[] {
+export function extractDeliverablePackageContentItems(
+  candidate: StagedCandidate
+): ProductionInboxPackageItem[] {
   return TARGET_TABLES.flatMap((targetTable) => {
     const payload = candidate.payload[targetTable];
     if (!isRecord(payload)) {

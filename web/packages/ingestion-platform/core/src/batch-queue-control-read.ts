@@ -14,6 +14,8 @@ import type {
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
 import { formatBatchQueueBlockers } from "./batch-queue-read-model.js";
+import type { ProductionPackageStagingEvidence } from "./batch-production-package-wave-policy.js";
+import { describeProductionPackageContentEquivalence } from "./production-package-wave-dashboard.js";
 
 /**
  * Live read of persisted batch queue state into `BatchQueueSnapshot`.
@@ -126,6 +128,7 @@ interface ProductionPackageWaveItemRow extends Record<string, unknown> {
   schemaContract: string;
   packageKey: string | null;
   packageId: string | null;
+  stagingEvidence: ProductionPackageStagingEvidence | null;
   blockers: unknown;
 }
 
@@ -475,6 +478,7 @@ async function loadLatestProductionPackageWave(
           schema_contract as "schemaContract",
           package_key as "packageKey",
           package_id as "packageId",
+          staging_evidence as "stagingEvidence",
           blockers
         from ingestion_platform.ingestion_batch_production_package_wave_items
         where wave_id = $1::bigint
@@ -503,16 +507,27 @@ async function loadLatestProductionPackageWave(
       consumerApplyStatus: row.consumerApplyStatus,
       approvedAt: toIsoString(row.approvedAt),
       approvalExpiresAt: toIsoString(row.approvalExpiresAt),
-      items: waveItems.rows.map((item) => ({
-        unitKey: item.unitKey,
-        runOrder: item.runOrder,
-        status: item.status,
-        plannedRowCount: item.plannedRowCount,
-        schemaContract: item.schemaContract,
-        packageKey: item.packageKey,
-        packageId: item.packageId,
-        blockers: formatBatchQueueBlockers(item.blockers)
-      }))
+      items: waveItems.rows.map((item) => {
+        const blockers = formatBatchQueueBlockers(item.blockers);
+        const stagingEvidence = (item.stagingEvidence ?? {}) as ProductionPackageStagingEvidence;
+        const contentEquivalence = describeProductionPackageContentEquivalence({
+          stagingEvidence,
+          itemStatus: item.status,
+          blockers
+        });
+        return {
+          unitKey: item.unitKey,
+          runOrder: item.runOrder,
+          status: item.status,
+          plannedRowCount: item.plannedRowCount,
+          schemaContract: item.schemaContract,
+          packageKey: item.packageKey,
+          packageId: item.packageId,
+          contentEquivalenceStatus: contentEquivalence.status,
+          contentEquivalenceLabel: contentEquivalence.label,
+          blockers
+        };
+      })
     };
   } catch (error) {
     if (isUndefinedTable(error)) {
