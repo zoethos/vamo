@@ -802,6 +802,8 @@ function StagingView({
         targetKey={batchQueue.targetKey}
         targetEnvironment={batchQueue.targetEnvironment}
         eligibleCount={batchCanaryWaveEligibleCount}
+        queueItems={batchQueue.items}
+        latestWave={batchQueue.latestWave}
         context={batchContext}
       />
       {batchQueue.latestWave ? (

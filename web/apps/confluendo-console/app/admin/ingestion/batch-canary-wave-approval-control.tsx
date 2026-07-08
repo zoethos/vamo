@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
+import type { BatchQueueItem, BatchQueueLatestWave } from "@confluendo/ingestion-platform/core";
+import { StagingWaveApprovalQueue } from "./staging-wave-approval-queue";
 
 type DashboardSource = "live" | "sample" | "error";
 
@@ -21,6 +23,12 @@ type WavePlan = {
   approvalExpiresAt: string;
 };
 
+type UnitIssue = {
+  unitKey: string;
+  code: string;
+  message: string;
+};
+
 type Decision =
   | { state: "idle" }
   | { state: "running" }
@@ -31,7 +39,7 @@ type Decision =
       idempotentReplay: boolean;
       plan: WavePlan;
     }
-  | { state: "blocked"; blocks: string[] }
+  | { state: "blocked"; blocks: string[]; unitIssues?: UnitIssue[] }
   | { state: "error"; message: string; code?: string };
 
 const blockLabels: Record<string, string> = {
@@ -51,7 +59,11 @@ const blockLabels: Record<string, string> = {
   dry_run_invariant_violated: "Dry-run report must have wroteToTarget=false.",
   unit_row_bound_exceeded: "A unit exceeds the per-unit staging-canary row bound.",
   wave_row_bound_exceeded: "Selected units exceed the wave maxRows bound.",
-  no_eligible_items: "No dry_run_succeeded units with valid dry-run reports are available."
+  no_eligible_items: "No dry_run_succeeded units with valid dry-run reports are available.",
+  unit_key_not_found: "A selected unit is not present in the active batch queue.",
+  unit_not_dry_run_succeeded: "A selected unit is not dry_run_succeeded.",
+  unit_target_mismatch: "A selected unit does not match the wave target.",
+  unit_selection_exceeds_max_units: "Too many units were selected for maxUnits."
 };
 
 const freshStepUpHref =
@@ -62,25 +74,44 @@ export function BatchCanaryWaveApprovalControl({
   targetKey,
   targetEnvironment,
   eligibleCount,
+  queueItems,
+  latestWave,
   context
 }: {
   projectKey: string;
   targetKey: string;
   targetEnvironment: string;
   eligibleCount: number;
+  queueItems: BatchQueueItem[];
+  latestWave?: BatchQueueLatestWave | null;
   context: BatchCanaryWaveContext;
 }) {
   const [reason, setReason] = useState("");
   const [maxUnits, setMaxUnits] = useState("1");
   const [maxRows, setMaxRows] = useState("50");
+  const [selectedUnitKeys, setSelectedUnitKeys] = useState<string[]>([]);
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
   const router = useRouter();
   const pending = decision.state === "running";
-  const disabledReason = disabledReasonFor(context, eligibleCount);
+  const disabledReason = disabledReasonFor(context, selectedUnitKeys.length);
+  const selectedSummary = useMemo(() => {
+    const selected = queueItems.filter((item) => selectedUnitKeys.includes(item.unitKey));
+    const plannedRows = selected.reduce((sum, item) => sum + plannedRowsForItem(item), 0);
+    return { count: selected.length, plannedRows };
+  }, [queueItems, selectedUnitKeys]);
 
-  if (eligibleCount === 0) {
-    return null;
+  function handleSelectionChange(unitKeys: string[]) {
+    setSelectedUnitKeys(unitKeys);
+    if (unitKeys.length === 0) {
+      setMaxUnits("1");
+      setMaxRows("50");
+      return;
+    }
+    const nextSelected = queueItems.filter((item) => unitKeys.includes(item.unitKey));
+    const plannedRows = nextSelected.reduce((sum, item) => sum + plannedRowsForItem(item), 0);
+    setMaxUnits(String(unitKeys.length));
+    setMaxRows(String(Math.max(1, plannedRows)));
   }
 
   async function submit() {
@@ -89,6 +120,10 @@ export function BatchCanaryWaveApprovalControl({
     }
     if (!reason.trim()) {
       setDecision({ state: "error", message: "Audit reason is required." });
+      return;
+    }
+    if (selectedUnitKeys.length === 0) {
+      setDecision({ state: "error", message: "Select at least one eligible dry-run passed scope." });
       return;
     }
     inFlightRef.current = true;
@@ -104,7 +139,8 @@ export function BatchCanaryWaveApprovalControl({
           targetEnvironment,
           maxUnits: Number.parseInt(maxUnits, 10),
           maxRows: Number.parseInt(maxRows, 10),
-          auditReason: reason.trim()
+          auditReason: reason.trim(),
+          unitKeys: selectedUnitKeys
         })
       });
       const payload = (await response.json().catch(() => null)) as
@@ -116,7 +152,14 @@ export function BatchCanaryWaveApprovalControl({
             idempotentReplay: boolean;
             plan: WavePlan;
           }
-        | { ok: false; decision?: "blocked"; blocks?: { code: string }[]; error?: string; code?: string }
+        | {
+            ok: false;
+            decision?: "blocked";
+            blocks?: { code: string }[];
+            unitIssues?: UnitIssue[];
+            error?: string;
+            code?: string;
+          }
         | null;
 
       if (!payload) {
@@ -131,6 +174,7 @@ export function BatchCanaryWaveApprovalControl({
           idempotentReplay: payload.idempotentReplay,
           plan: payload.plan
         });
+        setSelectedUnitKeys([]);
         router.refresh();
         return;
       }
@@ -140,7 +184,11 @@ export function BatchCanaryWaveApprovalControl({
           window.location.assign(freshStepUpHref);
           return;
         }
-        setDecision({ state: "blocked", blocks });
+        setDecision({
+          state: "blocked",
+          blocks,
+          unitIssues: payload.unitIssues
+        });
         return;
       }
       setDecision({
@@ -160,10 +208,18 @@ export function BatchCanaryWaveApprovalControl({
       <p className="admin-kicker">IP-18.5 · staging-canary wave approval</p>
       <h3>Approve bounded staging-canary wave</h3>
       <p className="admin-canary-note">
-        Records a control-plane wave approval for dry_run_succeeded units. Requires admin +
-        verified AAL2 + fresh MFA step-up. This does not write to Vamo staging — live execution
-        is a separate confirmation-gated step in a later slice.
+        Select exact dry-run passed scopes below, then approve the wave. Requires admin + verified
+        AAL2 + fresh MFA step-up. This does not write to Vamo staging — live execution is a separate
+        confirmation-gated step.
       </p>
+
+      <StagingWaveApprovalQueue
+        items={queueItems}
+        latestWave={latestWave}
+        selectedUnitKeys={selectedUnitKeys}
+        onSelectionChange={handleSelectionChange}
+      />
+
       <div className="admin-canary-fields">
         <label>
           <span>Target</span>
@@ -176,6 +232,14 @@ export function BatchCanaryWaveApprovalControl({
         <label>
           <span>Eligible dry_run_succeeded units</span>
           <input type="text" value={String(eligibleCount)} readOnly disabled />
+        </label>
+        <label>
+          <span>Selected units</span>
+          <input type="text" value={String(selectedSummary.count)} readOnly disabled />
+        </label>
+        <label>
+          <span>Selected planned rows</span>
+          <input type="text" value={String(selectedSummary.plannedRows)} readOnly disabled />
         </label>
         <label>
           <span>Max units (first wave: 1 recommended)</span>
@@ -231,6 +295,13 @@ export function BatchCanaryWaveApprovalControl({
   );
 }
 
+function plannedRowsForItem(item: BatchQueueItem): number {
+  if (!item.dryRunReport || item.dryRunReport.wroteToTarget !== false) {
+    return 0;
+  }
+  return item.dryRunReport.insertCount + item.dryRunReport.updateCount;
+}
+
 function DecisionView({ decision }: { decision: Decision }) {
   if (decision.state === "idle" || decision.state === "running") {
     return null;
@@ -262,6 +333,15 @@ function DecisionView({ decision }: { decision: Decision }) {
             <li key={code}>{blockLabels[code] ?? code}</li>
           ))}
         </ul>
+        {decision.unitIssues && decision.unitIssues.length > 0 ? (
+          <ul>
+            {decision.unitIssues.map((issue) => (
+              <li key={issue.unitKey}>
+                <code>{issue.unitKey}</code>: {issue.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {decision.blocks.includes("fresh_step_up_required") ? (
           <a className="admin-command admin-command-neutral admin-inline-action" href={freshStepUpHref}>
             Refresh MFA step-up
@@ -277,15 +357,15 @@ function DecisionView({ decision }: { decision: Decision }) {
   );
 }
 
-function disabledReasonFor(context: BatchCanaryWaveContext, eligibleCount: number): string | undefined {
+function disabledReasonFor(context: BatchCanaryWaveContext, selectedCount: number): string | undefined {
   if (context.source === "error") {
     return "Live batch queue read failed; wave approval is disabled.";
   }
   if (context.source !== "live") {
     return "Staging-canary wave approval requires a live control plane.";
   }
-  if (eligibleCount === 0) {
-    return "No dry_run_succeeded units with valid dry-run reports are available.";
+  if (selectedCount === 0) {
+    return "Select at least one eligible dry-run passed scope.";
   }
   if (context.role !== "admin") {
     return "Staging-canary wave approval requires the admin role.";

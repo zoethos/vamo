@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   evaluateBatchStagingCanaryWaveApproval,
   approveBatchStagingCanaryWave,
+  parseBatchStagingCanaryWaveApproveRequest,
   type EvaluateBatchStagingCanaryWaveApprovalResult
 } from "@confluendo/ingestion-platform/core";
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
@@ -21,14 +22,14 @@ export async function POST(request: NextRequest) {
   if (!body.ok) {
     return NextResponse.json({ ok: false, error: body.error }, { status: 400 });
   }
-  const parsed = parseRequest(body.value);
+  const parsed = parseBatchStagingCanaryWaveApproveRequest(body.value);
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
   const auth = await authorizeStagingCanaryRequest({
     request,
-    projectKey: parsed.projectKey
+    projectKey: parsed.request.projectKey
   });
   if (!auth.ok) {
     return NextResponse.json(auth.body, { status: auth.status });
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
   try {
     snapshot = await loadBatchQueueSnapshot({
       connectionString,
-      projectKey: parsed.projectKey,
-      targetKey: parsed.targetKey
+      projectKey: parsed.request.projectKey,
+      targetKey: parsed.request.targetKey
     });
   } catch (error) {
     console.error("Batch queue control read failed", error);
@@ -63,24 +64,33 @@ export async function POST(request: NextRequest) {
 
   const decision: EvaluateBatchStagingCanaryWaveApprovalResult =
     evaluateBatchStagingCanaryWaveApproval({
-      projectKey: parsed.projectKey,
+      projectKey: parsed.request.projectKey,
       snapshot,
       principal: auth.principal,
-      targetKey: parsed.targetKey,
-      targetEnvironment: parsed.targetEnvironment,
-      maxUnits: parsed.maxUnits,
-      maxRows: parsed.maxRows,
-      auditReason: parsed.auditReason
+      targetKey: parsed.request.targetKey,
+      targetEnvironment: parsed.request.targetEnvironment,
+      maxUnits: parsed.request.maxUnits,
+      maxRows: parsed.request.maxRows,
+      auditReason: parsed.request.auditReason,
+      unitKeys: parsed.request.unitKeys
     });
 
   if (!decision.ok) {
-    return NextResponse.json({ ok: false, decision: "blocked", blocks: decision.blocks }, { status: 409 });
+    return NextResponse.json(
+      {
+        ok: false,
+        decision: "blocked",
+        blocks: decision.blocks,
+        unitIssues: decision.unitIssues
+      },
+      { status: 409 }
+    );
   }
 
   try {
     const approved = await approveBatchStagingCanaryWave({
       connectionString,
-      projectKey: parsed.projectKey,
+      projectKey: parsed.request.projectKey,
       plan: decision.plan,
       actor: auth.actor
     });
@@ -112,66 +122,4 @@ async function readJsonBody(
   } catch {
     return { ok: false, error: "Request body must be valid JSON." };
   }
-}
-
-function parseRequest(
-  value: unknown
-):
-  | {
-      ok: true;
-      projectKey: string;
-      targetKey: string;
-      targetEnvironment: string;
-      maxUnits: number;
-      maxRows: number;
-      auditReason: string;
-    }
-  | { ok: false; error: string } {
-  if (!isRecord(value)) {
-    return { ok: false, error: "Request body must be a JSON object." };
-  }
-  const targetKey = readString(value.targetKey);
-  if (!targetKey) {
-    return { ok: false, error: "targetKey is required." };
-  }
-  const targetEnvironment = readString(value.targetEnvironment) ?? "staging";
-  if (targetEnvironment !== "staging") {
-    return { ok: false, error: "targetEnvironment must be staging for IP-18.5." };
-  }
-  const auditReason = readString(value.auditReason);
-  if (!auditReason) {
-    return { ok: false, error: "A non-empty auditReason is required." };
-  }
-  const maxUnits = readPositiveInt(value.maxUnits, 1);
-  const maxRows = readPositiveInt(value.maxRows, 50);
-  if (!maxUnits || !maxRows) {
-    return { ok: false, error: "maxUnits and maxRows must be positive integers." };
-  }
-  return {
-    ok: true,
-    projectKey: readString(value.projectKey) ?? "vamo",
-    targetKey,
-    targetEnvironment,
-    maxUnits,
-    maxRows,
-    auditReason
-  };
-}
-
-function readPositiveInt(value: unknown, fallback: number): number | undefined {
-  if (value === undefined || value === null) {
-    return fallback;
-  }
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-    return undefined;
-  }
-  return value;
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

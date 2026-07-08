@@ -231,3 +231,109 @@ export function formatAgentAction(action: string): string {
     .replace(/staging_wave/g, "staging batch")
     .replace(/_/g, " ");
 }
+
+export type StagingApprovalQueueFilter =
+  | "all"
+  | "ready_for_dry_run"
+  | "dry_run_passed"
+  | "eligible_for_staging"
+  | "staging_verified"
+  | "ready_for_production"
+  | "delivered"
+  | "applied"
+  | "blocked";
+
+export const stagingApprovalQueueFilterLabels: Record<StagingApprovalQueueFilter, string> = {
+  all: "All",
+  ready_for_dry_run: "Ready for dry run",
+  dry_run_passed: "Dry-run passed",
+  eligible_for_staging: "Eligible for staging",
+  staging_verified: "Staging verified",
+  ready_for_production: "Ready for production",
+  delivered: "Delivered",
+  applied: "Applied",
+  blocked: "Blocked"
+};
+
+export function matchesStagingApprovalQueueFilter(
+  status: BatchQueueItemStatus,
+  filter: StagingApprovalQueueFilter,
+  eligibleForStaging: boolean
+): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  switch (filter) {
+    case "ready_for_dry_run":
+      return status === "ready_for_dry_run" || status === "dry_run_ready" || status === "dry_run_running";
+    case "dry_run_passed":
+      return status === "dry_run_succeeded";
+    case "eligible_for_staging":
+      return eligibleForStaging;
+    case "staging_verified":
+      return status === "staging_canary_succeeded" || status === "staged_ready";
+    case "ready_for_production":
+      return (
+        status === "production_ready" ||
+        status === "production_package_ready" ||
+        status === "staging_canary_succeeded" ||
+        status === "staged_ready"
+      );
+    case "delivered":
+      return (
+        status === "production_package_delivered" ||
+        status === "consumer_apply_pending" ||
+        status === "production_package_delivering"
+      );
+    case "applied":
+      return status === "consumer_applied" || status === "applied";
+    case "blocked":
+      return status === "blocked" || status.endsWith("_blocked");
+    default:
+      return true;
+  }
+}
+
+export function describeStagingQueueEvidenceStatus(item: BatchQueueItem): string {
+  if (item.status !== "dry_run_succeeded" && !item.dryRunReport) {
+    return "No dry-run evidence";
+  }
+  if (!item.dryRunReport) {
+    return "Report missing";
+  }
+  if (item.dryRunReport.wroteToTarget !== false) {
+    return "Invalid dry-run invariant";
+  }
+  return "Dry-run valid";
+}
+
+export function describeStagingQueueNextAction(item: BatchQueueItem, eligibleForStaging: boolean): string {
+  if (item.blockReasons.length > 0 || item.status.endsWith("_blocked") || item.status === "blocked") {
+    return "Investigate blockers";
+  }
+  if (eligibleForStaging) {
+    return "Select for staging wave approval";
+  }
+  if (item.status === "dry_run_succeeded") {
+    return "Dry-run evidence invalid";
+  }
+  if (item.status === "staging_canary_ready" || item.status === "staging_canary_approved") {
+    return "Await staging execution";
+  }
+  if (item.status === "staging_canary_running") {
+    return "Staging write in progress";
+  }
+  if (item.status === "staging_canary_succeeded" || item.status === "staged_ready") {
+    return "Ready for production package path";
+  }
+  if (item.status === "production_package_delivered" || item.status === "consumer_apply_pending") {
+    return "Await consumer apply";
+  }
+  if (item.status === "consumer_applied" || item.status === "applied") {
+    return "Complete";
+  }
+  if (item.status === "ready_for_dry_run" || item.status === "dry_run_ready") {
+    return "Run dry-run simulation";
+  }
+  return "Monitor queue progression";
+}

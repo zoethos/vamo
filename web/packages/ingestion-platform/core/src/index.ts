@@ -352,12 +352,18 @@ export {
 export {
   evaluateBatchStagingCanaryWaveApproval,
   countStagingCanaryWaveEligibleUnits,
+  isStagingCanaryWaveEligibleUnit,
   type BatchStagingCanaryWaveApprovalPlan,
   type BatchStagingCanaryWaveBlock,
   type BatchStagingCanaryWaveBlockCode,
+  type BatchStagingCanaryWaveUnitSelectionIssue,
   type EvaluateBatchStagingCanaryWaveApprovalInput,
   type EvaluateBatchStagingCanaryWaveApprovalResult
 } from "./batch-staging-canary-wave-policy.js";
+export {
+  parseBatchStagingCanaryWaveApproveRequest,
+  type BatchStagingCanaryWaveApproveRequest
+} from "./batch-staging-canary-wave-approve-request.js";
 export {
   VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
   buildProductionPackageWaveKey,
