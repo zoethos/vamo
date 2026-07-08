@@ -1080,10 +1080,12 @@ a:hover {
   backdrop-filter: blur(14px);
 }
 
-.admin-ux-tabs a {
+.admin-ux-tabs a,
+.admin-ux-tabs button {
   display: inline-flex;
   align-items: center;
   min-height: 2.75rem;
+  border: 0;
   border-bottom: 2px solid transparent;
   padding: 0 0.85rem;
   color: rgba(12, 14, 22, 0.62);
@@ -1091,12 +1093,215 @@ a:hover {
   font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .admin-ux-tabs a:hover,
-.admin-ux-tabs a:focus-visible {
+.admin-ux-tabs a:focus-visible,
+.admin-ux-tabs button:hover,
+.admin-ux-tabs button:focus-visible {
   border-bottom-color: var(--cfl-accent);
   color: var(--ink);
+}
+
+.admin-ux-tabs button.admin-ux-tab-active,
+.admin-ux-tabs a.admin-ux-tab-active {
+  border-bottom-color: var(--cfl-accent);
+  color: var(--ink);
+}
+
+.admin-ux-view-panel,
+.admin-ux-agent-strip {
+  order: 10;
+  margin: 0 auto 1.25rem;
+}
+
+.admin-ux-agent-strip .admin-ux-panel {
+  padding: 1rem 1.1rem;
+}
+
+.admin-view-lead {
+  max-width: 52rem;
+  margin: 0.5rem 0 0;
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.admin-ux-panel-note {
+  margin: 0 0 0.75rem;
+  color: rgba(12, 14, 22, 0.58);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.admin-queue-console {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+}
+
+.admin-queue-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.admin-queue-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.admin-queue-filter span {
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-queue-filter input,
+.admin-queue-filter select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.1rem;
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.admin-queue-filter-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  padding-top: 1.1rem;
+}
+
+.admin-queue-filter-check input {
+  width: auto;
+  min-height: auto;
+}
+
+.admin-queue-summary,
+.admin-queue-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.86rem;
+}
+
+.admin-queue-group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.35rem 0;
+}
+
+.admin-queue-group-heading h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.admin-queue-group-heading span {
+  color: rgba(12, 14, 22, 0.5);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.admin-queue-table td strong {
+  display: block;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-queue-subline {
+  display: block;
+  color: rgba(12, 14, 22, 0.5);
+  font-size: 0.78rem;
+}
+
+.admin-queue-expand {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-queue-details-row td {
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.admin-queue-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.65rem 1rem;
+  margin: 0;
+}
+
+.admin-queue-details dt {
+  color: rgba(12, 14, 22, 0.5);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.admin-queue-details dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.84rem;
+  word-break: break-word;
+}
+
+.admin-queue-details-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-queue-row-attention td {
+  background: rgba(255, 77, 109, 0.05);
+}
+
+.admin-queue-blockers {
+  margin-bottom: 0.25rem;
+}
+
+.admin-evidence-details {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px dashed rgba(42, 46, 58, 0.16);
+  border-radius: 8px;
+}
+
+.admin-evidence-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: rgba(12, 14, 22, 0.7);
+}
+
+.admin-evidence-code {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.74rem;
+  color: rgba(12, 14, 22, 0.5);
+  word-break: break-all;
 }
 
 .admin-ux-overview,
@@ -1463,13 +1668,50 @@ a:hover {
   background: rgba(14, 22, 38, 0.92);
 }
 
-.admin-console[data-theme="dark"] .admin-ux-tabs a {
+.admin-console[data-theme="dark"] .admin-ux-tabs a,
+.admin-console[data-theme="dark"] .admin-ux-tabs button {
   color: rgba(233, 237, 244, 0.64);
 }
 
 .admin-console[data-theme="dark"] .admin-ux-tabs a:hover,
-.admin-console[data-theme="dark"] .admin-ux-tabs a:focus-visible {
+.admin-console[data-theme="dark"] .admin-ux-tabs a:focus-visible,
+.admin-console[data-theme="dark"] .admin-ux-tabs button:hover,
+.admin-console[data-theme="dark"] .admin-ux-tabs button:focus-visible,
+.admin-console[data-theme="dark"] .admin-ux-tabs button.admin-ux-tab-active {
   color: #e9edf4;
+}
+
+.admin-console[data-theme="dark"] .admin-view-lead,
+.admin-console[data-theme="dark"] .admin-ux-panel-note,
+.admin-console[data-theme="dark"] .admin-queue-summary,
+.admin-console[data-theme="dark"] .admin-queue-stats {
+  color: rgba(233, 237, 244, 0.62);
+}
+
+.admin-console[data-theme="dark"] .admin-queue-toolbar {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(14, 22, 38, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-queue-filter input,
+.admin-console[data-theme="dark"] .admin-queue-filter select,
+.admin-console[data-theme="dark"] .admin-queue-expand {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 16, 30, 0.9);
+  color: #e9edf4;
+}
+
+.admin-console[data-theme="dark"] .admin-queue-details-row td {
+  background: rgba(10, 16, 30, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-evidence-details {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.admin-console[data-theme="dark"] .admin-evidence-code,
+.admin-console[data-theme="dark"] .admin-queue-subline {
+  color: rgba(233, 237, 244, 0.5);
 }
 
 .admin-console[data-theme="dark"] .admin-ux-health,
@@ -1745,6 +1987,57 @@ a:hover {
   color: var(--warm-white);
 }
 
+.admin-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.admin-stateful-command {
+  width: fit-content;
+  min-width: 0;
+  min-height: 2.65rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 8px;
+  padding: 0.62rem 0.85rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1.15;
+  box-shadow: 0 10px 24px rgba(12, 14, 22, 0.08);
+}
+
+.admin-stateful-command:hover:not(:disabled),
+.admin-stateful-command:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(12, 14, 22, 0.12);
+}
+
+.admin-stateful-command:disabled {
+  cursor: not-allowed;
+  border-color: rgba(42, 46, 58, 0.16);
+  background: #eef2f7;
+  color: rgba(12, 14, 22, 0.52);
+  box-shadow: none;
+}
+
+.admin-action-status {
+  max-width: 40rem;
+  margin: 0;
+  color: rgba(12, 14, 22, 0.58);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.admin-action-status[data-state="unavailable"] {
+  color: rgba(12, 14, 22, 0.58);
+}
+
 .admin-command-neutral {
   background: #f8fafc;
   color: var(--ink);
@@ -1900,7 +2193,7 @@ a:hover {
 .admin-canary-disabled {
   margin: 0.5rem 0 0;
   font-size: 0.8rem;
-  color: rgba(176, 58, 46, 0.9);
+  color: rgba(12, 14, 22, 0.58);
 }
 
 .admin-console[data-theme="dark"] .admin-canary-control {
@@ -2447,6 +2740,17 @@ a:hover {
   border-color: rgba(250, 250, 251, 0.88);
   background: var(--warm-white);
   color: var(--ink);
+}
+
+.admin-console[data-theme="dark"] .admin-stateful-command:disabled {
+  border-color: rgba(250, 250, 251, 0.12);
+  background: rgba(250, 250, 251, 0.08);
+  color: rgba(250, 250, 251, 0.54);
+  box-shadow: none;
+}
+
+.admin-console[data-theme="dark"] .admin-action-status {
+  color: rgba(250, 250, 251, 0.58);
 }
 
 .admin-console[data-theme="dark"] .admin-command-neutral,
