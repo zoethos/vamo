@@ -736,8 +736,11 @@ export default async function IngestionDashboardPage() {
             </div>
           </div>
           <ol className="admin-event-list">
-            {ingestionEvents.map((event) => (
-              <li className={`admin-event admin-tone-${event.tone}`} key={`${event.time}-${event.signal}`}>
+            {ingestionEvents.map((event, index) => (
+              <li
+                className={`admin-event admin-tone-${event.tone}`}
+                key={`${event.time}-${event.signal}-${event.target}-${index}`}
+              >
                 <time>{event.time}</time>
                 <div>
                   <div className="admin-event-title">
