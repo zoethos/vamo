@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,7 +16,14 @@ export function resolveDefaultProductionPackagePipelineBundleDir(): string {
     return configured;
   }
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, "../../fixtures/imported/vamo-place-intelligence");
+  const sourceLayout = resolve(here, "../../fixtures/imported/vamo-place-intelligence");
+  const distLayout = resolve(here, "../../../fixtures/imported/vamo-place-intelligence");
+  for (const candidate of [sourceLayout, distLayout]) {
+    if (existsSync(resolve(candidate, "pipeline.yaml"))) {
+      return candidate;
+    }
+  }
+  return sourceLayout;
 }
 
 export function loadDefaultProductionPackagePipeline(): {

@@ -13,7 +13,7 @@
 //   npm --workspace @confluendo/ingestion-platform run ip18:production-package-wave -- --wave-key <waveKey>
 //   CONFIRM_CONFLUENDO_PRODUCTION_PACKAGE_WAVE=YES ... npm --workspace @confluendo/ingestion-platform run ip18:production-package-wave -- --execute --approval-audit-id <id>
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,7 +26,48 @@ import { parsePipelineSpec } from "../dist/spec/src/index.js";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
+const webRoot = resolve(packageRoot, "../..");
 const bundleDir = resolve(packageRoot, "fixtures/imported/vamo-place-intelligence");
+
+function importDotEnv(path) {
+  if (!existsSync(path)) {
+    return;
+  }
+  for (const rawLine of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+    const normalized = line.startsWith("export ") ? line.slice("export ".length).trim() : line;
+    const separator = normalized.indexOf("=");
+    if (separator < 1) {
+      continue;
+    }
+    const key = normalized.slice(0, separator).trim();
+    let value = normalized.slice(separator + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+function importLocalEnvironment() {
+  for (const path of [
+    resolve(webRoot, "apps/confluendo-console/.env.local"),
+    resolve(webRoot, ".env.canary.local"),
+    resolve(webRoot, "apps/confluendo-console/.env.canary.local")
+  ]) {
+    importDotEnv(path);
+  }
+}
+
+importLocalEnvironment();
 
 const STAGING_HOST_PATTERN = new RegExp(
   process.env.VAMO_STAGING_HOST_PATTERN ?? "sfwziwcuyctxvidivnsh",
