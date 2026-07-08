@@ -4,7 +4,7 @@ import {
   loadProductionPackageConsumerApplyPreflight,
   parseProductionPackageWaveApplyPreflightQuery
 } from "@confluendo/ingestion-platform/core";
-import { authorizeStagingCanaryRequest } from "@/lib/ingestion-admin-auth";
+import { authorizeIngestionReadRequest } from "@/lib/ingestion-admin-auth";
 
 export const runtime = "nodejs";
 
@@ -22,8 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
 
-  const auth = await authorizeStagingCanaryRequest({
-    request,
+  const auth = await authorizeIngestionReadRequest({
     projectKey: parsed.projectKey
   });
   if (!auth.ok) {
