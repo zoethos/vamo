@@ -4,6 +4,10 @@ import {
   evaluateProductionPackageWaveApproval,
   loadProductionPackageWaveApprovalContext,
   parseProductionPackageWaveApproveRequest,
+  enrichProductionPackageWaveApprovalPlanWithStagedContentHashes,
+  createDefaultProductionPackageWaveCandidateLoader,
+  hashProductionPackageCandidateContent,
+  describeProductionPackageContentEquivalence,
   type EvaluateProductionPackageWaveApprovalResult
 } from "@confluendo/ingestion-platform/core";
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
@@ -99,11 +103,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, decision: "blocked", blocks: decision.blocks }, { status: 409 });
   }
 
+  let enrichedPlan;
+  try {
+    enrichedPlan = await enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
+      plan: decision.plan,
+      queueItemsByUnitKey: Object.fromEntries(snapshot.items.map((item) => [item.unitKey, item])),
+      loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+    });
+  } catch (error) {
+    console.error("Production package-wave staged content hash enrichment failed", error);
+    return NextResponse.json(
+      { ok: false, error: "Failed to compute staged content hashes for approval." },
+      { status: 500 }
+    );
+  }
+
   try {
     const approved = await approveBatchProductionPackageWave({
       connectionString,
       projectKey: parsed.request.projectKey,
-      plan: decision.plan,
+      plan: enrichedPlan,
       actor: auth.actor
     });
 

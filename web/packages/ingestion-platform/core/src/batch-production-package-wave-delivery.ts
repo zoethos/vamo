@@ -28,6 +28,7 @@ import { loadBatchQueueSnapshot } from "./batch-queue-control-read.js";
 import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
 import type { PipelineRunResult, StagedCandidate } from "./pipeline-runner.js";
 import { buildProductionInboxPackage } from "./shipment-package.js";
+import { hashProductionPackageCandidateContent } from "./production-package-content-hash.js";
 
 const DEFAULT_WAVE_CANDIDATE_SCAN_BATCH_SIZE = 1000;
 
@@ -314,6 +315,77 @@ export async function executeBatchProductionPackageWave(
       continue;
     }
 
+    const deliveryContentHash = hashProductionPackageCandidateContent(candidates);
+    const stagedContentHash = waveItem.stagingEvidence?.stagedContentHash?.trim();
+
+    if (!stagedContentHash) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "staged_content_hash_missing",
+        blockMessage: `Staged content hash is missing for unit "${unitPlan.unitKey}".`,
+        contentEvidence: {
+          unitKey: unitPlan.unitKey,
+          stagedContentHash: null,
+          deliveryContentHash
+        },
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
+      unitResults.push({
+        unitKey: unitPlan.unitKey,
+        packageId: unitPlan.packageKey,
+        packageKey: unitPlan.packageKey,
+        checksum: "",
+        itemCount: 0,
+        status: "blocked",
+        idempotentReplay: false,
+        blockCode: "staged_content_hash_missing",
+        blockMessage: `Staged content hash is missing for unit "${unitPlan.unitKey}".`
+      });
+      blockedCount += 1;
+      stop = true;
+      continue;
+    }
+
+    if (stagedContentHash !== deliveryContentHash) {
+      await markProductionPackageUnitBlocked(controlClient, {
+        waveId: plan.waveId,
+        waveItemId: unitPlan.waveItemId,
+        batchPlanId: wave!.batchPlanId,
+        unitKey: unitPlan.unitKey,
+        packageKey: unitPlan.packageKey,
+        blockCode: "staged_content_drift",
+        blockMessage: `Deliverable content drifted for unit "${unitPlan.unitKey}".`,
+        contentEvidence: {
+          unitKey: unitPlan.unitKey,
+          stagedContentHash,
+          deliveryContentHash
+        },
+        actor: input.actor,
+        reason: input.reason,
+        now
+      });
+      unitResults.push({
+        unitKey: unitPlan.unitKey,
+        packageId: unitPlan.packageKey,
+        packageKey: unitPlan.packageKey,
+        checksum: "",
+        itemCount: 0,
+        status: "blocked",
+        idempotentReplay: false,
+        blockCode: "staged_content_drift",
+        blockMessage: `Deliverable content drifted for unit "${unitPlan.unitKey}".`
+      });
+      blockedCount += 1;
+      stop = true;
+      continue;
+    }
+
     const approvedBy =
       typeof wave!.approvedBy?.email === "string" ? wave!.approvedBy.email : input.actor.id;
 
@@ -420,7 +492,8 @@ export async function executeBatchProductionPackageWave(
         reason: input.reason,
         approvalAuditId: plan.approvalAuditId,
         now,
-        delivered
+        delivered,
+        deliveryContentHash
       });
       deliveryAuditId = ledger.deliveryAuditId ?? deliveryAuditId;
     } catch (error) {
@@ -508,6 +581,11 @@ async function markProductionPackageUnitBlocked(
     packageKey: string;
     blockCode: string;
     blockMessage: string;
+    contentEvidence?: {
+      unitKey: string;
+      stagedContentHash: string | null;
+      deliveryContentHash: string;
+    };
     actor: { type: "operator" | "api"; id: string };
     reason: string;
     now: string;
@@ -577,7 +655,8 @@ async function markProductionPackageUnitBlocked(
         unitKey: input.unitKey,
         packageKey: input.packageKey,
         blockCode: input.blockCode,
-        blockMessage: input.blockMessage
+        blockMessage: input.blockMessage,
+        ...(input.contentEvidence ? { contentEvidence: input.contentEvidence } : {})
       }),
       input.now
     ]
@@ -639,6 +718,7 @@ async function recordPackageWaveUnitDelivery(
     approvalAuditId: string | null;
     now: string;
     delivered: ProductionInboxDeliveryResult & { ok: true };
+    deliveryContentHash: string;
   }
 ): Promise<{ deliveryAuditId: string | null }> {
   await client.query("begin");
@@ -700,10 +780,18 @@ async function recordPackageWaveUnitDelivery(
             package_id = $2,
             package_key = $3,
             checksum = $4,
+            staging_evidence = coalesce(staging_evidence, '{}'::jsonb) || $6::jsonb,
             updated_at = $5::timestamptz
         where id = $1::bigint
       `,
-      [input.waveItemId, input.packageId, input.packageKey, input.checksum, input.now]
+      [
+        input.waveItemId,
+        input.packageId,
+        input.packageKey,
+        input.checksum,
+        input.now,
+        JSON.stringify({ deliveryContentHash: input.deliveryContentHash })
+      ]
     );
 
     await client.query(

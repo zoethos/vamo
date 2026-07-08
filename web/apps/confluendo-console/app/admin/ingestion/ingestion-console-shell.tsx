@@ -80,13 +80,15 @@ interface ProductionPackageWavePresentation {
     tone: "neutral" | "good" | "watch" | "danger";
     detail?: string;
   };
-  items?: Array<{
+    items?: Array<{
     unitKey: string;
     runOrder: number;
     status: string;
     packageId?: string | null;
     consumerApplyStatus?: string | null;
     telemetrySource?: string;
+    contentEquivalenceLabel?: string;
+    contentEquivalenceStatus?: "match" | "drift_blocked" | "unavailable";
     statusPresentation: {
       label: string;
       tone: "neutral" | "good" | "watch" | "danger";
@@ -945,7 +947,8 @@ function DeliveryView({
                     <th>Scope</th>
                     <th>Inbox delivery</th>
                     <th>Consumer apply</th>
-                    <th>Package id</th>
+                      <th>Content</th>
+                      <th>Package id</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -957,16 +960,17 @@ function DeliveryView({
                         <code className="admin-evidence-code">{item.unitKey}</code>
                       </td>
                       <td>{item.status}</td>
-                      <td>
-                        {item.statusPresentation.label}
-                        {item.telemetrySource === "missing" &&
-                        (item.status === "delivered" ||
-                          item.status === "production_package_delivered" ||
-                          item.status === "consumer_apply_pending")
-                          ? " (telemetry missing)"
-                          : ""}
-                      </td>
-                      <td>
+                        <td>
+                          {item.statusPresentation.label}
+                          {item.telemetrySource === "missing" &&
+                          (item.status === "delivered" ||
+                            item.status === "production_package_delivered" ||
+                            item.status === "consumer_apply_pending")
+                            ? " (telemetry missing)"
+                            : ""}
+                        </td>
+                        <td>{item.contentEquivalenceLabel ?? "Hash unavailable"}</td>
+                        <td>
                         <code>{item.packageId ?? "—"}</code>
                       </td>
                     </tr>

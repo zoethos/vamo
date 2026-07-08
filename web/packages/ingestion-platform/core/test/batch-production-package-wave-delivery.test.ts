@@ -17,6 +17,7 @@ import {
   VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
   evaluateProductionPackageWaveApproval
 } from "../src/batch-production-package-wave-policy.js";
+import { hashProductionPackageCandidateContent } from "../src/production-package-content-hash.js";
 import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 import type { StagedCandidate } from "../src/pipeline-runner.js";
@@ -510,7 +511,7 @@ describe("executeBatchProductionPackageWave", () => {
           now: FRESH_NOW
         });
         assert.equal(result.blockedCount, 1);
-        assert.equal(result.unitResults[0]?.blockCode, "checksum_mismatch");
+        assert.equal(result.unitResults[0]?.blockCode, "staged_content_drift");
         assert.equal(result.waveStatus, "blocked");
 
         const wave = await client.query<{ status: string }>(
@@ -534,6 +535,53 @@ describe("executeBatchProductionPackageWave", () => {
           [STAGING_UNIT_KEY]
         );
         assert.equal(queue.rows[0]?.status, "production_package_blocked");
+      } finally {
+        await cleanupProductionInbox(client);
+        await client.end();
+      }
+    }
+  );
+
+  it(
+    "blocks staged content drift before any production inbox write",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+
+      try {
+        await resetControlSchema(client);
+        await setupProductionInboxTarget(client);
+        const approved = await seedApprovedProductionPackageWave(client, { now: FRESH_NOW });
+
+        const mismatched = deliveryCandidates();
+        mismatched[0]!.payload.location_canonicals = {
+          ...(mismatched[0]!.payload.location_canonicals as Record<string, unknown>),
+          display_name: "Different Name"
+        };
+
+        const result = await executeBatchProductionPackageWave({
+          controlClient: client,
+          productionInboxConnectionString: databaseUrl,
+          projectKey: "vamo",
+          targetEnvironment: "production",
+          waveKey: approved.waveKey,
+          execute: true,
+          actor: { type: "operator", id: "delivery-smoke" },
+          reason: "staged content drift attempt",
+          proveProduction: () => true,
+          deps: { loadCandidates: async () => mismatched },
+          now: FRESH_NOW
+        });
+        assert.equal(result.blockedCount, 1);
+        assert.equal(result.unitResults[0]?.blockCode, "staged_content_drift");
+        assert.equal(result.waveStatus, "blocked");
+
+        const inboxCount = await client.query<{ count: string }>(
+          `select count(*)::text as count from confluendo_inbox.shipments`
+        );
+        assert.equal(inboxCount.rows[0]?.count, "0");
       } finally {
         await cleanupProductionInbox(client);
         await client.end();
@@ -616,13 +664,21 @@ async function seedApprovedProductionPackageWave(
   assert.equal(decision.ok, true);
   if (!decision.ok) throw new Error("approval should pass");
 
+  const stagedContentHash = hashProductionPackageCandidateContent(deliveryCandidates());
   const approved = await approveBatchProductionPackageWave({
     client,
     projectKey: "vamo",
     plan: {
       ...decision.plan,
       approvedAt,
-      approvalExpiresAt
+      approvalExpiresAt,
+      selectedUnits: decision.plan.selectedUnits.map((selected) => ({
+        ...selected,
+        stagingEvidence: {
+          ...selected.stagingEvidence,
+          stagedContentHash
+        }
+      }))
     },
     actor: { type: "operator", id: "approval-smoke" },
     now: approvedAt

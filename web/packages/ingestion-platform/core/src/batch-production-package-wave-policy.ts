@@ -49,7 +49,9 @@ export type BatchProductionPackageWaveBlockCode =
   | "dry_run_evidence_drift"
   | "staging_evidence_drift"
   | "schema_contract_drift"
-  | "checksum_incompatible";
+  | "checksum_incompatible"
+  | "staged_content_drift"
+  | "staged_content_hash_missing";
 
 export interface BatchProductionPackageWaveBlock {
   code: BatchProductionPackageWaveBlockCode;
@@ -71,6 +73,8 @@ export interface ProductionPackageStagingEvidence {
   shipmentKey?: string;
   shipmentId?: string;
   checksum?: string;
+  stagedContentHash?: string;
+  deliveryContentHash?: string;
 }
 
 export interface ProductionPackageWaveSelectedUnit {

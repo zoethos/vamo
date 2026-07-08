@@ -367,27 +367,20 @@ Live proof (2026-07-07):
   role RLS policies, and the control-plane queue row advanced to
   `consumer_applied`.
 
-### Pre-volume-ramp hardening — staged-content hash (required before ramp)
+### IP-18.6.5 - Delivery content equivalence (implemented)
 
-IP-18.6.4 does **not** implement staged-content hash evidence. The current
-`staging_evidence` model stores staging shipment key/id/status and optional
-returned package checksum from the staging-canary path, but it does not capture
-a hash of the staged candidate payloads at approval time or compare that hash at
-delivery time.
+- Pure `hashProductionPackageCandidateContent()` over deliverable candidate
+  payloads (same normalization as IP-17 package assembly).
+- Approval path computes `stagedContentHash` server-side per unit and persists
+  it on `ingestion_batch_production_package_wave_items.staging_evidence`.
+- Delivery recomputes `deliveryContentHash` before the IP-17 inbox adapter;
+  blocks on mismatch or missing staged hash with IP-18.6.4 blocked-state
+  persistence and audit evidence (`stagedContentHash`, `deliveryContentHash`,
+  `unitKey`).
+- Delivery view surfaces **Content match**, **Content drift blocked**, or
+  **Hash unavailable**.
 
-Before widening production package volume:
-
-1. Record a staged-content hash on each wave item at approval (from the same
-   candidate payload set used for dry-run/staging proof).
-2. Recompute and compare that hash immediately before delivery; block when
-   staged content drifted since approval.
-3. Keep Postgres-side package checksum authority unchanged for inbox delivery.
-
-This is intentionally deferred from IP-18.6.4 because it belongs in the
-approval/delivery policy path (IP-18.6.1/18.6.3), not the read-only apply
-telemetry slice.
-
-### IP-18.6.5 - Autonomy Hook
+### IP-18.6.6 - Autonomy Hook
 
 - Allow autonomy to advance production package phases only when explicitly
   permitted by policy.

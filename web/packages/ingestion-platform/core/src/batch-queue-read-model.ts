@@ -143,6 +143,8 @@ export interface BatchQueueLatestProductionPackageWaveItem {
   consumerApplyStatus?: string | null;
   applyEvidence?: Record<string, unknown> | null;
   telemetrySource?: "control" | "inbox" | "missing";
+  contentEquivalenceStatus?: "match" | "drift_blocked" | "unavailable";
+  contentEquivalenceLabel?: string;
   blockers: string[];
 }
 
