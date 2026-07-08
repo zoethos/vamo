@@ -1489,15 +1489,20 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.6.6 — Autonomy Hook** should be the next implementation slice.
-IP-18.6.5 landed staged/delivery content-hash equivalence at approval and
-delivery (see [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)).
+**IP-18.6.6 — Consumer Apply Control** should be the next implementation
+slice. IP-18.6.5 proved staged/delivery content-hash equivalence through live
+package wave `62`, but the final Vamo-owned apply step still required a manual
+SQL runbook. That should become an admin-console/API control before autonomy
+is allowed to advance production handoff.
 
 Previously recommended:
 
 - **IP-18.6.5 — Delivery content equivalence** — **done** — deterministic
   `stagedContentHash` at approval, recompute/compare before inbox delivery,
-  blocked-state persistence, Delivery view evidence labels.
+  blocked-state persistence, Delivery view evidence labels. Live proof:
+  approval `62` -> delivery audit `63` -> package
+  `batch-production-inbox:vamo-eu-poi-sample:wave:62:unit:vamo-place-intelligence:barcelona-spain:landmark`
+  -> Vamo apply marked both inbox items `applied`.
 - **IP-18.6.4 — Apply Telemetry** — **done** — read-only inbox polling,
   control-plane mirror, dashboard states, persisted delivery blocks. Live proof
   required explicit RLS `SELECT` policies for the pooler login role
@@ -1608,9 +1613,15 @@ Recommended implementation split:
   policies, and advanced the queue row to `consumer_applied`.
 - **IP-18.6.5** — **done** — delivery content equivalence hardening:
   `stagedContentHash` on wave-item `staging_evidence`, compare before IP-17
-  inbox write, block with audit evidence on drift.
-- **IP-18.6.6** — autonomy hook after package waves, apply telemetry, and
-  content equivalence are proven.
+  inbox write, block with audit evidence on drift. Live proof: package wave
+  `62` delivered and applied `fsq_barcelona_gothic_quarter_landmark` as
+  `fsq-barcelona-gothic-quarter-landmark` / `Gothic Quarter`.
+- **IP-18.6.6** — **next** — Consumer Apply Control. Replace manual SQL apply
+  runbooks with an admin + AAL2 + fresh-step-up console/API action that calls
+  only Vamo's existing `confluendo_inbox.apply_confluendo_shipment(...)`
+  boundary, then refreshes apply telemetry.
+- **IP-18.6.7** — autonomy hook after package waves, apply telemetry, content
+  equivalence, and consumer apply control are proven.
 
 ### IP-18.7.4+ — recommended next
 

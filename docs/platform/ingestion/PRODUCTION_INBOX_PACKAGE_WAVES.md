@@ -1,8 +1,10 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.4 apply telemetry implemented** — read-only inbox polling,
-control-plane mirror, and dashboard apply states (2026-07-07). IP-18.6.3
-delivery CLI is live-proven. Consumer apply execution remains Vamo-owned.
+Status: **IP-18.6.5 delivery content equivalence implemented and live-proven**
+— package wave `62` proved staged/delivery content hashing through inbox
+delivery and Vamo apply (2026-07-08). Consumer apply execution remains
+Vamo-owned, but the manual SQL runbook needs to be replaced by IP-18.6.6
+Consumer Apply Control before autonomy advances production handoff.
 
 ## Purpose
 
@@ -379,13 +381,41 @@ Live proof (2026-07-07):
   `unitKey`).
 - Delivery view surfaces **Content match**, **Content drift blocked**, or
   **Hash unavailable**.
+- Live proof (2026-07-08): fresh approval `62` for
+  `vamo-place-intelligence:barcelona-spain:landmark` computed staged content
+  evidence, delivery audit `63` delivered package
+  `batch-production-inbox:vamo-eu-poi-sample:wave:62:unit:vamo-place-intelligence:barcelona-spain:landmark`
+  with checksum
+  `9b92d391d3defca23c70a93c6862bf05dc87793a5d59bdebc8804feef8c0f9ac`.
+  Vamo-owned apply marked both inbox items `applied` at
+  `2026-07-08 21:34:55.807946+00` and landed
+  `fsq_barcelona_gothic_quarter_landmark` as
+  `fsq-barcelona-gothic-quarter-landmark` / `Gothic Quarter`,
+  `feature_type=landmark`, `promotion_state=seeded`.
 
-### IP-18.6.6 - Autonomy Hook
+### IP-18.6.6 - Consumer Apply Control
+
+- Replace manual SQL apply runbooks with a confirmation-gated console/API
+  action for delivered production inbox packages.
+- Require admin + verified AAL2 + fresh MFA step-up + audit reason.
+- Call only the Vamo-owned
+  `confluendo_inbox.apply_confluendo_shipment(package_id, approved_by, reason)`
+  boundary. Confluendo TypeScript must not write Vamo product tables directly.
+- Use a server-only apply credential; browser receives no DB credentials. The
+  apply credential should be distinct from the production inbox writer and the
+  read-only telemetry credential.
+- Preflight and result views must show package id, checksum, item count,
+  current inbox status, item apply status, returned apply JSON, and
+  `apply_log` evidence on failure.
+- Refresh read-only apply telemetry after apply so the control plane and
+  dashboard move to `consumer_applied` or `consumer_apply_failed`.
+
+### IP-18.6.7 - Autonomy Hook
 
 - Allow autonomy to advance production package phases only when explicitly
   permitted by policy.
-- Keep first production package wave conservative until live telemetry warrants
-  widening.
+- Keep autonomy blocked from production handoff until Consumer Apply Control is
+  implemented and live-proven.
 
 ## First Live Vamo Run
 
@@ -406,10 +436,28 @@ The first live IP-18.6 Vamo run completed on 2026-07-07:
 
 This is a production-volume ramp proof, not the final EU corpus rollout.
 
+The second live IP-18.6 proof completed on 2026-07-08 and specifically proved
+IP-18.6.5 content equivalence:
+
+- one staging-proven unit: `vamo-place-intelligence:barcelona-spain:landmark`;
+- fresh production package approval: audit id `62`;
+- confirmation-gated production inbox delivery: delivery audit id `63`;
+- package:
+  `batch-production-inbox:vamo-eu-poi-sample:wave:62:unit:vamo-place-intelligence:barcelona-spain:landmark`;
+- package checksum:
+  `9b92d391d3defca23c70a93c6862bf05dc87793a5d59bdebc8804feef8c0f9ac`;
+- Vamo-owned apply returned `consumer_applied`, `applied=2`, `skipped=0`,
+  `rejected=0`;
+- inbox items `location_canonicals:fsq-barcelona-gothic-quarter-landmark` and
+  `location_source_refs:fsq_os_places:fsq_barcelona_gothic_quarter_landmark`
+  both moved to `applied`;
+- product proof after apply: `fsq_barcelona_gothic_quarter_landmark` landed as
+  `fsq-barcelona-gothic-quarter-landmark` / `Gothic Quarter`,
+  `feature_type=landmark`, `promotion_state=seeded`.
+
 ## Safety Statement
 
-IP-18.6 design does not execute production delivery. Future implementation must
-preserve:
+IP-18.6 implementation and future production-handoff slices must preserve:
 
 - no provider calls during package delivery;
 - no Vamo staging writes;
