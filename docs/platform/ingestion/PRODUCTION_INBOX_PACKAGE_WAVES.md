@@ -395,20 +395,26 @@ Live proof (2026-07-07):
 
 ### IP-18.6.6 - Consumer Apply Control
 
+Status: **implemented**.
+
 - Replace manual SQL apply runbooks with a confirmation-gated console/API
   action for delivered production inbox packages.
 - Require admin + verified AAL2 + fresh MFA step-up + audit reason.
 - Call only the Vamo-owned
   `confluendo_inbox.apply_confluendo_shipment(package_id, approved_by, reason)`
   boundary. Confluendo TypeScript must not write Vamo product tables directly.
-- Use a server-only apply credential; browser receives no DB credentials. The
-  apply credential should be distinct from the production inbox writer and the
-  read-only telemetry credential.
-- Preflight and result views must show package id, checksum, item count,
-  current inbox status, item apply status, returned apply JSON, and
+- Use a server-only apply credential (`VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL`);
+  browser receives no DB credentials. The apply credential is distinct from the
+  production inbox writer (`VAMO_PRODUCTION_INBOX_DATABASE_URL`) and the
+  read-only telemetry credential (`VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL`).
+- Least-privilege DB role `confluendo_inbox_apply` with `EXECUTE` on
+  `apply_confluendo_shipment` and `SELECT` on inbox tables for preflight/result
+  display (`20260708120000_confluendo_inbox_apply_executor.sql`).
+- Preflight and result views show package id, checksum, item count, target
+  tables, current inbox status, item apply status, returned apply JSON, and
   `apply_log` evidence on failure.
-- Refresh read-only apply telemetry after apply so the control plane and
-  dashboard move to `consumer_applied` or `consumer_apply_failed`.
+- After apply, dashboard refresh reloads read-only apply telemetry so the
+  control plane moves to `consumer_applied` or `consumer_apply_failed`.
 
 ### IP-18.6.7 - Autonomy Hook
 
