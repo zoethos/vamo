@@ -398,6 +398,26 @@ export {
   type ProductionPackageWaveApproveRequest
 } from "./batch-production-package-wave-approve-request.js";
 export {
+  parseProductionPackageWaveApplyPreflightQuery,
+  parseProductionPackageWaveApplyRequest,
+  type ProductionPackageWaveApplyRequest
+} from "./batch-production-package-wave-apply-request.js";
+export {
+  evaluateProductionPackageConsumerApply,
+  evaluateProductionPackageConsumerApplyPreflight,
+  countAppliedItems,
+  type EvaluateProductionPackageConsumerApplyInput,
+  type EvaluateProductionPackageConsumerApplyResult,
+  type ProductionPackageConsumerApplyBlock,
+  type ProductionPackageConsumerApplyBlockCode
+} from "./batch-production-package-wave-consumer-apply-policy.js";
+export {
+  executeProductionPackageConsumerApply,
+  loadProductionPackageConsumerApplyPreflight,
+  type ExecuteProductionPackageConsumerApplyInput,
+  type ExecuteProductionPackageConsumerApplyResult
+} from "./batch-production-package-wave-consumer-apply.js";
+export {
   describeProductionPackageWaveStatus,
   describeProductionPackageContentEquivalence,
   summarizeProductionPackageWaveDashboard,

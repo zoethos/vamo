@@ -24,6 +24,7 @@ import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
+import { ProductionPackageConsumerApplyControl } from "./production-package-consumer-apply-control";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 import {
@@ -979,6 +980,21 @@ function DeliveryView({
               </table>
             </div>
           ) : null}
+          {latestProductionPackageWave?.items
+            ?.filter((item) => isConsumerApplyEligible(item))
+            .map((item) => (
+              <ProductionPackageConsumerApplyControl
+                key={`apply-${item.unitKey}`}
+                projectKey={batchQueue.projectKey}
+                packageId={item.packageId ?? ""}
+                unitKey={item.unitKey}
+                shipmentStatus={
+                  item.consumerApplyStatus === "pending" ? "production_inbox_delivered" : item.status
+                }
+                pendingItemCount={item.consumerApplyStatus === "pending" ? 1 : undefined}
+                context={batchContext}
+              />
+            ))}
         </>
       ) : (
         <p className="admin-ux-empty">No delivery batches recorded yet.</p>
@@ -1006,6 +1022,25 @@ function DeliveryView({
         </article>
       </div>
     </section>
+  );
+}
+
+function isConsumerApplyEligible(item: {
+  packageId?: string | null;
+  status: string;
+  consumerApplyStatus?: string | null;
+}): boolean {
+  if (!item.packageId) {
+    return false;
+  }
+  if (item.consumerApplyStatus === "applied" || item.consumerApplyStatus === "failed") {
+    return false;
+  }
+  return (
+    item.consumerApplyStatus === "pending" ||
+    item.status === "delivered" ||
+    item.status === "production_package_delivered" ||
+    item.status === "consumer_apply_pending"
   );
 }
 

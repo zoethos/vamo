@@ -34,6 +34,18 @@ export {
   type ReadProductionInboxApplyTelemetryResult
 } from "./postgres-production-inbox-telemetry.js";
 export {
+  applyPostgresProductionInboxPackage,
+  readPostgresProductionInboxApplyPreflight,
+  type ApplyPostgresProductionInboxPackageInput,
+  type ApplyPostgresProductionInboxPackageResult,
+  type ProductionInboxApplyBlockCode,
+  type ProductionInboxApplyItemPreflight,
+  type ProductionInboxApplyPreflight,
+  type ProductionInboxApplyResultPayload,
+  type ReadProductionInboxApplyPreflightInput,
+  type ReadProductionInboxApplyPreflightResult
+} from "./postgres-production-inbox-apply.js";
+export {
   evaluateSupabaseTargetSpecSecurity,
   hasBlockingSupabaseSecurityFindings,
   inspectSupabaseTargetSecurity,
