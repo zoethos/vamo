@@ -300,9 +300,6 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
         />
       ) : null}
 
-      <p className="provider-backlink admin-backlink">
-        <Link href="/admin/providers">Back to provider control</Link>
-      </p>
     </main>
   );
 }
