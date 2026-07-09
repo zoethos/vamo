@@ -46,6 +46,7 @@ interface PolicyRow extends Record<string, unknown> {
   guardThresholds: Record<string, unknown>;
   productionInboxHandoffPolicy: Record<string, unknown>;
   policyVersion: number;
+  rampMode: string | null;
   approvedBy: string | null;
   approvedAuditId: string | null;
   approvalReason: string | null;
@@ -174,6 +175,7 @@ async function loadActivePolicy(
         ap.guard_thresholds as "guardThresholds",
         ap.production_inbox_handoff_policy as "productionInboxHandoffPolicy",
         ap.policy_version as "policyVersion",
+        to_jsonb(ap)->>'ramp_mode' as "rampMode",
         ap.approved_by as "approvedBy",
         ap.approved_audit_id as "approvedAuditId",
         ap.approval_reason as "approvalReason",

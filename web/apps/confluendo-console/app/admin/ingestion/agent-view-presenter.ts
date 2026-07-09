@@ -134,8 +134,10 @@ export function presentAgentGuardrails(view: AutonomyDashboardView): AgentGuardr
     },
     {
       label: "Cycle bounds",
-      value: `${policy.maxUnitsPerCycle} scopes / ${policy.maxRowsPerCycle} target writes`,
-      detail: `This cycle applies ${view.nextCycle.maxUnitsApplied} scopes · ${view.nextCycle.maxRowsApplied} target writes`
+      value: `${policy.effectiveMaxUnitsPerCycle} scopes / ${policy.effectiveMaxRowsPerCycle} target writes`,
+      detail:
+        `Configured ceiling: ${policy.maxUnitsPerCycle} scopes / ${policy.maxRowsPerCycle} target writes. ` +
+        `This cycle applies ${view.nextCycle.maxUnitsApplied} scopes · ${view.nextCycle.maxRowsApplied} target writes.`
     },
     handoff,
     consumerApply

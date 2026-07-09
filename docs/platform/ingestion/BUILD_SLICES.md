@@ -1489,14 +1489,13 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.7.4 — Operator-controlled autonomy run surface and ramp controls** is
-the next product slice. Start with the Agent tab run-surface clarity: the console
-shows preview/status and copyable manual ops commands; a trusted ops runtime or
-scheduler executes cycles; Delivery owns production package delivery and
-Apply-to-Vamo controls. Then add operator-controlled ramp promotion
-(`bootstrap` -> `staging_ramp` -> `volume_ramp`) with DB-guarded mutation,
-effective bounds enforcement, and audit evidence. Hosted scheduler work follows
-as IP-18.7.5.
+**IP-18.7.4 — Operator-controlled autonomy ramp console controls** is the next
+product slice. The foundation PR has added the `ramp_mode` policy column,
+audited `promote_autonomy_ramp(...)` SECURITY DEFINER function, app-role
+EXECUTE-only grant, and executor effective-bound enforcement. Next, add the
+operator-facing console card/route: admin + fresh AAL2, typed confirmation,
+readiness evidence, promote-to-next only, and unconditional demote/pause.
+Hosted scheduler work follows as IP-18.7.5.
 
 Previously recommended:
 
@@ -1586,6 +1585,31 @@ Scope:
 - Keep the scheduler control-plane-only; it composes existing approved
   transitions and does not introduce a target write path.
 
+### IP-18.7.4 — foundation implemented (operator ramp promotion)
+
+Status: **foundation implemented** — control-plane schema/function and executor
+enforcement only; console controls are the follow-up PR.
+
+Landed:
+
+- `ingestion_autonomy_policies.ramp_mode` with CHECKed modes and backfill from
+  legacy `summary.rampMode` / `summary.ramp.mode`.
+- `ingestion_platform.promote_autonomy_ramp(...)` as the only app-callable
+  mutation: transition-legal, optimistic-concurrency guarded, audit/event
+  atomic, and `steady_state` locked.
+- `confluendo_app` receives EXECUTE on the function, but no UPDATE grant on
+  `ingestion_autonomy_policies`.
+- Executor effective bounds:
+  `min(owner-approved policy ceiling, active ramp profile cap)`.
+- Run keys include `ramp:<mode>` so mode changes refresh idempotency without a
+  policy-version bump.
+- Pure promotion policy now distinguishes promotion from demotion: widening
+  requires admin operator + fresh AAL2 + no active blockers; narrowing can be
+  done immediately with audit reason.
+
+Next PR: `/admin/ingestion` ramp card and API route that call the function only
+after app-layer auth/readiness checks.
+
 ### IP-18.6.0 — design ready (production inbox package waves)
 
 Status: **design ready** — [PRODUCTION_INBOX_PACKAGE_WAVES.md](./PRODUCTION_INBOX_PACKAGE_WAVES.md)
@@ -1645,9 +1669,8 @@ Scope:
 - Clarify the Agent tab run surface: console = preview/status/runbook; trusted
   ops runtime = executes one bounded cycle; Delivery tab = production package
   delivery and Apply-to-Vamo gates.
-- Operator-controlled ramp promotion (`bootstrap` -> `staging_ramp` ->
-  `volume_ramp`) in the admin console, with DB-guarded mutation and effective
-  bounds enforcement.
+- Operator-controlled ramp promotion card in the admin console, calling the
+  already-landed DB-guarded function with app-layer auth/readiness checks.
 - Hosted cron/daemon wrapper for `ip18:autonomy-scheduler` with external
   monitoring and alerting, after the operator run surface is clear.
 - Autonomous corrective actions when explicitly allowed by policy.

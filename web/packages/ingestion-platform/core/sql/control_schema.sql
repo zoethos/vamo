@@ -890,6 +890,7 @@ create table if not exists ingestion_platform.ingestion_autonomy_policies (
   source_key text not null,
   target_key text not null,
   target_environment text not null,
+  ramp_mode text not null default 'bootstrap',
   status text not null default 'paused',
   allowed_tiers jsonb not null default '[]'::jsonb,
   allowed_geographies jsonb not null default '[]'::jsonb,
@@ -913,6 +914,9 @@ create table if not exists ingestion_platform.ingestion_autonomy_policies (
   ),
   constraint ingestion_autonomy_policies_status_check check (
     status in ('active', 'paused', 'disabled', 'archived')
+  ),
+  constraint ingestion_autonomy_policies_ramp_mode_check check (
+    ramp_mode in ('bootstrap', 'staging_ramp', 'volume_ramp', 'steady_state')
   ),
   constraint ingestion_autonomy_policies_max_units_positive check (max_units_per_cycle > 0),
   constraint ingestion_autonomy_policies_max_rows_positive check (max_rows_per_cycle > 0),
@@ -941,6 +945,27 @@ create table if not exists ingestion_platform.ingestion_autonomy_policies (
     jsonb_typeof(summary) = 'object'
   )
 );
+
+alter table ingestion_platform.ingestion_autonomy_policies
+  add column if not exists ramp_mode text not null default 'bootstrap';
+
+alter table ingestion_platform.ingestion_autonomy_policies
+  drop constraint if exists ingestion_autonomy_policies_ramp_mode_check;
+
+alter table ingestion_platform.ingestion_autonomy_policies
+  add constraint ingestion_autonomy_policies_ramp_mode_check check (
+    ramp_mode in ('bootstrap', 'staging_ramp', 'volume_ramp', 'steady_state')
+  );
+
+update ingestion_platform.ingestion_autonomy_policies
+set ramp_mode = coalesce(summary->>'rampMode', summary->'ramp'->>'mode')
+where ramp_mode = 'bootstrap'
+  and coalesce(summary->>'rampMode', summary->'ramp'->>'mode') in (
+    'bootstrap',
+    'staging_ramp',
+    'volume_ramp',
+    'steady_state'
+  );
 
 -- IP-18.7: append-mostly autonomy cycle ledger joining policy, queue units,
 -- dry-run executions, staging waves, and future production packages.
@@ -1013,5 +1038,174 @@ create index if not exists ingestion_autonomy_runs_run_key_idx
 
 create index if not exists ingestion_autonomy_runs_created_at_idx
   on ingestion_platform.ingestion_autonomy_runs (created_at desc);
+
+create or replace function ingestion_platform.promote_autonomy_ramp(
+  p_project_key text,
+  p_policy_key text,
+  p_expected_current_mode text,
+  p_requested_mode text,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_allowed_modes constant text[] := array['bootstrap', 'staging_ramp', 'volume_ramp', 'steady_state'];
+  v_project_id bigint;
+  v_policy_id bigint;
+  v_policy_version integer;
+  v_current_mode text;
+  v_expected_rank integer;
+  v_requested_rank integer;
+  v_direction integer;
+  v_audit_id bigint;
+  v_event_type text;
+  v_action text;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_policy_key := nullif(btrim(p_policy_key), '');
+  p_expected_current_mode := nullif(btrim(p_expected_current_mode), '');
+  p_requested_mode := nullif(btrim(p_requested_mode), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_policy_key is null then
+    raise exception 'missing_policy_identity';
+  end if;
+
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+
+  v_expected_rank := array_position(v_allowed_modes, p_expected_current_mode);
+  v_requested_rank := array_position(v_allowed_modes, p_requested_mode);
+
+  if v_expected_rank is null or v_requested_rank is null then
+    raise exception 'unknown_mode';
+  end if;
+
+  if p_expected_current_mode = p_requested_mode then
+    raise exception 'same_mode';
+  end if;
+
+  v_direction := v_requested_rank - v_expected_rank;
+
+  if v_direction > 0 and p_requested_mode = 'steady_state' then
+    raise exception 'steady_state_locked';
+  end if;
+
+  if v_direction > 1 then
+    raise exception 'skips_required_ramp';
+  end if;
+
+  select
+    p.id,
+    ap.id,
+    ap.policy_version,
+    ap.ramp_mode
+  into
+    v_project_id,
+    v_policy_id,
+    v_policy_version,
+    v_current_mode
+  from ingestion_platform.ingestion_autonomy_policies ap
+  join ingestion_platform.ingestion_projects p on p.id = ap.project_id
+  where p.project_key = p_project_key
+    and ap.policy_key = p_policy_key
+  for update of ap;
+
+  if v_policy_id is null then
+    raise exception 'policy_not_found';
+  end if;
+
+  if v_current_mode <> p_expected_current_mode then
+    raise exception 'ramp_mode_conflict';
+  end if;
+
+  update ingestion_platform.ingestion_autonomy_policies
+  set ramp_mode = p_requested_mode,
+      updated_at = now()
+  where id = v_policy_id;
+
+  v_action := case when v_direction > 0 then 'promote_autonomy_ramp' else 'demote_autonomy_ramp' end;
+  v_event_type := case when v_direction > 0 then 'autonomy.ramp.promoted' else 'autonomy.ramp.demoted' end;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id,
+    actor_type,
+    actor_id,
+    action,
+    target_type,
+    target_id,
+    reason,
+    payload
+  )
+  values (
+    v_project_id,
+    p_actor_type,
+    p_actor_id,
+    v_action,
+    'autonomy_policy',
+    v_policy_id::text,
+    p_audit_reason,
+    jsonb_build_object(
+      'policyKey', p_policy_key,
+      'policyVersion', v_policy_version,
+      'fromMode', p_expected_current_mode,
+      'toMode', p_requested_mode
+    )
+  )
+  returning id into v_audit_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id,
+    event_type,
+    severity,
+    signal,
+    message,
+    payload
+  )
+  values (
+    v_project_id,
+    v_event_type,
+    'info',
+    'autonomy_ramp',
+    format('Autonomy ramp changed from %s to %s for %s', p_expected_current_mode, p_requested_mode, p_policy_key),
+    jsonb_build_object(
+      'policyKey', p_policy_key,
+      'policyVersion', v_policy_version,
+      'fromMode', p_expected_current_mode,
+      'toMode', p_requested_mode,
+      'auditId', v_audit_id::text
+    )
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'policyId', v_policy_id::text,
+    'fromMode', p_expected_current_mode,
+    'toMode', p_requested_mode,
+    'auditId', v_audit_id::text
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.promote_autonomy_ramp(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text
+) from public;
 
 commit;

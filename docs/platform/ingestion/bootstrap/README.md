@@ -96,6 +96,9 @@ grant insert, update on ingestion_platform.ingestion_batch_dry_run_executions to
 grant insert, update on ingestion_platform.ingestion_batch_canary_waves to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_batch_canary_wave_items to confluendo_app;
 grant insert, update on ingestion_platform.ingestion_autonomy_runs to confluendo_app;
+grant execute on function ingestion_platform.promote_autonomy_ramp(
+  text, text, text, text, text, text, text
+) to confluendo_app;
 
 grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
@@ -104,7 +107,9 @@ grant usage, select on all sequences in schema ingestion_platform to confluendo_
 IP-18.7 autonomy foundation: `ingestion_autonomy_policies` is **SELECT** only via
 the blanket `grant select on all tables` (policy authoring remains owner-run).
 `ingestion_autonomy_runs` receives `INSERT`/`UPDATE` for future agent cycles.
-Neither table receives `DELETE` grants.
+Neither table receives `DELETE` grants. IP-18.7.4 adds the app-callable
+`promote_autonomy_ramp(...)` function for audited ramp changes, but still no
+direct `UPDATE` grant on `ingestion_autonomy_policies`.
 
 These are Confluendo **control-plane** grants only. They do not grant
 Confluendo any write access to Vamo production, and they do not replace the

@@ -390,8 +390,8 @@ function OverviewView({
           {autonomyView.policy ? (
             <p>
               Operating policy: {autonomyView.policy.policyKey} · {autonomyView.policy.rampLabel} ·
-              max {autonomyView.policy.maxUnitsPerCycle} scopes /{" "}
-              {autonomyView.policy.maxRowsPerCycle} rows per cycle
+              max {autonomyView.policy.effectiveMaxUnitsPerCycle} scopes /{" "}
+              {autonomyView.policy.effectiveMaxRowsPerCycle} rows per cycle
             </p>
           ) : (
             <p>No active operating policy.</p>

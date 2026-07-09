@@ -16,6 +16,10 @@ import {
   type EvaluateAutonomyCycleResult
 } from "./autonomy-policy.js";
 import {
+  applyRampProfileToEnvelope,
+  type EffectiveAutonomyRampEnvelope
+} from "./autonomy-ramp-policy.js";
+import {
   loadAutonomyPolicy,
   type AutonomyControlReadPgClientLike
 } from "./autonomy-control-read.js";
@@ -63,6 +67,8 @@ export interface AutonomyCycleContext {
   runKey: string;
   executionChannel: AutonomyExecutionChannel;
   rollingCounts: AutonomyRollingCounts;
+  ownerCeiling?: EffectiveAutonomyRampEnvelope["ownerCeiling"];
+  profileCaps?: EffectiveAutonomyRampEnvelope["profileCaps"];
 }
 
 export interface AutonomyCycleBaseInput {
@@ -141,6 +147,7 @@ export function buildAutonomyRunKey(
     "autonomy",
     policy.policyKey,
     `v${policy.policyVersion}`,
+    `ramp:${policy.rampMode ?? "bootstrap"}`,
     evaluation.phase,
     evaluation.requiredAction,
     units || "none",
@@ -453,10 +460,12 @@ async function loadAutonomyCycleContext(
       targetKey: policy.targetKey
     });
 
-    const rollingCounts = await loadRollingCounts(client, policy.policyId);
+    const rampEnvelope = applyRampProfileToEnvelope(policy);
+    const effectivePolicy = rampEnvelope.effective;
+    const rollingCounts = await loadRollingCounts(client, effectivePolicy.policyId);
     const actor: BatchControlActor = { type: "autonomous_agent", id: input.agentId };
     const evaluation = evaluateAutonomyCycle({
-      policy,
+      policy: effectivePolicy,
       queueSnapshot,
       latestDryRunExecution: queueSnapshot?.latestExecution,
       latestStagingWave: queueSnapshot?.latestWave,
@@ -467,16 +476,18 @@ async function loadAutonomyCycleContext(
     });
 
     const executionChannel = resolveAutonomyExecutionChannel(evaluation, queueSnapshot);
-    const runKey = buildAutonomyRunKey(policy, evaluation, executionChannel, input.now);
+    const runKey = buildAutonomyRunKey(effectivePolicy, evaluation, executionChannel, input.now);
 
     return {
       projectKey: input.projectKey,
-      policy,
+      policy: effectivePolicy,
       queueSnapshot,
       evaluation,
       runKey,
       executionChannel,
-      rollingCounts
+      rollingCounts,
+      ownerCeiling: rampEnvelope.ownerCeiling,
+      profileCaps: rampEnvelope.profileCaps
     };
   } finally {
     await closeClient(ownedClient);
