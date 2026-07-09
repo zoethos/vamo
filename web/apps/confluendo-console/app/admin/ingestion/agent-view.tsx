@@ -11,6 +11,7 @@ import {
   humanizeAutonomyRunStatus,
   presentAgentGuardrails,
   presentAgentPrimaryAction,
+  presentAgentRunSurfaces,
   presentAgentWorkflowStatus,
   truncateEvidenceKey
 } from "./agent-view-presenter";
@@ -30,6 +31,7 @@ export function AgentView({
   const workflow = presentAgentWorkflowStatus(autonomyView);
   const primaryAction = presentAgentPrimaryAction(autonomyView);
   const guardrails = presentAgentGuardrails(autonomyView);
+  const runSurfaces = presentAgentRunSurfaces();
   const selectedUnitKeys = autonomyView.nextCycle.selectedUnitKeys;
   const latestRun = autonomyView.latestRun;
   const rampWarnings = autonomyView.policy?.rampWarnings ?? [];
@@ -72,11 +74,33 @@ export function AgentView({
           </div>
         </dl>
         {primaryAction.cliCommand ? (
-          <CopyableCommandBlock command={primaryAction.cliCommand} />
+          <>
+            <p className="admin-agent-uex-command-note">
+              Copy this into a trusted ops shell. The browser never executes this command.
+            </p>
+            <CopyableCommandBlock command={primaryAction.cliCommand} />
+          </>
         ) : null}
         {primaryAction.runbookNote ? (
           <p className="admin-agent-uex-runbook-note">{primaryAction.runbookNote}</p>
         ) : null}
+      </section>
+
+      <section className="admin-agent-uex-panel" aria-labelledby="agent-run-surfaces-heading">
+        <div className="admin-agent-uex-panel-header">
+          <h3 id="agent-run-surfaces-heading">How this runs</h3>
+        </div>
+        <dl className="admin-agent-uex-run-surfaces">
+          {runSurfaces.map((surface) => (
+            <div key={surface.label}>
+              <dt>{surface.label}</dt>
+              <dd>
+                <strong>{surface.value}</strong>
+                <span>{surface.detail}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
       <section className="admin-agent-uex-panel" aria-labelledby="agent-guardrails-heading">

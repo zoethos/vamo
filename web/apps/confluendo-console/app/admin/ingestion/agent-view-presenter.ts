@@ -26,6 +26,12 @@ export interface AgentGuardrailRow {
   detail?: string;
 }
 
+export interface AgentRunSurfaceRow {
+  label: string;
+  value: string;
+  detail: string;
+}
+
 export function presentAgentWorkflowStatus(view: AutonomyDashboardView): AgentWorkflowStatus {
   const { nextCycle, latestRun } = view;
 
@@ -133,6 +139,29 @@ export function presentAgentGuardrails(view: AutonomyDashboardView): AgentGuardr
     },
     handoff,
     consumerApply
+  ];
+}
+
+export function presentAgentRunSurfaces(): AgentRunSurfaceRow[] {
+  return [
+    {
+      label: "Console",
+      value: "Plan, preview, and status",
+      detail:
+        "This page explains the next cycle and shows evidence. It does not execute local scripts from the browser."
+    },
+    {
+      label: "Trusted ops runtime",
+      value: "Executes one bounded cycle",
+      detail:
+        "Run the copied command from a controlled shell or scheduler with the control DB credential present."
+    },
+    {
+      label: "Delivery controls",
+      value: "Own customer writes",
+      detail:
+        "Production package delivery and Apply to Vamo remain explicit gated controls unless policy later allows more."
+    }
   ];
 }
 
@@ -279,10 +308,10 @@ function supportingDetailForAction(action: string, phase: string): string {
 
 function humanizeExecutionChannel(channel: AutonomyExecutionChannel): string {
   if (channel === "autonomy_cli") {
-    return "Autonomy CLI (preview or execute)";
+    return "Manual ops command";
   }
   if (channel === "human_runbook") {
-    return "Human confirmation runbook";
+    return "Operator confirmation";
   }
   return "No autonomous execution channel";
 }
@@ -300,13 +329,19 @@ function humanizeRunbookChannel(view: AutonomyDashboardView): string {
 function buildAutonomyCliCommand(view: AutonomyDashboardView, execute: boolean): string {
   const projectKey = view.projectKey;
   const policyKey = view.policy?.policyKey ?? "<policy-key>";
-  const base = `node .\\packages\\ingestion-platform\\scripts\\run-ip18-autonomy-cycle.mjs \`
+  const base = `# Manual ops command. Run from a trusted shell with INGESTION_CONTROL_DATABASE_URL set.
+# The console displays this command; it does not execute it.
+
+node .\\packages\\ingestion-platform\\scripts\\run-ip18-autonomy-cycle.mjs \`
   --project-key ${projectKey} \`
   --policy-key ${policyKey}`;
   if (!execute) {
     return base;
   }
-  return `$env:CONFIRM_CONFLUENDO_AUTONOMY_CYCLE="YES"
+  return `# Manual ops command. Run from a trusted shell with INGESTION_CONTROL_DATABASE_URL set.
+# The console displays this command; it does not execute it.
+
+$env:CONFIRM_CONFLUENDO_AUTONOMY_CYCLE="YES"
 
 node .\\packages\\ingestion-platform\\scripts\\run-ip18-autonomy-cycle.mjs \`
   --execute \`
