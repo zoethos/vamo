@@ -56,6 +56,8 @@ export default async function IngestionDashboardPage() {
   } = await loadIp18BatchQueue("vamo");
   const {
     view: autonomyView,
+    rampCard,
+    policyKey: autonomyPolicyKey,
     source: autonomySource,
     error: autonomyError
   } = await loadIp187Autonomy("vamo");
@@ -265,6 +267,8 @@ export default async function IngestionDashboardPage() {
       autonomyView={autonomyView}
       autonomySource={autonomySource}
       autonomyError={autonomyError}
+      rampCard={rampCard}
+      autonomyPolicyKey={autonomyPolicyKey}
       batchCategories={batchCategories}
       batchCountries={batchCountries}
       batchQueueEligibleCount={batchQueueEligibleCount}

@@ -595,6 +595,16 @@ export {
   type EvaluateAutonomyRampPromotionResult
 } from "./autonomy-ramp-policy.js";
 export {
+  presentAutonomyRampCard,
+  buildAdvisoryWarnings,
+  type AutonomyRampBoundsColumn,
+  type AutonomyRampCardPresentation
+} from "./autonomy-ramp-presenter.js";
+export {
+  parseAutonomyRampPromoteRequest,
+  type AutonomyRampPromoteRequest
+} from "./autonomy-ramp-promote-request.js";
+export {
   buildAutonomyDashboardView,
   mapPersistedPolicyRow,
   mapPersistedRunRow,

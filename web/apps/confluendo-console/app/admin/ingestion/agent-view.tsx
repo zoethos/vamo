@@ -1,11 +1,13 @@
 "use client";
 
-import type { AutonomyDashboardView } from "@confluendo/ingestion-platform/core";
+import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
+import type { AutonomyDashboardView, AutonomyRampCardPresentation } from "@confluendo/ingestion-platform/core";
 import {
   autonomySourceLabel,
   formatAgentAction,
   friendlyUnit
 } from "./ingestion-console-labels";
+import { AutonomyRampControl } from "./autonomy-ramp-control";
 import {
   humanizeAutonomyPhase,
   humanizeAutonomyRunStatus,
@@ -22,11 +24,21 @@ type DashboardSource = "live" | "sample" | "error";
 export function AgentView({
   autonomyView,
   autonomySource,
-  autonomyError
+  autonomyError,
+  rampCard,
+  policyKey,
+  rampContext
 }: {
   autonomyView: AutonomyDashboardView;
   autonomySource: DashboardSource;
   autonomyError?: string;
+  rampCard?: AutonomyRampCardPresentation | null;
+  policyKey?: string | null;
+  rampContext?: {
+    role: AdminRole;
+    assuranceLevel: AdminAssuranceLevel;
+    source: DashboardSource;
+  };
 }) {
   const workflow = presentAgentWorkflowStatus(autonomyView);
   const primaryAction = presentAgentPrimaryAction(autonomyView);
@@ -124,6 +136,15 @@ export function AgentView({
           </p>
         ) : null}
       </section>
+
+      {rampCard && policyKey && rampContext ? (
+        <AutonomyRampControl
+          projectKey={autonomyView.projectKey}
+          policyKey={policyKey}
+          rampCard={rampCard}
+          context={rampContext}
+        />
+      ) : null}
 
       <section className="admin-agent-uex-panel" aria-labelledby="agent-scopes-heading">
         <div className="admin-agent-uex-panel-header">

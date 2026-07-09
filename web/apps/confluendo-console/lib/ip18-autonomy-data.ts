@@ -1,15 +1,22 @@
 import "server-only";
 
-import { loadAutonomyDashboard } from "@confluendo/ingestion-platform/autonomy-control-read";
+import { Client } from "pg";
+import { loadAutonomyDashboard, loadAutonomyPolicy } from "@confluendo/ingestion-platform/autonomy-control-read";
+import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
 import {
+  loadAutonomyRampReadiness,
+  presentAutonomyRampCard,
   sampleVamoAutonomyDashboardView,
-  type AutonomyDashboardView
+  type AutonomyDashboardView,
+  type AutonomyRampCardPresentation
 } from "@confluendo/ingestion-platform/core";
 
 export type Ip187AutonomySource = "live" | "sample" | "error";
 
 export interface Ip187AutonomyData {
   view: AutonomyDashboardView;
+  rampCard: AutonomyRampCardPresentation | null;
+  policyKey: string | null;
   source: Ip187AutonomySource;
   error?: string;
 }
@@ -27,15 +34,47 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
     return sample();
   }
 
+  const client = new Client({ connectionString: controlDb });
   try {
+    await client.connect();
     const view = await loadAutonomyDashboard({
-      connectionString: controlDb,
+      client,
       projectKey
     });
-    if (!view) {
+    if (!view?.policy) {
       return sample();
     }
-    return { view, source: "live" };
+
+    const policy = await loadAutonomyPolicy(client, {
+      projectKey,
+      policyKey: view.policy.policyKey
+    });
+    if (!policy) {
+      return { view, rampCard: null, policyKey: view.policy.policyKey, source: "live" };
+    }
+
+    const [queueSnapshot, readiness] = await Promise.all([
+      loadBatchQueueSnapshot({ client, projectKey, targetKey: policy.targetKey }),
+      loadAutonomyRampReadiness({
+        client,
+        projectKey,
+        policyKey: policy.policyKey
+      })
+    ]);
+
+    const rampCard = presentAutonomyRampCard({
+      policy,
+      readiness,
+      blockerSummaries: queueSnapshot?.blockerSummaries ?? [],
+      blockedUnitCount: queueSnapshot?.progress.blocked ?? 0
+    });
+
+    return {
+      view,
+      rampCard,
+      policyKey: policy.policyKey,
+      source: "live"
+    };
   } catch (error) {
     console.error("IP-18.7 autonomy live read failed", error);
     return {
@@ -43,12 +82,52 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
       source: "error",
       error: "Live autonomy read failed; showing bundled sample data."
     };
+  } finally {
+    await client.end();
   }
 }
 
 function sample(): Ip187AutonomyData {
+  const view = sampleVamoAutonomyDashboardView();
+  const policyKey = view.policy?.policyKey ?? "vamo-eu-poi-staging";
   return {
-    view: sampleVamoAutonomyDashboardView(),
+    view,
+    rampCard: view.policy
+      ? presentAutonomyRampCard({
+          policy: {
+            policyId: view.policy.policyId,
+            policyKey: view.policy.policyKey,
+            projectKey: view.projectKey,
+            sourceKey: view.policy.sourceKey,
+            targetKey: view.policy.targetKey,
+            targetEnvironment: view.policy.targetEnvironment as "staging",
+            status: view.policy.status as "active",
+            allowedTiers: [],
+            allowedGeographies: [],
+            allowedCategories: [],
+            allowedTransitions: ["schedule_dry_run", "execute_dry_run", "approve_staging_wave"],
+            maxUnitsPerCycle: view.policy.maxUnitsPerCycle,
+            maxRowsPerCycle: view.policy.maxRowsPerCycle,
+            rollingLimits: view.policy.rampProfile.rollingLimits,
+            guardThresholds: {},
+            productionInboxHandoffPolicy: { requiresIp18_6: true },
+            policyVersion: view.policy.policyVersion,
+            rampMode: view.policy.rampMode,
+            summary: view.policy.summary
+          },
+          readiness: {
+            policyId: view.policy.policyId,
+            policyKey: view.policy.policyKey,
+            currentMode: view.policy.rampMode,
+            since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            runs: { advanced: 2, completed: 1, failed: 0, paused: 0 },
+            stagingCanarySucceededUnits: 0
+          },
+          blockerSummaries: [],
+          blockedUnitCount: 0
+        })
+      : null,
+    policyKey,
     source: "sample"
   };
 }
