@@ -47,6 +47,10 @@
       "types": "./dist/core/src/batch-queue-mutations.d.ts",
       "default": "./dist/core/src/batch-queue-mutations.js"
     },
+    "./core/vamo-place-intelligence-presentation": {
+      "types": "./dist/core/src/vamo-place-intelligence-presentation.d.ts",
+      "default": "./dist/core/src/vamo-place-intelligence-presentation.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"
