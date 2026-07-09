@@ -354,34 +354,40 @@ describe("autonomy executor", () => {
     }
   });
 
-  it("refuses an oversized autonomous first wave before creating a wave", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+  it("caps autonomous staging preview before approving the first wave", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
     const client = await setupDb();
     try {
       await seedPolicyAndQueue(client, {
         dryRunSucceeded: 2,
-        rampMode: "staging_ramp",
+        rampMode: "volume_ramp",
         maxUnitsPerCycle: 2,
         maxRowsPerCycle: 4
       });
 
-      await assert.rejects(
-        () =>
-          executeAutonomyCycle({
-            client,
-            projectKey: "vamo",
-            policyKey: "vamo-eu-poi-staging-v1",
-            agentId,
-            now: "2026-07-06T12:35:00.000Z"
-          }),
-        /first-wave cap/
-      );
+      const preview = await previewAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:34:00.000Z"
+      });
+      assert.equal(preview.context.evaluation.requiredAction, "approve_or_execute_staging_wave_later");
+      assert.equal(preview.context.evaluation.selectedUnitKeys.length, 1);
+      assert.equal(preview.context.evaluation.maxUnitsApplied, 1);
 
-      assert.equal(await countTable(client, "ingestion_batch_canary_waves"), 0);
-      const run = await client.query<{ status: string; pause_reason: string | null }>(
-        `select status, pause_reason from ingestion_platform.ingestion_autonomy_runs`
-      );
-      assert.equal(run.rows[0]?.status, "failed");
-      assert.match(run.rows[0]?.pause_reason ?? "", /first-wave cap/);
+      const result = await executeAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:35:00.000Z"
+      });
+
+      assert.equal(result.actionApplied, "approve_staging_wave");
+      assert.equal(result.context.evaluation.selectedUnitKeys.length, 1);
+      assert.equal(await countTable(client, "ingestion_batch_canary_waves"), 1);
+      assert.equal(await countQueueStatus(client, "staging_canary_approved"), 1);
+      assert.equal(await countQueueStatus(client, "dry_run_succeeded"), 1);
     } finally {
       await teardownDb(client);
     }
