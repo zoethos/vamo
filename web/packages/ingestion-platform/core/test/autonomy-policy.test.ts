@@ -125,7 +125,7 @@ describe("autonomy policy", () => {
     assert.equal(result.maxUnitsApplied, 1);
   });
 
-  it("refuses to exceed max_rows_per_cycle", () => {
+  it("bounds by expected target writes instead of source candidates", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),
       items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item, index) => ({
@@ -133,7 +133,7 @@ describe("autonomy policy", () => {
         status: "dry_run_ready" as const,
         dryRunReport: {
           wroteToTarget: false as const,
-          rowsProcessed: index === 0 ? 300 : 300,
+          rowsProcessed: 300,
           insertCount: 1,
           updateCount: 0,
           noOpCount: 0
@@ -143,15 +143,15 @@ describe("autonomy policy", () => {
     const result = evaluateAutonomyCycle({
       policy: activePolicy({
         maxUnitsPerCycle: 5,
-        maxRowsPerCycle: 500,
+        maxRowsPerCycle: 2,
         allowedTransitions: ["execute_dry_run"]
       }),
       queueSnapshot: snapshot,
       actor: autonomousActor
     });
     assert.equal(result.decision, "continue");
-    assert.equal(result.selectedUnitKeys.length, 1);
-    assert.ok(result.maxRowsApplied <= 500);
+    assert.equal(result.selectedUnitKeys.length, 2);
+    assert.equal(result.maxRowsApplied, 2);
   });
 
   it("pauses production package approval until the policy enables handoff", () => {
@@ -212,6 +212,38 @@ describe("autonomy policy", () => {
     assert.equal(result.requiredAction, "approve_production_package_wave");
     assert.equal(result.selectedUnitKeys.length, 2);
     assert.equal(result.highestSafetyMode, "production_write");
+  });
+
+  it("selects production package units by expected target writes, not source candidates", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "staging_canary_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 100,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 3,
+        maxRowsPerCycle: 2,
+        allowedTransitions: ["approve_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "approve_production_package_wave");
+    assert.equal(result.selectedUnitKeys.length, 2);
+    assert.equal(result.maxRowsApplied, 2);
   });
 
   it("continues to deliver an approved production package wave when explicitly allowed", () => {

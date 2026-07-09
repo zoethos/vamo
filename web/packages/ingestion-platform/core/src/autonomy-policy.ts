@@ -19,6 +19,7 @@ import type {
   BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
+import { extractBatchDryRunReportMetrics } from "./batch-dry-run-report-metrics.js";
 import type { AutonomyCycleTelemetryPayload } from "./autonomy-telemetry.js";
 
 export type AutonomyCycleDecision = "continue" | "pause" | "no_op";
@@ -907,7 +908,7 @@ function capDryRunSelection(
 }
 
 function plannedRowsForItem(item: BatchQueueItem): number {
-  return item.dryRunReport?.rowsProcessed ?? 1;
+  return extractBatchDryRunReportMetrics(item.dryRunReport)?.expectedTargetWrites ?? 1;
 }
 
 function sumPlannedRows(items: BatchQueueItem[], cap: number): number {
