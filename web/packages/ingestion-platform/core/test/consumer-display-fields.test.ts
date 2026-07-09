@@ -39,4 +39,30 @@ describe("consumer display fields", () => {
       ]);
     });
   }
+
+  it("shows unsupported Vamo categories without a consumer mapping", () => {
+    const fields = resolveConsumerDisplayFields(VAMO_PLACE_INTELLIGENCE_QUEUE_DISPLAY_FIELDS, {
+      scope: {
+        category: "museum",
+        geography: "barcelona-spain",
+        country: "spain"
+      },
+      source: {
+        key: "fsq-os-places-sample"
+      },
+      target: {
+        key: "vamo-place-intelligence",
+        environment: "staging"
+      }
+    });
+
+    assert.deepEqual(fields, [
+      {
+        key: "poi_type",
+        label: "POI type",
+        value: "Museum",
+        detail: "No consumer mapping"
+      }
+    ]);
+  });
 });
