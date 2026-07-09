@@ -154,6 +154,40 @@ describe("autonomy policy", () => {
     assert.equal(result.maxRowsApplied, 2);
   });
 
+  it("caps autonomous staging-wave preview to the executor staging approval limit", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "dry_run_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 1,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        rampMode: "volume_ramp",
+        maxUnitsPerCycle: 5,
+        maxRowsPerCycle: 100,
+        allowedTransitions: ["approve_staging_wave"]
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "staging_canary");
+    assert.equal(result.requiredAction, "approve_or_execute_staging_wave_later");
+    assert.equal(result.selectedUnitKeys.length, 1);
+    assert.equal(result.maxUnitsApplied, 1);
+    assert.equal(result.maxRowsApplied, 1);
+  });
+
   it("pauses production package approval until the policy enables handoff", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),

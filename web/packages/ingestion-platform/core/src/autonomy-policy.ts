@@ -22,6 +22,8 @@ import type {
 import { extractBatchDryRunReportMetrics } from "./batch-dry-run-report-metrics.js";
 import type { AutonomyCycleTelemetryPayload } from "./autonomy-telemetry.js";
 
+export const AUTONOMOUS_STAGING_WAVE_APPROVAL_MAX_UNITS = 1;
+
 export type AutonomyCycleDecision = "continue" | "pause" | "no_op";
 
 export type AutonomyRequiredAction =
@@ -426,7 +428,11 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     });
   }
 
-  const stagingEligible = selectStagingEligibleUnits(inScopeItems, maxUnits, maxRows);
+  const stagingEligible = selectStagingEligibleUnits(
+    inScopeItems,
+    Math.min(maxUnits, AUTONOMOUS_STAGING_WAVE_APPROVAL_MAX_UNITS),
+    maxRows
+  );
   if (stagingEligible.length > 0) {
     if (policy.targetEnvironment !== "staging") {
       return pauseResult({

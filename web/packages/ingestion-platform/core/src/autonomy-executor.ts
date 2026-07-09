@@ -10,6 +10,7 @@
 import { Client, type QueryResult } from "pg";
 
 import {
+  AUTONOMOUS_STAGING_WAVE_APPROVAL_MAX_UNITS,
   evaluateAutonomyCycle,
   type AutonomyPolicyEnvelope,
   type AutonomyRollingCounts,
@@ -56,8 +57,6 @@ import type { BatchQueueItem, BatchQueueSnapshot } from "./batch-queue-read-mode
 import type { AutonomyRunStatus } from "./control-models.js";
 
 export type AutonomyExecutionChannel = import("./autonomy-read-model.js").AutonomyExecutionChannel;
-
-const FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS = 1;
 
 export interface AutonomyCycleContext {
   projectKey: string;
@@ -784,9 +783,9 @@ export function buildAutonomousStagingWavePlan(input: {
   if (selectedUnits.length > input.policy.maxUnitsPerCycle) {
     throw new Error("Staging wave selection exceeds policy max_units_per_cycle.");
   }
-  if (selectedUnits.length > FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS) {
+  if (selectedUnits.length > AUTONOMOUS_STAGING_WAVE_APPROVAL_MAX_UNITS) {
     throw new Error(
-      `Autonomous staging wave approval exceeds the first-wave cap of ${FIRST_AUTONOMOUS_STAGING_WAVE_MAX_UNITS} unit.`
+      `Autonomous staging wave approval exceeds the first-wave cap of ${AUTONOMOUS_STAGING_WAVE_APPROVAL_MAX_UNITS} unit.`
     );
   }
   if (totalPlannedRows > input.policy.maxRowsPerCycle) {
