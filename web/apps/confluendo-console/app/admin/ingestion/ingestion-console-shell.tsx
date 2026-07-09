@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { AdminAssuranceLevel, AdminPrincipal } from "@confluendo/ingestion-platform/admin-auth";
 import type {
   AutonomyDashboardView,
+  AutonomyRampCardPresentation,
   BatchQueueItem,
   BatchQueueItemStatus,
   BatchQueueSnapshot
@@ -120,6 +121,8 @@ export interface IngestionConsoleShellProps {
   autonomyView: AutonomyDashboardView;
   autonomySource: DashboardSource;
   autonomyError?: string;
+  rampCard?: AutonomyRampCardPresentation | null;
+  autonomyPolicyKey?: string | null;
   batchCategories: string[];
   batchCountries: string[];
   batchQueueEligibleCount: number;
@@ -256,6 +259,13 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           autonomyView={props.autonomyView}
           autonomySource={props.autonomySource}
           autonomyError={props.autonomyError}
+          rampCard={props.rampCard}
+          policyKey={props.autonomyPolicyKey}
+          rampContext={{
+            role: props.principal.role,
+            assuranceLevel: props.principal.assuranceLevel,
+            source: props.autonomySource
+          }}
         />
       ) : null}
 

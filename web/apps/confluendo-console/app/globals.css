@@ -1473,6 +1473,119 @@ a:hover {
   line-height: 1.4;
 }
 
+.admin-agent-ramp-note {
+  margin: 0 0 0.65rem;
+  color: rgba(12, 14, 22, 0.68);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.admin-agent-ramp-summary {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-agent-ramp-summary div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-agent-ramp-summary dt {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-ramp-summary dd {
+  margin: 0;
+}
+
+.admin-agent-ramp-summary dd span {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.78rem;
+}
+
+.admin-agent-ramp-bounds-table strong {
+  color: rgb(29, 78, 216);
+}
+
+.admin-agent-ramp-evidence h4,
+.admin-agent-ramp-warnings h4,
+.admin-agent-ramp-demotion h4 {
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+}
+
+.admin-agent-ramp-readiness {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.admin-agent-ramp-warnings ul,
+.admin-agent-ramp-blockers ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: rgba(12, 14, 22, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.admin-agent-ramp-blockers {
+  margin: 0.65rem 0;
+  border-left: 3px solid rgba(220, 38, 38, 0.35);
+  padding-left: 0.65rem;
+}
+
+.admin-agent-ramp-fields {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.admin-agent-ramp-fields label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.admin-agent-ramp-fields span {
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-ramp-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.admin-agent-ramp-ack span {
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: normal;
+  font-size: 0.84rem;
+  color: rgba(12, 14, 22, 0.72);
+}
+
+.admin-agent-ramp-actions,
+.admin-agent-ramp-demotion .admin-action-row {
+  margin-top: 0.65rem;
+}
+
+.admin-agent-ramp-demotion {
+  margin-top: 0.85rem;
+  border-top: 1px solid rgba(42, 46, 58, 0.08);
+  padding-top: 0.75rem;
+}
+
 .admin-queue-filter {
   display: flex;
   flex-direction: column;
