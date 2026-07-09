@@ -232,8 +232,15 @@ export function formatAgentAction(action: string): string {
   return action
     .replace(/schedule_dry_run/g, "schedule simulation")
     .replace(/execute_dry_run/g, "run simulation")
+    .replace(/approve_or_execute_staging_wave_later/g, "staging verification")
+    .replace(/approve_staging_wave/g, "approve staging verification")
+    .replace(/staging_canary/g, "staging verification")
+    .replace(/approve_production_package_wave/g, "approve production delivery package")
+    .replace(/deliver_production_package_wave/g, "deliver production delivery package")
+    .replace(/apply_consumer_package/g, "apply to Vamo")
+    .replace(/production_package/g, "production delivery package")
     .replace(/dry_run/g, "simulation")
-    .replace(/staging_wave/g, "staging batch")
+    .replace(/staging_wave/g, "staging verification batch")
     .replace(/_/g, " ");
 }
 

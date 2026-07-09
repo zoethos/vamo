@@ -859,8 +859,8 @@ a:hover {
 .admin-user-copy {
   display: grid;
   min-width: 0;
-  gap: 0.02rem;
-  line-height: 1.05;
+  gap: 0.08rem;
+  line-height: 1.16;
 }
 
 .admin-user-copy span,
@@ -889,13 +889,13 @@ a:hover {
   display: inline-grid;
   min-height: 2.4rem;
   align-content: center;
-  gap: 0.02rem;
+  gap: 0.08rem;
   border: 1px solid rgba(250, 250, 251, 0.14);
   border-radius: 999px;
   padding: 0.34rem 0.7rem;
   background: rgba(250, 250, 251, 0.08);
   color: rgba(250, 250, 251, 0.9);
-  line-height: 1.05;
+  line-height: 1.14;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -1170,6 +1170,7 @@ a:hover {
   font-weight: 600;
   padding: 0.35rem 0.75rem;
   cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
 .admin-queue-filter-chip.is-active {
@@ -1206,6 +1207,249 @@ a:hover {
 .admin-compat-blocked {
   background: rgba(220, 38, 38, 0.1);
   color: rgb(185, 28, 28);
+}
+
+.admin-agent-uex {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-agent-uex-status {
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
+
+.admin-agent-uex-status-kicker {
+  margin: 0 0 0.25rem;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-uex-status h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.admin-agent-uex-status p:last-child {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.72);
+}
+
+.admin-agent-uex-tone-ready {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.06);
+}
+
+.admin-agent-uex-tone-waiting {
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.admin-agent-uex-tone-blocked {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.admin-agent-uex-tone-completed {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.admin-agent-uex-panel {
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.admin-agent-uex-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.admin-agent-uex-panel-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.admin-agent-uex-panel-count {
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: rgb(29, 78, 216);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+}
+
+.admin-agent-uex-action-summary {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.admin-agent-uex-meta,
+.admin-agent-uex-guardrails,
+.admin-agent-uex-evidence-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.admin-agent-uex-meta div,
+.admin-agent-uex-guardrails div,
+.admin-agent-uex-evidence-list div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-agent-uex-meta dt,
+.admin-agent-uex-guardrails dt,
+.admin-agent-uex-evidence-list dt {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-uex-meta dd,
+.admin-agent-uex-guardrails dd,
+.admin-agent-uex-evidence-list dd {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.82);
+}
+
+.admin-agent-uex-guardrails {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-agent-uex-guardrails dd strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.admin-agent-uex-guardrails dd span {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.admin-agent-uex-run-meta {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-agent-cli-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.admin-agent-cli-block pre {
+  margin: 0;
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 8px;
+  background: rgba(12, 14, 22, 0.04);
+  padding: 0.65rem 0.75rem;
+}
+
+.admin-agent-cli-block code {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.admin-agent-uex-runbook-note {
+  margin: 0.35rem 0 0;
+  color: rgba(12, 14, 22, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.admin-copyable-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.admin-copyable-mono-button {
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 6px;
+  background: #fff;
+  color: rgba(12, 14, 22, 0.72);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+}
+
+.admin-copy-command-button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(42, 46, 58, 0.16);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  background: #ffffff;
+  color: rgba(12, 14, 22, 0.78);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.08);
+}
+
+.admin-copy-command-button:hover,
+.admin-copy-command-button:focus-visible,
+.admin-copyable-mono-button:hover,
+.admin-copyable-mono-button:focus-visible {
+  border-color: rgba(15, 118, 110, 0.32);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
+}
+
+.admin-agent-scope-table strong {
+  display: block;
+}
+
+.admin-agent-uex-evidence {
+  margin-top: 0.65rem;
+  border-top: 1px solid rgba(42, 46, 58, 0.08);
+  padding-top: 0.55rem;
+}
+
+.admin-agent-uex-evidence summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.admin-agent-uex-safety-list {
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+  color: rgba(12, 14, 22, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .admin-queue-filter {
@@ -1747,6 +1991,26 @@ a:hover {
   background: rgba(14, 22, 38, 0.72);
 }
 
+.admin-console[data-theme="dark"] .admin-queue-filter-chip {
+  border-color: rgba(233, 237, 244, 0.14);
+  background: rgba(10, 16, 30, 0.72);
+  color: rgba(233, 237, 244, 0.78);
+}
+
+.admin-console[data-theme="dark"] .admin-queue-filter-chip:hover,
+.admin-console[data-theme="dark"] .admin-queue-filter-chip:focus-visible {
+  border-color: rgba(142, 197, 255, 0.36);
+  background: rgba(91, 143, 209, 0.14);
+  color: #e9edf4;
+}
+
+.admin-console[data-theme="dark"] .admin-queue-filter-chip.is-active {
+  border-color: rgba(142, 197, 255, 0.6);
+  background: rgba(91, 143, 209, 0.24);
+  color: #dbeafe;
+  box-shadow: inset 0 0 0 1px rgba(142, 197, 255, 0.1);
+}
+
 .admin-console[data-theme="dark"] .admin-queue-filter input,
 .admin-console[data-theme="dark"] .admin-queue-filter select,
 .admin-console[data-theme="dark"] .admin-queue-expand {
@@ -1755,12 +2019,57 @@ a:hover {
   color: #e9edf4;
 }
 
+.admin-console[data-theme="dark"] .admin-agent-uex-panel,
+.admin-console[data-theme="dark"] .admin-agent-uex-status {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 16, 30, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-uex-status p:last-child,
+.admin-console[data-theme="dark"] .admin-agent-uex-guardrails dd span,
+.admin-console[data-theme="dark"] .admin-agent-uex-runbook-note,
+.admin-console[data-theme="dark"] .admin-agent-uex-safety-list {
+  color: rgba(233, 237, 244, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-cli-block pre {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.admin-console[data-theme="dark"] .admin-copyable-mono-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(10, 16, 30, 0.9);
+  color: rgba(233, 237, 244, 0.82);
+}
+
+.admin-console[data-theme="dark"] .admin-copy-command-button {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(233, 237, 244, 0.88);
+  box-shadow: none;
+}
+
+.admin-console[data-theme="dark"] .admin-copy-command-button:hover,
+.admin-console[data-theme="dark"] .admin-copy-command-button:focus-visible,
+.admin-console[data-theme="dark"] .admin-copyable-mono-button:hover,
+.admin-console[data-theme="dark"] .admin-copyable-mono-button:focus-visible {
+  border-color: rgba(142, 197, 255, 0.38);
+  background: rgba(91, 143, 209, 0.16);
+  color: #dbeafe;
+}
+
 .admin-console[data-theme="dark"] .admin-queue-details-row td {
   background: rgba(10, 16, 30, 0.72);
 }
 
 .admin-console[data-theme="dark"] .admin-evidence-details {
   border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 16, 30, 0.38);
+}
+
+.admin-console[data-theme="dark"] .admin-evidence-details summary {
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-evidence-code,
@@ -1817,6 +2126,18 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-ux-matrix td {
   border-color: rgba(255, 255, 255, 0.07);
   background: rgba(26, 36, 64, 0.78);
+  color: rgba(233, 237, 244, 0.78);
+}
+
+.admin-console[data-theme="dark"] .admin-ux-matrix thead th,
+.admin-console[data-theme="dark"] .admin-ux-matrix tbody th {
+  background: rgba(10, 16, 30, 0.86);
+  color: #f8fafc;
+  font-weight: 850;
+}
+
+.admin-console[data-theme="dark"] .admin-ux-matrix th:first-child {
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-ux-matrix td:not([data-empty="true"]) {
@@ -2004,6 +2325,14 @@ a:hover {
   border-radius: 6px;
   font: inherit;
   font-weight: 800;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+  user-select: none;
 }
 
 .admin-command:disabled,
@@ -2014,12 +2343,31 @@ a:hover {
 
 .admin-command {
   display: flex;
-  min-height: 6.35rem;
+  min-height: 4.6rem;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.75rem;
   padding: 0.95rem;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.08);
+}
+
+.admin-command:hover:not(:disabled),
+.admin-command:focus-visible:not(:disabled),
+.admin-row-control:hover:not(:disabled),
+.admin-row-control:focus-visible:not(:disabled),
+.admin-wide-control:hover:not(:disabled),
+.admin-wide-control:focus-visible:not(:disabled) {
+  border-color: rgba(15, 118, 110, 0.38);
+  box-shadow: 0 8px 18px rgba(12, 14, 22, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-command:active:not(:disabled),
+.admin-row-control:active:not(:disabled),
+.admin-wide-control:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.12);
+  transform: translateY(0);
 }
 
 .admin-command span {
@@ -2037,7 +2385,7 @@ a:hover {
 
 .admin-command-primary {
   border-color: var(--ink);
-  background: var(--ink);
+  background: linear-gradient(180deg, #2a2e3a, var(--ink));
   color: var(--warm-white);
 }
 
@@ -2050,20 +2398,33 @@ a:hover {
 }
 
 .admin-stateful-command {
+  display: inline-flex;
   width: fit-content;
   min-width: 0;
-  min-height: 2.65rem;
+  min-height: 2.45rem;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 8px;
-  padding: 0.62rem 0.85rem;
+  border-radius: 7px;
+  padding: 0.56rem 0.85rem;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 850;
   line-height: 1.15;
-  box-shadow: 0 10px 24px rgba(12, 14, 22, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 5px rgba(12, 14, 22, 0.14);
+}
+
+.admin-stateful-command::after {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.72;
+  transform: rotate(-45deg);
 }
 
 .admin-stateful-command:hover:not(:disabled),
@@ -2078,6 +2439,11 @@ a:hover {
   background: #eef2f7;
   color: rgba(12, 14, 22, 0.52);
   box-shadow: none;
+  transform: none;
+}
+
+.admin-stateful-command:disabled::after {
+  display: none;
 }
 
 .admin-action-status {
@@ -2097,10 +2463,36 @@ a:hover {
   color: var(--ink);
 }
 
+.admin-command-good,
+.admin-command-watch,
+.admin-command-planned {
+  background: #ffffff;
+  color: var(--ink);
+}
+
 .admin-command-danger {
   border-color: rgba(185, 28, 28, 0.24);
   background: #fff5f5;
   color: #991b1b;
+}
+
+.admin-command-danger.admin-stateful-command {
+  border-color: rgba(185, 28, 28, 0.42);
+  background: linear-gradient(180deg, #fffafa, #fee2e2);
+  color: #991b1b;
+}
+
+.admin-inline-action {
+  display: inline-flex;
+  min-height: 2.35rem;
+  width: fit-content;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  text-decoration: none;
 }
 
 .admin-signal-grid {
@@ -2253,6 +2645,10 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-canary-control {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-console[data-theme="dark"] .admin-canary-control h3 {
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-canary-note,
@@ -2704,25 +3100,25 @@ a:hover {
 }
 
 .admin-console[data-theme="dark"] .admin-user-chip {
-  border-color: rgba(250, 250, 251, 0.14);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.9);
+  border-color: rgba(142, 197, 255, 0.22);
+  background: rgba(142, 197, 255, 0.1);
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-user-copy span,
 .admin-console[data-theme="dark"] .admin-user-copy small {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.7);
 }
 
 .admin-console[data-theme="dark"] .admin-logout-button,
 .admin-console[data-theme="dark"] .admin-stepup-timer {
-  border-color: rgba(250, 250, 251, 0.14);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.9);
+  border-color: rgba(233, 237, 244, 0.16);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(248, 250, 252, 0.94);
 }
 
 .admin-console[data-theme="dark"] .admin-stepup-timer span {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.68);
 }
 
 .admin-console[data-theme="dark"] .admin-logout-button:hover,
@@ -2772,6 +3168,18 @@ a:hover {
   color: rgba(250, 250, 251, 0.7);
 }
 
+.admin-console[data-theme="dark"] .admin-next-action,
+.admin-console[data-theme="dark"] .admin-rationale,
+.admin-console[data-theme="dark"] .admin-rationale p,
+.admin-console[data-theme="dark"] .admin-canary-disabled {
+  color: rgba(233, 237, 244, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-rationale strong,
+.admin-console[data-theme="dark"] .admin-next-action strong {
+  color: #f8fafc;
+}
+
 .admin-console[data-theme="dark"] .admin-signal span,
 .admin-console[data-theme="dark"] .admin-stat span,
 .admin-console[data-theme="dark"] .admin-table-count,
@@ -2785,32 +3193,76 @@ a:hover {
 }
 
 .admin-console[data-theme="dark"] .admin-surface-header strong {
-  color: var(--apricot);
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(142, 197, 255, 0.42);
+  border-radius: 999px;
+  padding: 0.28rem 0.52rem;
+  background: rgba(142, 197, 255, 0.14);
+  color: #f8fafc;
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.admin-console[data-theme="dark"] .admin-section-heading h2,
+.admin-console[data-theme="dark"] .admin-ux-view-panel h2 {
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-command-primary,
 .admin-console[data-theme="dark"] .admin-row-control,
 .admin-console[data-theme="dark"] .admin-wide-control {
-  border-color: rgba(250, 250, 251, 0.88);
-  background: var(--warm-white);
+  border-color: rgba(250, 250, 251, 0.78);
+  background: linear-gradient(180deg, #f8fafc, #dbeafe);
   color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.admin-console[data-theme="dark"] .admin-command:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-command:focus-visible:not(:disabled),
+.admin-console[data-theme="dark"] .admin-row-control:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-row-control:focus-visible:not(:disabled),
+.admin-console[data-theme="dark"] .admin-wide-control:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-wide-control:focus-visible:not(:disabled) {
+  border-color: rgba(142, 197, 255, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 22px rgba(0, 0, 0, 0.34);
+}
+
+.admin-console[data-theme="dark"] .admin-command-danger.admin-stateful-command {
+  border-color: rgba(252, 165, 165, 0.5);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.72), rgba(69, 10, 10, 0.78));
+  color: #fee2e2;
+}
+
+.admin-console[data-theme="dark"] .admin-command-danger:not(.admin-stateful-command) {
+  border-color: rgba(252, 165, 165, 0.34);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.42), rgba(69, 10, 10, 0.54));
+  color: #fee2e2;
 }
 
 .admin-console[data-theme="dark"] .admin-stateful-command:disabled {
-  border-color: rgba(250, 250, 251, 0.12);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.54);
+  border-color: rgba(233, 237, 244, 0.14);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(233, 237, 244, 0.7);
   box-shadow: none;
 }
 
 .admin-console[data-theme="dark"] .admin-action-status {
-  color: rgba(250, 250, 251, 0.58);
+  color: rgba(233, 237, 244, 0.72);
 }
 
 .admin-console[data-theme="dark"] .admin-command-neutral,
+.admin-console[data-theme="dark"] .admin-command-good,
+.admin-console[data-theme="dark"] .admin-command-watch,
+.admin-console[data-theme="dark"] .admin-command-planned,
 .admin-console[data-theme="dark"] .admin-readonly-pill,
 .admin-console[data-theme="dark"] .admin-table-count,
 .admin-console[data-theme="dark"] .admin-target-table th,
+.admin-console[data-theme="dark"] .admin-target-table tbody th,
 .admin-console[data-theme="dark"] .admin-stat,
 .admin-console[data-theme="dark"] .admin-event,
 .admin-console[data-theme="dark"] .admin-policy-panel li,
@@ -2821,9 +3273,45 @@ a:hover {
   color: rgba(250, 250, 251, 0.76);
 }
 
+.admin-console[data-theme="dark"] .admin-command-neutral,
+.admin-console[data-theme="dark"] .admin-command-good,
+.admin-console[data-theme="dark"] .admin-command-watch,
+.admin-console[data-theme="dark"] .admin-command-planned {
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(15, 23, 42, 0.92));
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-readonly-pill,
+.admin-console[data-theme="dark"] .admin-table-count {
+  border-color: rgba(142, 197, 255, 0.46);
+  background: linear-gradient(180deg, rgba(142, 197, 255, 0.24), rgba(59, 110, 165, 0.18));
+  color: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.admin-console[data-theme="dark"] .admin-target-table th,
+.admin-console[data-theme="dark"] .admin-target-table tbody th {
+  background: rgba(10, 16, 30, 0.86);
+  color: #f8fafc;
+  font-weight: 850;
+}
+
+.admin-console[data-theme="dark"] .admin-target-table td:first-child,
+.admin-console[data-theme="dark"] .admin-target-table td:first-child strong {
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-target-table td {
+  background: rgba(20, 29, 51, 0.42);
+}
+
+.admin-console[data-theme="dark"] .admin-target-table tbody tr:nth-child(even) td {
+  background: rgba(10, 16, 30, 0.36);
+}
+
 .admin-console[data-theme="dark"] .admin-command-confirm label,
 .admin-console[data-theme="dark"] .admin-command-result span {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.7);
 }
 
 .admin-console[data-theme="dark"] .admin-command-confirm textarea {

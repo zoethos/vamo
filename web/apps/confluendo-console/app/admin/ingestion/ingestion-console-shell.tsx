@@ -21,6 +21,7 @@ import type { ProgressiveRunView } from "@confluendo/ingestion-platform/progress
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
+import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
@@ -299,9 +300,6 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
         />
       ) : null}
 
-      <p className="provider-backlink admin-backlink">
-        <Link href="/admin/providers">Back to provider control</Link>
-      </p>
     </main>
   );
 }
@@ -621,152 +619,6 @@ function QueueView({
             </tbody>
           </table>
         </div>
-      </details>
-    </section>
-  );
-}
-
-function AgentView({
-  autonomyView,
-  autonomySource,
-  autonomyError
-}: {
-  autonomyView: AutonomyDashboardView;
-  autonomySource: DashboardSource;
-  autonomyError?: string;
-}) {
-  return (
-    <section className="admin-ux-section admin-ux-view-panel" aria-label="Agent operations">
-      <div className="admin-section-heading admin-section-heading-compact">
-        <div>
-          <p className="admin-kicker">Agent operations</p>
-          <h2>Bounded autonomous ingestion cycles</h2>
-          <p className="admin-view-lead">
-            The agent schedules simulations and staging batches inside the operating policy. It
-            does not deliver to the consumer inbox or apply product data.
-          </p>
-        </div>
-        <span className="admin-readonly-pill">{autonomySourceLabel(autonomySource)}</span>
-      </div>
-      {autonomyError ? (
-        <p className="admin-command-result admin-command-result-error" role="alert">
-          {autonomyError}
-        </p>
-      ) : null}
-      <div className="admin-ux-panel">
-        <div className="admin-ux-panel-heading">
-          <div>
-            <span className="admin-ux-label">Next agent cycle</span>
-            <h2>{formatAgentAction(autonomyView.nextCycle.requiredAction)}</h2>
-          </div>
-          <strong>{autonomyView.nextCycle.decision}</strong>
-        </div>
-        <p>
-          Phase {autonomyView.nextCycle.phase}
-          {autonomyView.nextCycle.pauseReason
-            ? ` · paused: ${autonomyView.nextCycle.pauseReason}`
-            : ""}
-        </p>
-        {autonomyView.nextCycle.recommendedAction ? (
-          <p>
-            <strong>Recommended:</strong> {autonomyView.nextCycle.recommendedAction.summary}
-          </p>
-        ) : null}
-        <p>
-          <strong>Execution channel:</strong> {autonomyView.executionChannelLabel}
-        </p>
-      </div>
-      <div className="admin-stat-grid">
-        <article className="admin-stat">
-          <span>Operating policy</span>
-          <strong>{autonomyView.policy?.policyKey ?? "—"}</strong>
-          <p>
-            {autonomyView.policy
-              ? `${autonomyView.policy.status} · v${autonomyView.policy.policyVersion} · ${autonomyView.policy.targetEnvironment}`
-              : "No active operating policy"}
-          </p>
-        </article>
-        <article className="admin-stat">
-          <span>Ramp mode</span>
-          <strong>{autonomyView.policy?.rampLabel ?? "—"}</strong>
-          <p>
-            {autonomyView.policy?.recommendedNextRampMode
-              ? `Next: ${autonomyView.policy.recommendedNextRampMode.replace(/_/g, " ")}`
-              : "Terminal mode or unset"}
-          </p>
-        </article>
-        <article className="admin-stat">
-          <span>Cycle bounds</span>
-          <strong>
-            {autonomyView.policy
-              ? `${autonomyView.policy.maxUnitsPerCycle} scopes / ${autonomyView.policy.maxRowsPerCycle} rows`
-              : "—"}
-          </strong>
-          <p>Per agent cycle maximum</p>
-        </article>
-        <article className="admin-stat">
-          <span>Selected scopes</span>
-          <strong>{autonomyView.nextCycle.selectedUnitKeys.length}</strong>
-          <p>
-            {autonomyView.nextCycle.maxUnitsApplied} scopes · {autonomyView.nextCycle.maxRowsApplied}{" "}
-            rows in this cycle
-          </p>
-        </article>
-        <article className="admin-stat">
-          <span>Latest run record</span>
-          <strong>{autonomyView.latestRun?.runKey ?? "—"}</strong>
-          <p>
-            {autonomyView.latestRun
-              ? `${autonomyView.latestRun.phase} · ${autonomyView.latestRun.status}`
-              : "No agent cycle records yet"}
-          </p>
-        </article>
-      </div>
-      {autonomyView.policy?.rampWarnings.length ? (
-        <p className="admin-command-result admin-command-result-warning" role="alert">
-          Ramp warning: {autonomyView.policy.rampWarnings.join("; ")}
-        </p>
-      ) : null}
-      <details className="admin-evidence-details">
-        <summary>Agent evidence and safety bounds</summary>
-        {autonomyView.nextCycle.selectedUnitKeys.length > 0 ? (
-          <p>
-            <strong>Selected scopes:</strong>{" "}
-            {autonomyView.nextCycle.selectedUnitKeys.map((key) => (
-              <code key={key}>{key} </code>
-            ))}
-          </p>
-        ) : (
-          <p>No scopes selected for the next cycle.</p>
-        )}
-        {autonomyView.latestRun ? (
-          <p>
-            <strong>Latest run record:</strong> {autonomyView.latestRun.runKey} ·{" "}
-            {autonomyView.latestRun.status}
-            {autonomyView.latestRun.dryRunExecutionKey
-              ? ` · simulation ${autonomyView.latestRun.dryRunExecutionKey}`
-              : ""}
-            {autonomyView.latestRun.waveKey
-              ? ` · batch ${autonomyView.latestRun.waveKey}`
-              : ""}
-          </p>
-        ) : null}
-        {(autonomyView.evidence.dryRunExecution || autonomyView.evidence.stagingWave) && (
-          <p>
-            <strong>Linked evidence:</strong>
-            {autonomyView.evidence.dryRunExecution
-              ? ` simulation ${autonomyView.evidence.dryRunExecution.executionKey} (${autonomyView.evidence.dryRunExecution.status})`
-              : ""}
-            {autonomyView.evidence.stagingWave
-              ? ` · staging batch ${autonomyView.evidence.stagingWave.waveKey} (${autonomyView.evidence.stagingWave.status})`
-              : ""}
-          </p>
-        )}
-        <ul>
-          {autonomyView.safetySummary.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
       </details>
     </section>
   );

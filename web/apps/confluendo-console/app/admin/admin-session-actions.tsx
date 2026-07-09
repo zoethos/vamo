@@ -51,9 +51,9 @@ export function AdminSessionActions({
         <Link
           className={`admin-stepup-timer${isExpired ? " admin-stepup-expired" : ""}`}
           href={mfaChallengeHref}
-          title="Refresh the short MFA window required for staging-canary approval"
+          title="Refresh the short MFA window required for protected operator actions"
         >
-          <span>{isExpired ? "Step-up expired" : "Step-up"}</span>
+          <span>{isExpired ? "MFA expired" : "MFA window"}</span>
           <strong>{isExpired ? "Refresh MFA" : formatRemaining(remainingMs)}</strong>
         </Link>
       ) : null}
