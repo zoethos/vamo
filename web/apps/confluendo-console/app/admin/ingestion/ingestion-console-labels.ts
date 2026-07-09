@@ -179,10 +179,11 @@ export function friendlyGeo(value: string): string {
 }
 
 export function friendlyCategory(value: string): string {
-  if (value === "poi") {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "poi") {
     return "POI";
   }
-  return friendlyGeo(value);
+  return friendlyGeo(normalized);
 }
 
 export function friendlyUnit(value: string): string {
@@ -191,6 +192,40 @@ export function friendlyUnit(value: string): string {
     return value;
   }
   return `${friendlyGeo(geography)} · ${friendlyCategory(category)}`;
+}
+
+export interface PlaceTypePresentation {
+  primary: string;
+  secondary: string;
+  targetType: string;
+}
+
+export function describePlaceType(category: string): PlaceTypePresentation {
+  const normalized = category.trim().toLowerCase();
+  const targetFeatureType = mapVamoSourceCategoryToFeatureType(normalized);
+  const sourceCategory = friendlyCategory(normalized);
+
+  if (targetFeatureType === "landmark") {
+    return {
+      primary: "Landmark",
+      secondary: "Source category: Landmark",
+      targetType: "Landmark"
+    };
+  }
+
+  if (targetFeatureType === "poi") {
+    return {
+      primary: "POI",
+      secondary: normalized === "poi" ? "Source category: General" : `Source category: ${sourceCategory}`,
+      targetType: "POI"
+    };
+  }
+
+  return {
+    primary: sourceCategory,
+    secondary: "Source category not supported by this target",
+    targetType: "Unsupported"
+  };
 }
 
 export function progressiveSourceLabel(source: "live" | "sample" | "error"): string {

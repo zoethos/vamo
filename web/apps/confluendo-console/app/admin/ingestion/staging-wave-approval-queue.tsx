@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import type { BatchQueueItem, BatchQueueLatestWave } from "@confluendo/ingestion-platform/core";
 import {
+  describePlaceType,
   describeStagingQueueEvidenceStatus,
   describeStagingQueueNextAction,
   describeVamoStagingTargetCategoryCompatibility,
   extractDryRunReportMetrics,
-  friendlyCategory,
   friendlyUnit,
   isStagingWaveSelectable,
   matchesStagingApprovalQueueFilter,
@@ -44,12 +44,14 @@ export function StagingWaveApprovalQueue({
         const eligibleForStaging = eligibility;
         const metrics = extractDryRunReportMetrics(item.dryRunReport);
         const targetCompatibility = describeVamoStagingTargetCategoryCompatibility(item.category);
+        const placeType = describePlaceType(item.category);
         const waveItem = waveByUnitKey.get(item.unitKey);
         return {
           item,
           eligibleForStaging,
           sourceCandidates: metrics?.sourceCandidates ?? null,
           expectedTargetWrites: metrics?.expectedTargetWrites ?? null,
+          placeType,
           targetCompatibility,
           evidenceStatus: describeStagingQueueEvidenceStatus(item),
           wroteToTarget: item.dryRunReport?.wroteToTarget === false ? "false" : item.dryRunReport ? "invalid" : "—",
@@ -122,11 +124,11 @@ export function StagingWaveApprovalQueue({
               </th>
               <th>#</th>
               <th>Scope</th>
-              <th>Category</th>
+              <th>Place type</th>
               <th>Status</th>
               <th>Source candidates</th>
               <th>Expected target writes</th>
-              <th>Target feature type</th>
+              <th>Target type</th>
               <th>wroteToTarget</th>
               <th>Evidence</th>
               <th>Latest verification</th>
@@ -152,7 +154,11 @@ export function StagingWaveApprovalQueue({
                   <strong>{friendlyUnit(row.item.unitKey)}</strong>
                   <code className="admin-evidence-code">{row.item.unitKey}</code>
                 </td>
-                <td>{friendlyCategory(row.item.category)}</td>
+                <td>
+                  <strong>{row.placeType.primary}</strong>
+                  <span>Target type: {row.placeType.targetType}</span>
+                  <code className="admin-evidence-code">{row.placeType.secondary}</code>
+                </td>
                 <td>{queueStatusLabels[row.item.status]}</td>
                 <td>{row.sourceCandidates ?? "—"}</td>
                 <td>{row.expectedTargetWrites ?? "—"}</td>
