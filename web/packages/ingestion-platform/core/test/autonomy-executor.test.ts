@@ -13,6 +13,7 @@ import {
 } from "../src/batch-queue-read-model.js";
 import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
 import {
+  buildAutonomousStagingWavePlan,
   buildAutonomyRunKey,
   executeAutonomyCycle,
   previewAutonomyCycle
@@ -655,6 +656,70 @@ describe("autonomy executor", () => {
         "2026-07-07T10:00:00.000Z"
       )
     );
+  });
+
+  it("buildAutonomousStagingWavePlan caps by expected target writes, not source candidates", () => {
+    const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+    const selectedItems = snapshot.items.slice(0, 1).map((item, index) => ({
+      ...item,
+      unitKey: `unit-${index + 1}`,
+      status: "dry_run_succeeded" as const,
+      dryRunReport: {
+        wroteToTarget: false as const,
+        rowsProcessed: 100,
+        insertCount: 1,
+        updateCount: 0,
+        noOpCount: 0
+      }
+    }));
+    const queueSnapshot = {
+      ...snapshot,
+      items: selectedItems
+    };
+    const policy = {
+      policyId: "1",
+      policyKey: "vamo-eu-poi-staging-v1",
+      projectKey: "vamo",
+      sourceKey: queueSnapshot.sourceKey,
+      targetKey: queueSnapshot.targetKey,
+      targetEnvironment: "staging" as const,
+      status: "active" as const,
+      allowedTiers: [],
+      allowedGeographies: [],
+      allowedCategories: [],
+      allowedTransitions: ["approve_staging_wave"],
+      maxUnitsPerCycle: 1,
+      maxRowsPerCycle: 1,
+      rollingLimits: {},
+      guardThresholds: {},
+      productionInboxHandoffPolicy: {},
+      policyVersion: 1
+    };
+    const evaluation = {
+      decision: "continue" as const,
+      phase: "staging_canary" as const,
+      selectedUnitKeys: selectedItems.map((item) => item.unitKey),
+      maxUnitsApplied: 1,
+      maxRowsApplied: 1,
+      requiredAction: "approve_or_execute_staging_wave_later" as const,
+      scannedCount: 1,
+      blockedCount: 0,
+      skippedCount: 0,
+      highestSafetyMode: "staging_write" as const,
+      telemetry: { eventName: "autonomy.cycle.advanced" as const }
+    };
+
+    const plan = buildAutonomousStagingWavePlan({
+      policy,
+      queueSnapshot,
+      evaluation,
+      actor: { type: "autonomous_agent", id: agentId },
+      auditReason: "target-write bound smoke",
+      now: "2026-07-09T12:00:00.000Z"
+    });
+
+    assert.deepEqual(plan.unitKeys, ["unit-1"]);
+    assert.equal(plan.totalPlannedRows, 1);
   });
 });
 

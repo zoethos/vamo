@@ -24,6 +24,7 @@ import type { AutonomyCycleEventName, AutonomyCycleTelemetryPayload } from "./au
 import type { BatchControlActor } from "./batch-control-actor.js";
 import { executeBatchDryRun } from "./batch-dry-run-execution.js";
 import { evaluateBatchDryRunExecution } from "./batch-dry-run-execution-policy.js";
+import { extractBatchDryRunReportMetrics } from "./batch-dry-run-report-metrics.js";
 import { approveBatchStagingCanaryWave } from "./batch-staging-canary-wave-control.js";
 import type { BatchStagingCanaryWaveApprovalPlan } from "./batch-staging-canary-wave-policy.js";
 import {
@@ -947,7 +948,7 @@ function capSelectedUnits(
   let rows = 0;
   const bounded: BatchQueueItem[] = [];
   for (const item of capped) {
-    const itemRows = item.dryRunReport?.rowsProcessed ?? 1;
+    const itemRows = extractBatchDryRunReportMetrics(item.dryRunReport)?.expectedTargetWrites ?? 1;
     if (rows + itemRows > policy.maxRowsPerCycle) {
       break;
     }
