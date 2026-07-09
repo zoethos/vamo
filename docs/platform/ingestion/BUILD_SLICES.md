@@ -1489,10 +1489,14 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.6.7 — Autonomy Hook** is implemented. Next, live-prove the hook by
-using a human-approved policy to enable production package approval/delivery,
-then run a bounded preview/execute cycle. Consumer apply remains the gated
-consumer-owned control from IP-18.6.6.
+**IP-18.7.4 — Operator-controlled autonomy run surface and ramp controls** is
+the next product slice. Start with the Agent tab run-surface clarity: the console
+shows preview/status and copyable manual ops commands; a trusted ops runtime or
+scheduler executes cycles; Delivery owns production package delivery and
+Apply-to-Vamo controls. Then add operator-controlled ramp promotion
+(`bootstrap` -> `staging_ramp` -> `volume_ramp`) with DB-guarded mutation,
+effective bounds enforcement, and audit evidence. Hosted scheduler work follows
+as IP-18.7.5.
 
 Previously recommended:
 
@@ -1638,14 +1642,14 @@ Recommended implementation split:
 
 Scope:
 
-- Live-prove IP-18.6.7 autonomy hook, then decide whether consumer
-  apply should remain human-controlled or receive its own explicit autonomous
-  apply policy model.
+- Clarify the Agent tab run surface: console = preview/status/runbook; trusted
+  ops runtime = executes one bounded cycle; Delivery tab = production package
+  delivery and Apply-to-Vamo gates.
 - Operator-controlled ramp promotion (`bootstrap` -> `staging_ramp` ->
   `volume_ramp`) in the admin console, with DB-guarded mutation and effective
   bounds enforcement.
 - Hosted cron/daemon wrapper for `ip18:autonomy-scheduler` with external
-  monitoring and alerting.
+  monitoring and alerting, after the operator run surface is clear.
 - Autonomous corrective actions when explicitly allowed by policy.
 
 Previously planned IP-18.7.1 items (now landed):
