@@ -2190,6 +2190,50 @@ a:hover {
   color: #f8fafc;
 }
 
+.admin-console[data-theme="dark"] .admin-agent-ramp-note,
+.admin-console[data-theme="dark"] .admin-agent-ramp-summary dd span,
+.admin-console[data-theme="dark"] .admin-agent-ramp-warnings ul,
+.admin-console[data-theme="dark"] .admin-agent-ramp-blockers ul,
+.admin-console[data-theme="dark"] .admin-agent-ramp-ack span {
+  color: rgba(233, 237, 244, 0.74);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-summary dt,
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields span,
+.admin-console[data-theme="dark"] .admin-agent-ramp-demotion label > span {
+  color: rgba(233, 237, 244, 0.64);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-summary dd,
+.admin-console[data-theme="dark"] .admin-agent-ramp-summary strong,
+.admin-console[data-theme="dark"] .admin-agent-ramp-evidence h4,
+.admin-console[data-theme="dark"] .admin-agent-ramp-warnings h4,
+.admin-console[data-theme="dark"] .admin-agent-ramp-demotion h4,
+.admin-console[data-theme="dark"] .admin-agent-ramp-blockers p {
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-bounds-table strong {
+  color: #8ec5ff;
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields input,
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields textarea,
+.admin-console[data-theme="dark"] .admin-agent-ramp-demotion select {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(10, 16, 30, 0.82);
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields input::placeholder,
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields textarea::placeholder {
+  color: rgba(233, 237, 244, 0.46);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-ramp-demotion {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
 .admin-console[data-theme="dark"] .admin-agent-uex .admin-evidence-code {
   color: rgba(233, 237, 244, 0.86);
 }
