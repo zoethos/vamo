@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { BatchQueueItem, BatchQueueLatestWave } from "@confluendo/ingestion-platform/core";
+import { presentVamoPoiType } from "@confluendo/ingestion-platform/core/vamo-place-intelligence-presentation";
 import {
-  describePlaceType,
   describeStagingQueueEvidenceStatus,
   describeStagingQueueNextAction,
-  describeVamoStagingTargetCategoryCompatibility,
   extractDryRunReportMetrics,
   friendlyUnit,
   isStagingWaveSelectable,
@@ -43,16 +42,14 @@ export function StagingWaveApprovalQueue({
         const eligibility = isStagingWaveSelectable(item);
         const eligibleForStaging = eligibility;
         const metrics = extractDryRunReportMetrics(item.dryRunReport);
-        const targetCompatibility = describeVamoStagingTargetCategoryCompatibility(item.category);
-        const placeType = describePlaceType(item.category);
+        const poiType = presentVamoPoiType(item.category);
         const waveItem = waveByUnitKey.get(item.unitKey);
         return {
           item,
           eligibleForStaging,
           sourceCandidates: metrics?.sourceCandidates ?? null,
           expectedTargetWrites: metrics?.expectedTargetWrites ?? null,
-          placeType,
-          targetCompatibility,
+          poiType,
           evidenceStatus: describeStagingQueueEvidenceStatus(item),
           wroteToTarget: item.dryRunReport?.wroteToTarget === false ? "false" : item.dryRunReport ? "invalid" : "—",
           latestWaveLabel: waveItem ? latestWave?.waveKey ?? "—" : "—",
@@ -124,11 +121,10 @@ export function StagingWaveApprovalQueue({
               </th>
               <th>#</th>
               <th>Scope</th>
-              <th>Place type</th>
+              <th>POI type</th>
               <th>Status</th>
               <th>Source candidates</th>
               <th>Expected target writes</th>
-              <th>Target type</th>
               <th>wroteToTarget</th>
               <th>Evidence</th>
               <th>Latest verification</th>
@@ -155,21 +151,14 @@ export function StagingWaveApprovalQueue({
                   <code className="admin-evidence-code">{row.item.unitKey}</code>
                 </td>
                 <td>
-                  <strong>{row.placeType.primary}</strong>
-                  <span>Target type: {row.placeType.targetType}</span>
-                  <code className="admin-evidence-code">{row.placeType.secondary}</code>
+                  <strong>{row.poiType.operatorValue}</strong>
+                  <code className="admin-evidence-code">
+                    {row.poiType.technicalMapping ?? "No Vamo mapping"}
+                  </code>
                 </td>
                 <td>{queueStatusLabels[row.item.status]}</td>
                 <td>{row.sourceCandidates ?? "—"}</td>
                 <td>{row.expectedTargetWrites ?? "—"}</td>
-                <td>
-                  <span
-                    className={`admin-compat-badge admin-compat-${row.targetCompatibility.status}`}
-                    title={row.targetCompatibility.detail}
-                  >
-                    {row.targetCompatibility.label}
-                  </span>
-                </td>
                 <td>{row.wroteToTarget}</td>
                 <td>{row.evidenceStatus}</td>
                 <td>

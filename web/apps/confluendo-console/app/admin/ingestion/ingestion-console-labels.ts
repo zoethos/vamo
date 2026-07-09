@@ -1,4 +1,8 @@
 import type { BatchQueueItem, BatchQueueItemStatus } from "@confluendo/ingestion-platform/core";
+import {
+  describeVamoStagingTargetCategoryCompatibility,
+  isVamoStagingTargetCategoryCompatible
+} from "@confluendo/ingestion-platform/core/vamo-place-intelligence-presentation";
 import type { IngestionStatus, IngestionTone } from "@/content/ingestion-dashboard";
 
 export type OperatorTone = "good" | "watch" | "danger" | "info" | "neutral";
@@ -194,40 +198,6 @@ export function friendlyUnit(value: string): string {
   return `${friendlyGeo(geography)} · ${friendlyCategory(category)}`;
 }
 
-export interface PlaceTypePresentation {
-  primary: string;
-  secondary: string;
-  targetType: string;
-}
-
-export function describePlaceType(category: string): PlaceTypePresentation {
-  const normalized = category.trim().toLowerCase();
-  const targetFeatureType = mapVamoSourceCategoryToFeatureType(normalized);
-  const sourceCategory = friendlyCategory(normalized);
-
-  if (targetFeatureType === "landmark") {
-    return {
-      primary: "Landmark",
-      secondary: "Source category: Landmark",
-      targetType: "Landmark"
-    };
-  }
-
-  if (targetFeatureType === "poi") {
-    return {
-      primary: "POI",
-      secondary: normalized === "poi" ? "Source category: General" : `Source category: ${sourceCategory}`,
-      targetType: "POI"
-    };
-  }
-
-  return {
-    primary: sourceCategory,
-    secondary: "Source category not supported by this target",
-    targetType: "Unsupported"
-  };
-}
-
 export function progressiveSourceLabel(source: "live" | "sample" | "error"): string {
   if (source === "live") {
     return "Live control plane";
@@ -390,67 +360,6 @@ export function extractDryRunReportMetrics(
   return {
     sourceCandidates: report.rowsProcessed,
     expectedTargetWrites: report.insertCount + report.updateCount
-  };
-}
-
-export const VAMO_STAGING_NATIVE_TARGET_CATEGORIES = ["poi", "landmark"] as const;
-export const VAMO_STAGING_POI_SUBTYPE_CATEGORIES = ["restaurant", "transport", "hotel"] as const;
-
-export type VamoStagingTargetCategoryCompatibilityStatus = "compatible" | "mapped" | "blocked";
-
-export interface VamoStagingTargetCategoryCompatibility {
-  status: VamoStagingTargetCategoryCompatibilityStatus;
-  label: string;
-  detail: string;
-  targetFeatureType?: "poi" | "landmark";
-}
-
-export function isVamoStagingTargetCategoryCompatible(category: string): boolean {
-  return mapVamoSourceCategoryToFeatureType(category) !== null;
-}
-
-function mapVamoSourceCategoryToFeatureType(category: string): "poi" | "landmark" | null {
-  const normalized = category.trim().toLowerCase();
-  if (normalized === "landmark") {
-    return "landmark";
-  }
-  if (
-    normalized === "poi" ||
-    (VAMO_STAGING_POI_SUBTYPE_CATEGORIES as readonly string[]).includes(normalized)
-  ) {
-    return "poi";
-  }
-  return null;
-}
-
-export function describeVamoStagingTargetCategoryCompatibility(
-  category: string
-): VamoStagingTargetCategoryCompatibility {
-  const targetFeatureType = mapVamoSourceCategoryToFeatureType(category);
-  if (targetFeatureType === "landmark") {
-    return {
-      status: "compatible",
-      label: "Target type: Landmark",
-      detail: "Writes to Vamo as target type Landmark.",
-      targetFeatureType
-    };
-  }
-  if (targetFeatureType === "poi") {
-    const normalized = category.trim().toLowerCase();
-    const isSubtype = normalized !== "poi";
-    return {
-      status: isSubtype ? "mapped" : "compatible",
-      label: isSubtype ? "Maps to POI" : "Target type: POI",
-      detail: isSubtype
-        ? `${category} is a POI subtype; writes to Vamo as target type POI.`
-        : "Writes to Vamo as target type POI.",
-      targetFeatureType
-    };
-  }
-  return {
-    status: "blocked",
-    label: "Blocked",
-    detail: `${category} is not supported for Vamo staging target writes.`
   };
 }
 
