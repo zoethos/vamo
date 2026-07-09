@@ -108,9 +108,9 @@ export interface BuildAutonomyDashboardViewInput {
 }
 
 const EXECUTOR_SAFETY_SUMMARY = [
-  "IP-18.7.1 bounded executor — one control-plane action per cycle.",
-  "May schedule dry-run, execute dry-run, or approve a staging wave in the control DB only.",
-  "Does not execute live staging canary writes or production inbox delivery.",
+  "IP-18.7 bounded executor — one action per cycle inside a human-approved policy envelope.",
+  "May schedule dry-run, execute dry-run, approve a staging wave, approve a production package wave, or deliver an already-approved package when explicitly permitted.",
+  "Does not execute live staging canary writes. Consumer apply remains the gated consumer-owned control unless a future policy adds autonomous apply.",
   "No provider calls. Target environment is explicit — never inferred from target key text."
 ] as const;
 
@@ -123,6 +123,15 @@ export function resolveAutonomyExecutionChannel(
   }
   if (evaluation.requiredAction === "waiting_for_ip18_6") {
     return "none";
+  }
+  if (evaluation.requiredAction === "deliver_production_package_wave") {
+    return "autonomy_cli";
+  }
+  if (evaluation.requiredAction === "approve_production_package_wave") {
+    return "autonomy_cli";
+  }
+  if (evaluation.requiredAction === "apply_consumer_package") {
+    return "human_runbook";
   }
   if (evaluation.requiredAction === "approve_or_execute_staging_wave_later") {
     const wave = queueSnapshot?.latestWave;
@@ -145,7 +154,7 @@ function executionChannelLabel(channel: AutonomyExecutionChannel): string {
     return "Runnable via ip18:autonomy-cycle --execute with CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES";
   }
   if (channel === "human_runbook") {
-    return "Requires human confirmation-gated staging runbook — not autonomous in IP-18.7.1";
+    return "Requires human confirmation-gated runbook or consumer-owned apply control";
   }
   return "Not executable by the autonomy CLI in the current state";
 }
@@ -161,7 +170,7 @@ export function buildAutonomyDashboardView(
     queueSnapshot,
     latestDryRunExecution: input.latestDryRunExecution,
     latestStagingWave: input.latestStagingWave,
-    productionPackage: input.productionPackage,
+    productionPackage: input.productionPackage ?? queueSnapshot?.latestProductionPackageWave ?? null,
     rollingCounts: input.rollingCounts,
     externalBlockers: input.externalBlockers,
     actor
@@ -179,7 +188,8 @@ export function buildAutonomyDashboardView(
     evidence: {
       dryRunExecution: input.latestDryRunExecution ?? queueSnapshot?.latestExecution ?? null,
       stagingWave: input.latestStagingWave ?? queueSnapshot?.latestWave ?? null,
-      productionPackage: input.productionPackage ?? null
+      productionPackage:
+        input.productionPackage ?? queueSnapshot?.latestProductionPackageWave ?? null
     },
     safetySummary: [...EXECUTOR_SAFETY_SUMMARY]
   };

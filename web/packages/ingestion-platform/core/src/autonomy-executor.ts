@@ -2,8 +2,9 @@
  * Bounded autonomous batch executor (IP-18.7.1).
  *
  * Evaluates the active autonomy policy, records `ingestion_autonomy_runs` cycles,
- * and performs at most one control-plane action per invocation. Never calls
- * providers, live staging canary execution, or production inbox delivery.
+ * and performs at most one bounded action per invocation. Never calls providers
+ * or live staging canary execution. Production package delivery is available
+ * only when the active policy and execution environment explicitly allow it.
  */
 
 import { Client, type QueryResult } from "pg";
@@ -26,9 +27,24 @@ import { evaluateBatchDryRunExecution } from "./batch-dry-run-execution-policy.j
 import { approveBatchStagingCanaryWave } from "./batch-staging-canary-wave-control.js";
 import type { BatchStagingCanaryWaveApprovalPlan } from "./batch-staging-canary-wave-policy.js";
 import {
+  approveBatchProductionPackageWave
+} from "./batch-production-package-wave-control.js";
+import {
+  enrichProductionPackageWaveApprovalPlanWithStagedContentHashes
+} from "./batch-production-package-wave-approval-content.js";
+import { createDefaultProductionPackageWaveCandidateLoader } from "./batch-production-package-wave-candidate-loader.js";
+import { executeBatchProductionPackageWave } from "./batch-production-package-wave-delivery.js";
+import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
+import {
+  evaluateProductionPackageWaveEligibility,
+  VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
+  type BatchProductionPackageWaveApprovalPlan
+} from "./batch-production-package-wave-policy.js";
+import {
   STAGING_CANARY_APPROVAL_MAX_AGE_MS,
   STAGING_CANARY_MAX_ROWS
 } from "./staging-canary-policy.js";
+import { PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS } from "./production-inbox-policy.js";
 import { loadBatchQueueSnapshot } from "./batch-queue-control-read.js";
 import { scheduleBatchDryRun } from "./batch-queue-mutations.js";
 import type { BatchQueueItem, BatchQueueSnapshot } from "./batch-queue-read-model.js";
@@ -51,6 +67,8 @@ export interface AutonomyCycleContext {
 export interface AutonomyCycleBaseInput {
   connectionString?: string;
   client?: AutonomyExecutorPgClientLike;
+  productionInboxConnectionString?: string;
+  productionInboxEnvironment?: string;
   projectKey: string;
   policyKey?: string;
   targetKey?: string;
@@ -78,6 +96,7 @@ export interface AutonomyCycleExecuteResult {
   auditId?: string | null;
   dryRunExecutionKey?: string | null;
   waveKey?: string | null;
+  packageKey?: string | null;
   eventNames: AutonomyCycleEventName[];
 }
 
@@ -99,6 +118,7 @@ interface ExistingRunRow extends Record<string, unknown> {
   status: AutonomyRunStatus;
   dryRunExecutionKey: string | null;
   waveKey: string | null;
+  packageKey: string | null;
 }
 
 export function buildAutonomyRunKey(
@@ -109,10 +129,12 @@ export function buildAutonomyRunKey(
 ): string {
   const units = [...evaluation.selectedUnitKeys].sort().join(",");
   const evidence = evaluation.recommendedAction?.evidence as
-    | { waveKey?: unknown; waveStatus?: unknown }
+    | { waveKey?: unknown; waveStatus?: unknown; packageKey?: unknown; packageId?: unknown }
     | undefined;
   const waveKey = typeof evidence?.waveKey === "string" ? evidence.waveKey : undefined;
   const waveStatus = typeof evidence?.waveStatus === "string" ? evidence.waveStatus : undefined;
+  const packageKey = typeof evidence?.packageKey === "string" ? evidence.packageKey : undefined;
+  const packageId = typeof evidence?.packageId === "string" ? evidence.packageId : undefined;
   const terminalWindow = buildTerminalWindowPart(evaluation, now);
   const parts = [
     "autonomy",
@@ -124,7 +146,9 @@ export function buildAutonomyRunKey(
     executionChannel ? `channel:${executionChannel}` : undefined,
     terminalWindow,
     waveStatus ? `wave_status:${waveStatus}` : undefined,
-    waveKey ? `wave:${waveKey}` : undefined
+    waveKey ? `wave:${waveKey}` : undefined,
+    packageKey ? `package:${packageKey}` : undefined,
+    packageId ? `package_id:${packageId}` : undefined
   ].filter((part): part is string => typeof part === "string" && part.length > 0);
   return parts.join(":");
 }
@@ -181,6 +205,7 @@ export async function executeAutonomyCycle(
         actionApplied: null,
         dryRunExecutionKey: existing.dryRunExecutionKey,
         waveKey: existing.waveKey,
+        packageKey: existing.packageKey,
         eventNames: []
       };
     }
@@ -348,6 +373,7 @@ export async function executeAutonomyCycle(
       status: runStatus,
       dryRunExecutionKey: actionOutcome.dryRunExecutionKey ?? null,
       waveKey: actionOutcome.waveKey ?? null,
+      packageKey: actionOutcome.packageKey ?? null,
       guardOutcome: actionOutcome.guardOutcome,
       now
     });
@@ -394,6 +420,7 @@ export async function executeAutonomyCycle(
       auditId: actionOutcome.auditId,
       dryRunExecutionKey: actionOutcome.dryRunExecutionKey,
       waveKey: actionOutcome.waveKey,
+      packageKey: actionOutcome.packageKey,
       eventNames: [
         "autonomy.cycle.started",
         "autonomy.cycle.advanced",
@@ -432,6 +459,7 @@ async function loadAutonomyCycleContext(
       queueSnapshot,
       latestDryRunExecution: queueSnapshot?.latestExecution,
       latestStagingWave: queueSnapshot?.latestWave,
+      productionPackage: queueSnapshot?.latestProductionPackageWave,
       rollingCounts,
       actor,
       now: input.now
@@ -468,6 +496,7 @@ interface ApplyAutonomyActionOutcome {
   auditId?: string | null;
   dryRunExecutionKey?: string | null;
   waveKey?: string | null;
+  packageKey?: string | null;
   guardOutcome?: Record<string, unknown>;
   telemetryEvidence: Record<string, unknown>;
 }
@@ -587,8 +616,96 @@ async function applyAutonomyAction(
     };
   }
 
+  if (evaluation.requiredAction === "approve_production_package_wave") {
+    const packagePlan = await buildAutonomousProductionPackageWavePlan({
+      client: params.client,
+      policy,
+      queueSnapshot,
+      evaluation,
+      actor,
+      auditReason,
+      now
+    });
+    const result = await approveBatchProductionPackageWave({
+      client: params.client,
+      projectKey: input.projectKey,
+      plan: packagePlan,
+      actor,
+      now
+    });
+    return {
+      actionApplied: "approve_production_package_wave",
+      idempotentReplay: result.idempotentReplay,
+      auditId: result.auditId,
+      waveKey: result.waveKey,
+      packageKey: result.waveKey,
+      telemetryEvidence: {
+        waveKey: result.waveKey,
+        waveId: result.waveId,
+        unitKeys: result.unitKeys,
+        idempotentReplay: result.idempotentReplay,
+        note: "Policy-authorized production package-wave approval only; inbox delivery is a separate action."
+      },
+      guardOutcome: { safetySummary: packagePlan.safetySummary }
+    };
+  }
+
+  if (evaluation.requiredAction === "deliver_production_package_wave") {
+    const productionPackage = queueSnapshot.latestProductionPackageWave;
+    const waveKey = readStringEvidence(evaluation.recommendedAction?.evidence, "waveKey")
+      ?? productionPackage?.waveKey;
+    if (!waveKey) {
+      throw new Error("Autonomous production package delivery requires a wave key.");
+    }
+    if (input.productionInboxEnvironment !== "production") {
+      throw new Error(
+        "Autonomous production package delivery requires VAMO_PRODUCTION_INBOX_ENVIRONMENT=production."
+      );
+    }
+    if (!input.productionInboxConnectionString?.trim()) {
+      throw new Error(
+        "Autonomous production package delivery requires VAMO_PRODUCTION_INBOX_DATABASE_URL."
+      );
+    }
+    const result = await executeBatchProductionPackageWave({
+      controlClient: params.client,
+      productionInboxConnectionString: input.productionInboxConnectionString,
+      projectKey: input.projectKey,
+      targetEnvironment: "production",
+      waveKey,
+      maxUnits: Math.max(1, evaluation.maxUnitsApplied),
+      maxRows: Math.max(1, evaluation.maxRowsApplied),
+      maxPackages: Math.max(1, evaluation.maxUnitsApplied),
+      execute: true,
+      actor,
+      reason: auditReason,
+      proveProduction: () => input.productionInboxEnvironment === "production",
+      deps: {
+        loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+      },
+      now
+    });
+    const firstPackage = result.unitResults.find((unit) => unit.packageKey);
+    return {
+      actionApplied: "deliver_production_package_wave",
+      idempotentReplay: result.idempotentReplay,
+      auditId: result.deliveryAuditId,
+      waveKey: result.waveKey,
+      packageKey: firstPackage?.packageKey ?? productionPackage?.packageKey ?? null,
+      telemetryEvidence: {
+        waveKey: result.waveKey,
+        packageKey: firstPackage?.packageKey ?? productionPackage?.packageKey ?? null,
+        deliveredCount: result.deliveredCount,
+        skippedCount: result.skippedCount,
+        blockedCount: result.blockedCount,
+        idempotentReplay: result.idempotentReplay
+      },
+      guardOutcome: { safetySummary: result.safetySummary }
+    };
+  }
+
   throw new Error(
-    `Autonomous executor cannot apply required action "${evaluation.requiredAction}" in IP-18.7.1.`
+    `Autonomous executor cannot apply required action "${evaluation.requiredAction}" in IP-18.6.7.`
   );
 }
 
@@ -703,6 +820,98 @@ export function buildAutonomousStagingWavePlan(input: {
   };
 }
 
+async function buildAutonomousProductionPackageWavePlan(input: {
+  client: AutonomyExecutorPgClientLike;
+  policy: AutonomyPolicyEnvelope;
+  queueSnapshot: BatchQueueSnapshot;
+  evaluation: EvaluateAutonomyCycleResult;
+  actor: BatchControlActor;
+  auditReason: string;
+  now: string;
+}): Promise<BatchProductionPackageWaveApprovalPlan> {
+  const approvalContext = await loadProductionPackageWaveApprovalContext({
+    client: input.client,
+    projectKey: input.policy.projectKey,
+    targetKey: input.policy.targetKey
+  });
+
+  const maxUnits = Math.max(1, input.evaluation.maxUnitsApplied);
+  const maxRows = Math.max(1, input.evaluation.maxRowsApplied);
+  const maxPackages = maxUnits;
+  const eligibility = evaluateProductionPackageWaveEligibility({
+    snapshot: input.queueSnapshot,
+    targetKey: input.policy.targetKey,
+    targetEnvironment: "production",
+    schemaContract: VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
+    maxUnits,
+    maxRows,
+    maxPackages,
+    stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey,
+    occupiedUnitKeys: approvalContext.occupiedUnitKeys,
+    hasPriorDeliveredPackage: approvalContext.hasPriorDeliveredPackage
+  });
+
+  if (!eligibility.ok) {
+    throw new Error(
+      `Production package-wave approval blocked: ${eligibility.blocks.map((block) => block.message).join("; ")}`
+    );
+  }
+
+  const selectedUnitKeys = new Set(input.evaluation.selectedUnitKeys);
+  const selectedUnits = eligibility.selectedUnits.filter((unit) =>
+    selectedUnitKeys.has(unit.item.unitKey)
+  );
+  if (selectedUnits.length === 0) {
+    throw new Error("Production package-wave approval selected no eligible units.");
+  }
+
+  const approvedAt = input.now;
+  const approvalExpiresAt = new Date(
+    Date.parse(approvedAt) + PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS
+  ).toISOString();
+  const plan: BatchProductionPackageWaveApprovalPlan = {
+    action: "approve_batch_production_package_wave",
+    waveKey: "",
+    projectKey: input.policy.projectKey,
+    queueId: input.queueSnapshot.queueId,
+    planId: input.queueSnapshot.planId,
+    targetKey: input.policy.targetKey,
+    targetEnvironment: "production",
+    schemaContract: VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
+    maxUnits,
+    maxRows,
+    maxPackages,
+    unitKeys: selectedUnits.map((unit) => unit.item.unitKey),
+    selectedUnits: selectedUnits.map((unit) => ({ ...unit, plannedPackageKey: "" })),
+    totalPlannedRows: selectedUnits.reduce((sum, unit) => sum + unit.writeCount, 0),
+    auditReason: input.auditReason,
+    approvedAt,
+    approvalExpiresAt,
+    approvedBy: {
+      email: input.actor.id,
+      role: "autonomous_agent",
+      assuranceLevel: "policy",
+      policyApprovedBy: input.policy.approvedBy ?? null,
+      policyApprovalAuditId: input.policy.approvedAuditId ?? null
+    },
+    safetySummary: [
+      "Policy-authorized autonomous production package-wave approval only.",
+      "No production inbox write in this approval action.",
+      "Approval identity is the autonomous agent; the governing policy audit is referenced separately.",
+      "Inbox delivery requires a separate policy-authorized autonomy cycle and production proof."
+    ]
+  };
+
+  const queueItemsByUnitKey = Object.fromEntries(
+    input.queueSnapshot.items.map((item) => [item.unitKey, item])
+  ) as Record<string, BatchQueueItem>;
+  return enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
+    plan,
+    queueItemsByUnitKey,
+    loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+  });
+}
+
 function buildAutonomyDryRunExecutionKey(
   policy: AutonomyPolicyEnvelope,
   evaluation: EvaluateAutonomyCycleResult
@@ -714,6 +923,14 @@ function buildAutonomyDryRunExecutionKey(
 function buildAutonomyWaveKey(policy: AutonomyPolicyEnvelope, unitKeys: string[]): string {
   const sorted = [...unitKeys].sort();
   return `autonomy-wave:${policy.policyKey}:v${policy.policyVersion}:${sorted.join(",")}`;
+}
+
+function readStringEvidence(
+  evidence: Record<string, unknown> | undefined,
+  key: string
+): string | undefined {
+  const value = evidence?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
 }
 
 function capSelectedUnits(
@@ -779,7 +996,8 @@ async function loadExistingRun(
         id::text as id,
         status,
         dry_run_execution_key as "dryRunExecutionKey",
-        wave_key as "waveKey"
+        wave_key as "waveKey",
+        package_key as "packageKey"
       from ingestion_platform.ingestion_autonomy_runs
       where policy_id = $1::bigint
         and run_key = $2
@@ -901,6 +1119,7 @@ async function finalizeAutonomyRun(
     pauseReason?: string;
     dryRunExecutionKey?: string | null;
     waveKey?: string | null;
+    packageKey?: string | null;
     guardOutcome?: Record<string, unknown>;
     correctiveActions?: Record<string, unknown>[];
     now: string;
@@ -913,15 +1132,16 @@ async function finalizeAutonomyRun(
           advanced_count = case when $2 = 'advanced' then greatest(advanced_count, $3) else advanced_count end,
           pause_reason = coalesce($4, pause_reason),
            dry_run_execution_key = coalesce($5, dry_run_execution_key),
-           wave_key = coalesce($6, wave_key),
-           guard_outcome = guard_outcome || $7::jsonb,
-           recommended_action = coalesce($8::jsonb, recommended_action),
+          wave_key = coalesce($6, wave_key),
+          package_key = coalesce($7, package_key),
+           guard_outcome = guard_outcome || $8::jsonb,
+           recommended_action = coalesce($9::jsonb, recommended_action),
            corrective_actions = case
-             when $9::jsonb is null then corrective_actions
-             else $9::jsonb
+             when $10::jsonb is null then corrective_actions
+             else $10::jsonb
            end,
-           completed_at = $10::timestamptz,
-           updated_at = $10::timestamptz
+           completed_at = $11::timestamptz,
+           updated_at = $11::timestamptz
        where id = $1::bigint
      `,
     [
@@ -931,6 +1151,7 @@ async function finalizeAutonomyRun(
       input.pauseReason ?? input.evaluation.pauseReason ?? null,
       input.dryRunExecutionKey ?? null,
       input.waveKey ?? null,
+      input.packageKey ?? null,
       JSON.stringify({
         ...(input.guardOutcome ?? {}),
         rowsAdvanced: input.evaluation.maxRowsApplied
@@ -1083,6 +1304,7 @@ function buildExecuteResult(input: {
   auditId?: string | null;
   dryRunExecutionKey?: string | null;
   waveKey?: string | null;
+  packageKey?: string | null;
   eventNames: AutonomyCycleEventName[];
 }): AutonomyCycleExecuteResult {
   return {
@@ -1097,6 +1319,7 @@ function buildExecuteResult(input: {
     auditId: input.auditId,
     dryRunExecutionKey: input.dryRunExecutionKey,
     waveKey: input.waveKey,
+    packageKey: input.packageKey,
     eventNames: input.eventNames
   };
 }

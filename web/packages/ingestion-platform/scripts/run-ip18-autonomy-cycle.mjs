@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-// IP-18.7.1 bounded autonomy cycle harness.
+// IP-18.7 bounded autonomy cycle harness.
 //
 // Preview by default. Execute requires --execute and CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES.
 //
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:autonomy-cycle -- --project-key vamo --policy-key vamo-eu-poi-staging-v1
 //   CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:autonomy-cycle -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1
+// Production package delivery additionally requires VAMO_PRODUCTION_INBOX_DATABASE_URL and VAMO_PRODUCTION_INBOX_ENVIRONMENT=production.
 
 import {
   executeAutonomyCycle,
@@ -122,6 +123,8 @@ if (!dsn) {
 
 const baseInput = {
   connectionString: dsn,
+  productionInboxConnectionString: process.env.VAMO_PRODUCTION_INBOX_DATABASE_URL?.trim(),
+  productionInboxEnvironment: process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT?.trim(),
   projectKey,
   policyKey,
   targetKey,
@@ -190,6 +193,7 @@ console.log(
       auditId: result.auditId,
       dryRunExecutionKey: result.dryRunExecutionKey,
       waveKey: result.waveKey,
+      packageKey: result.packageKey,
       eventNames: result.eventNames,
       decision: result.context.evaluation.decision,
       requiredAction: result.context.evaluation.requiredAction,

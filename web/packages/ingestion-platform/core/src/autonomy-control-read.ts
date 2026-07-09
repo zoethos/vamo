@@ -113,6 +113,7 @@ export async function loadAutonomyDashboard(
       queueSnapshot,
       latestDryRunExecution: queueSnapshot?.latestExecution,
       latestStagingWave: queueSnapshot?.latestWave,
+      productionPackage: queueSnapshot?.latestProductionPackageWave,
       actor: { type: "autonomous_agent", id: "confluendo-autonomy-read-model" }
     });
   } catch (error) {

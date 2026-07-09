@@ -105,8 +105,10 @@ export interface BatchProductionPackageWaveApprovalPlan {
   approvalExpiresAt: string;
   approvedBy: {
     email: string;
-    role: AdminPrincipal["role"];
-    assuranceLevel: AdminPrincipal["assuranceLevel"];
+    role: AdminPrincipal["role"] | "autonomous_agent";
+    assuranceLevel: AdminPrincipal["assuranceLevel"] | "policy";
+    policyApprovedBy?: string | null;
+    policyApprovalAuditId?: string | null;
   };
   safetySummary: string[];
 }
