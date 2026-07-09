@@ -42,6 +42,23 @@ describe("batch queue read model", () => {
     assert.equal(snapshot.coverage.matrix.italy?.poi, 3);
   });
 
+  it("resolves consumer display fields on queue items", () => {
+    const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+    const restaurant = snapshot.items.find(
+      (item) => item.unitKey === "vamo-place-intelligence:barcelona-spain:restaurant"
+    );
+
+    assert.ok(restaurant);
+    assert.deepEqual(restaurant.displayFields, [
+      {
+        key: "poi_type",
+        label: "POI type",
+        value: "Restaurant",
+        detail: "feature_type=poi"
+      }
+    ]);
+  });
+
   it("surfaces blocker summaries when scope is invalid", () => {
     const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
     assert.equal(parsed.ok, true);

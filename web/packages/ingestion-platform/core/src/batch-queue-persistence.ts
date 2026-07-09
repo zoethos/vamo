@@ -18,6 +18,7 @@ import {
   type BatchQueueProgress,
   type BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
+import { resolveDefaultBatchQueueDisplayFields } from "./consumer-display-fields.js";
 
 export interface PersistedBatchPlanRow {
   planKey: string;
@@ -120,7 +121,11 @@ export function mapPersistenceBundleToSnapshot(
     planNextAction: plan.planSummary.nextAction,
     latestExecution: latestExecution ?? null,
     latestWave: latestWave ?? null,
-    latestProductionPackageWave: latestProductionPackageWave ?? null
+    latestProductionPackageWave: latestProductionPackageWave ?? null,
+    displayFields: resolveDefaultBatchQueueDisplayFields({
+      projectKey,
+      targetKey: plan.targetKey
+    })
   });
 }
 

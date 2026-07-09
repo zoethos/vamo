@@ -14,6 +14,16 @@ exports:
   target: target.yaml
   fixtures:
     - fixtures/source.jsonl
+display:
+  queue:
+    fields:
+      - key: poi_type
+        label: POI type
+        source: scope.category
+        presenter: vamo_poi_type
+        detail:
+          source: scope.category
+          presenter: vamo_feature_type_mapping
 `;
 
 describe("consumer contract manifest", () => {
@@ -28,7 +38,46 @@ describe("consumer contract manifest", () => {
       assert.equal(result.value.exports.pipeline, "pipeline.yaml");
       assert.equal(result.value.exports.target, "target.yaml");
       assert.deepEqual(result.value.exports.fixtures, ["fixtures/source.jsonl"]);
+      assert.deepEqual(result.value.display?.queue?.fields, [
+        {
+          key: "poi_type",
+          label: "POI type",
+          source: "scope.category",
+          presenter: "vamo_poi_type",
+          detail: {
+            source: "scope.category",
+            presenter: "vamo_feature_type_mapping"
+          }
+        }
+      ]);
       assert.equal(result.value.normalizedSpecVersion, 1);
+    }
+  });
+
+  it("rejects malformed display fields", () => {
+    const result = parseConsumerContractManifest(`
+kind: ingestion.consumer_contract
+consumer: vamo
+profile: place-intelligence
+version: 1
+exports:
+  pipeline: pipeline.yaml
+  target: target.yaml
+display:
+  queue:
+    fields:
+      - key: poi_type
+        label: POI type
+        source: scope.category
+        presenter: unknown_magic
+`);
+
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(
+        result.errors.some((error) => error.path === "display.queue.fields[0].presenter"),
+        true
+      );
     }
   });
 

@@ -1,17 +1,30 @@
 import {
+  type ConsumerContractDisplaySpec,
   type ConsumerContractExports,
   type ConsumerContractManifest,
+  type ConsumerDisplayFieldDetailSpec,
+  type ConsumerDisplayFieldPresenter,
+  type ConsumerDisplayFieldSpec,
   type SpecValidationResult
 } from "./types.js";
 import {
   ValidationBag,
+  enumValue,
   optionalString,
   optionalStringArray,
   parseYamlDocument,
+  requireArray,
   requireNumber,
   requireRecord,
   requireString
 } from "./validation.js";
+
+const DISPLAY_PRESENTERS = [
+  "raw",
+  "title_case",
+  "vamo_poi_type",
+  "vamo_feature_type_mapping"
+] as const;
 
 /**
  * Parse a consumer contract `manifest.yaml`. A consumer (e.g. Vamo) publishes
@@ -51,7 +64,8 @@ export function parseConsumerContractManifest(
     version: requireNumber(root, "version", "version", errors) ?? 0,
     title: optionalString(root, "title", "title", errors),
     description: optionalString(root, "description", "description", errors),
-    exports: contractExports
+    exports: contractExports,
+    display: parseDisplay(root.display, errors)
   });
 }
 
@@ -74,6 +88,103 @@ function parseExports(
     target,
     fixtures
   };
+}
+
+function parseDisplay(
+  value: unknown,
+  errors: ValidationBag
+): ConsumerContractDisplaySpec | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = requireRecord(value, "display", errors);
+  if (!record) {
+    return undefined;
+  }
+
+  const queueRecord =
+    record.queue === undefined ? undefined : requireRecord(record.queue, "display.queue", errors);
+
+  return {
+    queue: queueRecord
+      ? {
+          fields: parseDisplayFields(queueRecord, "display.queue.fields", errors)
+        }
+      : undefined
+  };
+}
+
+function parseDisplayFields(
+  record: Record<string, unknown>,
+  path: string,
+  errors: ValidationBag
+): ConsumerDisplayFieldSpec[] {
+  const fields = requireArray(record, "fields", path, errors) ?? [];
+  return fields.flatMap((entry, index) => {
+    const fieldPath = `${path}[${index}]`;
+    const field = requireRecord(entry, fieldPath, errors);
+    if (!field) {
+      return [];
+    }
+
+    const key = requireString(field, "key", `${fieldPath}.key`, errors) ?? "";
+    const label = requireString(field, "label", `${fieldPath}.label`, errors) ?? "";
+    const source = requireString(field, "source", `${fieldPath}.source`, errors) ?? "";
+    const presenter = parsePresenter(field.presenter, `${fieldPath}.presenter`, errors);
+    const detail = parseDisplayDetail(field.detail, `${fieldPath}.detail`, errors);
+
+    return [
+      {
+        key,
+        label,
+        source,
+        presenter,
+        detail
+      }
+    ];
+  });
+}
+
+function parseDisplayDetail(
+  value: unknown,
+  path: string,
+  errors: ValidationBag
+): ConsumerDisplayFieldDetailSpec | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const record = requireRecord(value, path, errors);
+  if (!record) {
+    return undefined;
+  }
+
+  return {
+    source: requireString(record, "source", `${path}.source`, errors) ?? "",
+    presenter: parsePresenter(record.presenter, `${path}.presenter`, errors)
+  };
+}
+
+function parsePresenter(
+  value: unknown,
+  path: string,
+  errors: ValidationBag
+): ConsumerDisplayFieldPresenter | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    errors.shape(path, "Expected a display presenter string.");
+    return undefined;
+  }
+  return enumValue(
+    value.trim(),
+    DISPLAY_PRESENTERS,
+    path,
+    "invalid_shape",
+    errors
+  ) as ConsumerDisplayFieldPresenter | undefined;
 }
 
 /**

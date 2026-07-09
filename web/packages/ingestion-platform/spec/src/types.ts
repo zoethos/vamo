@@ -163,6 +163,33 @@ export interface ConsumerContractExports {
   fixtures: string[];
 }
 
+export type ConsumerDisplayFieldPresenter =
+  | "raw"
+  | "title_case"
+  | "vamo_poi_type"
+  | "vamo_feature_type_mapping";
+
+export interface ConsumerDisplayFieldDetailSpec {
+  source: string;
+  presenter?: ConsumerDisplayFieldPresenter;
+}
+
+export interface ConsumerDisplayFieldSpec {
+  key: string;
+  label: string;
+  source: string;
+  presenter?: ConsumerDisplayFieldPresenter;
+  detail?: ConsumerDisplayFieldDetailSpec;
+}
+
+export interface ConsumerQueueDisplaySpec {
+  fields: ConsumerDisplayFieldSpec[];
+}
+
+export interface ConsumerContractDisplaySpec {
+  queue?: ConsumerQueueDisplaySpec;
+}
+
 export interface ConsumerContractManifest {
   normalizedSpecVersion: 1;
   kind: "ingestion.consumer_contract";
@@ -172,4 +199,5 @@ export interface ConsumerContractManifest {
   title?: string;
   description?: string;
   exports: ConsumerContractExports;
+  display?: ConsumerContractDisplaySpec;
 }

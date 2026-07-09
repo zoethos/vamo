@@ -1496,6 +1496,11 @@ runbook with a gated console/API action that calls only
 
 Previously recommended:
 
+- **Consumer display contract** — **done** — consumer contract manifest declares
+  operator-facing queue fields; the core batch queue read model resolves them
+  into `BatchQueueItem.displayFields`; React renders those fields generically.
+  Vamo declares `POI type` from `scope.category` with `feature_type=...` only as
+  secondary technical detail.
 - **IP-18.6.6 — Consumer Apply Control** — **done** — gated console/API apply
   via `VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL`, preflight/result evidence,
   apply adapter + least-privilege `confluendo_inbox_apply` role, post-apply
