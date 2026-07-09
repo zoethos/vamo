@@ -49,6 +49,18 @@ describe("vamo place-intelligence consumer profile", () => {
     )?.payload;
     assert.ok(landmark);
     assert.equal(tablePayload(landmark, "location_canonicals").feature_type, "landmark");
+
+    const restaurant = result.candidates.find(
+      (candidate) => candidate.sourceScope?.category === "restaurant"
+    )?.payload;
+    assert.ok(restaurant);
+    assert.equal(tablePayload(restaurant, "location_canonicals").feature_type, "poi");
+
+    const transport = result.candidates.find(
+      (candidate) => candidate.sourceScope?.category === "transport"
+    )?.payload;
+    assert.ok(transport);
+    assert.equal(tablePayload(transport, "location_canonicals").feature_type, "poi");
   });
 
   it("produces a dry-run shipment plan against the Vamo cache schema fixture", async () => {

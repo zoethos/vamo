@@ -1183,6 +1183,31 @@ a:hover {
   word-break: break-all;
 }
 
+.admin-compat-badge {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+
+.admin-compat-compatible {
+  background: rgba(22, 163, 74, 0.12);
+  color: rgb(21, 128, 61);
+}
+
+.admin-compat-mapped {
+  background: rgba(37, 99, 235, 0.12);
+  color: rgb(29, 78, 216);
+}
+
+.admin-compat-blocked {
+  background: rgba(220, 38, 38, 0.1);
+  color: rgb(185, 28, 28);
+}
+
 .admin-queue-filter {
   display: flex;
   flex-direction: column;

@@ -239,4 +239,33 @@ describe("fixture pipeline runner", () => {
     assert.equal(canonical.canonical_key, "fsq-eiffel-tower");
     assert.equal(canonical.source_provider, "fsq_os_places");
   });
+
+  it("maps Vamo source categories to supported target feature types", () => {
+    for (const [sourceCategory, expectedFeatureType] of [
+      ["poi", "poi"],
+      ["restaurant", "poi"],
+      ["transport", "poi"],
+      ["hotel", "poi"],
+      ["landmark", "landmark"]
+    ] as const) {
+      const mapped = mapRecord(
+        {
+          scope: {
+            category: sourceCategory
+          }
+        },
+        [
+          {
+            from: "scope.category",
+            to: "location_canonicals.feature_type",
+            transform: "vamo_feature_type"
+          }
+        ]
+      );
+
+      assert.equal(mapped.errors.length, 0);
+      const canonical = mapped.payload.location_canonicals as Record<string, unknown>;
+      assert.equal(canonical.feature_type, expectedFeatureType);
+    }
+  });
 });

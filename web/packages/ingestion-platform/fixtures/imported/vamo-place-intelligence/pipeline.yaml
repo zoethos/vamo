@@ -46,6 +46,7 @@ mappings:
     transform: lowercase
   - from: scope.category
     to: location_canonicals.feature_type
+    transform: vamo_feature_type
   - from: source.latitude
     to: location_canonicals.latitude
     transform: to_number

@@ -830,7 +830,7 @@ function StagingView({
                     <th>#</th>
                     <th>Scope</th>
                     <th>Status</th>
-                    <th>Planned rows</th>
+                    <th>Expected target writes</th>
                     <th>Shipment</th>
                     <th>Exceptions</th>
                   </tr>

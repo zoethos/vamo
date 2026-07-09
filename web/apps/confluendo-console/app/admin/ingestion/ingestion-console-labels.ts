@@ -245,8 +245,8 @@ export type StagingApprovalQueueFilter =
 
 export const stagingApprovalQueueFilterLabels: Record<StagingApprovalQueueFilter, string> = {
   all: "All",
-  ready_for_dry_run: "Ready for dry run",
-  dry_run_passed: "Dry-run passed",
+  ready_for_dry_run: "Ready to simulate",
+  dry_run_passed: "Simulation passed",
   eligible_for_staging: "Eligible for staging",
   staging_verified: "Staging verified",
   ready_for_production: "Ready for production",
@@ -296,15 +296,15 @@ export function matchesStagingApprovalQueueFilter(
 
 export function describeStagingQueueEvidenceStatus(item: BatchQueueItem): string {
   if (item.status !== "dry_run_succeeded" && !item.dryRunReport) {
-    return "No dry-run evidence";
+    return "No simulation evidence";
   }
   if (!item.dryRunReport) {
     return "Report missing";
   }
   if (item.dryRunReport.wroteToTarget !== false) {
-    return "Invalid dry-run invariant";
+    return "Invalid simulation invariant";
   }
-  return "Dry-run valid";
+  return "Simulation valid";
 }
 
 export function describeStagingQueueNextAction(item: BatchQueueItem, eligibleForStaging: boolean): string {
@@ -312,10 +312,13 @@ export function describeStagingQueueNextAction(item: BatchQueueItem, eligibleFor
     return "Investigate blockers";
   }
   if (eligibleForStaging) {
-    return "Select for staging wave approval";
+    return "Select for staging verification";
+  }
+  if (item.status === "dry_run_succeeded" && !isVamoStagingTargetCategoryCompatible(item.category)) {
+    return describeVamoStagingTargetCategoryCompatibility(item.category).detail;
   }
   if (item.status === "dry_run_succeeded") {
-    return "Dry-run evidence invalid";
+    return "Simulation evidence invalid";
   }
   if (item.status === "staging_canary_ready" || item.status === "staging_canary_approved") {
     return "Await staging execution";
@@ -333,7 +336,99 @@ export function describeStagingQueueNextAction(item: BatchQueueItem, eligibleFor
     return "Complete";
   }
   if (item.status === "ready_for_dry_run" || item.status === "dry_run_ready") {
-    return "Run dry-run simulation";
+    return "Run simulation";
   }
   return "Monitor queue progression";
+}
+
+export interface DryRunReportMetrics {
+  sourceCandidates: number;
+  expectedTargetWrites: number;
+}
+
+export function extractDryRunReportMetrics(
+  report: BatchQueueItem["dryRunReport"]
+): DryRunReportMetrics | null {
+  if (!report || report.wroteToTarget !== false) {
+    return null;
+  }
+  return {
+    sourceCandidates: report.rowsProcessed,
+    expectedTargetWrites: report.insertCount + report.updateCount
+  };
+}
+
+export const VAMO_STAGING_NATIVE_TARGET_CATEGORIES = ["poi", "landmark"] as const;
+export const VAMO_STAGING_POI_SUBTYPE_CATEGORIES = ["restaurant", "transport", "hotel"] as const;
+
+export type VamoStagingTargetCategoryCompatibilityStatus = "compatible" | "mapped" | "blocked";
+
+export interface VamoStagingTargetCategoryCompatibility {
+  status: VamoStagingTargetCategoryCompatibilityStatus;
+  label: string;
+  detail: string;
+  targetFeatureType?: "poi" | "landmark";
+}
+
+export function isVamoStagingTargetCategoryCompatible(category: string): boolean {
+  return mapVamoSourceCategoryToFeatureType(category) !== null;
+}
+
+function mapVamoSourceCategoryToFeatureType(category: string): "poi" | "landmark" | null {
+  const normalized = category.trim().toLowerCase();
+  if (normalized === "landmark") {
+    return "landmark";
+  }
+  if (
+    normalized === "poi" ||
+    (VAMO_STAGING_POI_SUBTYPE_CATEGORIES as readonly string[]).includes(normalized)
+  ) {
+    return "poi";
+  }
+  return null;
+}
+
+export function describeVamoStagingTargetCategoryCompatibility(
+  category: string
+): VamoStagingTargetCategoryCompatibility {
+  const targetFeatureType = mapVamoSourceCategoryToFeatureType(category);
+  if (targetFeatureType === "landmark") {
+    return {
+      status: "compatible",
+      label: "Target type: Landmark",
+      detail: "Writes to Vamo as target type Landmark.",
+      targetFeatureType
+    };
+  }
+  if (targetFeatureType === "poi") {
+    const normalized = category.trim().toLowerCase();
+    const isSubtype = normalized !== "poi";
+    return {
+      status: isSubtype ? "mapped" : "compatible",
+      label: isSubtype ? "Maps to POI" : "Target type: POI",
+      detail: isSubtype
+        ? `${category} is a POI subtype; writes to Vamo as target type POI.`
+        : "Writes to Vamo as target type POI.",
+      targetFeatureType
+    };
+  }
+  return {
+    status: "blocked",
+    label: "Blocked",
+    detail: `${category} is not supported for Vamo staging target writes.`
+  };
+}
+
+export function isStagingWaveSelectable(item: BatchQueueItem): boolean {
+  if (item.status !== "dry_run_succeeded" || !item.dryRunReport) {
+    return false;
+  }
+  if (!isVamoStagingTargetCategoryCompatible(item.category)) {
+    return false;
+  }
+  const metrics = extractDryRunReportMetrics(item.dryRunReport);
+  if (!metrics) {
+    return false;
+  }
+  return metrics.expectedTargetWrites >= 1 && metrics.expectedTargetWrites <= 50;
 }

@@ -5,24 +5,16 @@ import type { BatchQueueItem, BatchQueueLatestWave } from "@confluendo/ingestion
 import {
   describeStagingQueueEvidenceStatus,
   describeStagingQueueNextAction,
+  describeVamoStagingTargetCategoryCompatibility,
+  extractDryRunReportMetrics,
   friendlyCategory,
   friendlyUnit,
+  isStagingWaveSelectable,
   matchesStagingApprovalQueueFilter,
   queueStatusLabels,
   stagingApprovalQueueFilterLabels,
   type StagingApprovalQueueFilter
 } from "./ingestion-console-labels";
-
-function isStagingWaveSelectable(item: BatchQueueItem): boolean {
-  if (item.status !== "dry_run_succeeded" || !item.dryRunReport) {
-    return false;
-  }
-  if (item.dryRunReport.wroteToTarget !== false) {
-    return false;
-  }
-  const writeCount = item.dryRunReport.insertCount + item.dryRunReport.updateCount;
-  return writeCount >= 1 && writeCount <= 50;
-}
 
 export function StagingWaveApprovalQueue({
   items,
@@ -50,15 +42,15 @@ export function StagingWaveApprovalQueue({
       .map((item) => {
         const eligibility = isStagingWaveSelectable(item);
         const eligibleForStaging = eligibility;
-        const plannedRows =
-          item.dryRunReport && item.dryRunReport.wroteToTarget === false
-            ? item.dryRunReport.insertCount + item.dryRunReport.updateCount
-            : null;
+        const metrics = extractDryRunReportMetrics(item.dryRunReport);
+        const targetCompatibility = describeVamoStagingTargetCategoryCompatibility(item.category);
         const waveItem = waveByUnitKey.get(item.unitKey);
         return {
           item,
           eligibleForStaging,
-          plannedRows,
+          sourceCandidates: metrics?.sourceCandidates ?? null,
+          expectedTargetWrites: metrics?.expectedTargetWrites ?? null,
+          targetCompatibility,
           evidenceStatus: describeStagingQueueEvidenceStatus(item),
           wroteToTarget: item.dryRunReport?.wroteToTarget === false ? "false" : item.dryRunReport ? "invalid" : "—",
           latestWaveLabel: waveItem ? latestWave?.waveKey ?? "—" : "—",
@@ -94,7 +86,7 @@ export function StagingWaveApprovalQueue({
 
   return (
     <div className="admin-staging-approval-queue">
-      <div className="admin-queue-toolbar" role="toolbar" aria-label="Staging approval queue filters">
+      <div className="admin-queue-toolbar" role="toolbar" aria-label="Staging verification queue filters">
         {(Object.keys(stagingApprovalQueueFilterLabels) as StagingApprovalQueueFilter[]).map((key) => (
           <button
             key={key}
@@ -132,10 +124,12 @@ export function StagingWaveApprovalQueue({
               <th>Scope</th>
               <th>Category</th>
               <th>Status</th>
-              <th>Planned rows</th>
+              <th>Source candidates</th>
+              <th>Expected target writes</th>
+              <th>Target feature type</th>
               <th>wroteToTarget</th>
               <th>Evidence</th>
-              <th>Latest wave</th>
+              <th>Latest verification</th>
               <th>Shipment id</th>
               <th>Blockers</th>
               <th>Next action</th>
@@ -160,7 +154,16 @@ export function StagingWaveApprovalQueue({
                 </td>
                 <td>{friendlyCategory(row.item.category)}</td>
                 <td>{queueStatusLabels[row.item.status]}</td>
-                <td>{row.plannedRows ?? "—"}</td>
+                <td>{row.sourceCandidates ?? "—"}</td>
+                <td>{row.expectedTargetWrites ?? "—"}</td>
+                <td>
+                  <span
+                    className={`admin-compat-badge admin-compat-${row.targetCompatibility.status}`}
+                    title={row.targetCompatibility.detail}
+                  >
+                    {row.targetCompatibility.label}
+                  </span>
+                </td>
                 <td>{row.wroteToTarget}</td>
                 <td>{row.evidenceStatus}</td>
                 <td>
