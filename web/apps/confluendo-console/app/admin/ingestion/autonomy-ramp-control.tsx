@@ -38,7 +38,7 @@ const blockLabels: Record<string, string> = {
   production_handoff_not_ready: "Steady-state ramp is locked until production handoff is enabled.",
   advisory_warnings_unacknowledged: "Acknowledge advisory warnings before promoting.",
   ramp_mode_conflict: "The ramp mode changed. Refresh before trying again.",
-  confirmed_mode_mismatch: "Typed confirmation must exactly match the target ramp mode."
+  confirmed_mode_mismatch: "Selected target mode must match the requested ramp mode."
 };
 
 const freshStepUpHref =
@@ -56,7 +56,7 @@ export function AutonomyRampControl({
   context: RampContext;
 }) {
   const [auditReason, setAuditReason] = useState("");
-  const [confirmedMode, setConfirmedMode] = useState("");
+  const [promotionTargetMode, setPromotionTargetMode] = useState<AutonomyRampMode | "">("");
   const [demotionMode, setDemotionMode] = useState<AutonomyRampMode | "">("");
   const [acknowledgedWarnings, setAcknowledgedWarnings] = useState(false);
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
@@ -72,6 +72,11 @@ export function AutonomyRampControl({
     () => demotionDisabledReason(context, rampCard, demotionMode),
     [context, rampCard, demotionMode]
   );
+  const promoteTargetReason =
+    !promoteDisabledReason && rampCard.nextMode && promotionTargetMode !== rampCard.nextMode
+      ? `Select ${rampCard.nextModeLabel ?? rampCard.nextMode} in the target mode dropdown.`
+      : undefined;
+  const promoteActionDisabledReason = promoteDisabledReason ?? promoteTargetReason;
 
   async function submitChange(requestedMode: AutonomyRampMode, direction: "promotion" | "demotion") {
     if (inFlightRef.current) {
@@ -81,10 +86,11 @@ export function AutonomyRampControl({
       setDecision({ state: "error", message: "Audit reason is required." });
       return;
     }
-    if (confirmedMode.trim() !== requestedMode) {
+    const selectedTargetMode = direction === "promotion" ? promotionTargetMode : demotionMode;
+    if (selectedTargetMode !== requestedMode) {
       setDecision({
         state: "error",
-        message: `Type ${requestedMode} to confirm the target ramp mode.`
+        message: `Select ${requestedMode} to confirm the target ramp mode.`
       });
       return;
     }
@@ -113,7 +119,7 @@ export function AutonomyRampControl({
           expectedCurrentMode: rampCard.currentMode,
           requestedMode,
           auditReason: auditReason.trim(),
-          confirmedMode: confirmedMode.trim(),
+          confirmedMode: selectedTargetMode,
           acknowledgedWarnings: direction === "promotion" ? acknowledgedWarnings : undefined
         })
       });
@@ -148,7 +154,7 @@ export function AutonomyRampControl({
           auditId: payload.auditId
         });
         setAuditReason("");
-        setConfirmedMode("");
+        setPromotionTargetMode("");
         setDemotionMode("");
         setAcknowledgedWarnings(false);
         router.refresh();
@@ -293,14 +299,24 @@ export function AutonomyRampControl({
           />
         </label>
         <label>
-          <span>Type target ramp mode to confirm</span>
-          <input
-            type="text"
-            value={confirmedMode}
-            onChange={(event) => setConfirmedMode(event.target.value)}
-            placeholder="e.g. volume_ramp"
-            disabled={pending}
-          />
+          <span>Confirm promotion target</span>
+          <select
+            value={promotionTargetMode}
+            onChange={(event) => setPromotionTargetMode(event.target.value as AutonomyRampMode | "")}
+            disabled={pending || !rampCard.nextMode}
+            aria-label="Confirm promotion target ramp mode"
+          >
+            <option value="">
+              {rampCard.nextMode
+                ? `Select ${rampCard.nextModeLabel ?? rampCard.nextMode}`
+                : "No promotion target available"}
+            </option>
+            {rampCard.nextMode ? (
+              <option value={rampCard.nextMode}>
+                {rampCard.nextModeLabel ?? rampCard.nextMode} ({rampCard.nextMode})
+              </option>
+            ) : null}
+          </select>
         </label>
         {rampCard.advisoryWarnings.length > 0 ? (
           <label className="admin-agent-ramp-ack">
@@ -320,17 +336,17 @@ export function AutonomyRampControl({
           <button
             type="button"
             className="admin-command admin-command-primary admin-stateful-command"
-            data-state={pending ? "busy" : promoteDisabledReason ? "unavailable" : "ready"}
+            data-state={pending ? "busy" : promoteActionDisabledReason ? "unavailable" : "ready"}
             onClick={() => void submitChange(rampCard.nextMode!, "promotion")}
-            disabled={Boolean(promoteDisabledReason) || pending}
-            title={promoteDisabledReason ?? undefined}
+            disabled={Boolean(promoteActionDisabledReason) || pending}
+            title={promoteActionDisabledReason ?? undefined}
           >
             {pending ? "Applying ramp change..." : `Promote to ${rampCard.nextModeLabel ?? rampCard.nextMode}`}
           </button>
         ) : null}
-        {promoteDisabledReason ? (
+        {promoteActionDisabledReason ? (
           <p className="admin-action-status" data-state="unavailable">
-            Promotion unavailable: {promoteDisabledReason}
+            Promotion unavailable: {promoteActionDisabledReason}
           </p>
         ) : null}
       </div>
@@ -340,7 +356,7 @@ export function AutonomyRampControl({
           <h4>Reduce ramp</h4>
           <p className="admin-agent-ramp-note">
             Demotion narrows autonomous bounds immediately. Fresh MFA is not required, but an audit
-            reason and typed confirmation are still required.
+            reason and target-mode selection are still required.
           </p>
           <label>
             <span>Target lower ramp mode</span>
