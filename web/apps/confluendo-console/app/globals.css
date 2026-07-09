@@ -1561,6 +1561,25 @@ a:hover {
   text-transform: uppercase;
 }
 
+.admin-agent-ramp-fields input,
+.admin-agent-ramp-fields select,
+.admin-agent-ramp-fields textarea,
+.admin-agent-ramp-demotion select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(42, 46, 58, 0.16);
+  border-radius: 6px;
+  padding: 0.55rem 0.65rem;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.admin-agent-ramp-fields textarea {
+  min-height: 4.25rem;
+  resize: vertical;
+}
+
 .admin-agent-ramp-ack {
   display: flex;
   align-items: flex-start;
@@ -2218,6 +2237,7 @@ a:hover {
 }
 
 .admin-console[data-theme="dark"] .admin-agent-ramp-fields input,
+.admin-console[data-theme="dark"] .admin-agent-ramp-fields select,
 .admin-console[data-theme="dark"] .admin-agent-ramp-fields textarea,
 .admin-console[data-theme="dark"] .admin-agent-ramp-demotion select {
   border-color: rgba(255, 255, 255, 0.14);
