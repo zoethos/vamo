@@ -2325,6 +2325,14 @@ a:hover {
   border-radius: 6px;
   font: inherit;
   font-weight: 800;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+  user-select: none;
 }
 
 .admin-command:disabled,
@@ -2335,12 +2343,31 @@ a:hover {
 
 .admin-command {
   display: flex;
-  min-height: 6.35rem;
+  min-height: 4.6rem;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.75rem;
   padding: 0.95rem;
   text-align: left;
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.08);
+}
+
+.admin-command:hover:not(:disabled),
+.admin-command:focus-visible:not(:disabled),
+.admin-row-control:hover:not(:disabled),
+.admin-row-control:focus-visible:not(:disabled),
+.admin-wide-control:hover:not(:disabled),
+.admin-wide-control:focus-visible:not(:disabled) {
+  border-color: rgba(15, 118, 110, 0.38);
+  box-shadow: 0 8px 18px rgba(12, 14, 22, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-command:active:not(:disabled),
+.admin-row-control:active:not(:disabled),
+.admin-wide-control:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.12);
+  transform: translateY(0);
 }
 
 .admin-command span {
@@ -2358,7 +2385,7 @@ a:hover {
 
 .admin-command-primary {
   border-color: var(--ink);
-  background: var(--ink);
+  background: linear-gradient(180deg, #2a2e3a, var(--ink));
   color: var(--warm-white);
 }
 
@@ -2371,20 +2398,33 @@ a:hover {
 }
 
 .admin-stateful-command {
+  display: inline-flex;
   width: fit-content;
   min-width: 0;
-  min-height: 2.65rem;
+  min-height: 2.45rem;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 8px;
-  padding: 0.62rem 0.85rem;
+  border-radius: 7px;
+  padding: 0.56rem 0.85rem;
   text-align: center;
   font-size: 0.9rem;
   font-weight: 850;
   line-height: 1.15;
-  box-shadow: 0 10px 24px rgba(12, 14, 22, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 5px rgba(12, 14, 22, 0.14);
+}
+
+.admin-stateful-command::after {
+  content: "";
+  width: 0.42rem;
+  height: 0.42rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0.72;
+  transform: rotate(-45deg);
 }
 
 .admin-stateful-command:hover:not(:disabled),
@@ -2399,6 +2439,11 @@ a:hover {
   background: #eef2f7;
   color: rgba(12, 14, 22, 0.52);
   box-shadow: none;
+  transform: none;
+}
+
+.admin-stateful-command:disabled::after {
+  display: none;
 }
 
 .admin-action-status {
@@ -2418,6 +2463,13 @@ a:hover {
   color: var(--ink);
 }
 
+.admin-command-good,
+.admin-command-watch,
+.admin-command-planned {
+  background: #ffffff;
+  color: var(--ink);
+}
+
 .admin-command-danger {
   border-color: rgba(185, 28, 28, 0.24);
   background: #fff5f5;
@@ -2425,9 +2477,22 @@ a:hover {
 }
 
 .admin-command-danger.admin-stateful-command {
-  border-color: rgba(185, 28, 28, 0.26);
-  background: #fff5f5;
+  border-color: rgba(185, 28, 28, 0.42);
+  background: linear-gradient(180deg, #fffafa, #fee2e2);
   color: #991b1b;
+}
+
+.admin-inline-action {
+  display: inline-flex;
+  min-height: 2.35rem;
+  width: fit-content;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  text-decoration: none;
 }
 
 .admin-signal-grid {
@@ -3147,15 +3212,36 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-command-primary,
 .admin-console[data-theme="dark"] .admin-row-control,
 .admin-console[data-theme="dark"] .admin-wide-control {
-  border-color: rgba(250, 250, 251, 0.88);
-  background: var(--warm-white);
+  border-color: rgba(250, 250, 251, 0.78);
+  background: linear-gradient(180deg, #f8fafc, #dbeafe);
   color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.admin-console[data-theme="dark"] .admin-command:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-command:focus-visible:not(:disabled),
+.admin-console[data-theme="dark"] .admin-row-control:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-row-control:focus-visible:not(:disabled),
+.admin-console[data-theme="dark"] .admin-wide-control:hover:not(:disabled),
+.admin-console[data-theme="dark"] .admin-wide-control:focus-visible:not(:disabled) {
+  border-color: rgba(142, 197, 255, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 10px 22px rgba(0, 0, 0, 0.34);
 }
 
 .admin-console[data-theme="dark"] .admin-command-danger.admin-stateful-command {
-  border-color: rgba(252, 165, 165, 0.38);
-  background: rgba(127, 29, 29, 0.32);
-  color: #fecaca;
+  border-color: rgba(252, 165, 165, 0.5);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.72), rgba(69, 10, 10, 0.78));
+  color: #fee2e2;
+}
+
+.admin-console[data-theme="dark"] .admin-command-danger:not(.admin-stateful-command) {
+  border-color: rgba(252, 165, 165, 0.34);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.42), rgba(69, 10, 10, 0.54));
+  color: #fee2e2;
 }
 
 .admin-console[data-theme="dark"] .admin-stateful-command:disabled {
@@ -3170,6 +3256,9 @@ a:hover {
 }
 
 .admin-console[data-theme="dark"] .admin-command-neutral,
+.admin-console[data-theme="dark"] .admin-command-good,
+.admin-console[data-theme="dark"] .admin-command-watch,
+.admin-console[data-theme="dark"] .admin-command-planned,
 .admin-console[data-theme="dark"] .admin-readonly-pill,
 .admin-console[data-theme="dark"] .admin-table-count,
 .admin-console[data-theme="dark"] .admin-target-table th,
@@ -3182,6 +3271,14 @@ a:hover {
   border-color: rgba(250, 250, 251, 0.1);
   background: rgba(250, 250, 251, 0.06);
   color: rgba(250, 250, 251, 0.76);
+}
+
+.admin-console[data-theme="dark"] .admin-command-neutral,
+.admin-console[data-theme="dark"] .admin-command-good,
+.admin-console[data-theme="dark"] .admin-command-watch,
+.admin-console[data-theme="dark"] .admin-command-planned {
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.92), rgba(15, 23, 42, 0.92));
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-readonly-pill,
