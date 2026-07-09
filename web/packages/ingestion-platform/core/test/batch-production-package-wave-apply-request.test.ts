@@ -131,6 +131,12 @@ describe("production package-wave apply route artifact", () => {
     assert.doesNotMatch(preflightSource, /VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL/);
   });
 
+  it("uses read-only admin auth for preflight rather than the JSON mutation guard", () => {
+    const preflightSource = readFileSync(preflightRoute, "utf8");
+    assert.match(preflightSource, /authorizeIngestionReadRequest/);
+    assert.doesNotMatch(preflightSource, /authorizeStagingCanaryRequest/);
+  });
+
   it("does not insert or update Vamo product tables directly", () => {
     const routeSource = readFileSync(applyRoute, "utf8");
     assert.doesNotMatch(routeSource, /insert into public\.location_canonicals/i);

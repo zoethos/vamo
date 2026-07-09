@@ -167,6 +167,25 @@ export async function authorizeIngestionCommandRequest(input: {
   };
 }
 
+export async function authorizeIngestionReadRequest(input: {
+  projectKey: string;
+}): Promise<
+  | { ok: true; principal: AdminPrincipal }
+  | { ok: false; status: number; body: { ok: false; error: string; code: string } }
+> {
+  const resolution = await getIngestionAdminPrincipal(input.projectKey);
+  if (!resolution.ok) {
+    return adminJsonFailure(resolution.code);
+  }
+
+  const decision = authorizeAdminDashboard(resolution.principal);
+  if (!decision.ok) {
+    return adminJsonFailure(decision.code);
+  }
+
+  return { ok: true, principal: resolution.principal };
+}
+
 export async function authorizeStagingCanaryRequest(input: {
   request: NextRequest;
   projectKey: string;
