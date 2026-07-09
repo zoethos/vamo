@@ -354,6 +354,15 @@ export {
   type BatchDryRunReportMetrics
 } from "./batch-dry-run-report-metrics.js";
 export {
+  resolveConsumerDisplayFields,
+  resolveDefaultBatchQueueDisplayFields,
+  VAMO_PLACE_INTELLIGENCE_QUEUE_DISPLAY_FIELDS,
+  type ConsumerDisplayFieldPresenter,
+  type ConsumerDisplayFieldSpec,
+  type ConsumerDisplayResolutionContext,
+  type ResolvedConsumerDisplayField
+} from "./consumer-display-fields.js";
+export {
   VAMO_STAGING_NATIVE_TARGET_CATEGORIES,
   VAMO_STAGING_POI_SUBTYPE_CATEGORIES,
   describeVamoStagingTargetCategoryCompatibility,

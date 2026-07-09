@@ -8,6 +8,12 @@
 
 import type { BatchPlanResult, BatchPlanUnit } from "./batch-planner.js";
 import { sampleVamoEuPoiBatchPlan } from "./batch-plan-read-model.js";
+import {
+  resolveConsumerDisplayFields,
+  resolveDefaultBatchQueueDisplayFields,
+  type ConsumerDisplayFieldSpec,
+  type ResolvedConsumerDisplayField
+} from "./consumer-display-fields.js";
 
 export type BatchQueueItemStatus =
   | "planned"
@@ -90,6 +96,7 @@ export interface BatchQueueItem {
   status: BatchQueueItemStatus;
   blockReasons: string[];
   dryRunReport?: BatchDryRunReport | null;
+  displayFields?: ResolvedConsumerDisplayField[];
 }
 
 export interface BatchQueueGroup {
@@ -253,6 +260,7 @@ export interface BuildBatchQueueSnapshotInput {
   plan: BatchPlanResult;
   /** Optional per-unit progression overrides keyed by unitKey. */
   progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>;
+  displayFields?: readonly ConsumerDisplayFieldSpec[];
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
   latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
@@ -299,7 +307,9 @@ export function formatBatchQueueBlockers(value: unknown): string[] {
 
 export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): BatchQueueSnapshot {
   const items = input.plan.units
-    .map((unit) => toQueueItem(unit, input.plan, input.progressionByUnitKey))
+    .map((unit) =>
+      toQueueItem(unit, input.plan, input.progressionByUnitKey, input.displayFields)
+    )
     .sort((a, b) => a.runOrder - b.runOrder);
 
   return finalizeBatchQueueSnapshot({
@@ -329,8 +339,12 @@ export function buildBatchQueueSnapshotFromItems(input: {
   latestExecution?: BatchQueueLatestExecution | null;
   latestWave?: BatchQueueLatestWave | null;
   latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null;
+  displayFields?: readonly ConsumerDisplayFieldSpec[];
 }): BatchQueueSnapshot {
-  const items = [...input.items].sort((a, b) => a.runOrder - b.runOrder);
+  const displayFields = input.displayFields;
+  const items = displayFields
+    ? input.items.map((item) => withResolvedDisplayFields(item, displayFields))
+    : input.items;
   return finalizeBatchQueueSnapshot({
     planId: input.planId,
     projectKey: input.projectKey,
@@ -338,7 +352,7 @@ export function buildBatchQueueSnapshotFromItems(input: {
     targetEnvironment: input.targetEnvironment,
     sourceKey: input.sourceKey,
     safetyMode: input.safetyMode,
-    items,
+    items: [...items].sort((a, b) => a.runOrder - b.runOrder),
     planNextAction: input.planNextAction,
     latestExecution: input.latestExecution,
     latestWave: input.latestWave,
@@ -390,13 +404,21 @@ function finalizeBatchQueueSnapshot(input: {
 }
 
 export function sampleVamoEuPoiBatchQueueSnapshot(): BatchQueueSnapshot {
-  return buildBatchQueueSnapshot({ plan: sampleVamoEuPoiBatchPlan() });
+  const plan = sampleVamoEuPoiBatchPlan();
+  return buildBatchQueueSnapshot({
+    plan,
+    displayFields: resolveDefaultBatchQueueDisplayFields({
+      projectKey: plan.projectKey,
+      targetKey: plan.targetKey
+    })
+  });
 }
 
 function toQueueItem(
   unit: BatchPlanUnit,
   plan: BatchPlanResult,
-  progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>
+  progressionByUnitKey?: Readonly<Record<string, BatchQueueItemStatus>>,
+  displayFields?: readonly ConsumerDisplayFieldSpec[]
 ): BatchQueueItem {
   const country = inferCountry(unit);
   return {
@@ -411,7 +433,44 @@ function toQueueItem(
     sourceKey: plan.sourceKey,
     priority: unit.priority,
     status: resolveQueueStatus(unit, progressionByUnitKey?.[unit.unitKey]),
-    blockReasons: unit.blockReasons.slice()
+    blockReasons: unit.blockReasons.slice(),
+    displayFields: resolveConsumerDisplayFields(displayFields, {
+      scope: {
+        category: unit.category,
+        geography: unit.geography,
+        country
+      },
+      source: {
+        key: plan.sourceKey
+      },
+      target: {
+        key: plan.targetKey,
+        environment: plan.targetEnvironment
+      }
+    })
+  };
+}
+
+function withResolvedDisplayFields(
+  item: BatchQueueItem,
+  displayFields: readonly ConsumerDisplayFieldSpec[]
+): BatchQueueItem {
+  return {
+    ...item,
+    displayFields: resolveConsumerDisplayFields(displayFields, {
+      scope: {
+        category: item.category,
+        geography: item.geography,
+        country: item.country
+      },
+      source: {
+        key: item.sourceKey
+      },
+      target: {
+        key: item.targetKey,
+        environment: item.targetEnvironment
+      }
+    })
   };
 }
 

@@ -13,3 +13,13 @@ exports:
   target: target.yaml
   fixtures:
     - fixtures/source.jsonl
+display:
+  queue:
+    fields:
+      - key: poi_type
+        label: POI type
+        source: scope.category
+        presenter: vamo_poi_type
+        detail:
+          source: scope.category
+          presenter: vamo_feature_type_mapping

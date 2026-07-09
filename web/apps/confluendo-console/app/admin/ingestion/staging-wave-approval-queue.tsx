@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import type { BatchQueueItem, BatchQueueLatestWave } from "@confluendo/ingestion-platform/core";
-import { presentVamoPoiType } from "@confluendo/ingestion-platform/core/vamo-place-intelligence-presentation";
 import {
   describeStagingQueueEvidenceStatus,
   describeStagingQueueNextAction,
@@ -14,6 +13,11 @@ import {
   stagingApprovalQueueFilterLabels,
   type StagingApprovalQueueFilter
 } from "./ingestion-console-labels";
+
+interface DisplayColumn {
+  key: string;
+  label: string;
+}
 
 export function StagingWaveApprovalQueue({
   items,
@@ -36,20 +40,30 @@ export function StagingWaveApprovalQueue({
     return map;
   }, [latestWave?.items]);
 
+  const displayColumns = useMemo<DisplayColumn[]>(() => {
+    const columns = new Map<string, DisplayColumn>();
+    for (const item of items) {
+      for (const field of item.displayFields ?? []) {
+        if (!columns.has(field.key)) {
+          columns.set(field.key, { key: field.key, label: field.label });
+        }
+      }
+    }
+    return columns.size > 0 ? [...columns.values()] : [{ key: "category", label: "Category" }];
+  }, [items]);
+
   const rows = useMemo(() => {
     return items
       .map((item) => {
         const eligibility = isStagingWaveSelectable(item);
         const eligibleForStaging = eligibility;
         const metrics = extractDryRunReportMetrics(item.dryRunReport);
-        const poiType = presentVamoPoiType(item.category);
         const waveItem = waveByUnitKey.get(item.unitKey);
         return {
           item,
           eligibleForStaging,
           sourceCandidates: metrics?.sourceCandidates ?? null,
           expectedTargetWrites: metrics?.expectedTargetWrites ?? null,
-          poiType,
           evidenceStatus: describeStagingQueueEvidenceStatus(item),
           wroteToTarget: item.dryRunReport?.wroteToTarget === false ? "false" : item.dryRunReport ? "invalid" : "—",
           latestWaveLabel: waveItem ? latestWave?.waveKey ?? "—" : "—",
@@ -121,7 +135,9 @@ export function StagingWaveApprovalQueue({
               </th>
               <th>#</th>
               <th>Scope</th>
-              <th>POI type</th>
+              {displayColumns.map((column) => (
+                <th key={column.key}>{column.label}</th>
+              ))}
               <th>Status</th>
               <th>Source candidates</th>
               <th>Expected target writes</th>
@@ -150,12 +166,17 @@ export function StagingWaveApprovalQueue({
                   <strong>{friendlyUnit(row.item.unitKey)}</strong>
                   <code className="admin-evidence-code">{row.item.unitKey}</code>
                 </td>
-                <td>
-                  <strong>{row.poiType.operatorValue}</strong>
-                  <code className="admin-evidence-code">
-                    {row.poiType.technicalMapping ?? "No Vamo mapping"}
-                  </code>
-                </td>
+                {displayColumns.map((column) => {
+                  const field = row.item.displayFields?.find((entry) => entry.key === column.key);
+                  return (
+                    <td key={column.key}>
+                      <strong>{field?.value ?? row.item.category}</strong>
+                      {field?.detail ? (
+                        <code className="admin-evidence-code">{field.detail}</code>
+                      ) : null}
+                    </td>
+                  );
+                })}
                 <td>{queueStatusLabels[row.item.status]}</td>
                 <td>{row.sourceCandidates ?? "—"}</td>
                 <td>{row.expectedTargetWrites ?? "—"}</td>
