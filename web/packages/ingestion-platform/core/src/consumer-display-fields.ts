@@ -1,3 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
+import { parseConsumerContractManifest } from "../../spec/src/consumer-contract.js";
 import type {
   ConsumerDisplayFieldPresenter,
   ConsumerDisplayFieldSpec
@@ -28,18 +32,11 @@ export interface ResolvedConsumerDisplayField {
   detail?: string;
 }
 
-export const VAMO_PLACE_INTELLIGENCE_QUEUE_DISPLAY_FIELDS: readonly ConsumerDisplayFieldSpec[] = [
-  {
-    key: "poi_type",
-    label: "POI type",
-    source: "scope.category",
-    presenter: "vamo_poi_type",
-    detail: {
-      source: "scope.category",
-      presenter: "vamo_feature_type_mapping"
-    }
-  }
-];
+export const VAMO_PLACE_INTELLIGENCE_QUEUE_DISPLAY_FIELDS =
+  loadImportedConsumerQueueDisplayFields(
+    resolveImportedConsumerManifestPath("vamo-place-intelligence"),
+    "vamo/place-intelligence"
+  );
 
 export function resolveConsumerDisplayFields(
   fields: readonly ConsumerDisplayFieldSpec[] | undefined,
@@ -54,12 +51,15 @@ export function resolveConsumerDisplayFields(
       ? presentDisplayValue(detailRawValue, field.detail.presenter)
       : undefined;
 
-    return {
+    const resolved: ResolvedConsumerDisplayField = {
       key: field.key,
       label: field.label,
-      value: presentDisplayValue(rawValue, field.presenter),
-      detail: detail && detail !== "—" ? detail : undefined
+      value: presentDisplayValue(rawValue, field.presenter)
     };
+    if (detail && detail !== "—") {
+      resolved.detail = detail;
+    }
+    return resolved;
   });
 }
 
@@ -71,6 +71,52 @@ export function resolveDefaultBatchQueueDisplayFields(input: {
     return VAMO_PLACE_INTELLIGENCE_QUEUE_DISPLAY_FIELDS;
   }
   return [];
+}
+
+export function loadImportedConsumerQueueDisplayFields(
+  manifestPath: string,
+  label: string
+): readonly ConsumerDisplayFieldSpec[] {
+  const manifestSource = readFileSync(manifestPath, "utf8");
+  const manifestResult = parseConsumerContractManifest(manifestSource);
+  if (!manifestResult.ok) {
+    const detail = manifestResult.errors
+      .map((error) => `${error.path}: ${error.message}`)
+      .join("; ");
+    throw new Error(`Invalid imported consumer contract manifest for ${label}: ${detail}`);
+  }
+  return manifestResult.value.display?.queue?.fields ?? [];
+}
+
+function resolveImportedConsumerManifestPath(bundleKey: string): string {
+  const packageRelativePath = join("fixtures", "imported", bundleKey, "manifest.yaml");
+  const workspaceRelativePath = join(
+    "packages",
+    "ingestion-platform",
+    packageRelativePath
+  );
+  const candidates: string[] = [];
+  let dir = process.cwd();
+
+  while (true) {
+    candidates.push(join(dir, packageRelativePath));
+    candidates.push(join(dir, workspaceRelativePath));
+
+    const parent = dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error(
+      `Imported consumer contract manifest not found for ${bundleKey}. ` +
+        `Checked ${candidates.length} candidate paths from ${process.cwd()}.`
+    );
+  }
+  return found;
 }
 
 function resolveDisplaySource(
@@ -111,6 +157,8 @@ function presentDisplayValue(
     case "vamo_feature_type_mapping":
       return presentVamoPoiType(value).technicalMapping ?? "No consumer mapping";
     case "raw":
+      return value;
+    default:
       return value;
   }
 }
