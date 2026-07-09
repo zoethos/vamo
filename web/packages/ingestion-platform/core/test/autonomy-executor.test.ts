@@ -384,7 +384,7 @@ describe("autonomy executor", () => {
     }
   });
 
-  it("refuses production inbox with waiting_for_ip18_6", () => {
+  it("requires explicit package-wave transitions instead of the legacy production transition", () => {
     const evaluation = evaluateAutonomyCycle({
       policy: {
         policyId: "1",
@@ -402,7 +402,7 @@ describe("autonomy executor", () => {
         maxRowsPerCycle: 2,
         rollingLimits: {},
         guardThresholds: {},
-        productionInboxHandoffPolicy: {},
+        productionInboxHandoffPolicy: { enabled: true },
         policyVersion: 1
       },
       queueSnapshot: buildBatchQueueSnapshotFromItems({
@@ -418,7 +418,8 @@ describe("autonomy executor", () => {
       }),
       actor: { type: "autonomous_agent", id: agentId }
     });
-    assert.equal(evaluation.requiredAction, "waiting_for_ip18_6");
+    assert.equal(evaluation.requiredAction, "wait_for_human");
+    assert.equal(evaluation.pauseReasonCode, "transition_not_allowed");
     assert.equal(evaluation.decision, "pause");
   });
 
@@ -588,6 +589,28 @@ describe("autonomy executor", () => {
     assert.notEqual(
       buildAutonomyRunKey(policy, deferredEvaluation, "human_runbook"),
       buildAutonomyRunKey(policy, executedEvaluation, "autonomy_cli")
+    );
+    const packageDeliveryA = {
+      ...evaluation,
+      phase: "production_inbox" as const,
+      requiredAction: "deliver_production_package_wave" as const,
+      selectedUnitKeys: ["unit-a"],
+      recommendedAction: {
+        action: "deliver_production_package_wave" as const,
+        summary: "Deliver package A.",
+        evidence: { waveKey: "wave-a", packageKey: "package-a" }
+      }
+    };
+    const packageDeliveryB = {
+      ...packageDeliveryA,
+      recommendedAction: {
+        ...packageDeliveryA.recommendedAction,
+        evidence: { waveKey: "wave-a", packageKey: "package-b" }
+      }
+    };
+    assert.notEqual(
+      buildAutonomyRunKey(policy, packageDeliveryA, "autonomy_cli"),
+      buildAutonomyRunKey(policy, packageDeliveryB, "autonomy_cli")
     );
     const pausedEvaluation = {
       decision: "pause" as const,

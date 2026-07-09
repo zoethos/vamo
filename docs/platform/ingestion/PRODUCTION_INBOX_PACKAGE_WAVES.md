@@ -1,10 +1,10 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.5 delivery content equivalence implemented and live-proven**
-— package wave `62` proved staged/delivery content hashing through inbox
-delivery and Vamo apply (2026-07-08). Consumer apply execution remains
-Vamo-owned, but the manual SQL runbook needs to be replaced by IP-18.6.6
-Consumer Apply Control before autonomy advances production handoff.
+Status: **IP-18.6.7 autonomy hook active**. Package waves, apply telemetry,
+delivery content equivalence, and Consumer Apply Control are implemented and
+live-proven. The autonomy executor can advance production package approval and
+delivery only when the active policy explicitly enables production handoff;
+consumer apply remains the gated consumer-owned control.
 
 ## Purpose
 
@@ -264,17 +264,21 @@ back.
 
 ## Autonomy Integration
 
-IP-18.7 currently pauses production handoff with `waiting_for_ip18_6`. IP-18.6
-should provide the missing state and policy hooks so autonomy can later:
+IP-18.7 no longer has to pause with `waiting_for_ip18_6` once policy enables
+production handoff. The autonomy hook can:
 
-1. detect `production_package_ready` units;
-2. propose or request package-wave approval;
-3. execute delivery only when the active autonomy policy explicitly allows it;
+1. detect staging-proven units ready for production package-wave approval;
+2. approve a production package wave with honest `autonomous_agent` identity;
+3. execute delivery only when the active autonomy policy explicitly allows
+   `deliver_production_package_wave` and `VAMO_PRODUCTION_INBOX_ENVIRONMENT`
+   proves `production`;
 4. pause on consumer apply failures, checksum mismatches, or blocker thresholds.
 
 Autonomy should not self-enable production delivery. A human-approved policy
-must permit the transition, and production handoff should remain disabled until
-IP-18.6 package waves plus apply telemetry are proven.
+must permit the transition through `production_inbox_handoff_policy.enabled`
+and the allowed-transition list. Consumer apply remains a separate gated
+console/API control unless a future slice adds an explicit autonomous apply
+policy model.
 
 ## Suggested Implementation Slices
 
@@ -418,10 +422,18 @@ Status: **implemented**.
 
 ### IP-18.6.7 - Autonomy Hook
 
-- Allow autonomy to advance production package phases only when explicitly
-  permitted by policy.
-- Keep autonomy blocked from production handoff until Consumer Apply Control is
-  implemented and live-proven.
+Status: **active implementation slice**.
+
+- Allow autonomy to approve production package waves with
+  `approve_production_package_wave` only when
+  `production_inbox_handoff_policy.enabled=true`.
+- Allow autonomy to deliver approved production package waves with
+  `deliver_production_package_wave` only when the production inbox DSN and
+  `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production` are present.
+- Persist package keys on autonomy runs so idempotent replay and telemetry tie
+  back to the exact production package.
+- Pause at consumer apply and direct operators to the IP-18.6.6 Apply to Vamo
+  control; do not fake a human MFA principal for autonomous apply.
 
 ## First Live Vamo Run
 

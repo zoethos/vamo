@@ -27,6 +27,9 @@ export type AutonomyRequiredAction =
   | "schedule_dry_run"
   | "execute_dry_run"
   | "approve_or_execute_staging_wave_later"
+  | "approve_production_package_wave"
+  | "deliver_production_package_wave"
+  | "apply_consumer_package"
   | "wait_for_human"
   | "pause_for_blocker"
   | "waiting_for_ip18_6";
@@ -84,8 +87,29 @@ export interface AutonomyActorContext {
 }
 
 export interface AutonomyProductionPackageState {
-  packageKey?: string;
+  packageKey?: string | null;
+  packageId?: string | null;
+  waveKey?: string;
   status?: string;
+  targetEnvironment?: string;
+  approvalAuditId?: string | null;
+  deliveryAuditId?: string | null;
+  deliveryStatus?: string | null;
+  consumerApplyStatus?: string | null;
+  unitCount?: number;
+  totalPlannedRows?: number;
+  maxUnits?: number;
+  maxRows?: number;
+  maxPackages?: number;
+  items?: Array<{
+    unitKey: string;
+    status: string;
+    plannedRowCount?: number;
+    packageKey?: string | null;
+    packageId?: string | null;
+    blockers?: string[];
+    consumerApplyStatus?: string | null;
+  }>;
 }
 
 export interface EvaluateAutonomyCycleInput {
@@ -126,6 +150,15 @@ export interface EvaluateAutonomyCycleResult {
 const PLANNING_TRANSITION = "schedule_dry_run";
 const DRY_RUN_TRANSITION = "execute_dry_run";
 const STAGING_TRANSITION = "approve_staging_wave";
+const PRODUCTION_PACKAGE_APPROVAL_TRANSITION = "approve_production_package_wave";
+const PRODUCTION_PACKAGE_DELIVERY_TRANSITION = "deliver_production_package_wave";
+const CONSUMER_APPLY_TRANSITION = "apply_consumer_package";
+const PACKAGE_DELIVERY_READY_STATUSES = new Set(["approved", "delivering"]);
+const PACKAGE_APPLY_PENDING_STATUSES = new Set([
+  "delivered",
+  "consumer_apply_pending"
+]);
+const PACKAGE_BLOCKED_STATUSES = new Set(["blocked", "consumer_apply_failed"]);
 
 export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): EvaluateAutonomyCycleResult {
   const baseTelemetry = buildBaseTelemetry(input);
@@ -476,21 +509,141 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     });
   }
 
-  const productionReady = inScopeItems.filter((item) => item.status === "production_ready");
-  if (productionReady.length > 0 || policy.allowedTransitions.includes("deliver_production_inbox")) {
+  const productionPackage = input.productionPackage ?? null;
+  const packageBlocker = productionPackage ? readProductionPackageBlocker(productionPackage) : null;
+  if (packageBlocker) {
+    return pauseResult({
+      phase: "production_inbox",
+      pauseReasonCode: "queue_blockers",
+      pauseReason: packageBlocker,
+      requiredAction: "pause_for_blocker",
+      scannedCount: snapshot.items.length,
+      recommendedAction: {
+        action: "pause_for_blocker",
+        summary: "Resolve production package or consumer apply blockers before the agent advances delivery.",
+        evidence: {
+          waveKey: productionPackage?.waveKey,
+          packageKey: productionPackage?.packageKey,
+          packageStatus: productionPackage?.status,
+          consumerApplyStatus: productionPackage?.consumerApplyStatus
+        }
+      },
+      telemetry: {
+        ...baseTelemetry,
+        eventName: "autonomy.cycle.paused",
+        decision: "pause",
+        phase: "production_inbox",
+        pauseReason: "queue_blockers",
+        requiredAction: "pause_for_blocker"
+      }
+    });
+  }
+
+  if (productionPackage && PACKAGE_DELIVERY_READY_STATUSES.has(productionPackage.status ?? "")) {
+    if (!productionHandoffEnabled(policy)) {
+      return pauseProductionHandoffDisabled(policy, snapshot, baseTelemetry, productionPackage);
+    }
+    if (!policy.allowedTransitions.includes(PRODUCTION_PACKAGE_DELIVERY_TRANSITION)) {
+      return pauseProductionTransitionNotAllowed(
+        policy,
+        snapshot,
+        baseTelemetry,
+        PRODUCTION_PACKAGE_DELIVERY_TRANSITION,
+        productionPackage
+      );
+    }
+    const selectedUnitKeys = productionPackage.items?.map((item) => item.unitKey) ?? [];
+    const plannedRows = readPositiveNumber(productionPackage.totalPlannedRows)
+      ?? sumPackageItemRows(productionPackage)
+      ?? Math.min(policy.maxRowsPerCycle, 1);
+    return continueResult({
+      phase: "production_inbox",
+      requiredAction: "deliver_production_package_wave",
+      selectedUnitKeys,
+      maxUnitsApplied: Math.min(
+        policy.maxUnitsPerCycle,
+        selectedUnitKeys.length || productionPackage.unitCount || 1
+      ),
+      maxRowsApplied: Math.min(policy.maxRowsPerCycle, plannedRows),
+      highestSafetyMode: "production_write",
+      scannedCount: snapshot.items.length,
+      recommendedAction: {
+        action: "deliver_production_package_wave",
+        summary: `Deliver approved production package wave ${productionPackage.waveKey ?? "(unknown wave)"} inside policy bounds.`,
+        evidence: {
+          waveKey: productionPackage.waveKey,
+          packageKey: productionPackage.packageKey,
+          packageId: productionPackage.packageId,
+          approvalAuditId: productionPackage.approvalAuditId,
+          packageStatus: productionPackage.status
+        }
+      },
+      telemetry: {
+        ...baseTelemetry,
+        eventName: "autonomy.cycle.advanced",
+        decision: "continue",
+        phase: "production_inbox",
+        requiredAction: "deliver_production_package_wave",
+        selectedUnitKeys,
+        evidence: {
+          waveKey: productionPackage.waveKey,
+          packageKey: productionPackage.packageKey
+        }
+      }
+    });
+  }
+
+  if (productionPackage && packageNeedsConsumerApply(productionPackage)) {
+    if (!consumerApplyAutonomyEnabled(policy)) {
+      return pauseResult({
+        phase: "production_inbox",
+        pauseReasonCode: "production_inbox_not_executable",
+        pauseReason:
+          "Production package is delivered, but consumer apply remains consumer-owned until the autonomy policy explicitly enables autonomous apply.",
+        requiredAction: "apply_consumer_package",
+        scannedCount: snapshot.items.length,
+        recommendedAction: {
+          action: "apply_consumer_package",
+          summary: "Use the Apply to Vamo control or enable consumerApplyEnabled in the human-approved policy.",
+          evidence: {
+            waveKey: productionPackage.waveKey,
+            packageId: productionPackage.packageId,
+            consumerApplyStatus: productionPackage.consumerApplyStatus
+          }
+        },
+        telemetry: {
+          ...baseTelemetry,
+          eventName: "autonomy.cycle.paused",
+          decision: "pause",
+          phase: "production_inbox",
+          pauseReason: "production_inbox_not_executable",
+          requiredAction: "apply_consumer_package"
+        }
+      });
+    }
+    if (!policy.allowedTransitions.includes(CONSUMER_APPLY_TRANSITION)) {
+      return pauseProductionTransitionNotAllowed(
+        policy,
+        snapshot,
+        baseTelemetry,
+        CONSUMER_APPLY_TRANSITION,
+        productionPackage
+      );
+    }
     return pauseResult({
       phase: "production_inbox",
       pauseReasonCode: "production_inbox_not_executable",
       pauseReason:
-        "Production inbox delivery is not executable in IP-18.7.0; awaiting IP-18.6 package-wave support.",
-      requiredAction: "waiting_for_ip18_6",
+        "Autonomous consumer apply execution is intentionally not implemented in IP-18.6.7; use the gated console apply control.",
+      requiredAction: "apply_consumer_package",
       scannedCount: snapshot.items.length,
       recommendedAction: {
-        action: "waiting_for_ip18_6",
-        summary: "Keep production-ready units paused until IP-18.6 production package waves land.",
+        action: "apply_consumer_package",
+        summary: "Consumer apply is ready but remains gated by the consumer-owned apply control.",
         evidence: {
-          productionReadyCount: productionReady.length,
-          packageStatus: input.productionPackage?.status
+          waveKey: productionPackage.waveKey,
+          packageId: productionPackage.packageId,
+          consumerApplyStatus: productionPackage.consumerApplyStatus
         }
       },
       telemetry: {
@@ -499,7 +652,74 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
         decision: "pause",
         phase: "production_inbox",
         pauseReason: "production_inbox_not_executable",
-        requiredAction: "waiting_for_ip18_6"
+        requiredAction: "apply_consumer_package"
+      }
+    });
+  }
+
+  const productionReady = selectProductionPackageEligibleUnits(inScopeItems, maxUnits, maxRows);
+  if (productionReady.length > 0) {
+    if (!productionHandoffEnabled(policy)) {
+      return pauseProductionHandoffDisabled(policy, snapshot, baseTelemetry, productionPackage);
+    }
+    if (!policy.allowedTransitions.includes(PRODUCTION_PACKAGE_APPROVAL_TRANSITION)) {
+      return pauseProductionTransitionNotAllowed(
+        policy,
+        snapshot,
+        baseTelemetry,
+        PRODUCTION_PACKAGE_APPROVAL_TRANSITION,
+        productionPackage
+      );
+    }
+    return continueResult({
+      phase: "production_inbox",
+      requiredAction: "approve_production_package_wave",
+      selectedUnitKeys: productionReady.map((item) => item.unitKey),
+      maxUnitsApplied: Math.min(maxUnits, productionReady.length),
+      maxRowsApplied: sumPlannedRows(productionReady, maxRows),
+      highestSafetyMode: "production_write",
+      scannedCount: snapshot.items.length,
+      skippedCount: snapshot.items.length - productionReady.length,
+      recommendedAction: {
+        action: "approve_production_package_wave",
+        summary: `${productionReady.length} staging-verified unit(s) eligible for a production package-wave approval.`,
+        evidence: {
+          unitKeys: productionReady.map((item) => item.unitKey),
+          targetEnvironment: "production"
+        }
+      },
+      telemetry: {
+        ...baseTelemetry,
+        eventName: "autonomy.cycle.advanced",
+        decision: "continue",
+        phase: "production_inbox",
+        requiredAction: "approve_production_package_wave",
+        selectedUnitKeys: productionReady.map((item) => item.unitKey)
+      }
+    });
+  }
+
+  if (policy.allowedTransitions.includes("deliver_production_inbox")) {
+    return pauseResult({
+      phase: "production_inbox",
+      pauseReasonCode: "transition_not_allowed",
+      pauseReason:
+        "Legacy deliver_production_inbox transition does not authorize package-wave production delivery.",
+      requiredAction: "wait_for_human",
+      scannedCount: snapshot.items.length,
+      recommendedAction: {
+        action: "wait_for_human",
+        summary:
+          "Replace deliver_production_inbox with approve_production_package_wave and deliver_production_package_wave in the approved policy.",
+        evidence: { allowedTransitions: policy.allowedTransitions }
+      },
+      telemetry: {
+        ...baseTelemetry,
+        eventName: "autonomy.cycle.paused",
+        decision: "pause",
+        phase: "production_inbox",
+        pauseReason: "transition_not_allowed",
+        requiredAction: "wait_for_human"
       }
     });
   }
@@ -608,6 +828,71 @@ function selectStagingEligibleUnits(
   return selectBoundedUnits(eligible, maxUnits, maxRows);
 }
 
+function selectProductionPackageEligibleUnits(
+  items: BatchQueueItem[],
+  maxUnits: number,
+  maxRows: number
+): BatchQueueItem[] {
+  const eligible = items.filter(
+    (item) =>
+      (item.status === "staging_canary_succeeded" || item.status === "production_package_ready") &&
+      item.dryRunReport?.wroteToTarget === false &&
+      item.blockReasons.length === 0
+  );
+  return selectBoundedUnits(eligible, maxUnits, maxRows);
+}
+
+function productionHandoffEnabled(policy: AutonomyPolicyEnvelope): boolean {
+  const handoff = policy.productionInboxHandoffPolicy ?? {};
+  if (handoff.requiresIp18_6 === true || handoff.requiresIp18_6 === "true") {
+    return false;
+  }
+  return handoff.enabled === true;
+}
+
+function consumerApplyAutonomyEnabled(policy: AutonomyPolicyEnvelope): boolean {
+  const handoff = policy.productionInboxHandoffPolicy ?? {};
+  return productionHandoffEnabled(policy) && handoff.consumerApplyEnabled === true;
+}
+
+function readProductionPackageBlocker(
+  productionPackage: AutonomyProductionPackageState
+): string | null {
+  if (PACKAGE_BLOCKED_STATUSES.has(productionPackage.status ?? "")) {
+    return `Production package wave is ${productionPackage.status}.`;
+  }
+  if (productionPackage.consumerApplyStatus === "failed") {
+    return "Consumer apply failed for the latest production package.";
+  }
+  const blockedItem = productionPackage.items?.find(
+    (item) => item.status === "blocked" || (item.blockers?.length ?? 0) > 0
+  );
+  if (blockedItem) {
+    return `Production package item ${blockedItem.unitKey} is blocked.`;
+  }
+  return null;
+}
+
+function packageNeedsConsumerApply(productionPackage: AutonomyProductionPackageState): boolean {
+  return (
+    PACKAGE_APPLY_PENDING_STATUSES.has(productionPackage.status ?? "") ||
+    productionPackage.deliveryStatus === "production_inbox_delivered" ||
+    productionPackage.consumerApplyStatus === "pending"
+  );
+}
+
+function sumPackageItemRows(productionPackage: AutonomyProductionPackageState): number | null {
+  const rows = productionPackage.items?.reduce(
+    (sum, item) => sum + (item.plannedRowCount ?? 0),
+    0
+  );
+  return rows && rows > 0 ? rows : null;
+}
+
+function readPositiveNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function capDryRunSelection(
   units: BatchQueueItem[],
   maxUnits: number,
@@ -703,6 +988,73 @@ function pauseForBounds(
       pauseReason: "bounds_exceeded",
       policyId: policy.policyId,
       policyKey: policy.policyKey
+    }
+  });
+}
+
+function pauseProductionHandoffDisabled(
+  policy: AutonomyPolicyEnvelope,
+  snapshot: BatchQueueSnapshot,
+  baseTelemetry: AutonomyCycleTelemetryPayload,
+  productionPackage: AutonomyProductionPackageState | null
+): EvaluateAutonomyCycleResult {
+  return pauseResult({
+    phase: "production_inbox",
+    pauseReasonCode: "production_inbox_not_executable",
+    pauseReason:
+      "Production package autonomy is disabled by the active policy envelope.",
+    requiredAction: "wait_for_human",
+    scannedCount: snapshot.items.length,
+    recommendedAction: {
+      action: "wait_for_human",
+      summary:
+        "An admin operator must explicitly enable productionInboxHandoffPolicy.enabled before the agent can advance production packages.",
+      evidence: {
+        productionInboxHandoffPolicy: policy.productionInboxHandoffPolicy,
+        waveKey: productionPackage?.waveKey,
+        packageStatus: productionPackage?.status
+      }
+    },
+    telemetry: {
+      ...baseTelemetry,
+      eventName: "autonomy.cycle.paused",
+      decision: "pause",
+      phase: "production_inbox",
+      pauseReason: "production_inbox_not_executable",
+      requiredAction: "wait_for_human"
+    }
+  });
+}
+
+function pauseProductionTransitionNotAllowed(
+  policy: AutonomyPolicyEnvelope,
+  snapshot: BatchQueueSnapshot,
+  baseTelemetry: AutonomyCycleTelemetryPayload,
+  transition: string,
+  productionPackage: AutonomyProductionPackageState | null
+): EvaluateAutonomyCycleResult {
+  return pauseResult({
+    phase: "production_inbox",
+    pauseReasonCode: "transition_not_allowed",
+    pauseReason: `Policy does not allow ${transition} transitions.`,
+    requiredAction: "wait_for_human",
+    scannedCount: snapshot.items.length,
+    recommendedAction: {
+      action: "wait_for_human",
+      summary: `Add ${transition} to the human-approved policy before the agent can advance this production phase.`,
+      evidence: {
+        allowedTransitions: policy.allowedTransitions,
+        waveKey: productionPackage?.waveKey,
+        packageStatus: productionPackage?.status
+      }
+    },
+    telemetry: {
+      ...baseTelemetry,
+      eventName: "autonomy.cycle.paused",
+      decision: "pause",
+      phase: "production_inbox",
+      pauseReason: "transition_not_allowed",
+      requiredAction: "wait_for_human"
     }
   });
 }

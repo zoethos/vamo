@@ -207,7 +207,9 @@ export function resolveAutonomyRamp(policy: AutonomyPolicyEnvelope): AutonomyRam
 
   if (
     profile.productionInboxEnabled === false &&
-    policy.allowedTransitions.includes("deliver_production_inbox")
+    (policy.allowedTransitions.includes("deliver_production_inbox") ||
+      policy.allowedTransitions.includes("approve_production_package_wave") ||
+      policy.allowedTransitions.includes("deliver_production_package_wave"))
   ) {
     warnings.push(`${profile.mode} does not allow autonomous production inbox delivery`);
   }

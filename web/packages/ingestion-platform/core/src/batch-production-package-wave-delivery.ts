@@ -29,6 +29,7 @@ import { loadProductionPackageWaveApprovalContext } from "./batch-production-pac
 import type { PipelineRunResult, StagedCandidate } from "./pipeline-runner.js";
 import { buildProductionInboxPackage } from "./shipment-package.js";
 import { hashProductionPackageCandidateContent } from "./production-package-content-hash.js";
+import type { BatchControlActor } from "./batch-control-actor.js";
 
 const DEFAULT_WAVE_CANDIDATE_SCAN_BATCH_SIZE = 1000;
 
@@ -59,7 +60,7 @@ export interface ExecuteBatchProductionPackageWaveInput {
   maxRows?: number;
   maxPackages?: number;
   execute: boolean;
-  actor: { type: "operator" | "api"; id: string };
+  actor: BatchControlActor;
   reason: string;
   proveProduction: () => boolean | Promise<boolean>;
   deps?: BatchProductionPackageWaveDeliveryDeps;
@@ -586,7 +587,7 @@ async function markProductionPackageUnitBlocked(
       stagedContentHash: string | null;
       deliveryContentHash: string;
     };
-    actor: { type: "operator" | "api"; id: string };
+    actor: BatchControlActor;
     reason: string;
     now: string;
   }
@@ -668,7 +669,7 @@ async function finalizeProductionPackageWaveBlocked(
   input: {
     waveId: string;
     unitResults: ExecuteBatchProductionPackageWaveUnitResult[];
-    actor: { type: "operator" | "api"; id: string };
+    actor: BatchControlActor;
     reason: string;
     now: string;
   }
@@ -713,7 +714,7 @@ async function recordPackageWaveUnitDelivery(
     packageKey: string;
     checksum: string;
     itemCount: number;
-    actor: { type: "operator" | "api"; id: string };
+    actor: BatchControlActor;
     reason: string;
     approvalAuditId: string | null;
     now: string;

@@ -154,24 +154,110 @@ describe("autonomy policy", () => {
     assert.ok(result.maxRowsApplied <= 500);
   });
 
-  it("refuses production inbox execution in this slice", () => {
+  it("pauses production package approval until the policy enables handoff", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),
       items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
         ...item,
-        status: "production_ready" as const
+        status: "staging_canary_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 1,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
       }))
     };
     const result = evaluateAutonomyCycle({
       policy: activePolicy({
-        allowedTransitions: ["schedule_dry_run", "execute_dry_run", "deliver_production_inbox"]
+        allowedTransitions: ["approve_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: false }
       }),
       queueSnapshot: snapshot,
       actor: autonomousActor
     });
     assert.equal(result.decision, "pause");
     assert.equal(result.phase, "production_inbox");
-    assert.equal(result.requiredAction, "waiting_for_ip18_6");
+    assert.equal(result.requiredAction, "wait_for_human");
+    assert.equal(result.pauseReasonCode, "production_inbox_not_executable");
+  });
+
+  it("selects staging-proven units for production package approval when explicitly allowed", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "staging_canary_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 1,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 2,
+        allowedTransitions: ["approve_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "approve_production_package_wave");
+    assert.equal(result.selectedUnitKeys.length, 2);
+    assert.equal(result.highestSafetyMode, "production_write");
+  });
+
+  it("continues to deliver an approved production package wave when explicitly allowed", () => {
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        allowedTransitions: ["deliver_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: sampleVamoEuPoiBatchQueueSnapshot(),
+      productionPackage: {
+        waveKey: "batch-production-inbox:sample",
+        packageKey: "batch-production-inbox:sample:unit-a",
+        status: "approved",
+        unitCount: 1,
+        totalPlannedRows: 2,
+        approvalAuditId: "58",
+        items: [{ unitKey: "unit-a", status: "approved", plannedRowCount: 2 }]
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "deliver_production_package_wave");
+    assert.equal(result.recommendedAction?.evidence?.waveKey, "batch-production-inbox:sample");
+  });
+
+  it("surfaces delivered package apply as consumer-owned work", () => {
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        allowedTransitions: ["apply_consumer_package"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: sampleVamoEuPoiBatchQueueSnapshot(),
+      productionPackage: {
+        waveKey: "batch-production-inbox:sample",
+        packageKey: "batch-production-inbox:sample:unit-a",
+        packageId: "batch-production-inbox:sample:unit-a",
+        status: "delivered",
+        deliveryStatus: "production_inbox_delivered",
+        consumerApplyStatus: "pending"
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "pause");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "apply_consumer_package");
     assert.equal(result.pauseReasonCode, "production_inbox_not_executable");
   });
 
