@@ -1489,11 +1489,10 @@ Future slices:
 
 ## Recommended Immediate Next Slice
 
-**IP-18.6.7 — Autonomy Hook** is the active implementation slice. It connects
-the IP-18.7 autonomy executor to IP-18.6 production package-wave approval and
-delivery, but only when a human-approved policy explicitly enables production
-handoff and the required production inbox environment is present. Consumer
-apply remains the gated consumer-owned control from IP-18.6.6.
+**IP-18.6.7 — Autonomy Hook** is implemented. Next, live-prove the hook by
+using a human-approved policy to enable production package approval/delivery,
+then run a bounded preview/execute cycle. Consumer apply remains the gated
+consumer-owned control from IP-18.6.6.
 
 Previously recommended:
 
@@ -1629,7 +1628,7 @@ Recommended implementation split:
   calls only Vamo's existing `confluendo_inbox.apply_confluendo_shipment(...)`
   boundary through `VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL`, then dashboard
   reload refreshes apply telemetry.
-- **IP-18.6.7** — **active** — autonomy hook after package waves, apply
+- **IP-18.6.7** — **done** — autonomy hook after package waves, apply
     telemetry, content equivalence, and consumer apply control are proven.
     The agent may approve a production package wave and deliver an already
     approved package only when policy allows `approve_production_package_wave`
@@ -1639,7 +1638,7 @@ Recommended implementation split:
 
 Scope:
 
-- Finish and live-prove IP-18.6.7 autonomy hook, then decide whether consumer
+- Live-prove IP-18.6.7 autonomy hook, then decide whether consumer
   apply should remain human-controlled or receive its own explicit autonomous
   apply policy model.
 - Operator-controlled ramp promotion (`bootstrap` -> `staging_ramp` ->

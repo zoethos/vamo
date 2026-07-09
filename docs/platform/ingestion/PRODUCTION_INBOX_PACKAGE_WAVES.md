@@ -1,6 +1,6 @@
 # IP-18.6 - Production Inbox Package Waves
 
-Status: **IP-18.6.7 autonomy hook active**. Package waves, apply telemetry,
+Status: **IP-18.6.7 autonomy hook implemented**. Package waves, apply telemetry,
 delivery content equivalence, and Consumer Apply Control are implemented and
 live-proven. The autonomy executor can advance production package approval and
 delivery only when the active policy explicitly enables production handoff;
@@ -422,7 +422,7 @@ Status: **implemented**.
 
 ### IP-18.6.7 - Autonomy Hook
 
-Status: **active implementation slice**.
+Status: **implemented; live proof next**.
 
 - Allow autonomy to approve production package waves with
   `approve_production_package_wave` only when
