@@ -859,8 +859,8 @@ a:hover {
 .admin-user-copy {
   display: grid;
   min-width: 0;
-  gap: 0.02rem;
-  line-height: 1.05;
+  gap: 0.08rem;
+  line-height: 1.16;
 }
 
 .admin-user-copy span,
@@ -889,13 +889,13 @@ a:hover {
   display: inline-grid;
   min-height: 2.4rem;
   align-content: center;
-  gap: 0.02rem;
+  gap: 0.08rem;
   border: 1px solid rgba(250, 250, 251, 0.14);
   border-radius: 999px;
   padding: 0.34rem 0.7rem;
   background: rgba(250, 250, 251, 0.08);
   color: rgba(250, 250, 251, 0.9);
-  line-height: 1.05;
+  line-height: 1.14;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -1170,6 +1170,7 @@ a:hover {
   font-weight: 600;
   padding: 0.35rem 0.75rem;
   cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
 .admin-queue-filter-chip.is-active {
@@ -1398,6 +1399,33 @@ a:hover {
   font-weight: 700;
   padding: 0.1rem 0.45rem;
   cursor: pointer;
+}
+
+.admin-copy-command-button {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(42, 46, 58, 0.16);
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+  background: #ffffff;
+  color: rgba(12, 14, 22, 0.78);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(12, 14, 22, 0.08);
+}
+
+.admin-copy-command-button:hover,
+.admin-copy-command-button:focus-visible,
+.admin-copyable-mono-button:hover,
+.admin-copyable-mono-button:focus-visible {
+  border-color: rgba(15, 118, 110, 0.32);
+  background: rgba(15, 118, 110, 0.08);
+  color: #0f766e;
 }
 
 .admin-agent-scope-table strong {
@@ -1963,6 +1991,26 @@ a:hover {
   background: rgba(14, 22, 38, 0.72);
 }
 
+.admin-console[data-theme="dark"] .admin-queue-filter-chip {
+  border-color: rgba(233, 237, 244, 0.14);
+  background: rgba(10, 16, 30, 0.72);
+  color: rgba(233, 237, 244, 0.78);
+}
+
+.admin-console[data-theme="dark"] .admin-queue-filter-chip:hover,
+.admin-console[data-theme="dark"] .admin-queue-filter-chip:focus-visible {
+  border-color: rgba(142, 197, 255, 0.36);
+  background: rgba(91, 143, 209, 0.14);
+  color: #e9edf4;
+}
+
+.admin-console[data-theme="dark"] .admin-queue-filter-chip.is-active {
+  border-color: rgba(142, 197, 255, 0.6);
+  background: rgba(91, 143, 209, 0.24);
+  color: #dbeafe;
+  box-shadow: inset 0 0 0 1px rgba(142, 197, 255, 0.1);
+}
+
 .admin-console[data-theme="dark"] .admin-queue-filter input,
 .admin-console[data-theme="dark"] .admin-queue-filter select,
 .admin-console[data-theme="dark"] .admin-queue-expand {
@@ -1993,6 +2041,22 @@ a:hover {
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(10, 16, 30, 0.9);
   color: rgba(233, 237, 244, 0.82);
+}
+
+.admin-console[data-theme="dark"] .admin-copy-command-button {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(233, 237, 244, 0.88);
+  box-shadow: none;
+}
+
+.admin-console[data-theme="dark"] .admin-copy-command-button:hover,
+.admin-console[data-theme="dark"] .admin-copy-command-button:focus-visible,
+.admin-console[data-theme="dark"] .admin-copyable-mono-button:hover,
+.admin-console[data-theme="dark"] .admin-copyable-mono-button:focus-visible {
+  border-color: rgba(142, 197, 255, 0.38);
+  background: rgba(91, 143, 209, 0.16);
+  color: #dbeafe;
 }
 
 .admin-console[data-theme="dark"] .admin-queue-details-row td {
@@ -2057,6 +2121,13 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-ux-matrix td {
   border-color: rgba(255, 255, 255, 0.07);
   background: rgba(26, 36, 64, 0.78);
+  color: rgba(233, 237, 244, 0.78);
+}
+
+.admin-console[data-theme="dark"] .admin-ux-matrix thead th,
+.admin-console[data-theme="dark"] .admin-ux-matrix tbody th {
+  color: #e9edf4;
+  font-weight: 850;
 }
 
 .admin-console[data-theme="dark"] .admin-ux-matrix td:not([data-empty="true"]) {
@@ -2339,6 +2410,12 @@ a:hover {
 
 .admin-command-danger {
   border-color: rgba(185, 28, 28, 0.24);
+  background: #fff5f5;
+  color: #991b1b;
+}
+
+.admin-command-danger.admin-stateful-command {
+  border-color: rgba(185, 28, 28, 0.26);
   background: #fff5f5;
   color: #991b1b;
 }
@@ -2944,25 +3021,25 @@ a:hover {
 }
 
 .admin-console[data-theme="dark"] .admin-user-chip {
-  border-color: rgba(250, 250, 251, 0.14);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.9);
+  border-color: rgba(142, 197, 255, 0.22);
+  background: rgba(142, 197, 255, 0.1);
+  color: #f8fafc;
 }
 
 .admin-console[data-theme="dark"] .admin-user-copy span,
 .admin-console[data-theme="dark"] .admin-user-copy small {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.7);
 }
 
 .admin-console[data-theme="dark"] .admin-logout-button,
 .admin-console[data-theme="dark"] .admin-stepup-timer {
-  border-color: rgba(250, 250, 251, 0.14);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.9);
+  border-color: rgba(233, 237, 244, 0.16);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(248, 250, 252, 0.94);
 }
 
 .admin-console[data-theme="dark"] .admin-stepup-timer span {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.68);
 }
 
 .admin-console[data-theme="dark"] .admin-logout-button:hover,
@@ -3012,6 +3089,18 @@ a:hover {
   color: rgba(250, 250, 251, 0.7);
 }
 
+.admin-console[data-theme="dark"] .admin-next-action,
+.admin-console[data-theme="dark"] .admin-rationale,
+.admin-console[data-theme="dark"] .admin-rationale p,
+.admin-console[data-theme="dark"] .admin-canary-disabled {
+  color: rgba(233, 237, 244, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-rationale strong,
+.admin-console[data-theme="dark"] .admin-next-action strong {
+  color: #f8fafc;
+}
+
 .admin-console[data-theme="dark"] .admin-signal span,
 .admin-console[data-theme="dark"] .admin-stat span,
 .admin-console[data-theme="dark"] .admin-table-count,
@@ -3036,21 +3125,28 @@ a:hover {
   color: var(--ink);
 }
 
+.admin-console[data-theme="dark"] .admin-command-danger.admin-stateful-command {
+  border-color: rgba(252, 165, 165, 0.38);
+  background: rgba(127, 29, 29, 0.32);
+  color: #fecaca;
+}
+
 .admin-console[data-theme="dark"] .admin-stateful-command:disabled {
-  border-color: rgba(250, 250, 251, 0.12);
-  background: rgba(250, 250, 251, 0.08);
-  color: rgba(250, 250, 251, 0.54);
+  border-color: rgba(233, 237, 244, 0.14);
+  background: rgba(233, 237, 244, 0.08);
+  color: rgba(233, 237, 244, 0.7);
   box-shadow: none;
 }
 
 .admin-console[data-theme="dark"] .admin-action-status {
-  color: rgba(250, 250, 251, 0.58);
+  color: rgba(233, 237, 244, 0.72);
 }
 
 .admin-console[data-theme="dark"] .admin-command-neutral,
 .admin-console[data-theme="dark"] .admin-readonly-pill,
 .admin-console[data-theme="dark"] .admin-table-count,
 .admin-console[data-theme="dark"] .admin-target-table th,
+.admin-console[data-theme="dark"] .admin-target-table tbody th,
 .admin-console[data-theme="dark"] .admin-stat,
 .admin-console[data-theme="dark"] .admin-event,
 .admin-console[data-theme="dark"] .admin-policy-panel li,
@@ -3061,9 +3157,26 @@ a:hover {
   color: rgba(250, 250, 251, 0.76);
 }
 
+.admin-console[data-theme="dark"] .admin-readonly-pill,
+.admin-console[data-theme="dark"] .admin-table-count {
+  border-color: rgba(142, 197, 255, 0.22);
+  background: rgba(142, 197, 255, 0.1);
+  color: #dbeafe;
+}
+
+.admin-console[data-theme="dark"] .admin-target-table th,
+.admin-console[data-theme="dark"] .admin-target-table tbody th {
+  color: rgba(233, 237, 244, 0.84);
+}
+
+.admin-console[data-theme="dark"] .admin-target-table td:first-child,
+.admin-console[data-theme="dark"] .admin-target-table td:first-child strong {
+  color: #f8fafc;
+}
+
 .admin-console[data-theme="dark"] .admin-command-confirm label,
 .admin-console[data-theme="dark"] .admin-command-result span {
-  color: rgba(250, 250, 251, 0.54);
+  color: rgba(233, 237, 244, 0.7);
 }
 
 .admin-console[data-theme="dark"] .admin-command-confirm textarea {

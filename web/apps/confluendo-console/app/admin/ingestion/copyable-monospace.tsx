@@ -61,7 +61,7 @@ export function CopyableCommandBlock({ command }: { command: string }) {
       <pre>
         <code>{command}</code>
       </pre>
-      <button type="button" className="admin-command admin-command-neutral" onClick={() => void copy()}>
+      <button type="button" className="admin-copy-command-button" onClick={() => void copy()}>
         {copied ? "Copied" : "Copy command"}
       </button>
     </div>

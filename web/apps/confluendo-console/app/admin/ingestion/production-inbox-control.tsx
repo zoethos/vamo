@@ -162,7 +162,7 @@ export function ProductionInboxControl({
       </label>
       <button
         type="button"
-        className="admin-command admin-command-danger"
+        className="admin-command admin-command-danger admin-stateful-command"
         onClick={() => void submit()}
         disabled={Boolean(disabledReason) || pending}
         title={disabledReason ?? undefined}
@@ -234,7 +234,7 @@ function DecisionView({ decision }: { decision: Decision }) {
         </ul>
         {decision.blocks.includes("fresh_step_up_required") ? (
           <a className="admin-command admin-command-neutral admin-inline-action" href={freshStepUpHref}>
-            Refresh MFA step-up
+            Refresh MFA verification
           </a>
         ) : null}
       </div>
