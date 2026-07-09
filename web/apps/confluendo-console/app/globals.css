@@ -1208,6 +1208,222 @@ a:hover {
   color: rgb(185, 28, 28);
 }
 
+.admin-agent-uex {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.admin-agent-uex-status {
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+}
+
+.admin-agent-uex-status-kicker {
+  margin: 0 0 0.25rem;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-uex-status h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.admin-agent-uex-status p:last-child {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.72);
+}
+
+.admin-agent-uex-tone-ready {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.06);
+}
+
+.admin-agent-uex-tone-waiting {
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.admin-agent-uex-tone-blocked {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.admin-agent-uex-tone-completed {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.admin-agent-uex-panel {
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  background: rgba(248, 250, 252, 0.88);
+}
+
+.admin-agent-uex-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.admin-agent-uex-panel-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.admin-agent-uex-panel-count {
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: rgb(29, 78, 216);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+}
+
+.admin-agent-uex-action-summary {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.admin-agent-uex-meta,
+.admin-agent-uex-guardrails,
+.admin-agent-uex-evidence-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.admin-agent-uex-meta div,
+.admin-agent-uex-guardrails div,
+.admin-agent-uex-evidence-list div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-agent-uex-meta dt,
+.admin-agent-uex-guardrails dt,
+.admin-agent-uex-evidence-list dt {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.55);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-agent-uex-meta dd,
+.admin-agent-uex-guardrails dd,
+.admin-agent-uex-evidence-list dd {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.82);
+}
+
+.admin-agent-uex-guardrails {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.admin-agent-uex-guardrails dd strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.admin-agent-uex-guardrails dd span {
+  display: block;
+  margin-top: 0.15rem;
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.admin-agent-uex-run-meta {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.admin-agent-cli-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.admin-agent-cli-block pre {
+  margin: 0;
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 8px;
+  background: rgba(12, 14, 22, 0.04);
+  padding: 0.65rem 0.75rem;
+}
+
+.admin-agent-cli-block code {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.admin-agent-uex-runbook-note {
+  margin: 0.35rem 0 0;
+  color: rgba(12, 14, 22, 0.72);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.admin-copyable-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.admin-copyable-mono-button {
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 6px;
+  background: #fff;
+  color: rgba(12, 14, 22, 0.72);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+}
+
+.admin-agent-scope-table strong {
+  display: block;
+}
+
+.admin-agent-uex-evidence {
+  margin-top: 0.65rem;
+  border-top: 1px solid rgba(42, 46, 58, 0.08);
+  padding-top: 0.55rem;
+}
+
+.admin-agent-uex-evidence summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.admin-agent-uex-safety-list {
+  margin: 0.65rem 0 0;
+  padding-left: 1.1rem;
+  color: rgba(12, 14, 22, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
 .admin-queue-filter {
   display: flex;
   flex-direction: column;
@@ -1753,6 +1969,30 @@ a:hover {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(10, 16, 30, 0.9);
   color: #e9edf4;
+}
+
+.admin-console[data-theme="dark"] .admin-agent-uex-panel,
+.admin-console[data-theme="dark"] .admin-agent-uex-status {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(10, 16, 30, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-uex-status p:last-child,
+.admin-console[data-theme="dark"] .admin-agent-uex-guardrails dd span,
+.admin-console[data-theme="dark"] .admin-agent-uex-runbook-note,
+.admin-console[data-theme="dark"] .admin-agent-uex-safety-list {
+  color: rgba(233, 237, 244, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-agent-cli-block pre {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.admin-console[data-theme="dark"] .admin-copyable-mono-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(10, 16, 30, 0.9);
+  color: rgba(233, 237, 244, 0.82);
 }
 
 .admin-console[data-theme="dark"] .admin-queue-details-row td {
