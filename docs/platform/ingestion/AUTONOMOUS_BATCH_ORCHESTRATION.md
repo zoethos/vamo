@@ -261,10 +261,22 @@ IP-18.7.2 names the operating ramp explicitly:
 | `volume_ramp` | Higher-volume staging and production-prep mode. | 25 units/cycle, 5,000 rows/cycle, 250 units/day. |
 | `steady_state` | Production-scale autonomous operation after IP-18.6 package waves and apply telemetry. | 100 units/cycle, 25,000 rows/cycle, 1,000 units/day. |
 
-The ramp mode is stored as control-plane policy metadata, for example
-`summary.ramp.mode = "bootstrap"`, and `/admin/ingestion` surfaces both the
-active mode and profile warnings when a stored policy exceeds its declared
-profile.
+IP-18.7.4 moves ramp mode from advisory metadata into a first-class
+`ingestion_autonomy_policies.ramp_mode` column. Legacy `summary.rampMode` /
+`summary.ramp.mode` values are backfilled on schema apply, and the read path
+falls back to summary metadata only while a live control DB is between code and
+schema rollout.
+
+The executor applies **effective bounds** before every cycle:
+
+```text
+effective bound = min(owner-approved policy ceiling, active ramp profile cap)
+```
+
+That means an owner can approve a high ceiling in the policy row, while the
+operator-controlled ramp mode still keeps bootstrap/staging/volume expansion
+inside the active profile. Run keys include `ramp:<mode>` so changing modes
+refreshes the idempotency space without requiring a policy-version bump.
 
 Ramp widening is deliberately a human/operator decision:
 
@@ -272,13 +284,15 @@ Ramp widening is deliberately a human/operator decision:
 - the autonomous agent cannot widen its own policy;
 - promotions advance one step at a time (`bootstrap` -> `staging_ramp` ->
   `volume_ramp` -> `steady_state`);
-- `steady_state` is blocked until production inbox package waves and apply
-  telemetry are implemented; and
-- this slice does not mutate the live control DB.
+- `steady_state` remains DB-locked until a future production-handoff slice
+  explicitly enables it; and
+- the app role can call only the audited `promote_autonomy_ramp(...)`
+  SECURITY DEFINER function, not update policy rows directly.
 
-Live policy widening remains an owner/operator SQL step with audit evidence.
-After widening, the autonomy executor can continue advancing work inside the new
-stored bounds.
+The first IP-18.7.4 PR is foundation-only: schema, SQL function, grants,
+effective-bound enforcement, and tests. The follow-up UI PR should expose this
+as an operator-controlled console card with admin + fresh AAL2 checks and a
+typed confirmation flow.
 
 ## IP-18.7.3 - Scheduler Foundation (implemented)
 
@@ -320,9 +334,9 @@ The next autonomy product slices after IP-18.7.3:
   make the execution boundary explicit: the console shows preview, status, and
   manual ops commands; a trusted ops runtime or scheduler executes one bounded
   cycle; the Delivery tab owns production package delivery and Apply-to-Vamo
-  controls. The same slice family adds operator-controlled ramp promotion
-  (`bootstrap` -> `staging_ramp` -> `volume_ramp`) with DB-guarded mutation and
-  effective bounds enforcement.
+  controls. The first ramp-control foundation PR adds the DB-guarded
+  `promote_autonomy_ramp(...)` mutation and effective bounds enforcement; the
+  next PR adds the operator-facing console controls.
 - **IP-18.7.5 — hosted scheduler/daemon.** A hosted runtime may invoke
   `ip18:autonomy-scheduler` with monitoring and alerting after the operator run
   surface is clear.

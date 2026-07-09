@@ -51,9 +51,17 @@ describe("ingestion control schema", () => {
       confluendoBootstrapSql,
       /\bgrant insert, update on ingestion_platform\.ingestion_autonomy_runs\b/i
     );
+    assert.match(
+      confluendoBootstrapSql,
+      /\bgrant execute on function ingestion_platform\.promote_autonomy_ramp\b/i
+    );
     assert.doesNotMatch(
       confluendoBootstrapSql,
       /\bgrant delete on ingestion_platform\.ingestion_autonomy_/i
+    );
+    assert.doesNotMatch(
+      confluendoBootstrapSql,
+      /\bgrant update on ingestion_platform\.ingestion_autonomy_policies\b/i
     );
     assert.doesNotMatch(confluendoBootstrapSql, /\bgrant all privileges\b/i);
     assert.doesNotMatch(confluendoBootstrapSql, /\bservice_role\b/i);
@@ -89,6 +97,9 @@ describe("ingestion control schema", () => {
     assert.match(controlSchemaSql, /ingestion_autonomy_runs/);
     assert.match(controlSchemaSql, /autonomous_agent/);
     assert.match(controlSchemaSql, /ingestion_autonomy_policies_target_environment_check/);
+    assert.match(controlSchemaSql, /ingestion_autonomy_policies_ramp_mode_check/);
+    assert.match(controlSchemaSql, /create or replace function ingestion_platform\.promote_autonomy_ramp/);
+    assert.match(controlSchemaSql, /revoke all on function ingestion_platform\.promote_autonomy_ramp/);
     assert.match(controlSchemaSql, /ingestion_autonomy_runs_actor_type_check/);
   });
 

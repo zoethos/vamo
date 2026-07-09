@@ -13,6 +13,8 @@ import {
   type EvaluateAutonomyCycleResult
 } from "./autonomy-policy.js";
 import {
+  applyRampProfileToEnvelope,
+  isAutonomyRampMode,
   readAutonomyRampMode,
   resolveAutonomyRamp,
   type AutonomyRampMode
@@ -35,6 +37,8 @@ export interface AutonomyPolicySummary {
   policyVersion: number;
   maxUnitsPerCycle: number;
   maxRowsPerCycle: number;
+  effectiveMaxUnitsPerCycle: number;
+  effectiveMaxRowsPerCycle: number;
   rampMode: AutonomyRampMode;
   rampLabel: string;
   rampDescription: string;
@@ -164,9 +168,10 @@ export function buildAutonomyDashboardView(
 ): AutonomyDashboardView {
   const actor = input.actor ?? { type: "autonomous_agent" as const, id: "confluendo-autonomy-preview" };
   const queueSnapshot = input.queueSnapshot ?? null;
+  const effectivePolicy = input.policy ? applyRampProfileToEnvelope(input.policy).effective : null;
 
   const nextCycle = evaluateAutonomyCycle({
-    policy: input.policy,
+    policy: effectivePolicy,
     queueSnapshot,
     latestDryRunExecution: input.latestDryRunExecution,
     latestStagingWave: input.latestStagingWave,
@@ -180,7 +185,7 @@ export function buildAutonomyDashboardView(
 
   return {
     projectKey: input.projectKey,
-    policy: input.policy ? toPolicySummary(input.policy) : null,
+    policy: input.policy ? toPolicySummary(input.policy, effectivePolicy ?? input.policy) : null,
     latestRun: input.latestRun ?? null,
     nextCycle,
     executionChannel,
@@ -213,6 +218,7 @@ export function mapPersistedPolicyRow(row: {
   guardThresholds: Record<string, unknown>;
   productionInboxHandoffPolicy: Record<string, unknown>;
   policyVersion: number;
+  rampMode?: string | null;
   approvedBy?: string | null;
   approvedAuditId?: string | null;
   approvalReason?: string | null;
@@ -237,7 +243,9 @@ export function mapPersistedPolicyRow(row: {
     guardThresholds: row.guardThresholds ?? {},
     productionInboxHandoffPolicy: row.productionInboxHandoffPolicy ?? {},
     policyVersion: row.policyVersion,
-    rampMode: readAutonomyRampMode(row.summary ?? undefined),
+    rampMode: isAutonomyRampMode(row.rampMode)
+      ? row.rampMode
+      : readAutonomyRampMode(row.summary ?? undefined),
     approvedBy: row.approvedBy ?? undefined,
     approvedAuditId: row.approvedAuditId ?? undefined,
     approvalReason: row.approvalReason ?? undefined,
@@ -331,7 +339,10 @@ export function sampleVamoAutonomyDashboardView(): AutonomyDashboardView {
   });
 }
 
-function toPolicySummary(policy: AutonomyPolicyEnvelope): AutonomyPolicySummary {
+function toPolicySummary(
+  policy: AutonomyPolicyEnvelope,
+  effectivePolicy: AutonomyPolicyEnvelope = policy
+): AutonomyPolicySummary {
   const ramp = resolveAutonomyRamp(policy);
   return {
     policyId: policy.policyId,
@@ -343,6 +354,8 @@ function toPolicySummary(policy: AutonomyPolicyEnvelope): AutonomyPolicySummary 
     policyVersion: policy.policyVersion,
     maxUnitsPerCycle: policy.maxUnitsPerCycle,
     maxRowsPerCycle: policy.maxRowsPerCycle,
+    effectiveMaxUnitsPerCycle: effectivePolicy.maxUnitsPerCycle,
+    effectiveMaxRowsPerCycle: effectivePolicy.maxRowsPerCycle,
     rampMode: ramp.mode,
     rampLabel: ramp.label,
     rampDescription: ramp.description,

@@ -117,7 +117,7 @@ describe("autonomy executor", () => {
   it("scheduler preview reports the next cycle without writing", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
     const client = await setupDb();
     try {
-      await seedPolicyAndQueue(client, { dryRunReady: 3, maxUnitsPerCycle: 2 });
+      await seedPolicyAndQueue(client, { dryRunReady: 3, maxUnitsPerCycle: 2, rampMode: "staging_ramp" });
       const result = await runAutonomyScheduler({
         client,
         mode: "preview",
@@ -143,6 +143,7 @@ describe("autonomy executor", () => {
     try {
       await seedPolicyAndQueue(client, {
         dryRunReady: 5,
+        rampMode: "staging_ramp",
         maxUnitsPerCycle: 1,
         rollingLimits: { maxUnitsPerDay: 100, maxRowsPerDay: 100, maxCyclesPerDay: 100 }
       });
@@ -358,6 +359,7 @@ describe("autonomy executor", () => {
     try {
       await seedPolicyAndQueue(client, {
         dryRunSucceeded: 2,
+        rampMode: "staging_ramp",
         maxUnitsPerCycle: 2,
         maxRowsPerCycle: 4
       });
@@ -748,6 +750,7 @@ async function seedPolicyAndQueue(
     maxUnitsPerCycle?: number;
     maxRowsPerCycle?: number;
     rollingLimits?: Record<string, unknown>;
+    rampMode?: "bootstrap" | "staging_ramp" | "volume_ramp" | "steady_state";
   }
 ): Promise<void> {
   const project = await client.query<{ id: string }>(
@@ -761,7 +764,7 @@ async function seedPolicyAndQueue(
         project_id, policy_key, source_key, target_key, target_environment, status,
         allowed_tiers, allowed_geographies, allowed_categories, allowed_transitions,
         max_units_per_cycle, max_rows_per_cycle, rolling_limits, policy_version, approved_by,
-        approved_audit_id, approval_reason
+        approved_audit_id, approval_reason, ramp_mode, summary
       )
       values (
         $1::bigint,
@@ -780,14 +783,17 @@ async function seedPolicyAndQueue(
         1,
         'policy-owner@example.com',
         'policy-audit-42',
-        'autonomy executor smoke'
+        'autonomy executor smoke',
+        $5,
+        jsonb_build_object('rampMode', $5::text)
       )
     `,
     [
       projectId,
       shape.maxUnitsPerCycle ?? 1,
       shape.maxRowsPerCycle ?? 2,
-      JSON.stringify(shape.rollingLimits ?? {})
+      JSON.stringify(shape.rollingLimits ?? {}),
+      shape.rampMode ?? "bootstrap"
     ]
   );
 

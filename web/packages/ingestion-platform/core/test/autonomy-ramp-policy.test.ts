@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import type { AutonomyPolicyEnvelope } from "../src/autonomy-policy.js";
 import {
   AUTONOMY_RAMP_PROFILES,
+  applyRampProfileToEnvelope,
   evaluateAutonomyRampPromotion,
   readAutonomyRampMode,
   resolveAutonomyRamp
@@ -68,7 +69,13 @@ describe("autonomy ramp policy", () => {
     const result = evaluateAutonomyRampPromotion({
       currentMode: "bootstrap",
       requestedMode: "staging_ramp",
-      actor: { type: "operator", id: "dba@example.com", role: "admin" },
+      actor: {
+        type: "operator",
+        id: "dba@example.com",
+        role: "admin",
+        assuranceLevel: "aal2",
+        stepUpFresh: true
+      },
       auditReason: "Two bootstrap autonomy cycles succeeded; widen to staging ramp."
     });
     assert.equal(result.ok, true);
@@ -92,11 +99,47 @@ describe("autonomy ramp policy", () => {
     }
   });
 
-  it("blocks steady state until production handoff telemetry is supported", () => {
+  it("blocks promotion without fresh AAL2 step-up or while blockers are active", () => {
+    const result = evaluateAutonomyRampPromotion({
+      currentMode: "bootstrap",
+      requestedMode: "staging_ramp",
+      actor: { type: "operator", id: "dba@example.com", role: "admin", assuranceLevel: "aal1" },
+      auditReason: "try widening",
+      blockerSummaries: [{ reason: "diff drift", count: 1 }]
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.ok(result.blocks.some((block) => block.code === "fresh_step_up_required"));
+      assert.ok(result.blocks.some((block) => block.code === "active_critical_blockers"));
+    }
+  });
+
+  it("allows demotion without fresh step-up or readiness evidence", () => {
+    const result = evaluateAutonomyRampPromotion({
+      currentMode: "volume_ramp",
+      requestedMode: "bootstrap",
+      actor: { type: "operator", id: "dba@example.com", role: "admin", assuranceLevel: "aal1" },
+      auditReason: "Narrow immediately during incident response.",
+      blockerSummaries: [{ reason: "new blocker", count: 2 }]
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.direction, "demotion");
+      assert.equal(result.toMode, "bootstrap");
+    }
+  });
+
+  it("blocks steady state until a future handoff slice unlocks it", () => {
     const result = evaluateAutonomyRampPromotion({
       currentMode: "volume_ramp",
       requestedMode: "steady_state",
-      actor: { type: "operator", id: "dba@example.com", role: "admin" },
+      actor: {
+        type: "operator",
+        id: "dba@example.com",
+        role: "admin",
+        assuranceLevel: "aal2",
+        stepUpFresh: true
+      },
       auditReason: "production ramp",
       productionInboxSupported: false
     });
@@ -104,5 +147,32 @@ describe("autonomy ramp policy", () => {
     if (!result.ok) {
       assert.equal(result.blocks[0]?.code, "production_handoff_not_ready");
     }
+  });
+
+  it("applies effective bounds as min(owner ceiling, active ramp profile)", () => {
+    const envelope = applyRampProfileToEnvelope(
+      policy({
+        rampMode: "bootstrap",
+        maxUnitsPerCycle: 100,
+        maxRowsPerCycle: 25_000,
+        rollingLimits: {
+          maxCyclesPerDay: 999,
+          maxUnitsPerDay: 999,
+          maxRowsPerDay: 999,
+          maxRetriesPerDay: 3
+        }
+      })
+    );
+
+    assert.equal(envelope.effective.maxUnitsPerCycle, AUTONOMY_RAMP_PROFILES.bootstrap.maxUnitsPerCycle);
+    assert.equal(envelope.effective.maxRowsPerCycle, AUTONOMY_RAMP_PROFILES.bootstrap.maxRowsPerCycle);
+    assert.deepEqual(envelope.effective.rollingLimits, {
+      maxCyclesPerDay: 4,
+      maxUnitsPerDay: 2,
+      maxRowsPerDay: 4,
+      maxRetriesPerDay: 3
+    });
+    assert.equal(envelope.ownerCeiling.maxUnitsPerCycle, 100);
+    assert.equal(envelope.profileCaps.mode, "bootstrap");
   });
 });

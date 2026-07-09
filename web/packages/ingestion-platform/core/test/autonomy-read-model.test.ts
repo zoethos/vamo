@@ -68,6 +68,8 @@ describe("autonomy read model", () => {
     });
     assert.equal(view.policy?.rampMode, "bootstrap");
     assert.equal(view.policy?.rampLabel, "Bootstrap proof");
+    assert.equal(view.policy?.maxUnitsPerCycle, 10);
+    assert.equal(view.policy?.effectiveMaxUnitsPerCycle, 1);
     assert.ok(view.policy?.rampWarnings.some((warning) => warning.includes("max_units_per_cycle")));
   });
 

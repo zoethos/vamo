@@ -637,6 +637,14 @@ export {
   type AutonomySchedulerStopReason
 } from "./autonomy-scheduler.js";
 export {
+  loadAutonomyRampReadiness,
+  promoteAutonomyRamp,
+  type AutonomyRampControlPgClientLike,
+  type AutonomyRampReadiness,
+  type PromoteAutonomyRampInput,
+  type PromoteAutonomyRampResult
+} from "./autonomy-ramp-control.js";
+export {
   type BatchControlActor,
   type BatchControlActorType
 } from "./batch-control-actor.js";

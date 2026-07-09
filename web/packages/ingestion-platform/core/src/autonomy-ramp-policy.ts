@@ -7,6 +7,7 @@
 
 import type { CommandActorType } from "./commands.js";
 import type { AutonomyPolicyEnvelope } from "./autonomy-policy.js";
+import type { AdminAssuranceLevel, AdminRole } from "./admin-auth.js";
 
 export const AUTONOMY_RAMP_MODES = [
   "bootstrap",
@@ -53,7 +54,10 @@ export type AutonomyRampPromotionBlockCode =
   | "unknown_mode"
   | "skips_required_ramp"
   | "missing_audit_reason"
+  | "missing_actor_identity"
   | "actor_not_operator"
+  | "fresh_step_up_required"
+  | "active_critical_blockers"
   | "production_handoff_not_ready";
 
 export interface EvaluateAutonomyRampPromotionInput {
@@ -62,10 +66,14 @@ export interface EvaluateAutonomyRampPromotionInput {
   actor: {
     type: CommandActorType;
     id: string;
-    role?: "viewer" | "operator" | "admin";
+    role?: AdminRole;
+    assuranceLevel?: AdminAssuranceLevel;
+    stepUpFresh?: boolean;
   };
   auditReason: string;
   productionInboxSupported?: boolean;
+  blockerSummaries?: Array<{ reason: string; count: number }>;
+  blockedUnitCount?: number;
 }
 
 export type EvaluateAutonomyRampPromotionResult =
@@ -75,6 +83,8 @@ export type EvaluateAutonomyRampPromotionResult =
       toMode: AutonomyRampMode;
       profile: AutonomyRampProfile;
       auditReason: string;
+      direction: "promotion" | "demotion";
+      warnings: string[];
     }
   | {
       ok: false;
@@ -83,6 +93,21 @@ export type EvaluateAutonomyRampPromotionResult =
         message: string;
       }>;
     };
+
+export interface EffectiveAutonomyRampEnvelope {
+  effective: AutonomyPolicyEnvelope;
+  ownerCeiling: {
+    maxUnitsPerCycle: number;
+    maxRowsPerCycle: number;
+    rollingLimits: Record<string, unknown>;
+  };
+  profileCaps: {
+    mode: AutonomyRampMode;
+    maxUnitsPerCycle: number;
+    maxRowsPerCycle: number;
+    rollingLimits: AutonomyRampProfile["rollingLimits"];
+  };
+}
 
 export const AUTONOMY_RAMP_PROFILES: Record<AutonomyRampMode, AutonomyRampProfile> = {
   bootstrap: {
@@ -225,6 +250,39 @@ export function resolveAutonomyRamp(policy: AutonomyPolicyEnvelope): AutonomyRam
   };
 }
 
+export function applyRampProfileToEnvelope(policy: AutonomyPolicyEnvelope): EffectiveAutonomyRampEnvelope {
+  const ramp = resolveAutonomyRamp(policy);
+  const effectiveRollingLimits: Record<string, unknown> = { ...policy.rollingLimits };
+  for (const key of ["maxCyclesPerDay", "maxUnitsPerDay", "maxRowsPerDay"] as const) {
+    const ownerValue = numberOrUndefined(policy.rollingLimits[key]);
+    effectiveRollingLimits[key] = Math.min(
+      ownerValue ?? ramp.profile.rollingLimits[key],
+      ramp.profile.rollingLimits[key]
+    );
+  }
+
+  return {
+    effective: {
+      ...policy,
+      rampMode: ramp.mode,
+      maxUnitsPerCycle: Math.min(policy.maxUnitsPerCycle, ramp.profile.maxUnitsPerCycle),
+      maxRowsPerCycle: Math.min(policy.maxRowsPerCycle, ramp.profile.maxRowsPerCycle),
+      rollingLimits: effectiveRollingLimits
+    },
+    ownerCeiling: {
+      maxUnitsPerCycle: policy.maxUnitsPerCycle,
+      maxRowsPerCycle: policy.maxRowsPerCycle,
+      rollingLimits: policy.rollingLimits
+    },
+    profileCaps: {
+      mode: ramp.mode,
+      maxUnitsPerCycle: ramp.profile.maxUnitsPerCycle,
+      maxRowsPerCycle: ramp.profile.maxRowsPerCycle,
+      rollingLimits: ramp.profile.rollingLimits
+    }
+  };
+}
+
 export function evaluateAutonomyRampPromotion(
   input: EvaluateAutonomyRampPromotionInput
 ): EvaluateAutonomyRampPromotionResult {
@@ -247,15 +305,22 @@ export function evaluateAutonomyRampPromotion(
     });
   }
 
+  const currentIndex = AUTONOMY_RAMP_MODES.indexOf(input.currentMode);
+  const requestedIndex = AUTONOMY_RAMP_MODES.indexOf(input.requestedMode);
+  const direction =
+    currentIndex >= 0 && requestedIndex >= 0 && requestedIndex < currentIndex
+      ? "demotion"
+      : "promotion";
+
   const expectedNext = NEXT_MODE[input.currentMode];
-  if (expectedNext && input.requestedMode !== expectedNext) {
+  if (direction === "promotion" && expectedNext && input.requestedMode !== expectedNext) {
     blocks.push({
       code: "skips_required_ramp",
       message: `Ramp promotion must move from ${input.currentMode} to ${expectedNext} before ${input.requestedMode}.`
     });
   }
 
-  if (!expectedNext && input.currentMode !== input.requestedMode) {
+  if (direction === "promotion" && !expectedNext && input.currentMode !== input.requestedMode) {
     blocks.push({
       code: "skips_required_ramp",
       message: `${input.currentMode} is the terminal ramp mode.`
@@ -269,6 +334,13 @@ export function evaluateAutonomyRampPromotion(
     });
   }
 
+  if (!input.actor.id.trim()) {
+    blocks.push({
+      code: "missing_actor_identity",
+      message: "Ramp changes require a named operator actor."
+    });
+  }
+
   if (input.actor.type !== "operator" || input.actor.role !== "admin") {
     blocks.push({
       code: "actor_not_operator",
@@ -276,10 +348,30 @@ export function evaluateAutonomyRampPromotion(
     });
   }
 
-  if (input.requestedMode === "steady_state" && input.productionInboxSupported !== true) {
+  if (
+    direction === "promotion" &&
+    (input.actor.assuranceLevel !== "aal2" || input.actor.stepUpFresh !== true)
+  ) {
+    blocks.push({
+      code: "fresh_step_up_required",
+      message: "Ramp promotion requires a fresh AAL2 operator step-up."
+    });
+  }
+
+  const activeBlockerCount =
+    (input.blockerSummaries ?? []).reduce((sum, blocker) => sum + blocker.count, 0) +
+    (input.blockedUnitCount ?? 0);
+  if (direction === "promotion" && activeBlockerCount > 0) {
+    blocks.push({
+      code: "active_critical_blockers",
+      message: "Resolve active queue blockers before widening the autonomy ramp."
+    });
+  }
+
+  if (direction === "promotion" && input.requestedMode === "steady_state") {
     blocks.push({
       code: "production_handoff_not_ready",
-      message: "Steady-state autonomy requires production inbox package waves and apply telemetry."
+      message: "Steady-state autonomy is locked until a future production-handoff slice explicitly enables it."
     });
   }
 
@@ -292,7 +384,9 @@ export function evaluateAutonomyRampPromotion(
     fromMode: input.currentMode,
     toMode: input.requestedMode,
     profile: AUTONOMY_RAMP_PROFILES[input.requestedMode],
-    auditReason: input.auditReason.trim()
+    auditReason: input.auditReason.trim(),
+    direction,
+    warnings: []
   };
 }
 
@@ -312,4 +406,8 @@ function compareRollingLimits(
     }
   }
   return warnings;
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
