@@ -13,6 +13,8 @@ import {
   type AdminPrincipal
 } from "./admin-auth.js";
 import type { BatchDryRunReport, BatchQueueItem, BatchQueueSnapshot } from "./batch-queue-read-model.js";
+import { extractBatchDryRunReportMetrics } from "./batch-dry-run-report-metrics.js";
+import { isVamoStagingTargetCategoryCompatible } from "./batch-staging-canary-wave-target-compat.js";
 import {
   STAGING_CANARY_APPROVAL_MAX_AGE_MS,
   STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS,
@@ -41,7 +43,8 @@ export type BatchStagingCanaryWaveBlockCode =
   | "unit_key_not_found"
   | "unit_not_dry_run_succeeded"
   | "unit_target_mismatch"
-  | "unit_selection_exceeds_max_units";
+  | "unit_selection_exceeds_max_units"
+  | "unit_category_unsupported";
 
 export interface BatchStagingCanaryWaveBlock {
   code: BatchStagingCanaryWaveBlockCode;
@@ -118,7 +121,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
     blocks.push({
       code: "role_denied",
       message:
-        "Batch staging-canary wave approval requires an ingestion_admin (role=admin) principal."
+        "Staging verification approval requires an ingestion_admin (role=admin) principal."
     });
   }
 
@@ -135,28 +138,28 @@ export function evaluateBatchStagingCanaryWaveApproval(
   ) {
     blocks.push({
       code: "mfa_required",
-      message: "Batch staging-canary wave approval requires verified MFA step-up (AAL2)."
+      message: "Staging verification approval requires verified MFA step-up (AAL2)."
     });
   }
 
   if (!hasFreshStepUp(input.principal, now)) {
     blocks.push({
       code: "fresh_step_up_required",
-      message: "Batch staging-canary wave approval requires a fresh MFA step-up."
+      message: "Staging verification approval requires a fresh MFA step-up."
     });
   }
 
   if (!auditReason) {
     blocks.push({
       code: "audit_reason_required",
-      message: "A non-empty audit reason is required to approve a staging-canary wave."
+      message: "A non-empty audit reason is required to approve staging verification."
     });
   }
 
   if (input.targetEnvironment === "production") {
     blocks.push({
       code: "production_environment_forbidden",
-      message: "Production is forbidden for batch staging-canary waves in IP-18.5."
+      message: "Production is forbidden for staging verification batches in IP-18.5."
     });
   }
 
@@ -168,7 +171,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
   } else if (input.targetEnvironment !== "staging") {
     blocks.push({
       code: "target_environment_mismatch",
-      message: "Batch staging-canary waves may only target explicit environment staging."
+      message: "Staging verification batches may only target explicit environment staging."
     });
   }
 
@@ -189,7 +192,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
   if (input.snapshot.safetyMode !== "dry_run") {
     blocks.push({
       code: "unsafe_safety_mode",
-      message: "Batch staging-canary wave approval may only run for dry_run plans."
+      message: "Staging verification approval may only run for simulation plans."
     });
   }
 
@@ -217,7 +220,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
     blocks.push({
       code: "ramp_exceeded",
       message:
-        "The first live staging-canary wave is hard-capped at 1 unit. Run and verify a 1-unit wave before widening."
+        "The first live staging verification batch is hard-capped at 1 unit. Run and verify a 1-unit batch before widening."
     });
   }
 
@@ -242,7 +245,11 @@ export function evaluateBatchStagingCanaryWaveApproval(
     });
   }
 
-  const eligible: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }> = [];
+  const eligible: Array<{
+    item: BatchQueueItem;
+    report: BatchDryRunReport;
+    expectedTargetWrites: number;
+  }> = [];
   let firstSkipBlock: BatchStagingCanaryWaveBlock | undefined;
 
   for (const item of candidates) {
@@ -251,14 +258,18 @@ export function evaluateBatchStagingCanaryWaveApproval(
       firstSkipBlock ??= parsed.block;
       continue;
     }
-    if (parsed.writeCount > STAGING_CANARY_MAX_ROWS) {
+    if (parsed.expectedTargetWrites > STAGING_CANARY_MAX_ROWS) {
       firstSkipBlock ??= {
         code: "unit_row_bound_exceeded",
-        message: `Unit "${item.unitKey}" exceeds STAGING_CANARY_MAX_ROWS (${STAGING_CANARY_MAX_ROWS}).`
+        message: `Unit "${item.unitKey}" exceeds the per-unit max target writes bound (${STAGING_CANARY_MAX_ROWS}).`
       };
       continue;
     }
-    eligible.push({ item, report: parsed.report, writeCount: parsed.writeCount });
+    eligible.push({
+      item,
+      report: parsed.report,
+      expectedTargetWrites: parsed.expectedTargetWrites
+    });
   }
 
   const selected: typeof eligible = [];
@@ -268,11 +279,11 @@ export function evaluateBatchStagingCanaryWaveApproval(
     if (selected.length >= input.maxUnits) {
       break;
     }
-    if (totalPlannedRows + entry.writeCount > input.maxRows) {
+    if (totalPlannedRows + entry.expectedTargetWrites > input.maxRows) {
       break;
     }
     selected.push(entry);
-    totalPlannedRows += entry.writeCount;
+    totalPlannedRows += entry.expectedTargetWrites;
   }
 
   if (selected.length === 0) {
@@ -280,7 +291,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
       firstSkipBlock ?? {
         code: "no_eligible_items",
         message:
-          "There are no dry_run_succeeded units with valid dry-run reports matching the requested bounds."
+          "There are no simulation-passed scopes with valid reports matching the requested bounds."
       }
     );
     return { ok: false, blocks };
@@ -292,7 +303,7 @@ export function evaluateBatchStagingCanaryWaveApproval(
       blocks: [
         {
           code: "wave_row_bound_exceeded",
-          message: `Selected units exceed the wave maxRows bound (${input.maxRows}).`
+          message: `Selected units exceed the wave max target writes bound (${input.maxRows}).`
         }
       ]
     };
@@ -313,18 +324,25 @@ export function countStagingCanaryWaveEligibleUnits(snapshot: BatchQueueSnapshot
 
 export function isStagingCanaryWaveEligibleUnit(
   item: BatchQueueItem
-): { ok: true; writeCount: number } | { ok: false; code: BatchStagingCanaryWaveBlockCode } {
+): { ok: true; expectedTargetWrites: number; sourceCandidates: number } | { ok: false; code: BatchStagingCanaryWaveBlockCode } {
   if (item.status !== "dry_run_succeeded") {
     return { ok: false, code: "unit_not_dry_run_succeeded" };
+  }
+  if (!isVamoStagingTargetCategoryCompatible(item.category)) {
+    return { ok: false, code: "unit_category_unsupported" };
   }
   const parsed = parseDryRunReport(item);
   if (!parsed.ok) {
     return { ok: false, code: parsed.block.code };
   }
-  if (parsed.writeCount > STAGING_CANARY_MAX_ROWS) {
+  if (parsed.expectedTargetWrites > STAGING_CANARY_MAX_ROWS) {
     return { ok: false, code: "unit_row_bound_exceeded" };
   }
-  return { ok: true, writeCount: parsed.writeCount };
+  return {
+    ok: true,
+    expectedTargetWrites: parsed.expectedTargetWrites,
+    sourceCandidates: parsed.sourceCandidates
+  };
 }
 
 function finalizeExplicitUnitSelection(input: {
@@ -336,7 +354,11 @@ function finalizeExplicitUnitSelection(input: {
 }): EvaluateBatchStagingCanaryWaveApprovalResult {
   const candidateByKey = new Map(input.candidates.map((item) => [item.unitKey, item]));
   const unitIssues: BatchStagingCanaryWaveUnitSelectionIssue[] = [];
-  const selected: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }> = [];
+  const selected: Array<{
+    item: BatchQueueItem;
+    report: BatchDryRunReport;
+    expectedTargetWrites: number;
+  }> = [];
 
   for (const unitKey of input.hintedUnitKeys) {
     const item = input.input.snapshot.items.find((entry) => entry.unitKey === unitKey);
@@ -352,7 +374,7 @@ function finalizeExplicitUnitSelection(input: {
       unitIssues.push({
         unitKey,
         code: "unit_not_dry_run_succeeded",
-        message: `Unit "${unitKey}" must be dry_run_succeeded; got ${item.status}.`
+        message: `Unit "${unitKey}" must be simulation-passed; got ${item.status}.`
       });
       continue;
     }
@@ -371,7 +393,7 @@ function finalizeExplicitUnitSelection(input: {
       unitIssues.push({
         unitKey,
         code: "unit_not_dry_run_succeeded",
-        message: `Unit "${unitKey}" is not an eligible dry_run_succeeded candidate for this wave.`
+        message: `Unit "${unitKey}" is not an eligible simulation-passed scope for this staging verification.`
       });
       continue;
     }
@@ -384,15 +406,15 @@ function finalizeExplicitUnitSelection(input: {
       });
       continue;
     }
-    if (parsed.writeCount > STAGING_CANARY_MAX_ROWS) {
+    if (parsed.expectedTargetWrites > STAGING_CANARY_MAX_ROWS) {
       unitIssues.push({
         unitKey,
         code: "unit_row_bound_exceeded",
-        message: `Unit "${unitKey}" exceeds STAGING_CANARY_MAX_ROWS (${STAGING_CANARY_MAX_ROWS}).`
+        message: `Unit "${unitKey}" exceeds the per-unit max target writes bound (${STAGING_CANARY_MAX_ROWS}).`
       });
       continue;
     }
-    selected.push({ item, report: parsed.report, writeCount: parsed.writeCount });
+    selected.push({ item, report: parsed.report, expectedTargetWrites: parsed.expectedTargetWrites });
   }
 
   if (unitIssues.length > 0) {
@@ -401,7 +423,7 @@ function finalizeExplicitUnitSelection(input: {
       blocks: [
         {
           code: "no_eligible_items",
-          message: "One or more selected units failed staging-canary wave revalidation."
+          message: "One or more selected scopes failed staging verification revalidation."
         }
       ],
       unitIssues
@@ -414,7 +436,7 @@ function finalizeExplicitUnitSelection(input: {
       blocks: [
         {
           code: "no_eligible_items",
-          message: "No valid dry_run_succeeded units were selected for staging-canary wave approval."
+          message: "No valid simulation-passed scopes were selected for staging verification approval."
         }
       ]
     };
@@ -432,14 +454,14 @@ function finalizeExplicitUnitSelection(input: {
     };
   }
 
-  const totalPlannedRows = selected.reduce((sum, entry) => sum + entry.writeCount, 0);
+  const totalPlannedRows = selected.reduce((sum, entry) => sum + entry.expectedTargetWrites, 0);
   if (totalPlannedRows > input.input.maxRows) {
     return {
       ok: false,
       blocks: [
         {
           code: "wave_row_bound_exceeded",
-          message: `Selected units exceed the wave maxRows bound (${input.input.maxRows}).`
+          message: `Selected units exceed the wave max target writes bound (${input.input.maxRows}).`
         }
       ]
     };
@@ -457,7 +479,11 @@ function finalizeExplicitUnitSelection(input: {
 
 function buildApprovalPlan(input: {
   input: EvaluateBatchStagingCanaryWaveApprovalInput;
-  selected: Array<{ item: BatchQueueItem; report: BatchDryRunReport; writeCount: number }>;
+  selected: Array<{
+    item: BatchQueueItem;
+    report: BatchDryRunReport;
+    expectedTargetWrites: number;
+  }>;
   totalPlannedRows: number;
   auditReason: string;
   now: string;
@@ -519,7 +545,7 @@ function normalizeUnitKeyHints(unitKeys: readonly string[] | undefined): string[
 function parseDryRunReport(
   item: BatchQueueItem
 ):
-  | { ok: true; report: BatchDryRunReport; writeCount: number }
+  | { ok: true; report: BatchDryRunReport; expectedTargetWrites: number; sourceCandidates: number }
   | { ok: false; block: BatchStagingCanaryWaveBlock } {
   const report = item.dryRunReport;
   if (!report) {
@@ -527,7 +553,7 @@ function parseDryRunReport(
       ok: false,
       block: {
         code: "dry_run_report_missing",
-        message: `Unit "${item.unitKey}" is dry_run_succeeded but has no dry-run report.`
+        message: `Unit "${item.unitKey}" passed simulation but has no simulation report.`
       }
     };
   }
@@ -536,12 +562,35 @@ function parseDryRunReport(
       ok: false,
       block: {
         code: "dry_run_invariant_violated",
-        message: `Unit "${item.unitKey}" dry-run report violates wroteToTarget=false.`
+        message: `Unit "${item.unitKey}" simulation report violates wroteToTarget=false.`
       }
     };
   }
-  const writeCount = report.insertCount + report.updateCount;
-  return { ok: true, report, writeCount };
+  if (!isVamoStagingTargetCategoryCompatible(item.category)) {
+    return {
+      ok: false,
+      block: {
+        code: "unit_category_unsupported",
+        message: `Unit "${item.unitKey}" category ${item.category} cannot be mapped to a supported Vamo feature type.`
+      }
+    };
+  }
+  const metrics = extractBatchDryRunReportMetrics(report);
+  if (!metrics) {
+    return {
+      ok: false,
+      block: {
+        code: "dry_run_invariant_violated",
+        message: `Unit "${item.unitKey}" simulation report is missing source/target write metrics.`
+      }
+    };
+  }
+  return {
+    ok: true,
+    report,
+    expectedTargetWrites: metrics.expectedTargetWrites,
+    sourceCandidates: metrics.sourceCandidates
+  };
 }
 
 function buildWaveKey(planId: string, unitKeys: string[], auditReason: string): string {

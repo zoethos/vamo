@@ -41,9 +41,9 @@ const blockLabels: Record<string, string> = {
   not_production_environment: "Target environment must resolve to production.",
   run_not_reviewed: "The dry run has not reached review.",
   diff_incompatible: "The reviewed shipment diff is incompatible.",
-  dry_run_invariant_violated: "Dry-run invariant violated (a prior write was claimed).",
-  staging_canary_required: "A succeeded staging canary is required first.",
-  staging_canary_not_succeeded: "The staging canary has not succeeded.",
+  dry_run_invariant_violated: "Simulation invariant violated (a prior write was claimed).",
+  staging_canary_required: "A succeeded staging verification is required first.",
+  staging_canary_not_succeeded: "The staging verification has not succeeded.",
   role_denied: "Requires the ingestion_admin role.",
   scope_denied: "Principal is not scoped to this project.",
   mfa_required: "A verified AAL2 MFA factor is required.",
@@ -268,7 +268,7 @@ function disabledReasonFor(
     return "Reviewed bounds are missing from the control plane.";
   }
   if (canaryShipment?.status !== "succeeded") {
-    return "A succeeded Vamo staging canary is required first.";
+    return "A succeeded Vamo staging verification is required first.";
   }
   if (context.role !== "admin") {
     return "Production inbox delivery requires the admin role.";

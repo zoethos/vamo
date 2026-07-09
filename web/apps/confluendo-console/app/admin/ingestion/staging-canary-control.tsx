@@ -37,15 +37,15 @@ const blockLabels: Record<string, string> = {
   not_staging_environment: "Resolved target environment is not staging.",
   run_not_reviewed: "The dry run has not reached review.",
   diff_incompatible: "The reviewed shipment diff is incompatible.",
-  dry_run_invariant_violated: "Dry-run invariant violated (a prior write was claimed).",
+  dry_run_invariant_violated: "Simulation invariant violated (a prior write was claimed).",
   role_denied: "Requires the ingestion_admin role.",
   scope_denied: "Principal is not scoped to this project.",
   mfa_required: "A verified AAL2 MFA factor is required.",
   fresh_step_up_required: "A fresh MFA step-up is required.",
   audit_reason_required: "A non-empty audit reason is required.",
-  delete_not_allowed: "A canary must not delete rows.",
+  delete_not_allowed: "Staging verification must not delete rows.",
   scope_not_narrow: "Declare exactly one narrow geography and category.",
-  row_bound_exceeded: "The write count exceeds the canary bound.",
+  row_bound_exceeded: "The write count exceeds the staging verification bound.",
   nothing_to_ship: "The reviewed diff has nothing to ship."
 };
 
@@ -77,7 +77,7 @@ export function StagingCanaryControl({
       return;
     }
     if (!bounds) {
-      setDecision({ state: "error", message: "Reviewed canary bounds are unavailable." });
+      setDecision({ state: "error", message: "Reviewed staging verification bounds are unavailable." });
       return;
     }
     if (!reason.trim()) {
@@ -129,8 +129,8 @@ export function StagingCanaryControl({
 
   return (
     <div className="admin-canary-control">
-      <p className="admin-kicker">IP-16 · staging canary</p>
-      <h3>Promote {targetId} to a staging canary</h3>
+      <p className="admin-kicker">IP-16 · staging verification</p>
+      <h3>Approve staging verification for {targetId}</h3>
       <p className="admin-canary-note">
         Approval is gated by an ingestion_admin with MFA/AAL2, a fresh step-up, and an audit
         reason. This records the decision only — the live staging write is a separate,
@@ -178,7 +178,7 @@ export function StagingCanaryControl({
           onChange={(event) => setReason(event.target.value)}
           rows={2}
           maxLength={280}
-          placeholder="Why is this canary being promoted now?"
+          placeholder="Why should this staging verification be approved now?"
           disabled={Boolean(disabledReason) || pending}
         />
       </label>
@@ -190,7 +190,7 @@ export function StagingCanaryControl({
         disabled={Boolean(disabledReason) || pending}
         title={disabledReason ?? undefined}
       >
-        {pending ? "Evaluating…" : "Request staging-canary approval"}
+        {pending ? "Evaluating…" : "Request staging verification approval"}
       </button>
 
       {disabledReason ? <p className="admin-canary-disabled">{disabledReason}</p> : null}
@@ -241,7 +241,7 @@ function DecisionView({ decision }: { decision: Decision }) {
     const { auditId, plan } = decision;
     return (
       <div className="admin-command-result admin-command-result-ok" role="status">
-        <strong>Approved · {plan.environment} canary plan</strong>
+        <strong>Approved · {plan.environment} staging verification plan</strong>
         <span>
           {plan.write.insert} insert / {plan.write.update} update / {plan.write.noOp} no-op ·{" "}
           {plan.write.writeCount} write(s), bound {plan.bounds.maxRows}
@@ -259,7 +259,7 @@ function DecisionView({ decision }: { decision: Decision }) {
   if (decision.state === "blocked") {
     return (
       <div className="admin-command-result admin-command-result-error" role="alert">
-        <strong>Promotion blocked</strong>
+        <strong>Staging verification blocked</strong>
         <ul>
           {decision.blocks.map((code) => (
             <li key={code}>{blockLabels[code] ?? code}</li>
@@ -291,17 +291,17 @@ function disabledReasonFor(
   }
   if (context.source !== "live") {
     return context.source === "error"
-      ? "Live progressive read failed; staging-canary approval is disabled."
-      : "Staging-canary approval requires a live control plane.";
+      ? "Live progressive read failed; staging verification approval is disabled."
+      : "Staging verification approval requires a live control plane.";
   }
   if (!bounds) {
-    return "Reviewed canary bounds are missing from the control plane.";
+    return "Reviewed staging verification bounds are missing from the control plane.";
   }
   if (context.role !== "admin") {
-    return "Staging-canary promotion requires the admin role.";
+    return "Staging verification approval requires the admin role.";
   }
   if (context.assuranceLevel !== "aal2") {
-    return "Staging-canary promotion requires MFA step-up (AAL2).";
+    return "Staging verification approval requires MFA step-up (AAL2).";
   }
   return undefined;
 }

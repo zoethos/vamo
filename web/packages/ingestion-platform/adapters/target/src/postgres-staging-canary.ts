@@ -149,7 +149,7 @@ export async function applyPostgresStagingCanary(
         return {
           ok: false,
           code: "delete_not_allowed",
-          message: `Refusing to write: a canary must not delete rows (${deleteCount}).`
+          message: `Refusing to write: staging verification must not delete rows (${deleteCount}).`
         };
       }
 
@@ -162,7 +162,7 @@ export async function applyPostgresStagingCanary(
         return {
           ok: false,
           code: "row_bound_exceeded",
-          message: `Refusing to write: canary would write ${writeCount} rows, over the bound of ${maxRows}.`
+          message: `Refusing to write: staging verification would write ${writeCount} rows, over the bound of ${maxRows}.`
         };
       }
 

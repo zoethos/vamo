@@ -9,6 +9,7 @@ import {
 import {
   countStagingCanaryWaveEligibleUnits,
   evaluateBatchStagingCanaryWaveApproval,
+  isStagingCanaryWaveEligibleUnit,
   type BatchStagingCanaryWaveBlockCode
 } from "../src/batch-staging-canary-wave-policy.js";
 import { STAGING_CANARY_MAX_ROWS } from "../src/staging-canary-policy.js";
@@ -96,12 +97,12 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
     assertBlocked(result, "no_eligible_items");
   });
 
-  it("respects maxUnits and maxRows bounds", () => {
+  it("respects maxUnits and maxRows bounds using expected target writes", () => {
     const snapshot = snapshotWithItems([
       { ...succeededItem("already-staged"), status: "staging_canary_succeeded" },
-      succeededItem("unit-a", { writeCount: 10 }),
-      succeededItem("unit-b", { writeCount: 10 }),
-      succeededItem("unit-c", { writeCount: 10 })
+      succeededItem("unit-a", { expectedTargetWrites: 10 }),
+      succeededItem("unit-b", { expectedTargetWrites: 10 }),
+      succeededItem("unit-c", { expectedTargetWrites: 10 })
     ]);
     const result = evaluateBatchStagingCanaryWaveApproval(
       validInput({ snapshot, maxUnits: 2, maxRows: 15 })
@@ -112,11 +113,56 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
     assert.equal(result.plan.totalPlannedRows, 10);
   });
 
+  it("bounds waves by expected target writes, not source candidate volume", () => {
+    const snapshot = snapshotWithItems([
+      { ...succeededItem("already-staged"), status: "staging_canary_succeeded" },
+      succeededItem("unit-a", { sourceCandidates: 100, expectedTargetWrites: 2 }),
+      succeededItem("unit-b", { sourceCandidates: 100, expectedTargetWrites: 2 })
+    ]);
+    const result = evaluateBatchStagingCanaryWaveApproval(
+      validInput({
+        snapshot,
+        maxUnits: 2,
+        maxRows: 3,
+        unitKeys: ["unit-a", "unit-b"]
+      })
+    );
+    assertBlocked(result, "wave_row_bound_exceeded");
+  });
+
+  it("allows restaurant and transport categories as POI subtype target writes", () => {
+    for (const category of ["restaurant", "transport"] as const) {
+      const unitKey = `vamo-place-intelligence:paris-france:${category}`;
+      const snapshot = snapshotWithItems([
+        succeededItem(unitKey, { category, expectedTargetWrites: 1 })
+      ]);
+      const eligibility = isStagingCanaryWaveEligibleUnit(snapshot.items[0]!);
+      assert.equal(eligibility.ok, true);
+      if (!eligibility.ok) return;
+
+      const result = evaluateBatchStagingCanaryWaveApproval(
+        validInput({ snapshot, unitKeys: [unitKey] })
+      );
+      assert.equal(result.ok, true);
+      if (!result.ok) return;
+      assert.deepEqual(result.plan.unitKeys, [unitKey]);
+    }
+  });
+
+  it("exposes source candidates separately from expected target writes for eligible units", () => {
+    const item = succeededItem("unit-a", { sourceCandidates: 5, expectedTargetWrites: 2 });
+    const eligibility = isStagingCanaryWaveEligibleUnit(item);
+    assert.equal(eligibility.ok, true);
+    if (!eligibility.ok) return;
+    assert.equal(eligibility.sourceCandidates, 5);
+    assert.equal(eligibility.expectedTargetWrites, 2);
+  });
+
   it("refuses an oversized first live wave before any staging canary has succeeded", () => {
     const snapshot = snapshotWithItems([
-      succeededItem("unit-a", { writeCount: 1 }),
-      succeededItem("unit-b", { writeCount: 1 }),
-      succeededItem("unit-c", { writeCount: 1 })
+      succeededItem("unit-a", { expectedTargetWrites: 1 }),
+      succeededItem("unit-b", { expectedTargetWrites: 1 }),
+      succeededItem("unit-c", { expectedTargetWrites: 1 })
     ]);
     const result = evaluateBatchStagingCanaryWaveApproval(
       validInput({ snapshot, maxUnits: 33, maxRows: 50 })
@@ -135,8 +181,8 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
 
   it("honors explicit unitKeys over run_order when selecting a later 1-row unit", () => {
     const snapshot = snapshotWithItems([
-      { ...succeededItem("unit-a", { writeCount: 3 }), runOrder: 1 },
-      { ...succeededItem("unit-b", { writeCount: 1 }), runOrder: 2 }
+      { ...succeededItem("unit-a", { expectedTargetWrites: 3 }), runOrder: 1 },
+      { ...succeededItem("unit-b", { expectedTargetWrites: 1 }), runOrder: 2 }
     ]);
     const fallback = evaluateBatchStagingCanaryWaveApproval(validInput({ snapshot, maxUnits: 1, maxRows: 50 }));
     assert.equal(fallback.ok, true);
@@ -188,8 +234,8 @@ describe("evaluateBatchStagingCanaryWaveApproval", () => {
   it("enforces maxRows for explicit unit selection", () => {
     const snapshot = snapshotWithItems([
       { ...succeededItem("already-staged"), status: "staging_canary_succeeded" },
-      succeededItem("unit-a", { writeCount: 2 }),
-      succeededItem("unit-b", { writeCount: 2 })
+      succeededItem("unit-a", { expectedTargetWrites: 2 }),
+      succeededItem("unit-b", { expectedTargetWrites: 2 })
     ]);
     const result = evaluateBatchStagingCanaryWaveApproval(
       validInput({
@@ -236,17 +282,26 @@ function succeededItem(
   unitKey: string,
   options?: {
     dryRunReport?: BatchQueueItem["dryRunReport"];
+    category?: string;
+    sourceCandidates?: number;
+    expectedTargetWrites?: number;
+    /** @deprecated use sourceCandidates + expectedTargetWrites */
     writeCount?: number;
   }
 ): BatchQueueItem {
-  const writeCount = options?.writeCount ?? 3;
+  const category =
+    options?.category ??
+    (unitKey.split(":")[2] as string | undefined) ??
+    "poi";
+  const expectedTargetWrites = options?.expectedTargetWrites ?? options?.writeCount ?? 3;
+  const sourceCandidates = options?.sourceCandidates ?? expectedTargetWrites;
   return {
     unitKey,
     runOrder: unitKey.includes("rome") ? 1 : unitKey.includes("paris") ? 2 : 3,
     geography: "rome-italy",
     geographyKind: "city",
     country: "italy",
-    category: "poi",
+    category,
     targetKey: "vamo-place-intelligence",
     targetEnvironment: "staging",
     sourceKey: "fsq-os-places-sample",
@@ -258,8 +313,8 @@ function succeededItem(
         ? null
         : (options?.dryRunReport ?? {
             wroteToTarget: false,
-            rowsProcessed: writeCount,
-            insertCount: writeCount,
+            rowsProcessed: sourceCandidates,
+            insertCount: expectedTargetWrites,
             updateCount: 0,
             noOpCount: 0,
             source: "fixture_simulation"

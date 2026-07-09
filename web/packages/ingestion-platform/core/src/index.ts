@@ -350,6 +350,19 @@ export {
   type ExecuteBatchDryRunResult
 } from "./batch-dry-run-execution.js";
 export {
+  extractBatchDryRunReportMetrics,
+  type BatchDryRunReportMetrics
+} from "./batch-dry-run-report-metrics.js";
+export {
+  VAMO_STAGING_NATIVE_TARGET_CATEGORIES,
+  VAMO_STAGING_POI_SUBTYPE_CATEGORIES,
+  describeVamoStagingTargetCategoryCompatibility,
+  isVamoStagingTargetCategoryCompatible,
+  mapVamoSourceCategoryToFeatureType,
+  type VamoStagingTargetCategoryCompatibility,
+  type VamoStagingTargetCategoryCompatibilityStatus
+} from "./batch-staging-canary-wave-target-compat.js";
+export {
   evaluateBatchStagingCanaryWaveApproval,
   countStagingCanaryWaveEligibleUnits,
   isStagingCanaryWaveEligibleUnit,

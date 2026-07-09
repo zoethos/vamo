@@ -445,6 +445,13 @@ function applyTransform(
     };
   }
 
+  if (transform === "vamo_feature_type") {
+    return {
+      ok: true,
+      value: vamoFeatureType(value)
+    };
+  }
+
   return {
     ok: false,
     reasonCode: "unsupported_transform",
@@ -477,6 +484,22 @@ function deterministicUuid(value: unknown): string {
     hex.slice(16, 20),
     hex.slice(20, 32)
   ].join("-");
+}
+
+function vamoFeatureType(value: unknown): string {
+  const category = String(value).trim().toLowerCase();
+  if (category === "landmark") {
+    return "landmark";
+  }
+  if (
+    category === "poi" ||
+    category === "restaurant" ||
+    category === "transport" ||
+    category === "hotel"
+  ) {
+    return "poi";
+  }
+  return category;
 }
 
 function getPath(record: Record<string, unknown>, path: string): unknown {

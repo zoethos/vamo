@@ -65,16 +65,16 @@ const freshStepUpHref =
   "/admin/mfa/challenge?reason=fresh_step_up_required&next=%2Fadmin%2Fingestion";
 
 const blockLabels: Record<string, string> = {
-  not_staging_proven: "Unit is not staging_canary_succeeded.",
+  not_staging_proven: "Scope is not staging verified.",
   not_production_environment: "Package wave target environment must be production.",
   legacy_target_key: "Target key must be environment-neutral.",
   schema_contract_mismatch: "Schema contract must be vamo-place-intelligence@1.",
-  dry_run_invariant_violated: "Dry-run report must have wroteToTarget=false.",
-  staging_canary_required: "Staging-canary evidence is required.",
-  staging_canary_not_succeeded: "Staging-canary evidence must be succeeded.",
+  dry_run_invariant_violated: "Simulation report must have wroteToTarget=false.",
+  staging_canary_required: "Staging verification evidence is required.",
+  staging_canary_not_succeeded: "Staging verification evidence must be succeeded.",
   active_blockers: "Active blockers remain on the queue item.",
   delete_not_allowed: "Deletes are not allowed in production package waves.",
-  row_bound_exceeded: "Selected rows exceed the wave maxRows bound.",
+  row_bound_exceeded: "Selected units exceed the wave max target writes bound.",
   unit_bound_exceeded: "Selected units exceed the wave maxUnits bound.",
   package_bound_exceeded: "Selected packages exceed the wave maxPackages bound.",
   already_delivered_or_pending_apply: "Unit is already in an active or spent package wave.",
@@ -121,7 +121,7 @@ export function ProductionPackageWaveApprovalControl({
       <p className="admin-kicker">IP-18.6 · production package-wave approval</p>
       <h3>Approve bounded production package wave</h3>
       <p className="admin-canary-note">
-        Records a control-plane package-wave approval for staging_canary_succeeded units.
+        Records a control-plane package-wave approval for staging-verified scopes.
         Requires admin + verified AAL2 + fresh MFA step-up. This does not deliver to the
         production inbox — delivery is a separate confirmation-gated runbook step (IP-18.6.3).
         Consumer apply remains consumer-owned.
@@ -141,7 +141,7 @@ export function ProductionPackageWaveApprovalControl({
           <input type="text" value="vamo-place-intelligence@1" readOnly disabled />
         </label>
         <label>
-          <span>Eligible staging-proven units</span>
+          <span>Eligible staging-verified scopes</span>
           <input type="text" value={String(eligibleCount)} readOnly disabled />
         </label>
         <label>
@@ -155,7 +155,7 @@ export function ProductionPackageWaveApprovalControl({
           />
         </label>
         <label>
-          <span>Max rows</span>
+          <span>Max target writes</span>
           <input
             type="number"
             min={1}
@@ -322,8 +322,8 @@ function DecisionView({ decision }: { decision: Decision }) {
       <div className="admin-command-result admin-command-result-ok" role="status">
         <strong>Production package wave approved (control plane only)</strong>
         <span>
-          {decision.plan.unitKeys.length} unit(s) · {decision.plan.totalPlannedRows} planned rows ·{" "}
-          {decision.plan.targetEnvironment}
+          {decision.plan.unitKeys.length} unit(s) · {decision.plan.totalPlannedRows} expected target
+          writes · {decision.plan.targetEnvironment}
         </span>
         <span>Schema: {decision.plan.schemaContract}</span>
         <span>Wave key: {decision.waveKey}</span>
@@ -371,7 +371,7 @@ function disabledReasonFor(
     return "Production package-wave approval requires a live control plane.";
   }
   if (eligibleCount === 0) {
-    return "No staging_canary_succeeded units with valid dry-run and staging evidence are available.";
+    return "No staging-verified scopes with valid simulation and staging evidence are available.";
   }
   if (context.role !== "admin") {
     return "Production package-wave approval requires the admin role.";

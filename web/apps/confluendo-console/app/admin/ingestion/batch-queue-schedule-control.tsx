@@ -37,9 +37,9 @@ const blockLabels: Record<string, string> = {
   scope_denied: "This admin account is not scoped to this ingestion project.",
   mfa_required: "Scheduling requires MFA step-up (AAL2).",
   audit_reason_required: "A non-empty audit reason is required.",
-  unsafe_safety_mode: "Only dry-run batch plans can be scheduled.",
+  unsafe_safety_mode: "Only simulation batch plans can be scheduled.",
   target_environment_required: "The batch plan must declare its target environment.",
-  no_eligible_items: "No ready_for_dry_run queue items remain to schedule."
+  no_eligible_items: "No scopes remain ready for simulation scheduling."
 };
 
 const mfaHref = "/admin/mfa/challenge?reason=mfa_challenge_required&next=%2Fadmin%2Fingestion";
@@ -133,10 +133,10 @@ export function BatchQueueScheduleControl({
 
   return (
     <div className="admin-canary-control admin-batch-schedule-control">
-      <p className="admin-kicker">IP-18.3 · schedule dry-run</p>
+      <p className="admin-kicker">IP-18.3 · schedule simulation</p>
       <h3>Schedule persisted batch queue</h3>
       <p className="admin-canary-note">
-        Advances eligible queue rows from ready_for_dry_run to dry_run_ready in the
+        Advances eligible queue rows into simulation-ready state in the
         Confluendo control plane. This does not execute ingestion or write to Vamo
         staging or production.
       </p>
@@ -157,7 +157,7 @@ export function BatchQueueScheduleControl({
           onChange={(event) => setReason(event.target.value)}
           rows={2}
           maxLength={280}
-          placeholder="Why should this batch move into dry-run scheduling now?"
+          placeholder="Why should this batch move into simulation scheduling now?"
           disabled={Boolean(disabledReason) || pending}
         />
       </label>
@@ -170,7 +170,7 @@ export function BatchQueueScheduleControl({
           disabled={Boolean(disabledReason) || pending}
           title={disabledReason ?? undefined}
         >
-          {pending ? "Scheduling..." : "Schedule dry-run batch"}
+          {pending ? "Scheduling..." : "Schedule simulation batch"}
         </button>
         {disabledReason ? (
           <p className="admin-action-status" data-state="unavailable">
@@ -190,9 +190,9 @@ function DecisionView({ decision }: { decision: Decision }) {
   if (decision.state === "scheduled") {
     return (
       <div className="admin-command-result admin-command-result-ok" role="status">
-        <strong>Dry-run batch scheduled</strong>
+        <strong>Simulation batch scheduled</strong>
         <span>
-          {decision.scheduledCount} newly scheduled · {decision.alreadyScheduledCount} total dry-run ready
+          {decision.scheduledCount} newly scheduled · {decision.alreadyScheduledCount} total simulation-ready
         </span>
         <span>
           {decision.plan.fromStatus} → {decision.plan.toStatus} · {decision.plan.targetEnvironment}
@@ -229,7 +229,7 @@ function disabledReasonFor(context: BatchQueueContext, eligibleCount: number): s
     return "Batch scheduling requires a live control plane.";
   }
   if (eligibleCount === 0) {
-    return "No ready_for_dry_run units remain to schedule.";
+    return "No scopes remain ready for simulation scheduling.";
   }
   if (context.role === "viewer") {
     return "Viewers can inspect the queue but cannot schedule it.";
