@@ -64,6 +64,11 @@ scale. The spec declares:
 - `volumeProjection` per category distinguishing source candidates from expected
   target writes.
 
+The projection is a planning estimate, not proof that those rows already exist
+in the bundled snapshot. The preview commands also print actual local snapshot
+supply when a `snapshotPath` is declared, including row count and planned units
+with no matching snapshot rows.
+
 This slice generates and previews queue units only. It does **not** ingest live
 data or write to Vamo staging/production.
 
@@ -75,9 +80,10 @@ npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --spec pat
 npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --full-data
 ```
 
-Prints plan id, unit counts, coverage summary, volume projection (when declared),
-first N units, and next action. Exits non-zero on validation failure or non-`dry_run`
-safety mode.
+Prints plan id, unit counts, coverage summary, projected volume (when declared),
+actual local snapshot supply (when a snapshot path is declared), first N units,
+and next action. Exits non-zero on validation failure or non-`dry_run` safety
+mode.
 
 ## Full-data queue preview and seed (IP-18.8.0)
 

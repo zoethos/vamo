@@ -1721,7 +1721,8 @@ Deliverables:
 - `batch-plan-spec.ts` — optional `consumerContractRef`, `source`, and
   `volumeProjection`; rejects URL/live/evasion source controls.
 - `batch-full-data-plan-preview.ts` — pure preview summarizing queue unit count,
-  coverage matrix, volume totals, and consumer-contract POI display labels.
+  coverage matrix, projected volume totals, actual local snapshot supply, and
+  consumer-contract POI display labels.
 - CLI:
   - `ip18:batch-plan -- --full-data` — preview expanded plan (writes nothing).
   - `ip18:batch-queue-seed -- --full-data --preview` — queue preview only.
@@ -1730,8 +1731,10 @@ Deliverables:
 
 Operator path:
 
-1. Preview expanded plan and volume evidence (`ip18:batch-plan -- --full-data`).
-2. Preview queue units (`ip18:batch-queue-seed -- --full-data --preview`).
+1. Preview expanded plan, projected volume, and actual snapshot supply evidence
+   (`ip18:batch-plan -- --full-data`).
+2. Preview queue units plus actual snapshot supply
+   (`ip18:batch-queue-seed -- --full-data --preview`).
 3. When approved, seed the control-plane queue (SQL file or `--execute`).
 4. Hosted autonomy (IP-18.7.5) drains eligible units inside stored policy bounds.
 

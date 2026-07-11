@@ -69,10 +69,12 @@ if (parsed.spec.safetyMode !== "dry_run") {
 
 const plan = buildBatchPlan({ spec: parsed.spec });
 const view = buildBatchPlanView(plan, previewCount);
+const snapshotSourceRows = readSnapshotSourceRows(parsed.spec);
 const fullDataPreview = buildBatchFullDataPlanPreview({
   spec: parsed.spec,
   plan,
-  previewUnitKeyLimit: previewCount
+  previewUnitKeyLimit: previewCount,
+  snapshotSourceRows
 });
 
 console.log("IP-18 batch target planning dry-run");
@@ -92,10 +94,10 @@ console.log(`- per country: ${JSON.stringify(view.coverage.perCountry)}`);
 console.log(`- per category: ${JSON.stringify(view.coverage.perCategory)}`);
 if (parsed.spec.volumeProjection || parsed.spec.bounds?.sampleRowLimitPerUnit) {
   console.log("");
-  console.log("Volume projection (source candidates vs expected target writes):");
-  console.log(`- total source candidates: ${fullDataPreview.volume.totalSourceCandidates}`);
+  console.log("Volume projection (planning estimate, not available snapshot rows):");
+  console.log(`- projected source candidates: ${fullDataPreview.volume.totalSourceCandidates}`);
   console.log(
-    `- total expected target writes: ${fullDataPreview.volume.totalExpectedTargetWrites}`
+    `- projected expected target writes: ${fullDataPreview.volume.totalExpectedTargetWrites}`
   );
   console.log(
     `- per category: ${JSON.stringify(
@@ -113,6 +115,22 @@ if (parsed.spec.volumeProjection || parsed.spec.bounds?.sampleRowLimitPerUnit) {
     )}`
   );
 }
+if (fullDataPreview.snapshotSupply) {
+  console.log("");
+  console.log("Actual local snapshot supply:");
+  console.log(`- snapshot rows available now: ${fullDataPreview.snapshotSupply.actualSourceRows}`);
+  console.log(
+    `- planned units with matching snapshot rows: ${fullDataPreview.snapshotSupply.unitsWithSourceRows}`
+  );
+  console.log(
+    `- planned units without matching snapshot rows: ${fullDataPreview.snapshotSupply.unitsWithoutSourceRows}`
+  );
+  if (fullDataPreview.snapshotSupply.unitsWithoutSourceRows > 0) {
+    console.log(
+      "- note: seed preview is broader than current supply; empty units will wait for a larger snapshot."
+    );
+  }
+}
 console.log("");
 console.log(`First ${view.previewRows.length} planned/blocked units:`);
 for (const row of view.previewRows) {
@@ -123,3 +141,15 @@ for (const row of view.previewRows) {
 }
 console.log("");
 console.log(`Next action: ${view.nextAction}`);
+
+function readSnapshotSourceRows(spec) {
+  const snapshotPath = spec.source?.connection?.snapshotPath;
+  if (typeof snapshotPath !== "string" || snapshotPath.trim().length === 0) {
+    return undefined;
+  }
+  const absolutePath = resolve(packageRoot, snapshotPath);
+  return readFileSync(absolutePath, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
+}

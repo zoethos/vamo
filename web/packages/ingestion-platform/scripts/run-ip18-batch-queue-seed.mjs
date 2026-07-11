@@ -64,7 +64,8 @@ if (!parsed.ok) {
 
 const plan = buildBatchPlan({ spec: parsed.spec });
 const snapshot = buildBatchQueueSnapshotFromPlan(plan);
-const preview = buildBatchFullDataPlanPreview({ spec: parsed.spec, plan });
+const snapshotSourceRows = readSnapshotSourceRows(parsed.spec);
+const preview = buildBatchFullDataPlanPreview({ spec: parsed.spec, plan, snapshotSourceRows });
 
 if (previewOnly) {
   console.log("IP-18 batch queue preview (no writes)");
@@ -75,12 +76,17 @@ if (previewOnly) {
   console.log(`- queue units: ${preview.queueUnitCount}`);
   console.log(`- planned: ${preview.plannedUnits}`);
   console.log(`- blocked: ${preview.blockedUnits}`);
-  console.log(
-    `- volume source candidates: ${preview.volume.totalSourceCandidates}`
-  );
-  console.log(
-    `- volume expected target writes: ${preview.volume.totalExpectedTargetWrites}`
-  );
+  console.log(`- projected source candidates: ${preview.volume.totalSourceCandidates}`);
+  console.log(`- projected expected target writes: ${preview.volume.totalExpectedTargetWrites}`);
+  if (preview.snapshotSupply) {
+    console.log(`- actual snapshot rows available now: ${preview.snapshotSupply.actualSourceRows}`);
+    console.log(
+      `- planned units with matching snapshot rows: ${preview.snapshotSupply.unitsWithSourceRows}`
+    );
+    console.log(
+      `- planned units without matching snapshot rows: ${preview.snapshotSupply.unitsWithoutSourceRows}`
+    );
+  }
   console.log(`- coverage matrix countries: ${Object.keys(preview.coverageMatrix).length}`);
   console.log(`- next action: ${preview.nextAction}`);
   process.exit(0);
@@ -249,4 +255,16 @@ function sqlLiteral(value) {
     return "null";
   }
   return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function readSnapshotSourceRows(spec) {
+  const snapshotPath = spec.source?.connection?.snapshotPath;
+  if (typeof snapshotPath !== "string" || snapshotPath.trim().length === 0) {
+    return undefined;
+  }
+  const absolutePath = resolve(packageRoot, snapshotPath);
+  return readFileSync(absolutePath, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
 }
