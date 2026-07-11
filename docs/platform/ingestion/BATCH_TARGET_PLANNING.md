@@ -72,6 +72,34 @@ with no matching snapshot rows.
 This slice generates and previews queue units only. It does **not** ingest live
 data or write to Vamo staging/production.
 
+## Snapshot supply binding (IP-18.8.1)
+
+IP-18.8.1 binds the full-data plan to the declared local snapshot file and makes
+queue seeding honest about supply:
+
+- bundled snapshot today: **38 rows** covering **36** of **168** planned units;
+- **132** planned units have no matching local rows and are **blocked by default**
+  during full-data seed with blocker `source_snapshot_empty`;
+- supply-ready units remain in the queue but are not promoted to dry-run-ready
+  unless they already have schedule proposals.
+
+Pure helper: `batch-snapshot-supply-preview.ts::buildBatchSnapshotSupplyPreview()`.
+
+Operator path:
+
+1. Preview plan (`ip18:batch-plan -- --full-data`).
+2. Preview supply coverage and default seed behavior
+   (`ip18:batch-queue-seed -- --full-data --preview`).
+3. Decide whether snapshot supply is sufficient for the next commissioning step.
+4. Seed control queue when approved (default blocks empty units).
+5. In the follow-up supply-to-schedule slice, attach/approve dry-run proposals
+   for supply-ready units so hosted autonomy can drain them inside policy
+   bounds. IP-18.8.1 itself only distinguishes supply-ready from empty units and
+   blocks the known-empty rows by default.
+
+Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
+(for planning review only; still control-plane only).
+
 ## CLI dry-run
 
 ```bash
@@ -85,14 +113,17 @@ actual local snapshot supply (when a snapshot path is declared), first N units,
 and next action. Exits non-zero on validation failure or non-`dry_run` safety
 mode.
 
-## Full-data queue preview and seed (IP-18.8.0)
+## Full-data queue preview and seed (IP-18.8.0 / IP-18.8.1)
 
 ```bash
-# Preview queue units and volume totals — writes nothing
+# Preview queue units, volume totals, and snapshot supply — writes nothing
 npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --preview
 
-# Write control-plane seed SQL when approved (default path under docs/platform/ingestion/bootstrap/sql/)
+# Write control-plane seed SQL when approved (blocks empty units by default)
 npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data
+
+# Opt-in: include empty units without source_snapshot_empty blocking
+npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --include-empty-units
 
 # Optional: any valid batch spec
 npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --spec path/to/batch.yaml --preview

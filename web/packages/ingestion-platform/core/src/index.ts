@@ -291,6 +291,23 @@ export {
   type BuildBatchFullDataPlanPreviewInput
 } from "./batch-full-data-plan-preview.js";
 export {
+  applySnapshotSupplyToQueueSnapshot,
+  buildBatchQueueSnapshotWithSupplyBinding,
+  buildBatchSnapshotSupplyPreview,
+  readSnapshotSourceRowsFromSpec,
+  summarizeSnapshotSupplyCounts,
+  BATCH_SNAPSHOT_EMPTY_BLOCK_REASON,
+  BATCH_SNAPSHOT_INVALID_BLOCK_REASON,
+  type ApplySnapshotSupplyBindingInput,
+  type BatchSnapshotSourceRow,
+  type BatchSnapshotSupplyPreview,
+  type BatchSnapshotSupplySeedMode,
+  type BatchSnapshotSupplyState,
+  type BatchSnapshotSupplySummary,
+  type BatchSnapshotSupplyUnitView,
+  type BuildBatchSnapshotSupplyPreviewInput
+} from "./batch-snapshot-supply-preview.js";
+export {
   buildBatchQueueSnapshot,
   buildBatchQueueSnapshotFromItems,
   buildBatchQueueSnapshotFromPlan,

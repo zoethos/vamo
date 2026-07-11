@@ -20,7 +20,9 @@ import {
   buildBatchFullDataPlanPreview,
   buildBatchPlan,
   buildBatchPlanView,
-  parseBatchPlanSpec
+  buildBatchSnapshotSupplyPreview,
+  parseBatchPlanSpec,
+  readSnapshotSourceRowsFromSpec
 } from "../dist/core/src/index.js";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -69,13 +71,20 @@ if (parsed.spec.safetyMode !== "dry_run") {
 
 const plan = buildBatchPlan({ spec: parsed.spec });
 const view = buildBatchPlanView(plan, previewCount);
-const snapshotSourceRows = readSnapshotSourceRows(parsed.spec);
+const snapshotSourceRows = readSnapshotSourceRowsFromSpec(parsed.spec, packageRoot);
 const fullDataPreview = buildBatchFullDataPlanPreview({
   spec: parsed.spec,
   plan,
   previewUnitKeyLimit: previewCount,
   snapshotSourceRows
 });
+const supplyPreview =
+  snapshotSourceRows &&
+  buildBatchSnapshotSupplyPreview({
+    plan,
+    spec: parsed.spec,
+    rows: snapshotSourceRows
+  });
 
 console.log("IP-18 batch target planning dry-run");
 console.log(`- spec: ${specPath}`);
@@ -115,7 +124,7 @@ if (parsed.spec.volumeProjection || parsed.spec.bounds?.sampleRowLimitPerUnit) {
     )}`
   );
 }
-if (fullDataPreview.snapshotSupply) {
+if (fullDataPreview.snapshotSupply && supplyPreview) {
   console.log("");
   console.log("Actual local snapshot supply:");
   console.log(`- snapshot rows available now: ${fullDataPreview.snapshotSupply.actualSourceRows}`);
@@ -125,10 +134,26 @@ if (fullDataPreview.snapshotSupply) {
   console.log(
     `- planned units without matching snapshot rows: ${fullDataPreview.snapshotSupply.unitsWithoutSourceRows}`
   );
-  if (fullDataPreview.snapshotSupply.unitsWithoutSourceRows > 0) {
+  console.log(`- source rows by country: ${JSON.stringify(supplyPreview.summary.rowsByCountry)}`);
+  console.log(`- source rows by POI type: ${JSON.stringify(supplyPreview.summary.rowsByCategory)}`);
+  console.log(
+    `- default seed mode: ${supplyPreview.defaultSeedMode} (${supplyPreview.defaultSeedBlockReason})`
+  );
+  console.log("");
+  console.log(`First ${Math.min(previewCount, supplyPreview.supplyReadyUnits.length)} supply-ready units:`);
+  for (const unit of supplyPreview.supplyReadyUnits.slice(0, previewCount)) {
     console.log(
-      "- note: seed preview is broader than current supply; empty units will wait for a larger snapshot."
+      `  ${unit.unitKey} · ${unit.supplyState} · ${unit.validSourceRowCount} row(s) · ${unit.recommendedQueueStatus}`
     );
+  }
+  if (supplyPreview.emptyUnits.length > 0) {
+    console.log("");
+    console.log(`First ${Math.min(previewCount, supplyPreview.emptyUnits.length)} empty units:`);
+    for (const unit of supplyPreview.emptyUnits.slice(0, previewCount)) {
+      console.log(
+        `  ${unit.unitKey} · ${unit.supplyState} · blocked by default seed (${supplyPreview.defaultSeedBlockReason})`
+      );
+    }
   }
 }
 console.log("");
@@ -141,15 +166,3 @@ for (const row of view.previewRows) {
 }
 console.log("");
 console.log(`Next action: ${view.nextAction}`);
-
-function readSnapshotSourceRows(spec) {
-  const snapshotPath = spec.source?.connection?.snapshotPath;
-  if (typeof snapshotPath !== "string" || snapshotPath.trim().length === 0) {
-    return undefined;
-  }
-  const absolutePath = resolve(packageRoot, snapshotPath);
-  return readFileSync(absolutePath, "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line));
-}

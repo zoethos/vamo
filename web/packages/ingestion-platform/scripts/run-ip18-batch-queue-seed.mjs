@@ -9,6 +9,7 @@
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --spec path/to/batch.yaml
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --preview
+//   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --include-empty-units
 //   CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --execute
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,6 +20,11 @@ import { parseBatchPlanSpec } from "../dist/core/src/batch-plan-spec.js";
 import { buildBatchFullDataPlanPreview } from "../dist/core/src/batch-full-data-plan-preview.js";
 import { buildBatchPlan } from "../dist/core/src/batch-planner.js";
 import { buildBatchQueueSnapshotFromPlan } from "../dist/core/src/batch-queue-read-model.js";
+import {
+  applySnapshotSupplyToQueueSnapshot,
+  buildBatchSnapshotSupplyPreview,
+  readSnapshotSourceRowsFromSpec
+} from "../dist/core/src/batch-snapshot-supply-preview.js";
 import { mapSnapshotToPersistenceBundle } from "../dist/core/src/batch-queue-persistence.js";
 import { persistBatchQueueSnapshot } from "../dist/core/src/batch-queue-control.js";
 
@@ -54,6 +60,7 @@ const specPath = resolve(readArg("--spec", useFullData ? fullDataSpecPath : defa
 const writePath = readArg("--write", null);
 const execute = hasFlag("--execute");
 const previewOnly = hasFlag("--preview");
+const includeEmptyUnits = hasFlag("--include-empty-units");
 
 const raw = readFileSync(specPath, "utf8");
 const parsed = parseBatchPlanSpec(raw);
@@ -63,9 +70,28 @@ if (!parsed.ok) {
 }
 
 const plan = buildBatchPlan({ spec: parsed.spec });
-const snapshot = buildBatchQueueSnapshotFromPlan(plan);
-const snapshotSourceRows = readSnapshotSourceRows(parsed.spec);
-const preview = buildBatchFullDataPlanPreview({ spec: parsed.spec, plan, snapshotSourceRows });
+const snapshotSourceRows = readSnapshotSourceRowsFromSpec(parsed.spec, packageRoot);
+let snapshot = buildBatchQueueSnapshotFromPlan(plan);
+let supplyPreview = null;
+
+if (snapshotSourceRows) {
+  supplyPreview = buildBatchSnapshotSupplyPreview({
+    plan,
+    spec: parsed.spec,
+    rows: snapshotSourceRows
+  });
+  snapshot = applySnapshotSupplyToQueueSnapshot({
+    snapshot,
+    supplyPreview,
+    seedMode: includeEmptyUnits ? "include_empty_units" : "block_empty_units"
+  });
+}
+
+const preview = buildBatchFullDataPlanPreview({
+  spec: parsed.spec,
+  plan,
+  snapshotSourceRows
+});
 
 if (previewOnly) {
   console.log("IP-18 batch queue preview (no writes)");
@@ -75,10 +101,11 @@ if (previewOnly) {
   console.log(`- source: ${preview.sourceKey}`);
   console.log(`- queue units: ${preview.queueUnitCount}`);
   console.log(`- planned: ${preview.plannedUnits}`);
-  console.log(`- blocked: ${preview.blockedUnits}`);
+  console.log(`- blocked: ${snapshot.progress.blocked}`);
+  console.log(`- ready: ${snapshot.progress.ready}`);
   console.log(`- projected source candidates: ${preview.volume.totalSourceCandidates}`);
   console.log(`- projected expected target writes: ${preview.volume.totalExpectedTargetWrites}`);
-  if (preview.snapshotSupply) {
+  if (preview.snapshotSupply && supplyPreview) {
     console.log(`- actual snapshot rows available now: ${preview.snapshotSupply.actualSourceRows}`);
     console.log(
       `- planned units with matching snapshot rows: ${preview.snapshotSupply.unitsWithSourceRows}`
@@ -86,9 +113,29 @@ if (previewOnly) {
     console.log(
       `- planned units without matching snapshot rows: ${preview.snapshotSupply.unitsWithoutSourceRows}`
     );
+    console.log(`- source rows by country: ${JSON.stringify(supplyPreview.summary.rowsByCountry)}`);
+    console.log(`- source rows by POI type: ${JSON.stringify(supplyPreview.summary.rowsByCategory)}`);
+    console.log(
+      `- default seed mode: ${includeEmptyUnits ? "include_empty_units" : supplyPreview.defaultSeedMode}`
+    );
+    console.log(
+      `- default seed blocks empty units: ${includeEmptyUnits ? "no" : "yes"} (${supplyPreview.defaultSeedBlockReason})`
+    );
+    console.log("");
+    console.log(`First ${Math.min(8, supplyPreview.supplyReadyUnits.length)} supply-ready units:`);
+    for (const unit of supplyPreview.supplyReadyUnits.slice(0, 8)) {
+      console.log(`  ${unit.unitKey} · ${unit.validSourceRowCount} row(s)`);
+    }
+    if (supplyPreview.emptyUnits.length > 0) {
+      console.log("");
+      console.log(`First ${Math.min(8, supplyPreview.emptyUnits.length)} empty units:`);
+      for (const unit of supplyPreview.emptyUnits.slice(0, 8)) {
+        console.log(`  ${unit.unitKey} · ${supplyPreview.defaultSeedBlockReason}`);
+      }
+    }
   }
   console.log(`- coverage matrix countries: ${Object.keys(preview.coverageMatrix).length}`);
-  console.log(`- next action: ${preview.nextAction}`);
+  console.log(`- next action: ${snapshot.nextAction}`);
   process.exit(0);
 }
 
@@ -128,6 +175,13 @@ const outputPath = writePath ? resolve(writePath) : defaultWritePath;
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, sql, "utf8");
 console.log(`Wrote batch queue seed SQL to ${outputPath}`);
+if (supplyPreview) {
+  console.log(
+    `- seeded with supply binding: ${includeEmptyUnits ? "include_empty_units" : supplyPreview.defaultSeedMode}`
+  );
+  console.log(`- blocked empty units: ${snapshot.progress.blocked}`);
+  console.log(`- supply-ready units: ${supplyPreview.summary.unitsWithSourceRows}`);
+}
 
 function renderSeedSql(bundle, planId) {
   const specJson = sqlLiteral(JSON.stringify(bundle.plan.spec));
@@ -255,16 +309,4 @@ function sqlLiteral(value) {
     return "null";
   }
   return `'${String(value).replace(/'/g, "''")}'`;
-}
-
-function readSnapshotSourceRows(spec) {
-  const snapshotPath = spec.source?.connection?.snapshotPath;
-  if (typeof snapshotPath !== "string" || snapshotPath.trim().length === 0) {
-    return undefined;
-  }
-  const absolutePath = resolve(packageRoot, snapshotPath);
-  return readFileSync(absolutePath, "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line));
 }

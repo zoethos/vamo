@@ -1702,10 +1702,39 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.1+** — bind full-data queue plans to snapshot
-source partitions and first bounded dry-run waves. IP-18.8.0 lands the
-contract-driven full-data plan, deterministic queue expansion, and preview path
-below.
+Next product slice: **IP-18.8.2+** — turn supply-ready full-data units into
+bounded dry-run proposals/waves, then expand bundled snapshot partitions toward
+full-data coverage. IP-18.8.1 closes the truth gap between projected volume and
+local snapshot supply, but supply-ready rows remain `planned` unless a proposal
+already exists.
+
+### IP-18.8.1 — implemented (Vamo full-data snapshot supply binding)
+
+**Status:** done — per-unit snapshot supply read model, default full-data seed
+blocking for empty units, CLI supply previews. **Not** live provider ingestion,
+**not** Vamo staging/production writes, **not** consumer apply.
+
+Deliverables:
+
+- `batch-snapshot-supply-preview.ts` — pure per-unit supply states
+  (`supply_ready`, `supply_empty`, `supply_invalid`), row counts, operator
+  labels, and default seed mode `block_empty_units` with blocker
+  `source_snapshot_empty`.
+- Queue seed path applies supply binding when a local `snapshotPath` is declared;
+  default full-data seed **blocks** 132 empty units instead of marking them
+  dry-run-ready. Opt-in `--include-empty-units` preserves unblocked rows.
+- CLI previews show supply-ready vs empty units, rows by country/POI type, and
+  default seed behavior (write-free preview).
+
+Operator path:
+
+1. Preview plan + projected volume (`ip18:batch-plan -- --full-data`).
+2. Preview supply coverage + seed behavior
+   (`ip18:batch-queue-seed -- --full-data --preview`).
+3. Decide whether current snapshot supply is sufficient.
+4. Seed control queue with default empty-unit blocking when approved.
+5. A follow-up slice attaches/approves dry-run proposals for supply-ready units
+   so hosted autonomy can drain them inside policy bounds.
 
 ### IP-18.8.0 — implemented (Vamo full-data queue plan foundation)
 
