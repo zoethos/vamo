@@ -1702,9 +1702,41 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: Vamo full-data source expansion and queue generation. The
-hosted scheduler can now keep bounded cycles moving, but it still needs a
-source-scale plan beyond the current sample corpus.
+Next product slice: **IP-18.8.1+** — bind full-data queue plans to snapshot
+source partitions and first bounded dry-run waves. IP-18.8.0 lands the
+contract-driven full-data plan, deterministic queue expansion, and preview path
+below.
+
+### IP-18.8.0 — implemented (Vamo full-data queue plan foundation)
+
+**Status:** done — contract/fixture-driven full-data batch plan, pure preview
+read model, CLI `--full-data` / `--preview` extensions. **Not** live provider
+ingestion, **not** Vamo staging/production writes, **not** consumer apply.
+
+Deliverables:
+
+- `fixtures/platform/ip18/vamo-eu-full-data-batch.yaml` — expanded EU geography
+  × POI category matrix with snapshot source metadata, consumer contract ref,
+  and per-category volume projection (source candidates vs expected target writes).
+- `batch-plan-spec.ts` — optional `consumerContractRef`, `source`, and
+  `volumeProjection`; rejects URL/live/evasion source controls.
+- `batch-full-data-plan-preview.ts` — pure preview summarizing queue unit count,
+  coverage matrix, volume totals, and consumer-contract POI display labels.
+- CLI:
+  - `ip18:batch-plan -- --full-data` — preview expanded plan (writes nothing).
+  - `ip18:batch-queue-seed -- --full-data --preview` — queue preview only.
+  - `ip18:batch-queue-seed -- --spec ...` — explicit control-plane seed path when
+    approved (`CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES` + control DSN for execute).
+
+Operator path:
+
+1. Preview expanded plan and volume evidence (`ip18:batch-plan -- --full-data`).
+2. Preview queue units (`ip18:batch-queue-seed -- --full-data --preview`).
+3. When approved, seed the control-plane queue (SQL file or `--execute`).
+4. Hosted autonomy (IP-18.7.5) drains eligible units inside stored policy bounds.
+
+Validation: `@confluendo/ingestion-platform` tests + `ip15:boundary-audit`;
+console/site build unchanged except read-model exports.
 
 Previously planned IP-18.7.1 items (now landed):
 

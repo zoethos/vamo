@@ -7,40 +7,87 @@
 //
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed
+//   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --spec path/to/batch.yaml
+//   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --preview
 //   CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --execute
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseBatchPlanSpec } from "../dist/core/src/batch-plan-spec.js";
-import { sampleVamoEuPoiBatchYaml } from "../dist/core/src/batch-plan-read-model.js";
-import { sampleVamoEuPoiBatchQueueSnapshot } from "../dist/core/src/batch-queue-read-model.js";
+import { buildBatchFullDataPlanPreview } from "../dist/core/src/batch-full-data-plan-preview.js";
+import { buildBatchPlan } from "../dist/core/src/batch-planner.js";
+import { buildBatchQueueSnapshotFromPlan } from "../dist/core/src/batch-queue-read-model.js";
 import { mapSnapshotToPersistenceBundle } from "../dist/core/src/batch-queue-persistence.js";
 import { persistBatchQueueSnapshot } from "../dist/core/src/batch-queue-control.js";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
+const packageRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(scriptDir, "../../../..");
+const defaultSpecPath = resolve(packageRoot, "fixtures/platform/ip18/vamo-eu-poi-batch.yaml");
+const fullDataSpecPath = resolve(packageRoot, "fixtures/platform/ip18/vamo-eu-full-data-batch.yaml");
 
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
   if (index >= 0 && index + 1 < process.argv.length) {
     return process.argv[index + 1];
   }
+  const configValue = readNpmConfigArg(name);
+  if (configValue && configValue !== "true") {
+    return configValue;
+  }
   return fallback;
 }
 
+function hasFlag(name) {
+  const configValue = readNpmConfigArg(name);
+  return process.argv.includes(name) || configValue === "true" || configValue === "";
+}
+
+function readNpmConfigArg(name) {
+  return process.env[`npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`];
+}
+
+const useFullData = hasFlag("--full-data");
+const specPath = resolve(readArg("--spec", useFullData ? fullDataSpecPath : defaultSpecPath));
 const writePath = readArg("--write", null);
-const execute = process.argv.includes("--execute");
-const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
+const execute = hasFlag("--execute");
+const previewOnly = hasFlag("--preview");
+
+const raw = readFileSync(specPath, "utf8");
+const parsed = parseBatchPlanSpec(raw);
 if (!parsed.ok) {
-  console.error("Sample batch spec invalid:", parsed.errors);
+  console.error("Batch spec validation failed:", parsed.errors);
   process.exit(1);
 }
 
-const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+const plan = buildBatchPlan({ spec: parsed.spec });
+const snapshot = buildBatchQueueSnapshotFromPlan(plan);
+const preview = buildBatchFullDataPlanPreview({ spec: parsed.spec, plan });
+
+if (previewOnly) {
+  console.log("IP-18 batch queue preview (no writes)");
+  console.log(`- spec: ${specPath}`);
+  console.log(`- plan id: ${preview.planId}`);
+  console.log(`- target: ${preview.targetKey} (${preview.targetEnvironment})`);
+  console.log(`- source: ${preview.sourceKey}`);
+  console.log(`- queue units: ${preview.queueUnitCount}`);
+  console.log(`- planned: ${preview.plannedUnits}`);
+  console.log(`- blocked: ${preview.blockedUnits}`);
+  console.log(
+    `- volume source candidates: ${preview.volume.totalSourceCandidates}`
+  );
+  console.log(
+    `- volume expected target writes: ${preview.volume.totalExpectedTargetWrites}`
+  );
+  console.log(`- coverage matrix countries: ${Object.keys(preview.coverageMatrix).length}`);
+  console.log(`- next action: ${preview.nextAction}`);
+  process.exit(0);
+}
+
 const bundle = mapSnapshotToPersistenceBundle(snapshot, parsed.spec);
-const sql = renderSeedSql(bundle);
+const sql = renderSeedSql(bundle, parsed.spec.id);
 
 if (execute) {
   if (process.env.CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED !== "YES") {
@@ -66,7 +113,9 @@ if (execute) {
 
 const defaultWritePath = resolve(
   repoRoot,
-  "docs/platform/ingestion/bootstrap/sql/ip18_vamo_batch_queue_seed.sql"
+  useFullData || parsed.spec.id.includes("full-data")
+    ? "docs/platform/ingestion/bootstrap/sql/ip18_vamo_full_data_batch_queue_seed.sql"
+    : "docs/platform/ingestion/bootstrap/sql/ip18_vamo_batch_queue_seed.sql"
 );
 const outputPath = writePath ? resolve(writePath) : defaultWritePath;
 
@@ -74,7 +123,7 @@ mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, sql, "utf8");
 console.log(`Wrote batch queue seed SQL to ${outputPath}`);
 
-function renderSeedSql(bundle) {
+function renderSeedSql(bundle, planId) {
   const specJson = sqlLiteral(JSON.stringify(bundle.plan.spec));
   const summaryJson = sqlLiteral(JSON.stringify(bundle.plan.planSummary));
   const itemInserts = bundle.items
@@ -104,11 +153,11 @@ function renderSeedSql(bundle) {
     })
     .join("\n  union all\n");
 
-  return `-- IP-18.2 — Vamo EU POI batch queue seed (Confluendo control-plane only).
+  return `-- IP-18.2 / IP-18.8 — Vamo batch queue seed (${planId}, Confluendo control-plane only).
 --
--- Purpose: persist the bundled IP-18 Vamo EU POI batch queue into the control
--- plane so /admin/ingestion can show LIVE queue state. No provider calls and
--- no Vamo staging/production writes.
+-- Purpose: persist the bundled Vamo batch queue into the control plane so
+-- /admin/ingestion can show LIVE queue state. No provider calls and no Vamo
+-- staging/production writes.
 --
 -- Run as the DB OWNER after control_schema.sql and control_bootstrap_confluendo.sql.
 -- Idempotent: re-running upserts the same plan and queue items.

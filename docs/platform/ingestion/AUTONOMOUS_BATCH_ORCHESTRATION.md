@@ -384,3 +384,51 @@ The hosted scheduler explicitly refuses to run when
 `VAMO_STAGING_CANARY_APP_DATABASE_URL` is present, because autonomy still never
 executes live staging writes. Consumer apply remains IP-18.6.6's gated console
 control and is not invoked by the hosted route.
+
+## IP-18.8.0 — Full-Data Queue Plan Foundation (implemented)
+
+IP-18.8.0 adds a contract-driven Vamo full-data batch plan and pure preview path
+so operators can expand beyond the IP-18 sample corpus **without** live provider
+calls or target writes.
+
+Fixture:
+
+- `web/packages/ingestion-platform/fixtures/platform/ip18/vamo-eu-full-data-batch.yaml`
+
+Pure modules:
+
+- `batch-full-data-plan-preview.ts::buildBatchFullDataPlanPreview()` — queue
+  unit counts, geography/category coverage matrix, and volume projection
+  separating **source candidates** from **expected target writes**.
+- Extended `parseBatchPlanSpec()` — optional `consumerContractRef`, snapshot
+  `source.connection`, and `volumeProjection`; rejects URL/live/evasion controls.
+
+Operator path (preview → seed → autonomy):
+
+1. **Preview plan** (writes nothing):
+
+   ```bash
+   npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --full-data
+   ```
+
+2. **Preview queue** (writes nothing):
+
+   ```bash
+   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --preview
+   ```
+
+3. **Seed control-plane queue when approved** — generates SQL by default, or
+   persists with explicit confirmation:
+
+   ```bash
+   npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data
+   CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES INGESTION_CONTROL_DATABASE_URL=... \
+     npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --execute
+   ```
+
+4. **Hosted autonomy drains** eligible units inside stored policy bounds
+   (IP-18.7.5 scheduler route). This slice does not activate cron or widen policy
+   automatically.
+
+Safety: dry-run planning only; snapshot adapter metadata; no provider network
+calls; no Vamo staging/production inbox writes; no consumer apply automation.

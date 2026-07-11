@@ -1,0 +1,171 @@
+kind: ingestion.batch_plan
+version: 1
+id: vamo-eu-full-data-v1
+projectKey: vamo
+sourceKey: fsq-os-places-snapshot
+targetProfileKey: place-intelligence
+targetKey: vamo-place-intelligence
+targetEnvironment: staging
+safetyMode: dry_run
+consumerContractRef: vamo-place-intelligence
+notes: >
+  IP-18.8.0 full-data queue plan for Vamo place intelligence. Expands EU
+  geography and POI category coverage for deterministic control-plane queue
+  generation. Snapshot adapter only — no live provider calls or target writes.
+source:
+  adapter: snapshot
+  connection:
+    snapshotPath: fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl
+geographies:
+  countries:
+    - key: italy
+      label: Italy
+    - key: france
+      label: France
+    - key: germany
+      label: Germany
+    - key: spain
+      label: Spain
+    - key: portugal
+      label: Portugal
+    - key: netherlands
+      label: Netherlands
+    - key: belgium
+      label: Belgium
+    - key: austria
+      label: Austria
+    - key: switzerland
+      label: Switzerland
+    - key: poland
+      label: Poland
+    - key: greece
+      label: Greece
+    - key: ireland
+      label: Ireland
+  regions:
+    - key: lombardy-italy
+      country: italy
+      label: Lombardy
+    - key: ile-de-france-france
+      country: france
+      label: Île-de-France
+    - key: bavaria-germany
+      country: germany
+      label: Bavaria
+    - key: catalonia-spain
+      country: spain
+      label: Catalonia
+    - key: lisbon-district-portugal
+      country: portugal
+      label: Lisbon District
+    - key: north-holland-netherlands
+      country: netherlands
+      label: North Holland
+  cities:
+    - key: rome-italy
+      country: italy
+      label: Rome
+    - key: milan-italy
+      country: italy
+      label: Milan
+    - key: paris-france
+      country: france
+      label: Paris
+    - key: lyon-france
+      country: france
+      label: Lyon
+    - key: munich-germany
+      country: germany
+      label: Munich
+    - key: berlin-germany
+      country: germany
+      label: Berlin
+    - key: barcelona-spain
+      country: spain
+      label: Barcelona
+    - key: madrid-spain
+      country: spain
+      label: Madrid
+    - key: lisbon-portugal
+      country: portugal
+      label: Lisbon
+    - key: porto-portugal
+      country: portugal
+      label: Porto
+    - key: amsterdam-netherlands
+      country: netherlands
+      label: Amsterdam
+    - key: rotterdam-netherlands
+      country: netherlands
+      label: Rotterdam
+    - key: brussels-belgium
+      country: belgium
+      label: Brussels
+    - key: antwerp-belgium
+      country: belgium
+      label: Antwerp
+    - key: vienna-austria
+      country: austria
+      label: Vienna
+    - key: salzburg-austria
+      country: austria
+      label: Salzburg
+    - key: zurich-switzerland
+      country: switzerland
+      label: Zurich
+    - key: geneva-switzerland
+      country: switzerland
+      label: Geneva
+    - key: warsaw-poland
+      country: poland
+      label: Warsaw
+    - key: krakow-poland
+      country: poland
+      label: Kraków
+    - key: athens-greece
+      country: greece
+      label: Athens
+    - key: thessaloniki-greece
+      country: greece
+      label: Thessaloniki
+    - key: dublin-ireland
+      country: ireland
+      label: Dublin
+    - key: cork-ireland
+      country: ireland
+      label: Cork
+categories:
+  - poi
+  - landmark
+  - restaurant
+  - transport
+priorityHints:
+  - geography: rome-italy
+    category: poi
+    weight: 12
+  - geography: paris-france
+    category: landmark
+    weight: 10
+  - geography: berlin-germany
+    category: transport
+    weight: 8
+bounds:
+  sampleRowLimitPerUnit: 5000
+  defaultBatchSize: 250
+volumeProjection:
+  consumerContractRef: vamo-place-intelligence
+  defaultSourceCandidatesPerUnit: 5000
+  defaultExpectedTargetWritesPerUnit: 4500
+  byCategory:
+    poi:
+      sourceCandidatesPerUnit: 8000
+      expectedTargetWritesPerUnit: 7200
+    landmark:
+      sourceCandidatesPerUnit: 2500
+      expectedTargetWritesPerUnit: 2500
+    restaurant:
+      sourceCandidatesPerUnit: 6000
+      expectedTargetWritesPerUnit: 5400
+    transport:
+      sourceCandidatesPerUnit: 1500
+      expectedTargetWritesPerUnit: 1500
