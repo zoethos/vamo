@@ -14,6 +14,10 @@ import {
   resolveDefaultBatchQueueDisplayFields,
   type ConsumerDisplayFieldSpec
 } from "./consumer-display-fields.js";
+import {
+  summarizeSnapshotSupplyCounts,
+  type BatchSnapshotSourceRow
+} from "./batch-snapshot-supply-preview.js";
 
 export interface BatchFullDataCategoryVolume {
   unitCount: number;
@@ -35,12 +39,7 @@ export interface BatchFullDataVolumeSummary {
   perCountry: Record<string, BatchFullDataCountryVolume>;
 }
 
-export interface BatchFullDataSnapshotSourceRow {
-  scope?: {
-    geography?: string;
-    category?: string;
-  };
-}
+export interface BatchFullDataSnapshotSourceRow extends BatchSnapshotSourceRow {}
 
 export interface BatchFullDataSnapshotSupplySummary {
   actualSourceRows: number;
@@ -120,35 +119,7 @@ export function summarizeSnapshotSupply(
   units: readonly BatchPlanUnit[],
   rows: readonly BatchFullDataSnapshotSourceRow[]
 ): BatchFullDataSnapshotSupplySummary {
-  const rowsByScope = new Map<string, number>();
-  for (const row of rows) {
-    const geography = row.scope?.geography?.trim();
-    const category = row.scope?.category?.trim();
-    if (!geography || !category) {
-      continue;
-    }
-    const key = snapshotScopeKey(geography, category);
-    rowsByScope.set(key, (rowsByScope.get(key) ?? 0) + 1);
-  }
-
-  let unitsWithSourceRows = 0;
-  let unitsWithoutSourceRows = 0;
-  for (const unit of units) {
-    if (unit.status !== "planned") {
-      continue;
-    }
-    if ((rowsByScope.get(snapshotScopeKey(unit.geography, unit.category)) ?? 0) > 0) {
-      unitsWithSourceRows += 1;
-    } else {
-      unitsWithoutSourceRows += 1;
-    }
-  }
-
-  return {
-    actualSourceRows: rows.length,
-    unitsWithSourceRows,
-    unitsWithoutSourceRows
-  };
+  return summarizeSnapshotSupplyCounts(units, rows);
 }
 
 function summarizeVolume(
@@ -222,10 +193,6 @@ export function resolveUnitVolume(
     sourceCandidates;
 
   return { sourceCandidates, expectedTargetWrites };
-}
-
-function snapshotScopeKey(geography: string, category: string): string {
-  return `${geography.trim().toLowerCase()}:${category.trim().toLowerCase()}`;
 }
 
 function buildCoverageMatrix(units: BatchPlanUnit[]): Record<string, Record<string, number>> {

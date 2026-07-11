@@ -432,3 +432,23 @@ Operator path (preview → seed → autonomy):
 
 Safety: dry-run planning only; snapshot adapter metadata; no provider network
 calls; no Vamo staging/production inbox writes; no consumer apply automation.
+
+## IP-18.8.1 — Snapshot Supply Binding (implemented)
+
+IP-18.8.1 binds the full-data queue plan to the bundled local snapshot and blocks
+known-empty units during default full-data seeding.
+
+Pure module:
+
+- `batch-snapshot-supply-preview.ts::buildBatchSnapshotSupplyPreview()` — per-unit
+  supply state, row counts, operator labels, and default seed mode
+  `block_empty_units` / blocker `source_snapshot_empty`.
+
+Operator impact:
+
+- preview commands remain write-free but now show supply-ready vs empty units;
+- default full-data seed persists **132 blocked** empty units instead of implying
+  they are ready for dry-run;
+- `--include-empty-units` opts out of blocking for review-only seeds.
+
+Safety unchanged: local snapshot only; no provider calls; no Vamo target writes.
