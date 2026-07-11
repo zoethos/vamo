@@ -337,11 +337,50 @@ The next autonomy product slices after IP-18.7.3:
   controls. The first ramp-control foundation PR adds the DB-guarded
   `promote_autonomy_ramp(...)` mutation and effective bounds enforcement; the
   next PR adds the operator-facing console controls.
-- **IP-18.7.5 — hosted scheduler/daemon.** A hosted runtime may invoke
-  `ip18:autonomy-scheduler` with monitoring and alerting after the operator run
-  surface is clear.
+- **IP-18.7.5 — hosted scheduler/daemon.** A hosted runtime invokes the bounded
+  scheduler through a server-only cron/API route with a bearer secret, explicit
+  execution confirmation, and policy/env gates. It replaces manual CLI ceremony
+  for normal cycles while preserving the same one-action-per-cycle scheduler
+  contract.
 - Autonomous corrective actions beyond pause/recommend when explicitly allowed
   by policy.
 
 The steady-state operator interaction changes from "approve each wave" to
 "approve policy bounds and respond to exceptions."
+
+## IP-18.7.5 - Hosted Scheduler Foundation (implemented)
+
+IP-18.7.5 adds a Vercel-cron-compatible route in the Confluendo console:
+
+```text
+GET /api/admin/ingestion/autonomy/scheduler
+POST /api/admin/ingestion/autonomy/scheduler
+```
+
+The route is server-only and calls `runAutonomyScheduler()`; it does not add a
+new write path. It requires:
+
+- `CONFLUENDO_AUTONOMY_SCHEDULER_SECRET` or Vercel's `CRON_SECRET`, plus a
+  matching `Authorization: Bearer` token or `x-cron-secret` header;
+- `CONFIRM_CONFLUENDO_HOSTED_AUTONOMY_SCHEDULER=YES`;
+- `INGESTION_CONTROL_DATABASE_URL`;
+- `CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY`;
+- `CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY`.
+
+Optional bounds:
+
+- `CONFLUENDO_AUTONOMY_SCHEDULER_MAX_CYCLES` (default 10, max 100);
+- `CONFLUENDO_AUTONOMY_SCHEDULER_INTERVAL_MS` (default 0, max 60000);
+- `CONFLUENDO_AUTONOMY_SCHEDULER_AGENT_ID`;
+- `CONFLUENDO_AUTONOMY_SCHEDULER_REASON`.
+
+Production package delivery remains separately gated. The hosted route passes
+production inbox credentials only when
+`CONFIRM_CONFLUENDO_AUTONOMY_PRODUCTION_DELIVERY=YES`,
+`VAMO_PRODUCTION_INBOX_DATABASE_URL` is present, and
+`VAMO_PRODUCTION_INBOX_ENVIRONMENT=production`.
+
+The hosted scheduler explicitly refuses to run when
+`VAMO_STAGING_CANARY_APP_DATABASE_URL` is present, because autonomy still never
+executes live staging writes. Consumer apply remains IP-18.6.6's gated console
+control and is not invoked by the hosted route.

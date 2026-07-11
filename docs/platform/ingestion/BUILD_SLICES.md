@@ -1671,9 +1671,40 @@ Scope:
   delivery and Apply-to-Vamo gates.
 - Operator-controlled ramp promotion card in the admin console, calling the
   already-landed DB-guarded function with app-layer auth/readiness checks.
-- Hosted cron/daemon wrapper for `ip18:autonomy-scheduler` with external
-  monitoring and alerting, after the operator run surface is clear.
+- **IP-18.7.5 — hosted scheduler foundation** — **done** — Vercel-cron-compatible
+  server route wrapping `runAutonomyScheduler()` with bearer-secret auth,
+  explicit hosted execution confirmation, env-driven project/policy identity,
+  bounded max-cycle parsing, and separate production-delivery confirmation.
+  The route refuses leaked staging-canary DSNs and never calls consumer apply.
 - Autonomous corrective actions when explicitly allowed by policy.
+
+### IP-18.7.5 — implemented (hosted scheduler foundation)
+
+Status: **implemented** — hosted/server runtime entrypoint only; no new
+scheduler write path and no consumer apply.
+
+Landed:
+
+- `autonomy-hosted-scheduler.ts` pure helper for server env parsing and
+  bearer/cron-secret authorization.
+- `/api/admin/ingestion/autonomy/scheduler` route in the Confluendo console.
+- Vercel cron schedule file in `web/apps/confluendo-console/vercel.json`.
+- Route gates:
+  - `CONFLUENDO_AUTONOMY_SCHEDULER_SECRET` or Vercel's `CRON_SECRET`;
+  - `CONFIRM_CONFLUENDO_HOSTED_AUTONOMY_SCHEDULER=YES`;
+  - `INGESTION_CONTROL_DATABASE_URL`;
+  - `CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY`;
+  - `CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY`.
+- Production package delivery is passed through only with
+  `CONFIRM_CONFLUENDO_AUTONOMY_PRODUCTION_DELIVERY=YES`,
+  `VAMO_PRODUCTION_INBOX_DATABASE_URL`, and
+  `VAMO_PRODUCTION_INBOX_ENVIRONMENT=production`.
+- The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
+  live staging execution or Consumer Apply Control.
+
+Next product slice: Vamo full-data source expansion and queue generation. The
+hosted scheduler can now keep bounded cycles moving, but it still needs a
+source-scale plan beyond the current sample corpus.
 
 Previously planned IP-18.7.1 items (now landed):
 
