@@ -17,6 +17,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildFullDataBoundBatchQueueSnapshot
+} from "../dist/core/src/batch-supply-ready-proposal-binding.js";
+import {
   buildBatchFullDataPlanPreview,
   buildBatchPlan,
   buildBatchPlanView,
@@ -70,18 +73,30 @@ if (parsed.spec.safetyMode !== "dry_run") {
 }
 
 const plan = buildBatchPlan({ spec: parsed.spec });
-const view = buildBatchPlanView(plan, previewCount);
 const snapshotSourceRows = readSnapshotSourceRowsFromSpec(parsed.spec, packageRoot);
+let displayPlan = plan;
+let boundSnapshot = null;
+
+if (snapshotSourceRows) {
+  const bound = buildFullDataBoundBatchQueueSnapshot({
+    spec: parsed.spec,
+    rows: snapshotSourceRows
+  });
+  displayPlan = bound.plan;
+  boundSnapshot = bound.snapshot;
+}
+
+const view = buildBatchPlanView(displayPlan, previewCount);
 const fullDataPreview = buildBatchFullDataPlanPreview({
   spec: parsed.spec,
-  plan,
+  plan: displayPlan,
   previewUnitKeyLimit: previewCount,
   snapshotSourceRows
 });
 const supplyPreview =
   snapshotSourceRows &&
   buildBatchSnapshotSupplyPreview({
-    plan,
+    plan: displayPlan,
     spec: parsed.spec,
     rows: snapshotSourceRows
   });
@@ -139,11 +154,20 @@ if (fullDataPreview.snapshotSupply && supplyPreview) {
   console.log(
     `- default seed mode: ${supplyPreview.defaultSeedMode} (${supplyPreview.defaultSeedBlockReason})`
   );
+  console.log(
+    `- proposal-backed ready units: ${displayPlan.units.filter((unit) => unit.proposal).length}`
+  );
+  if (boundSnapshot) {
+    console.log(`- blocked units after supply binding: ${boundSnapshot.progress.blocked}`);
+    console.log(`- ready units after supply binding: ${boundSnapshot.progress.ready}`);
+  }
   console.log("");
   console.log(`First ${Math.min(previewCount, supplyPreview.supplyReadyUnits.length)} supply-ready units:`);
   for (const unit of supplyPreview.supplyReadyUnits.slice(0, previewCount)) {
+    const planUnit = displayPlan.units.find((entry) => entry.unitKey === unit.unitKey);
+    const queueStatus = planUnit?.proposal ? "ready_for_dry_run" : unit.recommendedQueueStatus;
     console.log(
-      `  ${unit.unitKey} · ${unit.supplyState} · ${unit.validSourceRowCount} row(s) · ${unit.recommendedQueueStatus}`
+      `  ${unit.unitKey} · ${unit.supplyState} · ${unit.validSourceRowCount} row(s) · ${queueStatus}`
     );
   }
   if (supplyPreview.emptyUnits.length > 0) {

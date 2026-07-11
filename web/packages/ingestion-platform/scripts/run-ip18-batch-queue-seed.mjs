@@ -20,11 +20,8 @@ import { parseBatchPlanSpec } from "../dist/core/src/batch-plan-spec.js";
 import { buildBatchFullDataPlanPreview } from "../dist/core/src/batch-full-data-plan-preview.js";
 import { buildBatchPlan } from "../dist/core/src/batch-planner.js";
 import { buildBatchQueueSnapshotFromPlan } from "../dist/core/src/batch-queue-read-model.js";
-import {
-  applySnapshotSupplyToQueueSnapshot,
-  buildBatchSnapshotSupplyPreview,
-  readSnapshotSourceRowsFromSpec
-} from "../dist/core/src/batch-snapshot-supply-preview.js";
+import { buildFullDataBoundBatchQueueSnapshot } from "../dist/core/src/batch-supply-ready-proposal-binding.js";
+import { readSnapshotSourceRowsFromSpec } from "../dist/core/src/batch-snapshot-supply-preview.js";
 import { mapSnapshotToPersistenceBundle } from "../dist/core/src/batch-queue-persistence.js";
 import { persistBatchQueueSnapshot } from "../dist/core/src/batch-queue-control.js";
 
@@ -73,23 +70,22 @@ const plan = buildBatchPlan({ spec: parsed.spec });
 const snapshotSourceRows = readSnapshotSourceRowsFromSpec(parsed.spec, packageRoot);
 let snapshot = buildBatchQueueSnapshotFromPlan(plan);
 let supplyPreview = null;
+let boundPlan = plan;
 
 if (snapshotSourceRows) {
-  supplyPreview = buildBatchSnapshotSupplyPreview({
-    plan,
+  const bound = buildFullDataBoundBatchQueueSnapshot({
     spec: parsed.spec,
-    rows: snapshotSourceRows
-  });
-  snapshot = applySnapshotSupplyToQueueSnapshot({
-    snapshot,
-    supplyPreview,
+    rows: snapshotSourceRows,
     seedMode: includeEmptyUnits ? "include_empty_units" : "block_empty_units"
   });
+  snapshot = bound.snapshot;
+  supplyPreview = bound.supplyPreview;
+  boundPlan = bound.plan;
 }
 
 const preview = buildBatchFullDataPlanPreview({
   spec: parsed.spec,
-  plan,
+  plan: boundPlan,
   snapshotSourceRows
 });
 
@@ -102,7 +98,8 @@ if (previewOnly) {
   console.log(`- queue units: ${preview.queueUnitCount}`);
   console.log(`- planned: ${preview.plannedUnits}`);
   console.log(`- blocked: ${snapshot.progress.blocked}`);
-  console.log(`- ready: ${snapshot.progress.ready}`);
+  console.log(`- ready / proposal-backed: ${snapshot.progress.ready}`);
+  console.log(`- planned (non-ready): ${snapshot.progress.planned}`);
   console.log(`- projected source candidates: ${preview.volume.totalSourceCandidates}`);
   console.log(`- projected expected target writes: ${preview.volume.totalExpectedTargetWrites}`);
   if (preview.snapshotSupply && supplyPreview) {
@@ -120,6 +117,9 @@ if (previewOnly) {
     );
     console.log(
       `- default seed blocks empty units: ${includeEmptyUnits ? "no" : "yes"} (${supplyPreview.defaultSeedBlockReason})`
+    );
+    console.log(
+      `- proposal-backed ready units: ${boundPlan.units.filter((unit) => unit.proposal).length}`
     );
     console.log("");
     console.log(`First ${Math.min(8, supplyPreview.supplyReadyUnits.length)} supply-ready units:`);
@@ -180,6 +180,7 @@ if (supplyPreview) {
     `- seeded with supply binding: ${includeEmptyUnits ? "include_empty_units" : supplyPreview.defaultSeedMode}`
   );
   console.log(`- blocked empty units: ${snapshot.progress.blocked}`);
+  console.log(`- proposal-backed ready units: ${boundPlan.units.filter((unit) => unit.proposal).length}`);
   console.log(`- supply-ready units: ${supplyPreview.summary.unitsWithSourceRows}`);
 }
 
@@ -203,7 +204,7 @@ function renderSeedSql(bundle, planId) {
     ${item.priority},
     ${item.runOrder},
     ${sqlLiteral(JSON.stringify(item.blockers))}::jsonb,
-    null::jsonb,
+    ${item.proposal ? `${sqlLiteral(JSON.stringify(item.proposal))}::jsonb` : "null::jsonb"},
     null::jsonb
   from ingestion_platform.ingestion_projects p
   join ingestion_platform.ingestion_batch_plans bp
