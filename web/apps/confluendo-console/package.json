@@ -13,14 +13,14 @@
   "dependencies": {
     "@supabase/ssr": "0.12.0",
     "@confluendo/ingestion-platform": "*",
-    "@supabase/supabase-js": "2.108.2",
+    "@supabase/supabase-js": "2.110.2",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.1.0",
