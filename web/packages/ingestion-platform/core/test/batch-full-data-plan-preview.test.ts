@@ -12,6 +12,7 @@ import { vamoEuFullDataBatchPlan } from "../src/batch-plan-read-model.js";
 import { buildBatchQueueSnapshotFromPlan } from "../src/batch-queue-read-model.js";
 
 const fullDataPath = "fixtures/platform/ip18/vamo-eu-full-data-batch.yaml";
+const sourceSnapshotPath = "fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl";
 
 describe("full-data batch plan preview", () => {
   it("parses and expands the bundled Vamo EU full-data spec", () => {
@@ -56,6 +57,18 @@ describe("full-data batch plan preview", () => {
     assert.ok(preview.volume.totalSourceCandidates > preview.volume.totalExpectedTargetWrites);
     assert.equal(preview.volume.perCategory.poi?.sourceCandidates, 336_000);
     assert.equal(preview.volume.perCategory.poi?.expectedTargetWrites, 302_400);
+  });
+
+  it("surfaces actual snapshot supply separately from projected volume", () => {
+    const preview = buildBatchFullDataPlanPreview({
+      spec: loadFullDataSpec(),
+      snapshotSourceRows: loadSnapshotSourceRows()
+    });
+
+    assert.equal(preview.volume.totalSourceCandidates, 756_000);
+    assert.equal(preview.snapshotSupply?.actualSourceRows, 38);
+    assert.equal(preview.snapshotSupply?.unitsWithSourceRows, 36);
+    assert.equal(preview.snapshotSupply?.unitsWithoutSourceRows, 132);
   });
 
   it("builds a coverage matrix by country and POI category", () => {
@@ -190,4 +203,11 @@ function loadFullDataSpec() {
     throw new Error("full-data spec failed to parse");
   }
   return parsed.spec;
+}
+
+function loadSnapshotSourceRows() {
+  return readFileSync(sourceSnapshotPath, "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
 }
