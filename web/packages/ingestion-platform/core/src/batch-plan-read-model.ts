@@ -2,6 +2,8 @@
  * Batch plan dashboard read model — pure transform for IP-18 preview.
  */
 
+import { readFileSync } from "node:fs";
+
 import type { BatchPlanResult, BatchPlanUnit } from "./batch-planner.js";
 import { buildBatchPlan, type BuildBatchPlanInput } from "./batch-planner.js";
 import { parseBatchPlanSpec, type BatchPlanSpec } from "./batch-plan-spec.js";
@@ -72,6 +74,28 @@ export function sampleVamoEuPoiBatchPlan(candidateTemplate?: TargetCandidateInpu
 
 export function sampleVamoEuPoiBatchView(): BatchPlanView {
   return buildBatchPlanView(sampleVamoEuPoiBatchPlan());
+}
+
+export const VAMO_EU_FULL_DATA_BATCH_SPEC_PATH =
+  "fixtures/platform/ip18/vamo-eu-full-data-batch.yaml";
+
+export function loadVamoEuFullDataBatchYaml(
+  rootDir = process.cwd()
+): string {
+  return readFileSync(`${rootDir}/${VAMO_EU_FULL_DATA_BATCH_SPEC_PATH}`, "utf8");
+}
+
+export function vamoEuFullDataBatchPlan(
+  candidateTemplate?: TargetCandidateInput
+): BatchPlanResult {
+  const parsed = parseBatchPlanSpec(loadVamoEuFullDataBatchYaml());
+  if (!parsed.ok) {
+    throw new Error(`Full-data batch spec invalid: ${JSON.stringify(parsed.errors)}`);
+  }
+  return buildBatchPlan({
+    spec: parsed.spec,
+    candidateTemplate: candidateTemplate ?? sampleVamoCandidateTemplate()
+  });
 }
 
 function toRow(unit: BatchPlanUnit): BatchPlanRow {

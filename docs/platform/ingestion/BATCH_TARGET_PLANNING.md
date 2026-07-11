@@ -53,15 +53,47 @@ fixture (Italy, France, Germany, Spain + a few cities/regions and categories
 Later slices will source broad coverage from open snapshots (FSQ OS Places,
 GeoNames, Wikidata, etc.).
 
+## Vamo EU full-data plan (IP-18.8.0)
+
+`fixtures/platform/ip18/vamo-eu-full-data-batch.yaml` expands the geography ×
+category matrix to 12 EU countries with deterministic queue units at realistic
+scale. The spec declares:
+
+- snapshot `source.connection.snapshotPath` (local fixture only — no URLs);
+- `consumerContractRef: vamo-place-intelligence` for queue display fields;
+- `volumeProjection` per category distinguishing source candidates from expected
+  target writes.
+
+This slice generates and previews queue units only. It does **not** ingest live
+data or write to Vamo staging/production.
+
 ## CLI dry-run
 
 ```bash
 npm --workspace @confluendo/ingestion-platform run ip18:batch-plan
 npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --spec path/to/batch.yaml
+npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --full-data
 ```
 
-Prints plan id, unit counts, coverage summary, first N units, and next action.
-Exits non-zero on validation failure or non-`dry_run` safety mode.
+Prints plan id, unit counts, coverage summary, volume projection (when declared),
+first N units, and next action. Exits non-zero on validation failure or non-`dry_run`
+safety mode.
+
+## Full-data queue preview and seed (IP-18.8.0)
+
+```bash
+# Preview queue units and volume totals — writes nothing
+npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data --preview
+
+# Write control-plane seed SQL when approved (default path under docs/platform/ingestion/bootstrap/sql/)
+npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --full-data
+
+# Optional: any valid batch spec
+npm --workspace @confluendo/ingestion-platform run ip18:batch-queue-seed -- --spec path/to/batch.yaml --preview
+```
+
+Execution to the control DB requires `CONFIRM_CONFLUENDO_BATCH_QUEUE_SEED=YES`
+and `INGESTION_CONTROL_DATABASE_URL`. No Vamo target writes occur in this path.
 
 ## Dashboard preview
 

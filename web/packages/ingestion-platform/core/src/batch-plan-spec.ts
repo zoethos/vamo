@@ -8,6 +8,7 @@
 
 import { parse } from "yaml";
 
+import { findLocalSnapshotConnectionViolations } from "../../spec/src/source-connection-policy.js";
 import type { SafetyMode } from "./schedule-proposal.js";
 import { isLegacyTargetKey } from "./target-identity.js";
 
@@ -56,6 +57,23 @@ export interface BatchBoundsSpec {
   defaultBatchSize?: number;
 }
 
+export interface BatchCategoryVolumeProjection {
+  sourceCandidatesPerUnit?: number;
+  expectedTargetWritesPerUnit?: number;
+}
+
+export interface BatchVolumeProjectionSpec {
+  consumerContractRef?: string;
+  defaultSourceCandidatesPerUnit?: number;
+  defaultExpectedTargetWritesPerUnit?: number;
+  byCategory?: Record<string, BatchCategoryVolumeProjection>;
+}
+
+export interface BatchSourceSpec {
+  adapter?: string;
+  connection?: Record<string, unknown>;
+}
+
 export interface BatchPlanSpec {
   kind: typeof BATCH_PLAN_KIND;
   version: number;
@@ -72,6 +90,9 @@ export interface BatchPlanSpec {
   categories: string[];
   priorityHints?: BatchPriorityHint[];
   bounds?: BatchBoundsSpec;
+  consumerContractRef?: string;
+  source?: BatchSourceSpec;
+  volumeProjection?: BatchVolumeProjectionSpec;
   notes?: string;
 }
 
@@ -80,6 +101,7 @@ export type BatchPlanSpecErrorCode =
   | "invalid_shape"
   | "missing_required"
   | "unsafe_safety_mode"
+  | "unsafe_source_connection"
   | "legacy_target_key"
   | "empty_scope";
 
@@ -156,7 +178,10 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
   const sourceKey = readString(document, "sourceKey");
   if (!sourceKey) {
     errors.push({ code: "missing_required", path: "sourceKey", message: "sourceKey is required." });
+  } else {
+    validateSourceKeySafety(sourceKey, errors);
   }
+  validateSourceBlock(document.source, errors);
   const targetProfileKey = readString(document, "targetProfileKey");
   if (!targetProfileKey) {
     errors.push({
@@ -188,6 +213,10 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
     errors.push({ code: "missing_required", path: "id", message: "id is required." });
   }
 
+  const priorityHints = parsePriorityHints(document.priorityHints, errors);
+  const source = parseSource(document.source, errors);
+  const volumeProjection = parseVolumeProjection(document.volumeProjection, errors);
+
   if (errors.length > 0) {
     return fail(errors);
   }
@@ -207,8 +236,11 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
       safetyMode,
       geographies,
       categories,
-      priorityHints: parsePriorityHints(document.priorityHints, errors),
+      priorityHints,
       bounds: parseBounds(document.bounds),
+      consumerContractRef: readString(document, "consumerContractRef"),
+      source,
+      volumeProjection,
       notes: readString(document, "notes")
     }
   };
@@ -376,6 +408,119 @@ function parseBounds(value: unknown): BatchBoundsSpec | undefined {
     sampleRowLimitPerUnit: readNumber(value, "sampleRowLimitPerUnit"),
     defaultBatchSize: readNumber(value, "defaultBatchSize")
   };
+}
+
+function parseSource(value: unknown, errors: BatchPlanSpecError[]): BatchSourceSpec | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({ code: "invalid_shape", path: "source", message: "Expected an object." });
+    return undefined;
+  }
+  const adapter = readString(value, "adapter");
+  if (adapter && adapter !== "snapshot") {
+    errors.push({
+      code: "unsafe_source_connection",
+      path: "source.adapter",
+      message: `Batch planning allows only snapshot adapter, not "${adapter}".`
+    });
+  }
+  if (value.connection !== undefined && !isRecord(value.connection)) {
+    errors.push({
+      code: "invalid_shape",
+      path: "source.connection",
+      message: "Expected an object."
+    });
+  }
+  const connection = isRecord(value.connection) ? value.connection : undefined;
+  return { adapter, connection };
+}
+
+function parseVolumeProjection(
+  value: unknown,
+  errors: BatchPlanSpecError[]
+): BatchVolumeProjectionSpec | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({
+      code: "invalid_shape",
+      path: "volumeProjection",
+      message: "Expected an object."
+    });
+    return undefined;
+  }
+  const byCategory: Record<string, BatchCategoryVolumeProjection> = {};
+  if (value.byCategory !== undefined) {
+    if (!isRecord(value.byCategory)) {
+      errors.push({
+        code: "invalid_shape",
+        path: "volumeProjection.byCategory",
+        message: "Expected an object."
+      });
+    } else {
+      for (const [rawKey, entry] of Object.entries(value.byCategory)) {
+        const key = normalizeSlug(rawKey);
+        if (!isRecord(entry)) {
+          errors.push({
+            code: "invalid_shape",
+            path: `volumeProjection.byCategory.${rawKey}`,
+            message: "Expected an object."
+          });
+          continue;
+        }
+        byCategory[key] = {
+          sourceCandidatesPerUnit: readNumber(entry, "sourceCandidatesPerUnit"),
+          expectedTargetWritesPerUnit: readNumber(entry, "expectedTargetWritesPerUnit")
+        };
+      }
+    }
+  }
+  return {
+    consumerContractRef: readString(value, "consumerContractRef"),
+    defaultSourceCandidatesPerUnit: readNumber(value, "defaultSourceCandidatesPerUnit"),
+    defaultExpectedTargetWritesPerUnit: readNumber(value, "defaultExpectedTargetWritesPerUnit"),
+    byCategory: Object.keys(byCategory).length > 0 ? byCategory : undefined
+  };
+}
+
+function validateSourceKeySafety(sourceKey: string, errors: BatchPlanSpecError[]): void {
+  if (looksLikeUrl(sourceKey)) {
+    errors.push({
+      code: "unsafe_source_connection",
+      path: "sourceKey",
+      message: "sourceKey must not be a URL; use a snapshot source key instead."
+    });
+  }
+  if (/\blive\b/i.test(sourceKey) || /\bapi\b/i.test(sourceKey)) {
+    errors.push({
+      code: "unsafe_source_connection",
+      path: "sourceKey",
+      message: "Batch planning forbids live/API source keys in IP-18.8 planning slices."
+    });
+  }
+}
+
+function validateSourceBlock(value: unknown, errors: BatchPlanSpecError[]): void {
+  if (!isRecord(value)) {
+    return;
+  }
+  const connection = isRecord(value.connection) ? value.connection : undefined;
+  for (const violation of findLocalSnapshotConnectionViolations(connection, {
+    pathPrefix: "source.connection"
+  })) {
+    errors.push({
+      code: "unsafe_source_connection",
+      path: violation.path,
+      message: violation.message
+    });
+  }
+}
+
+function looksLikeUrl(value: string): boolean {
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(value);
 }
 
 function hasAnyGeography(geographies: BatchGeographiesSpec): boolean {

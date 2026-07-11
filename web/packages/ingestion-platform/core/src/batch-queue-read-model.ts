@@ -327,6 +327,23 @@ export function buildBatchQueueSnapshot(input: BuildBatchQueueSnapshotInput): Ba
   });
 }
 
+export function buildBatchQueueSnapshotFromPlan(
+  plan: BatchPlanResult,
+  options: Omit<BuildBatchQueueSnapshotInput, "plan"> = {}
+): BatchQueueSnapshot {
+  const displayFields =
+    options.displayFields ??
+    resolveDefaultBatchQueueDisplayFields({
+      projectKey: plan.projectKey,
+      targetKey: plan.targetKey
+    });
+  return buildBatchQueueSnapshot({
+    plan,
+    ...options,
+    displayFields
+  });
+}
+
 export function buildBatchQueueSnapshotFromItems(input: {
   planId: string;
   projectKey: string;

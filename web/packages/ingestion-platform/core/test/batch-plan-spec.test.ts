@@ -78,6 +78,17 @@ describe("batch plan spec parser", () => {
     if (parsed.ok) return;
     assert.ok(parsed.errors.some((error) => error.code === "empty_scope"));
   });
+
+  it("parses the bundled Vamo EU full-data plan with volume projection", () => {
+    const parsed = parseBatchPlanSpec(
+      readFileSync("fixtures/platform/ip18/vamo-eu-full-data-batch.yaml", "utf8")
+    );
+    assert.equal(parsed.ok, true);
+    if (parsed.ok) {
+      assert.equal(parsed.spec.volumeProjection?.byCategory?.restaurant?.sourceCandidatesPerUnit, 6000);
+      assert.equal(parsed.spec.source?.connection?.snapshotPath, "fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl");
+    }
+  });
 });
 
 function hasAnyGeography(geographies: {

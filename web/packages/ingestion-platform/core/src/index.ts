@@ -255,7 +255,10 @@ export {
   type BatchPlanSpecError,
   type BatchPlanSpecErrorCode,
   type BatchGeographiesSpec,
-  type BatchTargetEnvironment
+  type BatchTargetEnvironment,
+  type BatchCategoryVolumeProjection,
+  type BatchSourceSpec,
+  type BatchVolumeProjectionSpec
 } from "./batch-plan-spec.js";
 export {
   buildBatchPlan,
@@ -268,15 +271,29 @@ export {
 export {
   buildBatchPlanView,
   buildBatchPlanFromSpec,
+  loadVamoEuFullDataBatchYaml,
   sampleVamoEuPoiBatchPlan,
   sampleVamoEuPoiBatchView,
   sampleVamoEuPoiBatchYaml,
+  vamoEuFullDataBatchPlan,
+  VAMO_EU_FULL_DATA_BATCH_SPEC_PATH,
   type BatchPlanView,
   type BatchPlanRow
 } from "./batch-plan-read-model.js";
 export {
+  buildBatchFullDataPlanPreview,
+  formatBatchFullDataVolumeProjection,
+  resolveUnitVolume,
+  type BatchFullDataCategoryVolume,
+  type BatchFullDataCountryVolume,
+  type BatchFullDataPlanPreview,
+  type BatchFullDataVolumeSummary,
+  type BuildBatchFullDataPlanPreviewInput
+} from "./batch-full-data-plan-preview.js";
+export {
   buildBatchQueueSnapshot,
   buildBatchQueueSnapshotFromItems,
+  buildBatchQueueSnapshotFromPlan,
   sampleVamoEuPoiBatchQueueSnapshot,
   BATCH_QUEUE_ITEM_STATUSES,
   type BatchDryRunReport,

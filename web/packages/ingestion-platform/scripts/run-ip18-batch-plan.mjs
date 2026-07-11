@@ -8,6 +8,7 @@
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-plan
 //   npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --spec path/to/batch.yaml
+//   npm --workspace @confluendo/ingestion-platform run ip18:batch-plan -- --full-data
 //
 // Requires a prior build (the npm script runs `build` first).
 
@@ -16,6 +17,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildBatchFullDataPlanPreview,
   buildBatchPlan,
   buildBatchPlanView,
   parseBatchPlanSpec
@@ -24,16 +26,31 @@ import {
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const defaultSpecPath = resolve(packageRoot, "fixtures/platform/ip18/vamo-eu-poi-batch.yaml");
+const fullDataSpecPath = resolve(packageRoot, "fixtures/platform/ip18/vamo-eu-full-data-batch.yaml");
 
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
   if (index >= 0 && index + 1 < process.argv.length) {
     return process.argv[index + 1];
   }
+  const configValue = readNpmConfigArg(name);
+  if (configValue && configValue !== "true") {
+    return configValue;
+  }
   return fallback;
 }
 
-const specPath = resolve(readArg("--spec", defaultSpecPath));
+function hasFlag(name) {
+  const configValue = readNpmConfigArg(name);
+  return process.argv.includes(name) || configValue === "true" || configValue === "";
+}
+
+function readNpmConfigArg(name) {
+  return process.env[`npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`];
+}
+
+const useFullData = hasFlag("--full-data");
+const specPath = resolve(readArg("--spec", useFullData ? fullDataSpecPath : defaultSpecPath));
 const previewCount = Number(readArg("--preview", "8"));
 const raw = readFileSync(specPath, "utf8");
 const parsed = parseBatchPlanSpec(raw);
@@ -52,6 +69,11 @@ if (parsed.spec.safetyMode !== "dry_run") {
 
 const plan = buildBatchPlan({ spec: parsed.spec });
 const view = buildBatchPlanView(plan, previewCount);
+const fullDataPreview = buildBatchFullDataPlanPreview({
+  spec: parsed.spec,
+  plan,
+  previewUnitKeyLimit: previewCount
+});
 
 console.log("IP-18 batch target planning dry-run");
 console.log(`- spec: ${specPath}`);
@@ -61,10 +83,36 @@ console.log(`- source: ${view.sourceKey}`);
 console.log(`- generated units: ${view.totalUnits}`);
 console.log(`- planned: ${view.plannedUnits}`);
 console.log(`- blocked: ${view.blockedUnits}`);
+if (fullDataPreview.consumerContractRef) {
+  console.log(`- consumer contract: ${fullDataPreview.consumerContractRef}`);
+}
 console.log("");
 console.log("Coverage summary (planned units):");
 console.log(`- per country: ${JSON.stringify(view.coverage.perCountry)}`);
 console.log(`- per category: ${JSON.stringify(view.coverage.perCategory)}`);
+if (parsed.spec.volumeProjection || parsed.spec.bounds?.sampleRowLimitPerUnit) {
+  console.log("");
+  console.log("Volume projection (source candidates vs expected target writes):");
+  console.log(`- total source candidates: ${fullDataPreview.volume.totalSourceCandidates}`);
+  console.log(
+    `- total expected target writes: ${fullDataPreview.volume.totalExpectedTargetWrites}`
+  );
+  console.log(
+    `- per category: ${JSON.stringify(
+      Object.fromEntries(
+        Object.entries(fullDataPreview.volume.perCategory).map(([key, entry]) => [
+          key,
+          {
+            units: entry.unitCount,
+            sourceCandidates: entry.sourceCandidates,
+            expectedTargetWrites: entry.expectedTargetWrites,
+            displayLabel: entry.displayLabel
+          }
+        ])
+      )
+    )}`
+  );
+}
 console.log("");
 console.log(`First ${view.previewRows.length} planned/blocked units:`);
 for (const row of view.previewRows) {
