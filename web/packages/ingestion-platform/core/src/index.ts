@@ -647,6 +647,20 @@ export {
   type AutonomySchedulerStopReason
 } from "./autonomy-scheduler.js";
 export {
+  DEFAULT_HOSTED_AUTONOMY_SCHEDULER_AGENT_ID,
+  DEFAULT_HOSTED_AUTONOMY_SCHEDULER_REASON,
+  HOSTED_AUTONOMY_PRODUCTION_DELIVERY_CONFIRMATION,
+  HOSTED_AUTONOMY_SCHEDULER_CONFIRMATION,
+  authorizeHostedAutonomySchedulerRequest,
+  parseHostedAutonomySchedulerConfig,
+  type HostedAutonomySchedulerAuthorizationResult,
+  type HostedAutonomySchedulerBlock,
+  type HostedAutonomySchedulerConfig,
+  type HostedAutonomySchedulerConfigResult,
+  type HostedAutonomySchedulerEnv,
+  type HostedAutonomySchedulerHeaderReader
+} from "./autonomy-hosted-scheduler.js";
+export {
   loadAutonomyRampReadiness,
   promoteAutonomyRamp,
   type AutonomyRampControlPgClientLike,
