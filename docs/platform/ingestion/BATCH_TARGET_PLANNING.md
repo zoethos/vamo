@@ -100,6 +100,30 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
+## Supply-ready proposal binding (IP-18.8.2)
+
+IP-18.8.2 attaches bounded dry-run `ScheduleProposal` objects to units with
+verified local snapshot rows so they surface as `ready_for_dry_run`:
+
+- proposal row limits use `min(spec row bound, validSourceRowCount)` — never
+  `volumeProjection`;
+- empty units stay `blocked` with `source_snapshot_empty`;
+- invalid-only units stay `blocked` with `source_snapshot_invalid`;
+- re-seed clears stale proposals when a unit loses snapshot supply.
+
+Expected bundled preview/seed counts:
+
+| Metric | Count |
+| --- | ---: |
+| Total queue units | 168 |
+| Ready / proposal-backed | 36 |
+| Blocked empty | 132 |
+| Local snapshot rows | 38 |
+
+After seed, `loadBatchQueueSnapshot()` returns the most recently updated active
+plan. Autonomy drain-enablement is **not** automatic: confirm the seeded plan is
+active and the autonomy policy envelope matches before enabling scheduler cycles.
+
 ## CLI dry-run
 
 ```bash

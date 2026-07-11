@@ -258,8 +258,19 @@ export {
   type BatchTargetEnvironment,
   type BatchCategoryVolumeProjection,
   type BatchSourceSpec,
-  type BatchVolumeProjectionSpec
+  type BatchVolumeProjectionSpec,
+  type BatchDryRunProposalFactsSpec
 } from "./batch-plan-spec.js";
+export {
+  bindSupplyReadyScheduleProposals,
+  buildFullDataBoundBatchQueueSnapshot,
+  readProposalQuotaMaxRows,
+  readProposalRowLimit,
+  resolveDryRunProposalFacts,
+  serializeScheduleProposal,
+  type BindSupplyReadyScheduleProposalsInput,
+  type BuildFullDataBoundBatchQueueSnapshotInput
+} from "./batch-supply-ready-proposal-binding.js";
 export {
   buildBatchPlan,
   type BatchPlanResult,

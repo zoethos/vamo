@@ -161,12 +161,15 @@ export function buildBatchQueueSnapshotWithSupplyBinding(input: {
   spec: BatchPlanSpec;
   rows: readonly BatchSnapshotSourceRow[];
   seedMode?: BatchSnapshotSupplySeedMode;
+  supplyPreview?: BatchSnapshotSupplyPreview;
 }): { snapshot: BatchQueueSnapshot; supplyPreview: BatchSnapshotSupplyPreview } {
-  const supplyPreview = buildBatchSnapshotSupplyPreview({
-    plan: input.plan,
-    spec: input.spec,
-    rows: input.rows
-  });
+  const supplyPreview =
+    input.supplyPreview ??
+    buildBatchSnapshotSupplyPreview({
+      plan: input.plan,
+      spec: input.spec,
+      rows: input.rows
+    });
   const baseSnapshot = buildBatchQueueSnapshotFromItems({
     planId: input.plan.planId,
     projectKey: input.plan.projectKey,
@@ -381,7 +384,8 @@ function applySupplyBindingToQueueItem(
   return {
     ...item,
     status: "blocked",
-    blockReasons
+    blockReasons,
+    proposal: null
   };
 }
 
@@ -399,7 +403,8 @@ function planUnitToQueueItem(unit: BatchPlanUnit, plan: BatchPlanResult): BatchQ
     sourceKey: plan.sourceKey,
     priority: unit.priority,
     status: unit.status === "blocked" ? "blocked" : unit.proposal ? "ready_for_dry_run" : "planned",
-    blockReasons: unit.blockReasons.slice()
+    blockReasons: unit.blockReasons.slice(),
+    proposal: unit.proposal ? ({ ...unit.proposal } as Record<string, unknown>) : null
   };
 }
 

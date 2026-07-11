@@ -169,3 +169,34 @@ volumeProjection:
     transport:
       sourceCandidatesPerUnit: 1500
       expectedTargetWritesPerUnit: 1500
+dryRunProposalFacts:
+  consumerValue:
+    useCase: Bounded dry-run over bundled FSQ OS Places snapshot rows for Vamo place intelligence staging.
+    reducesLiveCalls: true
+  sourceRights:
+    canStoreFacts: true
+    attributionPresent: true
+    retentionDeclared: true
+    liveOnly: false
+  targetReadiness:
+    schemaCompatible: true
+    upsertKeysDeclared: true
+    rlsPostureOk: true
+    stagingEnvironmentExists: true
+  checkpointability:
+    cursorStrategyDeclared: true
+    resumeTested: true
+  costAndQuota:
+    rowLimitDeclared: true
+    stopConditionsDeclared: true
+    withinBudget: true
+  collision:
+    policy: review
+  blastRadius:
+    bounded: true
+    firstShipmentStagingOnly: true
+  observability:
+    eventsAvailable: true
+    checkpointsAvailable: true
+    deadLettersAvailable: true
+    statsAvailable: true

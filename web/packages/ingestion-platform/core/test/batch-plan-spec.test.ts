@@ -89,6 +89,47 @@ describe("batch plan spec parser", () => {
       assert.equal(parsed.spec.source?.connection?.snapshotPath, "fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl");
     }
   });
+
+  it("validates dry-run proposal fact booleans and collision policy", () => {
+    const parsed = parseBatchPlanSpec({
+      kind: "ingestion.batch_plan",
+      version: 1,
+      id: "bad-proposal-facts",
+      projectKey: "vamo",
+      sourceKey: "fsq-os-places-snapshot",
+      targetProfileKey: "place-intelligence",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      safetyMode: "dry_run",
+      geographies: { countries: [{ key: "italy" }] },
+      categories: ["poi"],
+      dryRunProposalFacts: {
+        sourceRights: {
+          canStoreFacts: "yes"
+        },
+        collision: {
+          policy: "fast"
+        }
+      }
+    });
+
+    assert.equal(parsed.ok, false);
+    if (parsed.ok) return;
+    assert.ok(
+      parsed.errors.some(
+        (error) =>
+          error.code === "invalid_shape" &&
+          error.path === "dryRunProposalFacts.sourceRights.canStoreFacts"
+      )
+    );
+    assert.ok(
+      parsed.errors.some(
+        (error) =>
+          error.code === "invalid_shape" &&
+          error.path === "dryRunProposalFacts.collision.policy"
+      )
+    );
+  });
 });
 
 function hasAnyGeography(geographies: {

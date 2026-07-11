@@ -74,6 +74,51 @@ export interface BatchSourceSpec {
   connection?: Record<string, unknown>;
 }
 
+export interface BatchDryRunProposalFactsSpec {
+  consumerValue?: {
+    useCase?: string;
+    reducesLiveCalls?: boolean;
+  };
+  sourceRights?: {
+    canStoreFacts?: boolean;
+    attributionPresent?: boolean;
+    retentionDeclared?: boolean;
+    liveOnly?: boolean;
+  };
+  targetReadiness?: {
+    schemaCompatible?: boolean;
+    upsertKeysDeclared?: boolean;
+    rlsPostureOk?: boolean;
+    stagingEnvironmentExists?: boolean;
+  };
+  dataQuality?: {
+    requiredFieldsPresent?: boolean;
+    coordinatesValid?: boolean;
+  };
+  checkpointability?: {
+    cursorStrategyDeclared?: boolean;
+    resumeTested?: boolean;
+  };
+  costAndQuota?: {
+    rowLimitDeclared?: boolean;
+    stopConditionsDeclared?: boolean;
+    withinBudget?: boolean;
+  };
+  collision?: {
+    policy?: "auto" | "review" | "block" | "none";
+  };
+  blastRadius?: {
+    bounded?: boolean;
+    firstShipmentStagingOnly?: boolean;
+  };
+  observability?: {
+    eventsAvailable?: boolean;
+    checkpointsAvailable?: boolean;
+    deadLettersAvailable?: boolean;
+    statsAvailable?: boolean;
+  };
+}
+
 export interface BatchPlanSpec {
   kind: typeof BATCH_PLAN_KIND;
   version: number;
@@ -93,6 +138,7 @@ export interface BatchPlanSpec {
   consumerContractRef?: string;
   source?: BatchSourceSpec;
   volumeProjection?: BatchVolumeProjectionSpec;
+  dryRunProposalFacts?: BatchDryRunProposalFactsSpec;
   notes?: string;
 }
 
@@ -216,6 +262,7 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
   const priorityHints = parsePriorityHints(document.priorityHints, errors);
   const source = parseSource(document.source, errors);
   const volumeProjection = parseVolumeProjection(document.volumeProjection, errors);
+  const dryRunProposalFacts = parseDryRunProposalFacts(document.dryRunProposalFacts, errors);
 
   if (errors.length > 0) {
     return fail(errors);
@@ -241,6 +288,7 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
       consumerContractRef: readString(document, "consumerContractRef"),
       source,
       volumeProjection,
+      dryRunProposalFacts,
       notes: readString(document, "notes")
     }
   };
@@ -437,6 +485,148 @@ function parseSource(value: unknown, errors: BatchPlanSpecError[]): BatchSourceS
   return { adapter, connection };
 }
 
+function parseDryRunProposalFacts(
+  value: unknown,
+  errors: BatchPlanSpecError[]
+): BatchDryRunProposalFactsSpec | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({
+      code: "invalid_shape",
+      path: "dryRunProposalFacts",
+      message: "Expected an object."
+    });
+    return undefined;
+  }
+  return {
+    consumerValue: parseConsumerValueFacts(value.consumerValue, errors),
+    sourceRights: parseBooleanFacts(
+      value.sourceRights,
+      "dryRunProposalFacts.sourceRights",
+      ["canStoreFacts", "attributionPresent", "retentionDeclared", "liveOnly"],
+      errors
+    ),
+    targetReadiness: parseBooleanFacts(
+      value.targetReadiness,
+      "dryRunProposalFacts.targetReadiness",
+      ["schemaCompatible", "upsertKeysDeclared", "rlsPostureOk", "stagingEnvironmentExists"],
+      errors
+    ),
+    dataQuality: parseBooleanFacts(
+      value.dataQuality,
+      "dryRunProposalFacts.dataQuality",
+      ["requiredFieldsPresent", "coordinatesValid"],
+      errors
+    ),
+    checkpointability: parseBooleanFacts(
+      value.checkpointability,
+      "dryRunProposalFacts.checkpointability",
+      ["cursorStrategyDeclared", "resumeTested"],
+      errors
+    ),
+    costAndQuota: parseBooleanFacts(
+      value.costAndQuota,
+      "dryRunProposalFacts.costAndQuota",
+      ["rowLimitDeclared", "stopConditionsDeclared", "withinBudget"],
+      errors
+    ),
+    collision: parseCollisionFacts(value.collision, errors),
+    blastRadius: parseBooleanFacts(
+      value.blastRadius,
+      "dryRunProposalFacts.blastRadius",
+      ["bounded", "firstShipmentStagingOnly"],
+      errors
+    ),
+    observability: parseBooleanFacts(
+      value.observability,
+      "dryRunProposalFacts.observability",
+      ["eventsAvailable", "checkpointsAvailable", "deadLettersAvailable", "statsAvailable"],
+      errors
+    )
+  };
+}
+
+function parseConsumerValueFacts(
+  value: unknown,
+  errors: BatchPlanSpecError[]
+): BatchDryRunProposalFactsSpec["consumerValue"] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({
+      code: "invalid_shape",
+      path: "dryRunProposalFacts.consumerValue",
+      message: "Expected an object."
+    });
+    return undefined;
+  }
+  return {
+    useCase: readString(value, "useCase"),
+    reducesLiveCalls: readOptionalBoolean(
+      value,
+      "reducesLiveCalls",
+      "dryRunProposalFacts.consumerValue.reducesLiveCalls",
+      errors
+    )
+  };
+}
+
+function parseBooleanFacts<K extends string>(
+  value: unknown,
+  path: string,
+  keys: readonly K[],
+  errors: BatchPlanSpecError[]
+): Partial<Record<K, boolean>> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({ code: "invalid_shape", path, message: "Expected an object." });
+    return undefined;
+  }
+  const parsed: Partial<Record<K, boolean>> = {};
+  for (const key of keys) {
+    const booleanValue = readOptionalBoolean(value, key, `${path}.${key}`, errors);
+    if (booleanValue !== undefined) {
+      parsed[key] = booleanValue;
+    }
+  }
+  return parsed;
+}
+
+function parseCollisionFacts(
+  value: unknown,
+  errors: BatchPlanSpecError[]
+): BatchDryRunProposalFactsSpec["collision"] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!isRecord(value)) {
+    errors.push({
+      code: "invalid_shape",
+      path: "dryRunProposalFacts.collision",
+      message: "Expected an object."
+    });
+    return undefined;
+  }
+  const policy = readString(value, "policy");
+  if (policy === undefined) {
+    return {};
+  }
+  if (policy !== "auto" && policy !== "review" && policy !== "block" && policy !== "none") {
+    errors.push({
+      code: "invalid_shape",
+      path: "dryRunProposalFacts.collision.policy",
+      message: 'collision.policy must be "auto", "review", "block", or "none".'
+    });
+    return {};
+  }
+  return { policy };
+}
+
 function parseVolumeProjection(
   value: unknown,
   errors: BatchPlanSpecError[]
@@ -569,6 +759,27 @@ function readNumber(record: Record<string, unknown>, key: string): number | unde
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
+  return undefined;
+}
+
+function readOptionalBoolean(
+  record: Record<string, unknown>,
+  key: string,
+  path: string,
+  errors: BatchPlanSpecError[]
+): boolean | undefined {
+  const value = record[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  errors.push({
+    code: "invalid_shape",
+    path,
+    message: "Expected a boolean."
+  });
   return undefined;
 }
 

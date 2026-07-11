@@ -1702,11 +1702,32 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.2+** — turn supply-ready full-data units into
-bounded dry-run proposals/waves, then expand bundled snapshot partitions toward
-full-data coverage. IP-18.8.1 closes the truth gap between projected volume and
-local snapshot supply, but supply-ready rows remain `planned` unless a proposal
-already exists.
+Next product slice: **IP-18.8.3+** — expand bundled snapshot partitions toward
+full-data volume and first bounded dry-run execution waves. IP-18.8.2 enables
+proposal-backed supply-ready units for hosted autonomy scheduling.
+
+### IP-18.8.2 — implemented (supply-ready proposal binding)
+
+**Status:** done — bounded dry-run schedule proposals for supply-ready
+full-data units, persisted proposal JSON in control-plane seed, stale-proposal
+clearing on re-seed. **Not** live provider ingestion, **not** Vamo target writes.
+
+Deliverables:
+
+- `batch-supply-ready-proposal-binding.ts` — attaches `ScheduleProposal` only to
+  `supply_ready` units; row limits bounded by valid local snapshot rows (not
+  `volumeProjection`).
+- Optional `dryRunProposalFacts` in batch spec + bundled full-data YAML section.
+- Queue persistence/seed writes proposal JSON for ready units; re-seed clears
+  proposals when units become empty/invalid.
+- Default full-data preview/seed: **36** `ready_for_dry_run`, **132** blocked
+  empty, **38** local snapshot rows.
+
+Plan selection / autonomy: `loadBatchQueueSnapshot()` picks the latest active
+plan for the project; after full-data seed that is plan id `vamo-eu-full-data-v1`
+when it was most recently updated. Existing `vamo-eu-poi-staging-v1` policy with
+empty allowed geography/category lists does not filter units, but drain
+enablement still requires explicit seed + scheduler commissioning.
 
 ### IP-18.8.1 — implemented (Vamo full-data snapshot supply binding)
 

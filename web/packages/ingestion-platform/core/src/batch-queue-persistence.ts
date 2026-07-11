@@ -150,7 +150,7 @@ function mapQueueItemToPersistenceRow(item: BatchQueueItem): PersistedBatchQueue
     priority: item.priority,
     runOrder: item.runOrder,
     blockers: item.blockReasons.slice(),
-    proposal: null,
+    proposal: item.proposal ? { ...item.proposal } : null,
     runReport: item.dryRunReport ? { ...item.dryRunReport } : null
   };
 }

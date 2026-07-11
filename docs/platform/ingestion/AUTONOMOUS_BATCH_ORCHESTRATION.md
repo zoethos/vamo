@@ -452,3 +452,27 @@ Operator impact:
 - `--include-empty-units` opts out of blocking for review-only seeds.
 
 Safety unchanged: local snapshot only; no provider calls; no Vamo target writes.
+
+## IP-18.8.2 — Supply-Ready Proposal Binding (implemented)
+
+IP-18.8.2 bridges supply truth to autonomy scheduling by attaching bounded
+dry-run proposals only to `supply_ready` units.
+
+Pure module:
+
+- `batch-supply-ready-proposal-binding.ts::buildFullDataBoundBatchQueueSnapshot()`.
+
+Post-18.8.2 operator path:
+
+1. Preview plan + supply + proposal counts (`ip18:batch-plan -- --full-data`).
+2. Preview seed (`ip18:batch-queue-seed -- --full-data --preview`).
+3. Seed control plane (36 proposal-backed `ready_for_dry_run`, 132 blocked empty).
+4. Confirm `loadBatchQueueSnapshot()` selects plan `vamo-eu-full-data-v1` (latest
+   active plan for `vamo` + `vamo-place-intelligence`).
+5. Confirm autonomy policy envelope covers the proposal-backed units (empty
+   allowed lists = no filter; otherwise widen policy in a dedicated slice).
+6. Hosted autonomy schedules dry-runs within policy; staging/delivery/apply remain
+   separately gated.
+
+Re-seed clears proposals for units that become empty/invalid. This slice does not
+expand snapshot coverage beyond the bundled 38 rows.

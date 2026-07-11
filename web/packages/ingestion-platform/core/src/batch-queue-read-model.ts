@@ -96,6 +96,7 @@ export interface BatchQueueItem {
   status: BatchQueueItemStatus;
   blockReasons: string[];
   dryRunReport?: BatchDryRunReport | null;
+  proposal?: Record<string, unknown> | null;
   displayFields?: ResolvedConsumerDisplayField[];
 }
 
