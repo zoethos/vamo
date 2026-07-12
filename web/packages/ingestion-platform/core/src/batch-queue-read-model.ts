@@ -602,6 +602,24 @@ function countDryRunSucceededEligible(items: BatchQueueItem[]): number {
   }).length;
 }
 
+export const PARKED_EMPTY_SOURCE_BLOCK_REASON = "source_snapshot_empty";
+
+export function formatParkedEmptySourceScopesMessage(count: number): string {
+  return `${count} empty source scope(s) parked until snapshot coverage expands.`;
+}
+
+function isParkedEmptySourceScope(item: BatchQueueItem): boolean {
+  return (
+    item.status === "blocked" &&
+    item.blockReasons.length > 0 &&
+    item.blockReasons.every((reason) => reason === PARKED_EMPTY_SOURCE_BLOCK_REASON)
+  );
+}
+
+function countParkedEmptySourceScopes(items: BatchQueueItem[]): number {
+  return items.filter((item) => isParkedEmptySourceScope(item)).length;
+}
+
 function summarizeBlockers(items: BatchQueueItem[]): BatchQueueBlockerSummary[] {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -621,6 +639,10 @@ function deriveNextAction(
   planNextAction: string
 ): string {
   if (progress.blocked > 0) {
+    const parkedEmptyScopes = countParkedEmptySourceScopes(items);
+    if (parkedEmptyScopes === progress.blocked) {
+      return formatParkedEmptySourceScopesMessage(parkedEmptyScopes);
+    }
     const top = blockers[0];
     return top
       ? `Resolve ${progress.blocked} blocked unit(s) — top blocker: ${withTerminalPunctuation(top.reason)}`

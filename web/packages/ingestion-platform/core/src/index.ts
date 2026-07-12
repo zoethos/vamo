@@ -302,6 +302,11 @@ export {
   type BuildBatchFullDataPlanPreviewInput
 } from "./batch-full-data-plan-preview.js";
 export {
+  AUTONOMY_POLICY_BATCH_PLAN_KEY,
+  readAutonomyBatchPlanKeyFromSummary,
+  resolveAutonomyDrainBatchPlanKey
+} from "./batch-plan-selection.js";
+export {
   applySnapshotSupplyToQueueSnapshot,
   buildBatchQueueSnapshotWithSupplyBinding,
   buildBatchSnapshotSupplyPreview,
@@ -322,7 +327,9 @@ export {
   buildBatchQueueSnapshot,
   buildBatchQueueSnapshotFromItems,
   buildBatchQueueSnapshotFromPlan,
+  formatParkedEmptySourceScopesMessage,
   sampleVamoEuPoiBatchQueueSnapshot,
+  PARKED_EMPTY_SOURCE_BLOCK_REASON,
   BATCH_QUEUE_ITEM_STATUSES,
   type BatchDryRunReport,
   type BatchQueueExecutionProgress,

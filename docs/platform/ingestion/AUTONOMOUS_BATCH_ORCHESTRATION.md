@@ -314,7 +314,32 @@ Execute mode requires:
 
 ```powershell
 $env:CONFIRM_CONFLUENDO_AUTONOMY_SCHEDULER = "YES"
-npm --workspace @confluendo/ingestion-platform run ip18:autonomy-scheduler -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1 --max-cycles 10
+npm --workspace @confluendo/ingestion-platform run ip18:autonomy-scheduler -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1 --batch-plan-key vamo-eu-full-data-v1 --max-cycles 10
+```
+
+To make the selected plan durable for both the scheduler and the one-cycle
+operator command, pin it on the control policy:
+
+```sql
+update ingestion_platform.ingestion_autonomy_policies ap
+set summary = jsonb_set(
+      coalesce(ap.summary, '{}'::jsonb),
+      '{batchPlanKey}',
+      to_jsonb('vamo-eu-full-data-v1'::text),
+      true
+    ),
+    updated_at = now()
+from ingestion_platform.ingestion_projects p
+where p.id = ap.project_id
+  and p.project_key = 'vamo'
+  and ap.policy_key = 'vamo-eu-poi-staging-v1'
+returning ap.policy_key, ap.summary->>'batchPlanKey' as batch_plan_key;
+```
+
+Hosted drain can also use the explicit environment override:
+
+```powershell
+$env:CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY = "vamo-eu-full-data-v1"
 ```
 
 The scheduler still does not call providers, Vamo staging DSNs, live

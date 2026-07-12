@@ -13,6 +13,7 @@ import type { BatchPlanSpec } from "./batch-plan-spec.js";
 import { resolveUnitVolume } from "./batch-full-data-plan-preview.js";
 import {
   buildBatchQueueSnapshotFromItems,
+  formatParkedEmptySourceScopesMessage,
   type BatchQueueItem,
   type BatchQueueItemStatus,
   type BatchQueueSnapshot
@@ -415,7 +416,7 @@ function buildSupplyAwareNextAction(
   if (supplyPreview.summary.unitsWithoutSourceRows === 0) {
     return baseNextAction;
   }
-  return `Review snapshot supply: ${supplyPreview.summary.unitsWithSourceRows} supply-ready unit(s), ${supplyPreview.summary.unitsWithoutSourceRows} empty unit(s) blocked by default seed (${BATCH_SNAPSHOT_EMPTY_BLOCK_REASON}).`;
+  return formatParkedEmptySourceScopesMessage(supplyPreview.summary.unitsWithoutSourceRows);
 }
 
 function snapshotScopeKey(geography: string, category: string): string {

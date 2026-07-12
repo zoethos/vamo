@@ -24,6 +24,7 @@ export interface HostedAutonomySchedulerEnv {
   CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY?: string;
   CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY?: string;
   CONFLUENDO_AUTONOMY_SCHEDULER_TARGET_KEY?: string;
+  CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY?: string;
   CONFLUENDO_AUTONOMY_SCHEDULER_AGENT_ID?: string;
   CONFLUENDO_AUTONOMY_SCHEDULER_REASON?: string;
   CONFLUENDO_AUTONOMY_SCHEDULER_MAX_CYCLES?: string;
@@ -39,6 +40,7 @@ export interface HostedAutonomySchedulerConfig {
   projectKey: string;
   policyKey: string;
   targetKey?: string;
+  batchPlanKey?: string;
   agentId: string;
   reason: string;
   maxCycles: number;
@@ -73,6 +75,7 @@ export function parseHostedAutonomySchedulerConfig(
   const projectKey = readTrimmed(env.CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY);
   const policyKey = readTrimmed(env.CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY);
   const targetKey = readTrimmed(env.CONFLUENDO_AUTONOMY_SCHEDULER_TARGET_KEY);
+  const batchPlanKey = readTrimmed(env.CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY);
   const agentId =
     readTrimmed(env.CONFLUENDO_AUTONOMY_SCHEDULER_AGENT_ID) ??
     DEFAULT_HOSTED_AUTONOMY_SCHEDULER_AGENT_ID;
@@ -154,6 +157,7 @@ export function parseHostedAutonomySchedulerConfig(
       projectKey: projectKey!,
       policyKey: policyKey!,
       targetKey,
+      batchPlanKey,
       agentId,
       reason,
       maxCycles,

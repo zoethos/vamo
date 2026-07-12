@@ -51,6 +51,7 @@ import {
   STAGING_CANARY_MAX_ROWS
 } from "./staging-canary-policy.js";
 import { PRODUCTION_INBOX_APPROVAL_MAX_AGE_MS } from "./production-inbox-policy.js";
+import { resolveAutonomyDrainBatchPlanKey } from "./batch-plan-selection.js";
 import { loadBatchQueueSnapshot } from "./batch-queue-control-read.js";
 import { scheduleBatchDryRun } from "./batch-queue-mutations.js";
 import type { BatchQueueItem, BatchQueueSnapshot } from "./batch-queue-read-model.js";
@@ -78,6 +79,7 @@ export interface AutonomyCycleBaseInput {
   projectKey: string;
   policyKey?: string;
   targetKey?: string;
+  batchPlanKey?: string;
   agentId: string;
   reason?: string;
   now?: string;
@@ -453,10 +455,16 @@ async function loadAutonomyCycleContext(
       throw new Error(`Autonomy policy "${policy.policyKey}" is ${policy.status}.`);
     }
 
+    const batchPlanKey = resolveAutonomyDrainBatchPlanKey({
+      policy,
+      batchPlanKey: input.batchPlanKey
+    });
+
     const queueSnapshot = await loadBatchQueueSnapshot({
       client,
       projectKey: input.projectKey,
-      targetKey: policy.targetKey
+      targetKey: policy.targetKey,
+      planKey: batchPlanKey
     });
 
     const rampEnvelope = applyRampProfileToEnvelope(policy);

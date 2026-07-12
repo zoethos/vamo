@@ -25,6 +25,7 @@ import type {
   BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
+import { readAutonomyBatchPlanKeyFromSummary } from "./batch-plan-selection.js";
 import { sampleVamoEuPoiBatchQueueSnapshot } from "./batch-queue-read-model.js";
 
 export interface AutonomyPolicySummary {
@@ -56,6 +57,7 @@ export interface AutonomyPolicySummary {
   approvedBy?: string;
   approvedAuditId?: string;
   approvalReason?: string;
+  batchPlanKey?: string;
   summary?: Record<string, unknown>;
   updatedAt?: string;
 }
@@ -249,6 +251,7 @@ export function mapPersistedPolicyRow(row: {
     approvedBy: row.approvedBy ?? undefined,
     approvedAuditId: row.approvedAuditId ?? undefined,
     approvalReason: row.approvalReason ?? undefined,
+    batchPlanKey: readAutonomyBatchPlanKeyFromSummary(row.summary ?? undefined),
     summary: row.summary ?? undefined
   };
 }
@@ -369,6 +372,7 @@ function toPolicySummary(
     approvedBy: policy.approvedBy,
     approvedAuditId: policy.approvedAuditId,
     approvalReason: policy.approvalReason,
+    batchPlanKey: policy.batchPlanKey,
     summary: policy.summary
   };
 }

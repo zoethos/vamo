@@ -126,6 +126,7 @@ const policyKey =
       ? positionalArgs[0]
       : positionalArgs[1]);
 const targetKey = readArg("--target-key", undefined);
+const batchPlanKey = readArg("--batch-plan-key", undefined);
 const agentId = readArg("--agent-id", "confluendo-autonomy-scheduler");
 const reason = readArg("--reason", "IP-18.7.3 bounded autonomy scheduler cycle");
 const positionalMaxCycles =
@@ -163,6 +164,7 @@ const result = await runAutonomyScheduler({
   projectKey,
   policyKey,
   targetKey,
+  batchPlanKey,
   agentId,
   reason,
   maxCycles,

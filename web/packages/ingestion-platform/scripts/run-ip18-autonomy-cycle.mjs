@@ -6,7 +6,7 @@
 //
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:autonomy-cycle -- --project-key vamo --policy-key vamo-eu-poi-staging-v1
-//   CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:autonomy-cycle -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1
+//   CONFIRM_CONFLUENDO_AUTONOMY_CYCLE=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:autonomy-cycle -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1 --batch-plan-key vamo-eu-full-data-v1
 // Production package delivery additionally requires VAMO_PRODUCTION_INBOX_DATABASE_URL and VAMO_PRODUCTION_INBOX_ENVIRONMENT=production.
 
 import {
@@ -38,6 +38,7 @@ const VALUE_FLAGS = new Set([
   "--project",
   "--policy-key",
   "--target-key",
+  "--batch-plan-key",
   "--agent-id",
   "--reason"
 ]);
@@ -112,6 +113,7 @@ const policyKey =
       ? positionalArgs[0]
       : positionalArgs[1]);
 const targetKey = readArg("--target-key", undefined);
+const batchPlanKey = readArg("--batch-plan-key", undefined);
 const agentId = readArg("--agent-id", "confluendo-autonomy-local");
 const reason = readArg("--reason", "IP-18.7.1 bounded autonomy cycle");
 
@@ -128,6 +130,7 @@ const baseInput = {
   projectKey,
   policyKey,
   targetKey,
+  batchPlanKey,
   agentId,
   reason
 };
@@ -144,6 +147,7 @@ if (!execute) {
         policyVersion: context.policy.policyVersion,
         targetKey: context.policy.targetKey,
         targetEnvironment: context.policy.targetEnvironment,
+        batchPlanKey: context.queueSnapshot?.planId ?? batchPlanKey,
         runKey: context.runKey,
         decision: context.evaluation.decision,
         phase: context.evaluation.phase,
@@ -198,6 +202,7 @@ console.log(
       decision: result.context.evaluation.decision,
       requiredAction: result.context.evaluation.requiredAction,
       selectedUnitKeys: result.context.evaluation.selectedUnitKeys,
+      batchPlanKey: result.context.queueSnapshot?.planId ?? batchPlanKey,
       executionChannel: result.context.executionChannel
     },
     null,

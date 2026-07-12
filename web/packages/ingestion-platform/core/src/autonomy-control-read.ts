@@ -6,6 +6,7 @@ import {
   mapPersistedRunRow,
   type AutonomyDashboardView
 } from "./autonomy-read-model.js";
+import { resolveAutonomyDrainBatchPlanKey } from "./batch-plan-selection.js";
 import { loadBatchQueueSnapshot, type BatchQueueControlReadPgClientLike } from "./batch-queue-control-read.js";
 
 /**
@@ -26,6 +27,7 @@ export interface LoadAutonomyDashboardInput {
   projectKey: string;
   targetKey?: string;
   policyKey?: string;
+  batchPlanKey?: string;
 }
 
 interface PolicyRow extends Record<string, unknown> {
@@ -101,10 +103,15 @@ export async function loadAutonomyDashboard(
     }
 
     const latestRun = await loadLatestRun(client, policy.policyId);
+    const batchPlanKey = resolveAutonomyDrainBatchPlanKey({
+      policy,
+      batchPlanKey: input.batchPlanKey
+    });
     const queueSnapshot = await loadBatchQueueSnapshot({
       client: client as BatchQueueControlReadPgClientLike,
       projectKey: input.projectKey,
-      targetKey: policy.targetKey
+      targetKey: policy.targetKey,
+      planKey: batchPlanKey
     });
 
     return buildAutonomyDashboardView({

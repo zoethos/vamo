@@ -107,8 +107,10 @@ console.log(`- plan id: ${view.planId}`);
 console.log(`- target: ${view.targetKey} (${view.targetEnvironment})`);
 console.log(`- source: ${view.sourceKey}`);
 console.log(`- generated units: ${view.totalUnits}`);
+console.log("");
+console.log("Blueprint units before source binding:");
 console.log(`- planned: ${view.plannedUnits}`);
-console.log(`- blocked: ${view.blockedUnits}`);
+console.log(`- blocked (blueprint only): ${view.blockedUnits}`);
 if (fullDataPreview.consumerContractRef) {
   console.log(`- consumer contract: ${fullDataPreview.consumerContractRef}`);
 }
@@ -158,8 +160,12 @@ if (fullDataPreview.snapshotSupply && supplyPreview) {
     `- proposal-backed ready units: ${displayPlan.units.filter((unit) => unit.proposal).length}`
   );
   if (boundSnapshot) {
-    console.log(`- blocked units after supply binding: ${boundSnapshot.progress.blocked}`);
-    console.log(`- ready units after supply binding: ${boundSnapshot.progress.ready}`);
+    console.log("");
+    console.log("Operational queue preview (after source binding):");
+    console.log(`- ready: ${boundSnapshot.progress.ready}`);
+    console.log(
+      `- parked empty scopes: ${boundSnapshot.progress.blocked}`
+    );
   }
   console.log("");
   console.log(`First ${Math.min(previewCount, supplyPreview.supplyReadyUnits.length)} supply-ready units:`);

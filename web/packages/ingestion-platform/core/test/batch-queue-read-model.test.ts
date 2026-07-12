@@ -134,6 +134,34 @@ describe("batch queue read model", () => {
     assert.match(snapshot.nextAction, /live_diff_noop/);
   });
 
+  it("describes parked empty source scopes without resolve wording", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const snapshot = buildBatchQueueSnapshotFromItems({
+      planId: base.planId,
+      projectKey: base.projectKey,
+      targetKey: base.targetKey,
+      targetEnvironment: base.targetEnvironment,
+      sourceKey: base.sourceKey,
+      safetyMode: base.safetyMode,
+      items: base.items.map((item, index) =>
+        index < 2
+          ? {
+              ...item,
+              status: "blocked",
+              blockReasons: ["source_snapshot_empty"]
+            }
+          : { ...item, status: "ready_for_dry_run", blockReasons: [] }
+      ),
+      planNextAction: "Review batch queue."
+    });
+
+    assert.match(
+      snapshot.nextAction,
+      /2 empty source scope\(s\) parked until snapshot coverage expands/
+    );
+    assert.doesNotMatch(snapshot.nextAction, /Resolve/i);
+  });
+
   it("formats persisted JSON blocker objects for operators", () => {
     assert.deepEqual(
       formatBatchQueueBlockers([

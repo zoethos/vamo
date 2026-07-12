@@ -34,6 +34,7 @@ export interface LoadBatchQueueSnapshotInput {
   client?: BatchQueueControlReadPgClientLike;
   projectKey: string;
   targetKey?: string;
+  planKey?: string;
 }
 
 interface PlanRow extends Record<string, unknown> {
@@ -155,8 +156,13 @@ export async function loadBatchQueueSnapshot(
     const planValues: unknown[] = [input.projectKey];
     let targetFilter = "";
     if (input.targetKey) {
-      targetFilter = "and bp.target_key = $2";
+      targetFilter = `and bp.target_key = $${planValues.length + 1}`;
       planValues.push(input.targetKey);
+    }
+    let planKeyFilter = "";
+    if (input.planKey) {
+      planKeyFilter = `and bp.plan_key = $${planValues.length + 1}`;
+      planValues.push(input.planKey);
     }
 
     const planResult = await client.query<PlanRow>(
@@ -176,6 +182,7 @@ export async function loadBatchQueueSnapshot(
         where p.project_key = $1
           and bp.status = 'active'
           ${targetFilter}
+          ${planKeyFilter}
         order by bp.updated_at desc, bp.id desc
         limit 1
       `,

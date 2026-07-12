@@ -1702,9 +1702,67 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.3+** — expand bundled snapshot partitions toward
-full-data volume and first bounded dry-run execution waves. IP-18.8.2 enables
-proposal-backed supply-ready units for hosted autonomy scheduling.
+Next product slice: **IP-18.8.4+** — expand bundled snapshot partitions toward
+full-data volume and first bounded dry-run execution waves.
+
+### IP-18.8.3 — implemented (explicit batch plan selection for autonomy drain)
+
+**Status:** done — autonomy drain and dashboard reads pin an explicit batch plan
+key from policy summary (`batchPlanKey`) or hosted scheduler env/CLI override.
+**Not** live provider ingestion, **not** Vamo target writes.
+
+Deliverables:
+
+- `batch-plan-selection.ts` — pure resolver for autonomy drain plan key
+  (override → policy field → policy summary aliases).
+- `loadBatchQueueSnapshot()` accepts optional `planKey` filter instead of
+  always picking the latest updated active plan.
+- Autonomy executor, dashboard read, hosted scheduler env
+  (`CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY`), and
+  `ip18:autonomy-scheduler --batch-plan-key` pass the resolved key through.
+- Full-data CLI wording: blueprint counts labeled before source binding;
+  seed preview labeled operational queue preview; parked empty scopes use
+  operator-friendly copy instead of “Resolve N blocked units”.
+
+Operator note: set `summary.batchPlanKey` on the autonomy policy (for example
+`vamo-eu-full-data-v1`) so drain does not follow whichever plan was most
+recently re-seeded. Apply/verify from the Confluendo control DB owner console:
+
+```sql
+update ingestion_platform.ingestion_autonomy_policies ap
+set summary = jsonb_set(
+      coalesce(ap.summary, '{}'::jsonb),
+      '{batchPlanKey}',
+      to_jsonb('vamo-eu-full-data-v1'::text),
+      true
+    ),
+    updated_at = now()
+from ingestion_platform.ingestion_projects p
+where p.id = ap.project_id
+  and p.project_key = 'vamo'
+  and ap.policy_key = 'vamo-eu-poi-staging-v1'
+returning
+  ap.policy_key,
+  ap.policy_version,
+  ap.summary->>'batchPlanKey' as batch_plan_key;
+```
+
+Verification:
+
+```sql
+select
+  ap.policy_key,
+  ap.status,
+  ap.summary->>'batchPlanKey' as batch_plan_key
+from ingestion_platform.ingestion_autonomy_policies ap
+join ingestion_platform.ingestion_projects p on p.id = ap.project_id
+where p.project_key = 'vamo'
+  and ap.policy_key = 'vamo-eu-poi-staging-v1';
+```
+
+For one-off execution without changing policy summary, pass
+`--batch-plan-key vamo-eu-full-data-v1` to `ip18:autonomy-cycle` or
+`ip18:autonomy-scheduler`.
 
 ### IP-18.8.2 — implemented (supply-ready proposal binding)
 
@@ -1720,14 +1778,14 @@ Deliverables:
 - Optional `dryRunProposalFacts` in batch spec + bundled full-data YAML section.
 - Queue persistence/seed writes proposal JSON for ready units; re-seed clears
   proposals when units become empty/invalid.
-- Default full-data preview/seed: **36** `ready_for_dry_run`, **132** blocked
-  empty, **38** local snapshot rows.
+- Default full-data preview/seed: **36** `ready_for_dry_run`, **132** parked
+  empty scopes, **38** local snapshot rows.
 
-Plan selection / autonomy: `loadBatchQueueSnapshot()` picks the latest active
-plan for the project; after full-data seed that is plan id `vamo-eu-full-data-v1`
-when it was most recently updated. Existing `vamo-eu-poi-staging-v1` policy with
-empty allowed geography/category lists does not filter units, but drain
-enablement still requires explicit seed + scheduler commissioning.
+Plan selection / autonomy: set `summary.batchPlanKey` on the autonomy policy
+(or pass `--batch-plan-key` / `CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY`
+for an explicit run override) to pin which active batch plan autonomy loads.
+Without an explicit key, queue reads still fall back to the latest updated
+active plan for the project/target.
 
 ### IP-18.8.1 — implemented (Vamo full-data snapshot supply binding)
 

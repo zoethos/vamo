@@ -58,6 +58,8 @@ async function handleHostedSchedulerRequest(request: NextRequest) {
       process.env.CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY,
     CONFLUENDO_AUTONOMY_SCHEDULER_TARGET_KEY:
       process.env.CONFLUENDO_AUTONOMY_SCHEDULER_TARGET_KEY,
+    CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY:
+      process.env.CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY,
     CONFLUENDO_AUTONOMY_SCHEDULER_AGENT_ID:
       process.env.CONFLUENDO_AUTONOMY_SCHEDULER_AGENT_ID,
     CONFLUENDO_AUTONOMY_SCHEDULER_REASON:
@@ -90,6 +92,7 @@ async function handleHostedSchedulerRequest(request: NextRequest) {
       projectKey: config.projectKey,
       policyKey: config.policyKey,
       targetKey: config.targetKey,
+      batchPlanKey: config.batchPlanKey,
       agentId: config.agentId,
       reason: config.reason,
       maxCycles: config.maxCycles,

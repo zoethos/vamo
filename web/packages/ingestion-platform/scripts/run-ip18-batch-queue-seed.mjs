@@ -95,10 +95,11 @@ if (previewOnly) {
   console.log(`- plan id: ${preview.planId}`);
   console.log(`- target: ${preview.targetKey} (${preview.targetEnvironment})`);
   console.log(`- source: ${preview.sourceKey}`);
+  console.log("");
+  console.log("Operational queue preview:");
   console.log(`- queue units: ${preview.queueUnitCount}`);
-  console.log(`- planned: ${preview.plannedUnits}`);
-  console.log(`- blocked: ${snapshot.progress.blocked}`);
   console.log(`- ready / proposal-backed: ${snapshot.progress.ready}`);
+  console.log(`- parked empty scopes: ${snapshot.progress.blocked}`);
   console.log(`- planned (non-ready): ${snapshot.progress.planned}`);
   console.log(`- projected source candidates: ${preview.volume.totalSourceCandidates}`);
   console.log(`- projected expected target writes: ${preview.volume.totalExpectedTargetWrites}`);
