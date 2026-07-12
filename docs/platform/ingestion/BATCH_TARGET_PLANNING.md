@@ -100,6 +100,37 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
+### Source-rights approval record (2026-07-12)
+
+Product/data owner approval for the bundled IP-18.8 Vamo full-data snapshot was
+recorded on 2026-07-12 after verifying the declared source-rights facts and the
+local snapshot evidence.
+
+Verified evidence:
+
+- plan source: local snapshot only,
+  `fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl`;
+- declared proposal facts:
+  `canStoreFacts=true`, `attributionPresent=true`,
+  `retentionDeclared=true`, `liveOnly=false`;
+- local snapshot rows: **38**;
+- attribution: **38 / 38** rows carry `"FSQ Open Source Places"`;
+- missing attribution rows: **0**;
+- rows with `media.bytesBase64`: **1**.
+
+Approval text:
+
+> FSQ Open Source Places bundled snapshot may be used for fact storage in
+> Confluendo/Vamo dry-run, staging verification, and production package
+> preparation. Attribution required: `"FSQ Open Source Places"`. Retention:
+> retain until superseded by a newer approved snapshot or until source rights
+> change. Approval covers factual place data only; binary media bytes remain
+> forbidden and must be blocked/ignored by policy.
+
+This approval does **not** approve binary media storage. Rows containing binary
+media bytes remain policy-invalid unless a future media-specific rights approval
+is recorded.
+
 ## Supply-ready proposal binding (IP-18.8.2)
 
 IP-18.8.2 attaches bounded dry-run `ScheduleProposal` objects to units with
