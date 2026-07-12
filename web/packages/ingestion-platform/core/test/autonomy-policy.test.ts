@@ -83,6 +83,46 @@ describe("autonomy policy", () => {
     assert.equal(result.requiredAction, "pause_for_blocker");
   });
 
+  it("continues past parked empty source scopes when supply-ready units remain", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const readyCount = 2;
+    const parkedCount = base.items.length - readyCount;
+    const snapshot = {
+      ...base,
+      items: base.items.map((item, index) =>
+        index < readyCount
+          ? {
+              ...item,
+              status: "ready_for_dry_run" as const,
+              blockReasons: []
+            }
+          : {
+              ...item,
+              status: "blocked" as const,
+              blockReasons: ["source_snapshot_empty"]
+            }
+      ),
+      blockerSummaries: [{ reason: "source_snapshot_empty", count: parkedCount }],
+      progress: {
+        ...base.progress,
+        ready: readyCount,
+        blocked: parkedCount
+      }
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({ maxUnitsPerCycle: 5 }),
+      queueSnapshot: snapshot,
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "planning");
+    assert.equal(result.requiredAction, "schedule_dry_run");
+    assert.deepEqual(
+      result.selectedUnitKeys,
+      snapshot.items.slice(0, readyCount).map((item) => item.unitKey)
+    );
+  });
+
   it("selects dry_run_ready units inside bounds for dry_run phase", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),

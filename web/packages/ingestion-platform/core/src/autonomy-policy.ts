@@ -19,6 +19,7 @@ import type {
   BatchQueueLatestWave,
   BatchQueueSnapshot
 } from "./batch-queue-read-model.js";
+import { PARKED_EMPTY_SOURCE_BLOCK_REASON } from "./batch-queue-read-model.js";
 import { extractBatchDryRunReportMetrics } from "./batch-dry-run-report-metrics.js";
 import type { AutonomyCycleTelemetryPayload } from "./autonomy-telemetry.js";
 
@@ -289,8 +290,9 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     });
   }
 
-  if (snapshot.blockerSummaries.length > 0 || snapshot.progress.blocked > 0) {
-    const top = snapshot.blockerSummaries[0];
+  const actionableBlockers = summarizeActionableQueueBlockers(snapshot);
+  if (actionableBlockers.blockerSummaries.length > 0 || actionableBlockers.blockedCount > 0) {
+    const top = actionableBlockers.blockerSummaries[0];
     return pauseResult({
       phase: "corrective_action",
       pauseReasonCode: "queue_blockers",
@@ -301,10 +303,10 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
       recommendedAction: {
         action: "pause_for_blocker",
         summary: "Resolve queue blockers before the agent advances the batch.",
-        evidence: { blockerSummaries: snapshot.blockerSummaries }
+        evidence: { blockerSummaries: actionableBlockers.blockerSummaries }
       },
       scannedCount: snapshot.items.length,
-      blockedCount: snapshot.progress.blocked,
+      blockedCount: actionableBlockers.blockedCount,
       telemetry: {
         ...baseTelemetry,
         eventName: "autonomy.cycle.paused",
@@ -957,6 +959,27 @@ function autonomyAuditReason(policy: AutonomyPolicyEnvelope): string {
     return policy.approvalReason.trim();
   }
   return `Autonomous dry-run cycle under policy ${policy.policyKey} v${policy.policyVersion}`;
+}
+
+function summarizeActionableQueueBlockers(snapshot: BatchQueueSnapshot): {
+  blockerSummaries: Array<{ reason: string; count: number }>;
+  blockedCount: number;
+} {
+  const blockerSummaries = snapshot.blockerSummaries.filter(
+    (summary) => summary.reason !== PARKED_EMPTY_SOURCE_BLOCK_REASON
+  );
+  const blockedCount = snapshot.items.filter(
+    (item) => item.status === "blocked" && !isParkedEmptySourceScope(item)
+  ).length;
+
+  return { blockerSummaries, blockedCount };
+}
+
+function isParkedEmptySourceScope(item: BatchQueueItem): boolean {
+  return (
+    item.blockReasons.length > 0 &&
+    item.blockReasons.every((reason) => reason === PARKED_EMPTY_SOURCE_BLOCK_REASON)
+  );
 }
 
 function buildBaseTelemetry(input: EvaluateAutonomyCycleInput): AutonomyCycleTelemetryPayload {
