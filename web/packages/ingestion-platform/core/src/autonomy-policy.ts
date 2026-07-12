@@ -75,6 +75,7 @@ export interface AutonomyPolicyEnvelope {
   approvedBy?: string;
   approvedAuditId?: string;
   approvalReason?: string;
+  batchPlanKey?: string;
   summary?: Record<string, unknown>;
 }
 

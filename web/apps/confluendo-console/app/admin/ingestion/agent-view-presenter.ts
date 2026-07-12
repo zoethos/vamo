@@ -126,6 +126,13 @@ export function presentAgentGuardrails(view: AutonomyDashboardView): AgentGuardr
       detail: `Version ${policy.policyVersion} · ${policy.status} · ${policy.targetEnvironment}`
     },
     {
+      label: "Batch plan",
+      value: policy.batchPlanKey ?? "Latest active plan fallback",
+      detail: policy.batchPlanKey
+        ? "Autonomy drain is pinned to this queue plan."
+        : "No plan is pinned yet; queue reads fall back to the latest active plan for this target."
+    },
+    {
       label: "Ramp mode",
       value: policy.rampLabel,
       detail: policy.recommendedNextRampMode
@@ -331,12 +338,17 @@ function humanizeRunbookChannel(view: AutonomyDashboardView): string {
 function buildAutonomyCliCommand(view: AutonomyDashboardView, execute: boolean): string {
   const projectKey = view.projectKey;
   const policyKey = view.policy?.policyKey ?? "<policy-key>";
+  const batchPlanKey = view.policy?.batchPlanKey;
+  const batchPlanArg = batchPlanKey
+    ? ` \`
+  --batch-plan-key ${batchPlanKey}`
+    : "";
   const base = `# Manual ops command. Run from a trusted shell with INGESTION_CONTROL_DATABASE_URL set.
 # The console displays this command; it does not execute it.
 
 node .\\packages\\ingestion-platform\\scripts\\run-ip18-autonomy-cycle.mjs \`
   --project-key ${projectKey} \`
-  --policy-key ${policyKey}`;
+  --policy-key ${policyKey}${batchPlanArg}`;
   if (!execute) {
     return base;
   }
@@ -348,7 +360,7 @@ $env:CONFIRM_CONFLUENDO_AUTONOMY_CYCLE="YES"
 node .\\packages\\ingestion-platform\\scripts\\run-ip18-autonomy-cycle.mjs \`
   --execute \`
   --project-key ${projectKey} \`
-  --policy-key ${policyKey}
+  --policy-key ${policyKey}${batchPlanArg}
 
 Remove-Item Env:\\CONFIRM_CONFLUENDO_AUTONOMY_CYCLE -ErrorAction SilentlyContinue`;
 }

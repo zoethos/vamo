@@ -37,6 +37,16 @@ describe("parseHostedAutonomySchedulerConfig", () => {
     assert.equal(parsed.config.productionInboxConnectionString, undefined);
   });
 
+  it("passes through an explicit batch plan key", () => {
+    const parsed = parseHostedAutonomySchedulerConfig({
+      ...baseEnv,
+      CONFLUENDO_AUTONOMY_SCHEDULER_BATCH_PLAN_KEY: "vamo-eu-full-data-v1"
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.config.batchPlanKey, "vamo-eu-full-data-v1");
+  });
+
   it("requires an explicit hosted execution confirmation and policy identity", () => {
     const parsed = parseHostedAutonomySchedulerConfig({});
     assert.equal(parsed.ok, false);

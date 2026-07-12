@@ -23,8 +23,11 @@ import {
   type BatchSnapshotSupplySeedMode,
   buildBatchSnapshotSupplyPreview
 } from "./batch-snapshot-supply-preview.js";
+import {
+  formatParkedEmptySourceScopesMessage,
+  type BatchQueueSnapshot
+} from "./batch-queue-read-model.js";
 import { buildBatchPlan } from "./batch-planner.js";
-import type { BatchQueueSnapshot } from "./batch-queue-read-model.js";
 
 const DEFAULT_RUN_WINDOW = {
   earliestStart: "2026-07-01T00:00:00Z",
@@ -268,7 +271,10 @@ function summarizeProposalBindingNextAction(
   if (proposalBacked === 0) {
     return baseNextAction;
   }
-  return `Review ${proposalBacked} proposal-backed supply-ready unit(s); ${supplyPreview.summary.unitsWithoutSourceRows} empty unit(s) remain blocked by default seed.`;
+  if (supplyPreview.summary.unitsWithoutSourceRows > 0) {
+    return `Review ${proposalBacked} proposal-backed supply-ready unit(s). ${formatParkedEmptySourceScopesMessage(supplyPreview.summary.unitsWithoutSourceRows)}`;
+  }
+  return `Review ${proposalBacked} proposal-backed supply-ready unit(s) for dry-run scheduling.`;
 }
 
 function defaultVamoPlaceIntelligenceProposalFacts(): BatchDryRunProposalFactsSpec {

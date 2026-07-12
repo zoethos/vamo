@@ -244,4 +244,80 @@ describe("batch queue control persistence", () => {
       }
     }
   );
+
+  it(
+    "loads an explicit batch plan when planKey is provided",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+
+      try {
+        await client.query("drop schema if exists ingestion_platform cascade");
+        await client.query(controlSchemaSql);
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_projects (project_key, display_name)
+            values ('vamo', 'Vamo')
+          `
+        );
+
+        const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
+        assert.equal(parsed.ok, true);
+        if (!parsed.ok) {
+          throw new Error("sample yaml failed to parse");
+        }
+
+        const sampleSnapshot = sampleVamoEuPoiBatchQueueSnapshot();
+        await persistBatchQueueSnapshot({
+          client,
+          projectKey: "vamo",
+          snapshot: sampleSnapshot,
+          spec: parsed.spec,
+          now: "2026-07-02T12:00:00.000Z"
+        });
+
+        const altSnapshot = buildBatchQueueSnapshotFromItems({
+          planId: "vamo-eu-full-data-v1",
+          projectKey: sampleSnapshot.projectKey,
+          targetKey: sampleSnapshot.targetKey,
+          targetEnvironment: sampleSnapshot.targetEnvironment,
+          sourceKey: sampleSnapshot.sourceKey,
+          safetyMode: sampleSnapshot.safetyMode,
+          items: sampleSnapshot.items.slice(0, 2).map((item) => ({
+            ...item,
+            status: "ready_for_dry_run",
+            blockReasons: []
+          })),
+          planNextAction: "Alt plan queue."
+        });
+        const altSpec = { ...parsed.spec, id: "vamo-eu-full-data-v1" };
+        await persistBatchQueueSnapshot({
+          client,
+          projectKey: "vamo",
+          snapshot: altSnapshot,
+          spec: altSpec,
+          now: "2026-07-02T13:00:00.000Z"
+        });
+
+        const latest = await loadBatchQueueSnapshot({ client, projectKey: "vamo" });
+        assert.ok(latest);
+        assert.equal(latest.planId, "vamo-eu-full-data-v1");
+        assert.equal(latest.progress.total, 2);
+
+        const explicitSample = await loadBatchQueueSnapshot({
+          client,
+          projectKey: "vamo",
+          planKey: "vamo-eu-poi-sample"
+        });
+        assert.ok(explicitSample);
+        assert.equal(explicitSample.planId, "vamo-eu-poi-sample");
+        assert.equal(explicitSample.progress.total, 36);
+      } finally {
+        await client.query("drop schema if exists ingestion_platform cascade");
+        await client.end();
+      }
+    }
+  );
 });
