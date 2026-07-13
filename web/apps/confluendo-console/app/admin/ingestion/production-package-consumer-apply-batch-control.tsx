@@ -63,6 +63,13 @@ type BatchApplyFailurePayload = {
   skippedAppliedPackageIds?: string[];
 };
 
+type BatchApplyPayload = BatchApplySuccessPayload | BatchApplyFailurePayload | null;
+
+type BatchApplyRequestResult =
+  | { kind: "response"; status: number; payload: BatchApplyPayload }
+  | { kind: "network_error" }
+  | { kind: "timeout" };
+
 type Decision =
   | { state: "idle" }
   | {
@@ -134,7 +141,7 @@ export function ProductionPackageConsumerApplyBatchControl({
   const contextDisabledReason = disabledReasonFor(context, eligibleItems.length);
   const operationBusy = applyPhase === "applying" || applyPhase === "refreshing";
 
-  const buttonDisabledReason = applyButtonDisabledReason({
+  const baseButtonDisabledReason = applyButtonDisabledReason({
     contextDisabledReason,
     preflightPhase,
     applyPhase,
@@ -144,6 +151,13 @@ export function ProductionPackageConsumerApplyBatchControl({
     preflightBlocks,
     hasPreflight: Boolean(preflight)
   });
+  const recoveryDisabledReason =
+    decision.state === "ambiguous"
+      ? "Refresh delivery telemetry before retrying this batch apply."
+      : decision.state === "partial_failure"
+        ? "Refresh delivery telemetry before retrying remaining packages."
+        : undefined;
+  const buttonDisabledReason = baseButtonDisabledReason ?? recoveryDisabledReason;
 
   useEffect(() => {
     if (disabledReasonFor(context, eligibleItems.length) || selectedPackageIds.length === 0) {
@@ -395,28 +409,29 @@ export function ProductionPackageConsumerApplyBatchControl({
     setApplyPhase("applying");
     setDecision({ state: "idle" });
 
-    const abortController = new AbortController();
-    const timeoutId = window.setTimeout(() => abortController.abort(), APPLY_REQUEST_TIMEOUT_MS);
+    let timeoutId: number | undefined;
 
     try {
-      const response = await fetch("/api/admin/ingestion/production-package-wave/apply-wave", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          projectKey,
-          waveKey,
-          packageIds: selectedPackageIds,
-          auditReason: reason.trim(),
-          confirmation: "YES"
-        }),
-        signal: abortController.signal
+      const timeout = new Promise<BatchApplyRequestResult>((resolve) => {
+        timeoutId = window.setTimeout(
+          () => resolve({ kind: "timeout" }),
+          APPLY_REQUEST_TIMEOUT_MS
+        );
       });
-      const payload = (await response.json().catch(() => null)) as
-        | BatchApplySuccessPayload
-        | BatchApplyFailurePayload
-        | null;
+      const result = await Promise.race([sendApplyRequest(), timeout]);
 
-      if (isAmbiguousBatchApplyResponse({ status: response.status, payload })) {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+
+      if (result.kind !== "response") {
+        setDecision({ state: "ambiguous" });
+        setApplyPhase("idle");
+        return;
+      }
+
+      const payload = result.payload;
+      if (isAmbiguousBatchApplyResponse({ status: result.status, payload })) {
         setDecision({ state: "ambiguous" });
         setApplyPhase("idle");
         return;
@@ -471,9 +486,31 @@ export function ProductionPackageConsumerApplyBatchControl({
       setDecision({ state: "ambiguous" });
       setApplyPhase("idle");
     } finally {
-      window.clearTimeout(timeoutId);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
       inFlightRef.current = false;
       applyStartedAtRef.current = null;
+    }
+  }
+
+  async function sendApplyRequest(): Promise<BatchApplyRequestResult> {
+    try {
+      const response = await fetch("/api/admin/ingestion/production-package-wave/apply-wave", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          projectKey,
+          waveKey,
+          packageIds: selectedPackageIds,
+          auditReason: reason.trim(),
+          confirmation: "YES"
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as BatchApplyPayload;
+      return { kind: "response", status: response.status, payload };
+    } catch {
+      return { kind: "network_error" };
     }
   }
 }

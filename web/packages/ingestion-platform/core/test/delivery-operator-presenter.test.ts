@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import {
+  APPLY_AMBIGUOUS_RESULT_MESSAGE,
   approvalButtonDisabledReason,
   approvalEnvelopeOverrideWarning,
   applyButtonDisabledReason,
@@ -20,6 +21,10 @@ const webRoot = join(packageRoot, "..", "..");
 const approvalControlPath = join(
   webRoot,
   "apps/confluendo-console/app/admin/ingestion/production-package-wave-approval-control.tsx"
+);
+const batchApplyControlPath = join(
+  webRoot,
+  "apps/confluendo-console/app/admin/ingestion/production-package-consumer-apply-batch-control.tsx"
 );
 
 describe("deriveProductionPackageApprovalEnvelope", () => {
@@ -120,6 +125,7 @@ describe("apply operator presenter", () => {
       false
     );
     assert.equal(isAmbiguousBatchApplyResponse({ status: 400, payload: { ok: false, error: "bad" } }), false);
+    assert.match(APPLY_AMBIGUOUS_RESULT_MESSAGE, /may still have completed/i);
   });
 });
 
@@ -145,5 +151,11 @@ describe("production package-wave approval control artifact", () => {
   it("does not reference production inbox DSN env vars", () => {
     const source = readFileSync(approvalControlPath, "utf8");
     assert.doesNotMatch(source, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
+  });
+
+  it("does not cancel in-flight consumer apply when the browser times out", () => {
+    const source = readFileSync(batchApplyControlPath, "utf8");
+    assert.doesNotMatch(source, /AbortController/);
+    assert.match(source, /APPLY_AMBIGUOUS_RESULT_MESSAGE/);
   });
 });
