@@ -288,6 +288,78 @@ describe("autonomy policy", () => {
     assert.equal(result.highestSafetyMode, "production_write");
   });
 
+  it("skips units already tied to active or spent production package waves", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const occupiedUnitKey = base.items[0]!.unitKey;
+    const snapshot = {
+      ...base,
+      items: base.items.map((item) => ({
+        ...item,
+        status: "staging_canary_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 1,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 3,
+        allowedTransitions: ["approve_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: snapshot,
+      productionPackageApproval: {
+        occupiedUnitKeys: new Set([occupiedUnitKey]),
+        hasPriorDeliveredPackage: true
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "approve_production_package_wave");
+    assert.ok(!result.selectedUnitKeys.includes(occupiedUnitKey));
+    assert.equal(result.selectedUnitKeys.length, Math.min(3, base.items.length - 1));
+  });
+
+  it("reflects the first production-package wave cap before execution", () => {
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: sampleVamoEuPoiBatchQueueSnapshot().items.map((item) => ({
+        ...item,
+        status: "staging_canary_succeeded" as const,
+        dryRunReport: {
+          wroteToTarget: false as const,
+          rowsProcessed: 1,
+          insertCount: 1,
+          updateCount: 0,
+          noOpCount: 0
+        }
+      }))
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        maxUnitsPerCycle: 3,
+        allowedTransitions: ["approve_production_package_wave"],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: snapshot,
+      productionPackageApproval: {
+        occupiedUnitKeys: new Set(),
+        hasPriorDeliveredPackage: false
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "continue");
+    assert.equal(result.phase, "production_inbox");
+    assert.equal(result.requiredAction, "approve_production_package_wave");
+    assert.equal(result.selectedUnitKeys.length, 1);
+    assert.equal(result.maxUnitsApplied, 1);
+  });
+
   it("selects production package units by expected target writes, not source candidates", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),
