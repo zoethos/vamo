@@ -813,3 +813,30 @@ export {
   type DeliveryWorkflowHighlight,
   type DeliveryWorkflowStepKey
 } from "./delivery-workflow-presenter.js";
+export {
+  parseSnapshotReleaseManifest,
+  SNAPSHOT_RELEASE_MANIFEST_KIND,
+  SNAPSHOT_RELEASE_SOURCE_FORMATS,
+  type ParseSnapshotReleaseManifestResult,
+  type SnapshotReleaseManifest,
+  type SnapshotReleaseManifestParseError,
+  type SnapshotReleaseSourceFormat
+} from "./snapshot-release-manifest.js";
+export {
+  buildSnapshotIntakeArtifacts,
+  DEFAULT_SNAPSHOT_ALLOWED_CATEGORIES,
+  intakeVersionedSnapshot,
+  isOutputPathInsideRepo,
+  sha256Hex,
+  SNAPSHOT_COVERAGE_REPORT_KIND,
+  SNAPSHOT_INTAKE_CONFIRMATION_ENV,
+  SNAPSHOT_INTAKE_CONFIRMATION_VALUE,
+  SNAPSHOT_RELEASE_KIND,
+  writeSnapshotIntakeArtifacts,
+  type SnapshotCoverageReport,
+  type SnapshotIntakeArtifacts,
+  type SnapshotIntakeIssueCategory,
+  type SnapshotIntakeResult,
+  type SnapshotIntakeRowIssue,
+  type SnapshotReleaseMetadata
+} from "./versioned-snapshot-intake.js";

@@ -86,6 +86,7 @@
     "ip18:production-package-wave": "npm run build && node scripts/run-ip18-production-package-wave.mjs",
     "ip18:autonomy-cycle": "npm run build && node scripts/run-ip18-autonomy-cycle.mjs",
     "ip18:autonomy-scheduler": "npm run build && node scripts/run-ip18-autonomy-scheduler.mjs",
+    "ip18:snapshot-intake": "npm run build && node scripts/run-ip18-snapshot-intake.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

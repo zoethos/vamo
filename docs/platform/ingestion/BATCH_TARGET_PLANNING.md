@@ -100,6 +100,49 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
+## Versioned snapshot intake (IP-18.8.9)
+
+IP-18.8.9 adds a reviewed local intake path for approved FSQ OS Places exports.
+It is separate from activation:
+
+- **Intake** — validate a human-supplied normalized JSONL export against a
+  versioned release manifest, verify SHA-256, reject media bytes and unknown
+  fields, and write `source.jsonl`, `release.json`, and `coverage-report.json`
+  outside the git worktree.
+- **Activation** — later slice only: import/bind the accepted release into the
+  bundled consumer contract and re-seed `vamo-eu-full-data-v1` supply.
+
+Human-only prerequisite:
+
+1. Obtain the FSQ export through the Places Portal using a separately stored
+   source token.
+2. Normalize it to the Vamo candidate JSONL shape locally.
+3. Author a release manifest with the export SHA-256 and rights metadata.
+4. Run intake preview, then execute outside the repo.
+
+Never commit the export file or the provider token.
+
+Operator commands:
+
+```bash
+# Preview only — writes nothing
+npm --workspace @confluendo/ingestion-platform run ip18:snapshot-intake -- \
+  --manifest /secure/manifest.yaml \
+  --input /secure/fsq-export.jsonl \
+  --output-dir /secure/vamo-snapshot-release
+
+# Execute after review
+CONFIRM_CONFLUENDO_SNAPSHOT_INTAKE=YES npm --workspace @confluendo/ingestion-platform run ip18:snapshot-intake -- \
+  --execute \
+  --manifest /secure/manifest.yaml \
+  --input /secure/fsq-export.jsonl \
+  --output-dir /secure/vamo-snapshot-release
+```
+
+This slice does **not** switch `vamo-eu-full-data-v1` to a new snapshot or
+re-seed the queue. Coverage counts come from valid intake rows only, never from
+planning projections.
+
 ### Source-rights approval record (2026-07-12)
 
 Product/data owner approval for the bundled IP-18.8 Vamo full-data snapshot was

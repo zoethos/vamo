@@ -1,0 +1,5 @@
+{"source_row_id":1,"source":{"id":"fsq_rome_colosseum","name":"Colosseum","latitude":41.8902,"longitude":12.4922},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":2,"source":{"id":"fsq_rome_colosseum","name":"Colosseum Duplicate","latitude":41.8902,"longitude":12.4922},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":3,"source":{"id":"fsq_media","name":"Media Place","latitude":41.9,"longitude":12.5},"scope":{"geography":"rome-italy","category":"poi"},"media":{"bytesBase64":"AAAA"},"attribution":"FSQ Open Source Places"}
+{"source_row_id":4,"source":{"id":"fsq_missing_rights","name":"No Rights","latitude":41.9,"longitude":12.5},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"Wrong Attribution"}
+{"source_row_id":5,"source":{"id":"fsq_unknown_field","name":"Unknown","latitude":41.9,"longitude":12.5,"providerToken":"secret"},"scope":{"geography":"rome-italy","category":"poi"},"attribution":"FSQ Open Source Places"}
