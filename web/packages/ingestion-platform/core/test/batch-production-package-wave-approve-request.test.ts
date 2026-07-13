@@ -33,6 +33,18 @@ describe("parseProductionPackageWaveApproveRequest", () => {
     assert.equal(parsed.request.maxPackages, 1);
   });
 
+  it("accepts optional unitKeys", () => {
+    const parsed = parseProductionPackageWaveApproveRequest({
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "production",
+      auditReason: "Approve selected scopes.",
+      unitKeys: ["unit-a", "unit-b"]
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.deepEqual(parsed.request.unitKeys, ["unit-a", "unit-b"]);
+  });
+
   it("rejects staging target environment", () => {
     const parsed = parseProductionPackageWaveApproveRequest({
       targetKey: "vamo-place-intelligence",

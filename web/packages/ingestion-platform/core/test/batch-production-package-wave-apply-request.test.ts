@@ -21,6 +21,10 @@ const applyRoute = join(
   webRoot,
   "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply/route.ts"
 );
+const applyWaveRoute = join(
+  webRoot,
+  "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply-wave/route.ts"
+);
 const preflightRoute = join(
   webRoot,
   "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply/preflight/route.ts"
@@ -148,6 +152,20 @@ describe("production package-wave apply route artifact", () => {
   it("uses the dedicated apply database URL env var", () => {
     const routeSource = readFileSync(applyRoute, "utf8");
     assert.match(routeSource, /VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL/);
+  });
+});
+
+describe("production package-wave apply-wave route artifact", () => {
+  it("uses apply DSN only and refuses writer DSN", () => {
+    const routeSource = readFileSync(applyWaveRoute, "utf8");
+    assert.match(routeSource, /VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL/);
+    assert.match(routeSource, /writer_dsn_present/);
+    assert.doesNotMatch(routeSource, /insert into public\.location_canonicals/i);
+  });
+
+  it("delegates to batch apply orchestrator", () => {
+    const routeSource = readFileSync(applyWaveRoute, "utf8");
+    assert.match(routeSource, /executeProductionPackageWaveConsumerApplyBatch/);
   });
 });
 

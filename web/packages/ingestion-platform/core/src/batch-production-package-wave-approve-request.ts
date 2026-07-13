@@ -13,6 +13,7 @@ export interface ProductionPackageWaveApproveRequest {
   maxRows: number;
   maxPackages: number;
   auditReason: string;
+  unitKeys?: string[];
 }
 
 export function parseProductionPackageWaveApproveRequest(
@@ -54,6 +55,8 @@ export function parseProductionPackageWaveApproveRequest(
     return { ok: false, error: "maxUnits, maxRows, and maxPackages must be positive integers." };
   }
 
+  const unitKeys = readStringArray(value.unitKeys);
+
   return {
     ok: true,
     request: {
@@ -64,7 +67,8 @@ export function parseProductionPackageWaveApproveRequest(
       maxUnits,
       maxRows,
       maxPackages,
-      auditReason
+      auditReason,
+      unitKeys: unitKeys.length > 0 ? unitKeys : undefined
     }
   };
 }
@@ -81,6 +85,26 @@ function readPositiveInt(value: unknown, fallback: number): number | undefined {
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") {
+      continue;
+    }
+    const trimmed = entry.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

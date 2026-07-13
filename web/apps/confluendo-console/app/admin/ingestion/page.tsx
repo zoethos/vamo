@@ -70,6 +70,9 @@ export default async function IngestionDashboardPage() {
   const batchCanaryWaveEligibleCount = batchQueue.progress.stagingCanary.dryRunSucceededEligible;
 
   let productionPackageEligibleCount = 0;
+  let productionPackageOccupiedUnitKeys: string[] = [];
+  let productionPackageStagingEvidenceByUnitKey: Record<string, { status?: string }> = {};
+  let productionPackageHasPriorDeliveredPackage = false;
   if (batchQueueSource === "live") {
     const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
     if (controlDb) {
@@ -84,6 +87,9 @@ export default async function IngestionDashboardPage() {
           batchQueue.targetKey,
           packageContext.stagingEvidenceByUnitKey
         );
+        productionPackageOccupiedUnitKeys = [...packageContext.occupiedUnitKeys];
+        productionPackageStagingEvidenceByUnitKey = packageContext.stagingEvidenceByUnitKey;
+        productionPackageHasPriorDeliveredPackage = packageContext.hasPriorDeliveredPackage;
       } catch (error) {
         console.error("Production package-wave context read failed", error);
       }
@@ -274,6 +280,9 @@ export default async function IngestionDashboardPage() {
       batchQueueEligibleCount={batchQueueEligibleCount}
       batchCanaryWaveEligibleCount={batchCanaryWaveEligibleCount}
       productionPackageEligibleCount={productionPackageEligibleCount}
+      productionPackageOccupiedUnitKeys={productionPackageOccupiedUnitKeys}
+      productionPackageStagingEvidenceByUnitKey={productionPackageStagingEvidenceByUnitKey}
+      productionPackageHasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
       latestProductionPackageWave={latestProductionPackageWave}
       attentionRows={attentionRows}
       operatorHealth={operatorHealth}

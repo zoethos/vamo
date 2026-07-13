@@ -166,6 +166,130 @@ describe("evaluateProductionPackageWaveEligibility", () => {
     );
     assertBlocked(result, "already_delivered_or_pending_apply");
   });
+
+  it("selects explicit multi-unit keys when all are staging verified", () => {
+    const snapshot = snapshotWithItems([
+      stagingProvenItem("unit-a", { runOrder: 1 }),
+      stagingProvenItem("unit-b", { runOrder: 2 }),
+      stagingProvenItem("unit-c", { runOrder: 3 })
+    ]);
+    const result = evaluateProductionPackageWaveEligibility(
+      validEligibilityInput({
+        snapshot,
+        maxUnits: 3,
+        maxPackages: 3,
+        maxRows: 10,
+        hasPriorDeliveredPackage: true,
+        unitKeys: ["unit-c", "unit-a"],
+        stagingEvidenceByUnitKey: {
+          "unit-a": { status: "succeeded", shipmentKey: "s:1" },
+          "unit-b": { status: "succeeded", shipmentKey: "s:2" },
+          "unit-c": { status: "succeeded", shipmentKey: "s:3" }
+        }
+      })
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(
+      result.selectedUnits.map((unit) => unit.item.unitKey),
+      ["unit-a", "unit-c"]
+    );
+  });
+
+  it("rejects stale explicit unit with per-unit reason", () => {
+    const snapshot = snapshotWithItems([
+      stagingProvenItem("unit-a"),
+      stagingProvenItem("unit-b", { status: "blocked" })
+    ]);
+    const result = evaluateProductionPackageWaveEligibility(
+      validEligibilityInput({
+        snapshot,
+        unitKeys: ["unit-b"],
+        hasPriorDeliveredPackage: true,
+        stagingEvidenceByUnitKey: {
+          "unit-a": { status: "succeeded", shipmentKey: "s:1" },
+          "unit-b": { status: "succeeded", shipmentKey: "s:2" }
+        }
+      })
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.ok(result.unitIssues?.some((issue) => issue.unitKey === "unit-b"));
+  });
+
+  it("enforces explicit maxUnits using expected target writes", () => {
+    const snapshot = snapshotWithItems([
+      stagingProvenItem("unit-a", { writeCount: 4 }),
+      stagingProvenItem("unit-b", { runOrder: 2, writeCount: 4 }),
+      stagingProvenItem("unit-c", { runOrder: 3, writeCount: 4 })
+    ]);
+    const result = evaluateProductionPackageWaveEligibility(
+      validEligibilityInput({
+        snapshot,
+        maxUnits: 2,
+        maxRows: 10,
+        maxPackages: 3,
+        hasPriorDeliveredPackage: true,
+        unitKeys: ["unit-a", "unit-b", "unit-c"],
+        stagingEvidenceByUnitKey: {
+          "unit-a": { status: "succeeded" },
+          "unit-b": { status: "succeeded" },
+          "unit-c": { status: "succeeded" }
+        }
+      })
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.ok(
+      result.unitIssues?.some((issue) => issue.code === "unit_selection_exceeds_max_units")
+    );
+  });
+
+  it("keeps greedy fallback when unitKeys is omitted", () => {
+    const snapshot = snapshotWithItems([
+      stagingProvenItem("unit-a", { runOrder: 1 }),
+      stagingProvenItem("unit-b", { runOrder: 2 })
+    ]);
+    const result = evaluateProductionPackageWaveEligibility(
+      validEligibilityInput({
+        snapshot,
+        maxUnits: 1,
+        maxPackages: 1,
+        hasPriorDeliveredPackage: true,
+        stagingEvidenceByUnitKey: {
+          "unit-a": { status: "succeeded" },
+          "unit-b": { status: "succeeded" }
+        }
+      })
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.selectedUnits.map((unit) => unit.item.unitKey), ["unit-a"]);
+  });
+
+  it("allows a 5-unit bounded wave after prior delivered package exists", () => {
+    const items = Array.from({ length: 6 }, (_, index) =>
+      stagingProvenItem(`unit-${index}`, { runOrder: index + 1 })
+    );
+    const snapshot = snapshotWithItems(items);
+    const stagingEvidenceByUnitKey = Object.fromEntries(
+      items.map((item) => [item.unitKey, { status: "succeeded", shipmentKey: `s:${item.unitKey}` }])
+    );
+    const result = evaluateProductionPackageWaveEligibility(
+      validEligibilityInput({
+        snapshot,
+        maxUnits: 5,
+        maxPackages: 5,
+        maxRows: 20,
+        hasPriorDeliveredPackage: true,
+        unitKeys: items.slice(0, 5).map((item) => item.unitKey),
+        stagingEvidenceByUnitKey
+      })
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.selectedUnits.length, 5);
+  });
 });
 
 describe("evaluateProductionPackageWaveApproval", () => {

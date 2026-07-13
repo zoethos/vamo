@@ -46,7 +46,10 @@ export const PRODUCTION_PACKAGE_WAVE_BLOCK_LABELS: Record<BatchProductionPackage
   schema_contract_drift: "Schema contract drifted since approval.",
   checksum_incompatible: "Package checksum evidence is incompatible.",
   staged_content_drift: "Deliverable content drifted since approval.",
-  staged_content_hash_missing: "Staged content hash evidence is missing."
+  staged_content_hash_missing: "Staged content hash evidence is missing.",
+  unit_key_not_found: "Selected unit is not in the active batch queue.",
+  unit_target_mismatch: "Selected unit target does not match this package wave.",
+  unit_selection_exceeds_max_units: "Selected units exceed maxUnits."
 };
 
 export type ProductionPackageContentEquivalenceStatus =

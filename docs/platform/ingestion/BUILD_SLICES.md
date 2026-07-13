@@ -1702,8 +1702,24 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.4+** — expand bundled snapshot partitions toward
+Next product slice: **IP-18.8.5+** — expand bundled snapshot partitions toward
 full-data volume and first bounded dry-run execution waves.
+
+### IP-18.8.4 — implemented (production package batch controls)
+
+**Status:** done — operator-controlled multi-unit production package approval,
+existing delivery handoff for multi-item waves, and batch Apply-to-Vamo via the
+existing least-privilege apply adapter. **Not** autonomous production delivery,
+**not** autonomous consumer apply, **not** provider calls.
+
+Deliverables:
+
+- Explicit `unitKeys` on production package approval with per-unit rejection
+  reasons; greedy fallback unchanged when omitted.
+- Delivery tab selectable queue with filters, selection summary, and
+  `Approve selected package wave` (defaults 5/5/10 after prior delivery).
+- `POST /api/admin/ingestion/production-package-wave/apply-wave` plus batch
+  preflight; sequential per-package apply with stop-on-first-failure.
 
 ### IP-18.8.3 — implemented (explicit batch plan selection for autonomy drain)
 

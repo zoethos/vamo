@@ -51,7 +51,10 @@ export type BatchProductionPackageWaveBlockCode =
   | "schema_contract_drift"
   | "checksum_incompatible"
   | "staged_content_drift"
-  | "staged_content_hash_missing";
+  | "staged_content_hash_missing"
+  | "unit_key_not_found"
+  | "unit_target_mismatch"
+  | "unit_selection_exceeds_max_units";
 
 export interface BatchProductionPackageWaveBlock {
   code: BatchProductionPackageWaveBlockCode;
@@ -75,6 +78,12 @@ export interface ProductionPackageStagingEvidence {
   checksum?: string;
   stagedContentHash?: string;
   deliveryContentHash?: string;
+}
+
+export interface ProductionPackageWaveUnitSelectionIssue {
+  unitKey: string;
+  code: BatchProductionPackageWaveBlockCode;
+  message: string;
 }
 
 export interface ProductionPackageWaveSelectedUnit {
@@ -115,11 +124,19 @@ export interface BatchProductionPackageWaveApprovalPlan {
 
 export type EvaluateProductionPackageWaveEligibilityResult =
   | { ok: true; selectedUnits: ProductionPackageWaveSelectedUnit[]; totalPlannedRows: number }
-  | { ok: false; blocks: BatchProductionPackageWaveBlock[] };
+  | {
+      ok: false;
+      blocks: BatchProductionPackageWaveBlock[];
+      unitIssues?: ProductionPackageWaveUnitSelectionIssue[];
+    };
 
 export type EvaluateProductionPackageWaveApprovalResult =
   | { ok: true; plan: BatchProductionPackageWaveApprovalPlan; warnings: BatchProductionPackageWaveBlock[] }
-  | { ok: false; blocks: BatchProductionPackageWaveBlock[] };
+  | {
+      ok: false;
+      blocks: BatchProductionPackageWaveBlock[];
+      unitIssues?: ProductionPackageWaveUnitSelectionIssue[];
+    };
 
 export interface EvaluateProductionPackageWaveEligibilityInput {
   snapshot: BatchQueueSnapshot;
@@ -132,6 +149,7 @@ export interface EvaluateProductionPackageWaveEligibilityInput {
   stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>;
   occupiedUnitKeys?: ReadonlySet<string>;
   hasPriorDeliveredPackage?: boolean;
+  unitKeys?: readonly string[];
 }
 
 export interface EvaluateProductionPackageWaveApprovalInput {
@@ -148,6 +166,7 @@ export interface EvaluateProductionPackageWaveApprovalInput {
   stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>;
   occupiedUnitKeys?: ReadonlySet<string>;
   hasPriorDeliveredPackage?: boolean;
+  unitKeys?: readonly string[];
   now?: string;
 }
 
@@ -298,6 +317,15 @@ export function evaluateProductionPackageWaveEligibility(
   }
 
   const occupied = input.occupiedUnitKeys ?? new Set<string>();
+  const hintedUnitKeys = normalizeUnitKeyHints(input.unitKeys);
+  if (hintedUnitKeys.length > 0) {
+    return finalizeExplicitProductionUnitSelection({
+      input,
+      hintedUnitKeys,
+      occupied
+    });
+  }
+
   const candidates = input.snapshot.items
     .filter((item) => item.status === "staging_canary_succeeded")
     .filter((item) => item.targetKey === input.targetKey)
@@ -462,11 +490,12 @@ export function evaluateProductionPackageWaveApproval(
     maxPackages: input.maxPackages,
     stagingEvidenceByUnitKey: input.stagingEvidenceByUnitKey,
     occupiedUnitKeys: input.occupiedUnitKeys,
-    hasPriorDeliveredPackage: input.hasPriorDeliveredPackage
+    hasPriorDeliveredPackage: input.hasPriorDeliveredPackage,
+    unitKeys: input.unitKeys
   });
 
   if (!eligibility.ok) {
-    return { ok: false, blocks: eligibility.blocks };
+    return { ok: false, blocks: eligibility.blocks, unitIssues: eligibility.unitIssues };
   }
 
   const unitKeys = eligibility.selectedUnits.map((entry) => entry.item.unitKey);
@@ -637,6 +666,157 @@ export function collectOccupiedProductionPackageUnitKeys(input: {
     }
   }
   return occupied;
+}
+
+export function isProductionPackageWaveSelectableUnit(input: {
+  item: BatchQueueItem;
+  targetKey: string;
+  stagingEvidence?: ProductionPackageStagingEvidence;
+  occupied?: boolean;
+}): { ok: true; writeCount: number } | { ok: false; code: BatchProductionPackageWaveBlockCode } {
+  if (input.item.targetKey !== input.targetKey) {
+    return { ok: false, code: "unit_target_mismatch" };
+  }
+  if (input.occupied) {
+    return { ok: false, code: "already_delivered_or_pending_apply" };
+  }
+  const unitBlock = validateEligibleUnit(input.item, input.stagingEvidence);
+  if (unitBlock) {
+    return { ok: false, code: unitBlock.code };
+  }
+  const parsed = parseDryRunEvidence(input.item);
+  return { ok: true, writeCount: parsed.writeCount };
+}
+
+function finalizeExplicitProductionUnitSelection(input: {
+  input: EvaluateProductionPackageWaveEligibilityInput;
+  hintedUnitKeys: string[];
+  occupied: ReadonlySet<string>;
+}): EvaluateProductionPackageWaveEligibilityResult {
+  const unitIssues: ProductionPackageWaveUnitSelectionIssue[] = [];
+  const selected: ProductionPackageWaveSelectedUnit[] = [];
+  let totalPlannedRows = 0;
+
+  for (const unitKey of input.hintedUnitKeys) {
+    const item = input.input.snapshot.items.find((entry) => entry.unitKey === unitKey);
+    if (!item) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_key_not_found",
+        message: `Unit "${unitKey}" is not present in the active batch queue.`
+      });
+      continue;
+    }
+    if (item.targetKey !== input.input.targetKey) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_target_mismatch",
+        message: `Unit "${unitKey}" target ${item.targetKey} does not match wave target ${input.input.targetKey}.`
+      });
+      continue;
+    }
+    if (input.occupied.has(unitKey)) {
+      unitIssues.push({
+        unitKey,
+        code: "already_delivered_or_pending_apply",
+        message: `Unit "${unitKey}" is already in an active or spent production package wave.`
+      });
+      continue;
+    }
+
+    const unitBlock = validateEligibleUnit(item, input.input.stagingEvidenceByUnitKey[unitKey]);
+    if (unitBlock) {
+      unitIssues.push({ unitKey, code: unitBlock.code, message: unitBlock.message });
+      continue;
+    }
+
+    const parsed = parseDryRunEvidence(item);
+    const stagingEvidence = input.input.stagingEvidenceByUnitKey[unitKey]!;
+    const writeCount = parsed.writeCount;
+
+    if (selected.length >= input.input.maxUnits) {
+      unitIssues.push({
+        unitKey,
+        code: "unit_selection_exceeds_max_units",
+        message: `Unit "${unitKey}" exceeds maxUnits (${input.input.maxUnits}).`
+      });
+      continue;
+    }
+    if (selected.length >= input.input.maxPackages) {
+      unitIssues.push({
+        unitKey,
+        code: "package_bound_exceeded",
+        message: `Unit "${unitKey}" exceeds maxPackages (${input.input.maxPackages}).`
+      });
+      continue;
+    }
+    if (totalPlannedRows + writeCount > input.input.maxRows) {
+      unitIssues.push({
+        unitKey,
+        code: "row_bound_exceeded",
+        message: `Unit "${unitKey}" would exceed maxRows (${input.input.maxRows}).`
+      });
+      continue;
+    }
+
+    selected.push({
+      item,
+      dryRunEvidence: parsed.evidence,
+      stagingEvidence,
+      writeCount,
+      plannedPackageKey: buildProductionPackageWaveKey(
+        input.input.snapshot.planId,
+        "pending",
+        item.unitKey
+      )
+    });
+    totalPlannedRows += writeCount;
+  }
+
+  if (unitIssues.length > 0) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "no_eligible_items",
+          message: "One or more selected scopes failed production package revalidation."
+        }
+      ],
+      unitIssues
+    };
+  }
+
+  if (selected.length === 0) {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "no_eligible_items",
+          message: "No valid staging-verified scopes were selected for production package approval."
+        }
+      ]
+    };
+  }
+
+  selected.sort((a, b) => a.item.runOrder - b.item.runOrder);
+  return { ok: true, selectedUnits: selected, totalPlannedRows };
+}
+
+function normalizeUnitKeyHints(unitKeys: readonly string[] | undefined): string[] {
+  if (!unitKeys || unitKeys.length === 0) {
+    return [];
+  }
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const unitKey of unitKeys) {
+    const trimmed = unitKey.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+  return normalized;
 }
 
 function validateEligibleUnit(

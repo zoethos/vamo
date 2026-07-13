@@ -383,3 +383,111 @@ export function isStagingWaveSelectable(item: BatchQueueItem): boolean {
   }
   return metrics.expectedTargetWrites >= 1 && metrics.expectedTargetWrites <= 50;
 }
+
+export type ProductionPackageApprovalQueueFilter =
+  | "eligible_for_package"
+  | "delivered_to_inbox"
+  | "apply_pending"
+  | "applied"
+  | "blocked"
+  | "all";
+
+export const productionPackageApprovalQueueFilterLabels: Record<
+  ProductionPackageApprovalQueueFilter,
+  string
+> = {
+  eligible_for_package: "Eligible for package",
+  delivered_to_inbox: "Delivered to inbox",
+  apply_pending: "Apply pending",
+  applied: "Applied",
+  blocked: "Blocked",
+  all: "All"
+};
+
+export function isProductionPackageWaveSelectable(
+  item: BatchQueueItem,
+  input?: { occupied?: boolean; stagingSucceeded?: boolean }
+): boolean {
+  if (item.status !== "staging_canary_succeeded") {
+    return false;
+  }
+  if (item.blockReasons.length > 0) {
+    return false;
+  }
+  if (item.dryRunReport?.wroteToTarget !== false) {
+    return false;
+  }
+  if (input?.occupied) {
+    return false;
+  }
+  if (input?.stagingSucceeded === false) {
+    return false;
+  }
+  const metrics = extractDryRunReportMetrics(item.dryRunReport);
+  return Boolean(metrics && metrics.expectedTargetWrites > 0);
+}
+
+export function matchesProductionPackageApprovalQueueFilter(
+  item: BatchQueueItem,
+  filter: ProductionPackageApprovalQueueFilter,
+  eligibleForPackage: boolean
+): boolean {
+  if (filter === "all") {
+    return true;
+  }
+  switch (filter) {
+    case "eligible_for_package":
+      return eligibleForPackage;
+    case "delivered_to_inbox":
+      return (
+        item.status === "production_package_delivered" ||
+        item.status === "production_package_delivering" ||
+        item.status === "consumer_apply_pending"
+      );
+    case "apply_pending":
+      return item.status === "consumer_apply_pending";
+    case "applied":
+      return item.status === "consumer_applied" || item.status === "applied";
+    case "blocked":
+      return item.status === "blocked" || item.status.endsWith("_blocked");
+    default:
+      return true;
+  }
+}
+
+export function describeProductionPackageQueueStagingStatus(
+  stagingSucceeded?: boolean
+): string {
+  if (stagingSucceeded === true) {
+    return "Staging verified";
+  }
+  if (stagingSucceeded === false) {
+    return "Staging evidence missing";
+  }
+  return "—";
+}
+
+export function describeProductionPackageQueueNextAction(
+  item: BatchQueueItem,
+  eligibleForPackage: boolean
+): string {
+  if (item.blockReasons.length > 0 || item.status.endsWith("_blocked") || item.status === "blocked") {
+    return "Investigate blockers";
+  }
+  if (eligibleForPackage) {
+    return "Select for package wave";
+  }
+  if (item.status === "production_package_approved") {
+    return "Await delivery runbook";
+  }
+  if (item.status === "production_package_delivered" || item.status === "consumer_apply_pending") {
+    return "Apply to Vamo";
+  }
+  if (item.status === "consumer_applied" || item.status === "applied") {
+    return "Complete";
+  }
+  if (item.status === "staging_canary_succeeded") {
+    return "Occupied or awaiting selection";
+  }
+  return "Not yet staging verified";
+}
