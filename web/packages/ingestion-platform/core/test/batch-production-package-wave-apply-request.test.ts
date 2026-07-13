@@ -25,6 +25,10 @@ const applyWaveRoute = join(
   webRoot,
   "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply-wave/route.ts"
 );
+const applyWavePreflightRoute = join(
+  webRoot,
+  "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply-wave/preflight/route.ts"
+);
 const preflightRoute = join(
   webRoot,
   "apps/confluendo-console/app/api/admin/ingestion/production-package-wave/apply/preflight/route.ts"
@@ -161,6 +165,12 @@ describe("production package-wave apply-wave route artifact", () => {
     assert.match(routeSource, /VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL/);
     assert.match(routeSource, /writer_dsn_present/);
     assert.doesNotMatch(routeSource, /insert into public\.location_canonicals/i);
+  });
+
+  it("uses read-only admin auth for batch preflight", () => {
+    const preflightSource = readFileSync(applyWavePreflightRoute, "utf8");
+    assert.match(preflightSource, /authorizeIngestionReadRequest/);
+    assert.doesNotMatch(preflightSource, /authorizeStagingCanaryRequest/);
   });
 
   it("delegates to batch apply orchestrator", () => {
