@@ -63,6 +63,10 @@
       "types": "./dist/core/src/workflow-navigator-presenter.d.ts",
       "default": "./dist/core/src/workflow-navigator-presenter.js"
     },
+    "./core/scope-workflow-presenter": {
+      "types": "./dist/core/src/scope-workflow-presenter.d.ts",
+      "default": "./dist/core/src/scope-workflow-presenter.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"

@@ -13,6 +13,7 @@ import {
   productionPackageApprovalQueueFilterLabels,
   type ProductionPackageApprovalQueueFilter
 } from "./ingestion-console-labels";
+import { OpenScopeButton } from "./open-scope-button";
 
 interface DisplayColumn {
   key: string;
@@ -30,7 +31,9 @@ export function ProductionPackageApprovalQueue({
   occupiedUnitKeys,
   stagingEvidenceByUnitKey,
   selectedUnitKeys,
-  onSelectionChange
+  onSelectionChange,
+  selectedUnitKey,
+  onOpenScope
 }: {
   items: BatchQueueItem[];
   targetKey: string;
@@ -39,6 +42,8 @@ export function ProductionPackageApprovalQueue({
   stagingEvidenceByUnitKey: Record<string, StagingEvidenceHint>;
   selectedUnitKeys: string[];
   onSelectionChange: (unitKeys: string[]) => void;
+  selectedUnitKey?: string | null;
+  onOpenScope?: (unitKey: string) => void;
 }) {
   const [filter, setFilter] = useState<ProductionPackageApprovalQueueFilter>("eligible_for_package");
   const occupied = useMemo(() => new Set(occupiedUnitKeys), [occupiedUnitKeys]);
@@ -158,6 +163,7 @@ export function ProductionPackageApprovalQueue({
               <th>Staging evidence</th>
               <th>Effective delivery status</th>
               <th>Next action</th>
+              {onOpenScope ? <th>Context</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -197,6 +203,15 @@ export function ProductionPackageApprovalQueue({
                   ) : null}
                 </td>
                 <td>{row.nextAction}</td>
+                {onOpenScope ? (
+                  <td>
+                    <OpenScopeButton
+                      onOpen={onOpenScope}
+                      selected={selectedUnitKey === row.item.unitKey}
+                      unitKey={row.item.unitKey}
+                    />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

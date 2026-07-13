@@ -13,6 +13,7 @@ import {
   stagingApprovalQueueFilterLabels,
   type StagingApprovalQueueFilter
 } from "./ingestion-console-labels";
+import { OpenScopeButton } from "./open-scope-button";
 
 interface DisplayColumn {
   key: string;
@@ -23,12 +24,16 @@ export function StagingWaveApprovalQueue({
   items,
   latestWave,
   selectedUnitKeys,
-  onSelectionChange
+  onSelectionChange,
+  selectedUnitKey,
+  onOpenScope
 }: {
   items: BatchQueueItem[];
   latestWave?: BatchQueueLatestWave | null;
   selectedUnitKeys: string[];
   onSelectionChange: (unitKeys: string[]) => void;
+  selectedUnitKey?: string | null;
+  onOpenScope?: (unitKey: string) => void;
 }) {
   const [filter, setFilter] = useState<StagingApprovalQueueFilter>("eligible_for_staging");
 
@@ -147,6 +152,7 @@ export function StagingWaveApprovalQueue({
               <th>Shipment id</th>
               <th>Blockers</th>
               <th>Next action</th>
+              {onOpenScope ? <th>Context</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -190,6 +196,15 @@ export function StagingWaveApprovalQueue({
                 </td>
                 <td>{row.blockers}</td>
                 <td>{row.nextAction}</td>
+                {onOpenScope ? (
+                  <td>
+                    <OpenScopeButton
+                      onOpen={onOpenScope}
+                      selected={selectedUnitKey === row.item.unitKey}
+                      unitKey={row.item.unitKey}
+                    />
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

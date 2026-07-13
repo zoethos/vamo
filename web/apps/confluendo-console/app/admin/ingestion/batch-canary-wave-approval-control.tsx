@@ -78,7 +78,9 @@ export function BatchCanaryWaveApprovalControl({
   eligibleCount,
   queueItems,
   latestWave,
-  context
+  context,
+  selectedUnitKey,
+  onOpenScope
 }: {
   projectKey: string;
   targetKey: string;
@@ -87,6 +89,8 @@ export function BatchCanaryWaveApprovalControl({
   queueItems: BatchQueueItem[];
   latestWave?: BatchQueueLatestWave | null;
   context: BatchCanaryWaveContext;
+  selectedUnitKey?: string | null;
+  onOpenScope?: (unitKey: string) => void;
 }) {
   const [reason, setReason] = useState("");
   const [maxUnits, setMaxUnits] = useState("1");
@@ -224,8 +228,10 @@ export function BatchCanaryWaveApprovalControl({
       <StagingWaveApprovalQueue
         items={queueItems}
         latestWave={latestWave}
-        selectedUnitKeys={selectedUnitKeys}
+        onOpenScope={onOpenScope}
         onSelectionChange={handleSelectionChange}
+        selectedUnitKey={selectedUnitKey}
+        selectedUnitKeys={selectedUnitKeys}
       />
 
       <div className="admin-canary-fields">
