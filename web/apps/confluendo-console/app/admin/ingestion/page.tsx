@@ -57,6 +57,7 @@ export default async function IngestionDashboardPage() {
   const {
     view: autonomyView,
     rampCard,
+    productionHandoffCard,
     policyKey: autonomyPolicyKey,
     source: autonomySource,
     error: autonomyError
@@ -274,6 +275,7 @@ export default async function IngestionDashboardPage() {
       autonomySource={autonomySource}
       autonomyError={autonomyError}
       rampCard={rampCard}
+      productionHandoffCard={productionHandoffCard}
       autonomyPolicyKey={autonomyPolicyKey}
       batchCategories={batchCategories}
       batchCountries={batchCountries}

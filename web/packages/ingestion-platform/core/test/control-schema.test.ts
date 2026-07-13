@@ -55,6 +55,10 @@ describe("ingestion control schema", () => {
       confluendoBootstrapSql,
       /\bgrant execute on function ingestion_platform\.promote_autonomy_ramp\b/i
     );
+    assert.match(
+      confluendoBootstrapSql,
+      /\bgrant execute on function ingestion_platform\.set_autonomy_production_handoff\b/i
+    );
     assert.doesNotMatch(
       confluendoBootstrapSql,
       /\bgrant delete on ingestion_platform\.ingestion_autonomy_/i
@@ -100,6 +104,16 @@ describe("ingestion control schema", () => {
     assert.match(controlSchemaSql, /ingestion_autonomy_policies_ramp_mode_check/);
     assert.match(controlSchemaSql, /create or replace function ingestion_platform\.promote_autonomy_ramp/);
     assert.match(controlSchemaSql, /revoke all on function ingestion_platform\.promote_autonomy_ramp/);
+    assert.match(
+      controlSchemaSql,
+      /create or replace function ingestion_platform\.set_autonomy_production_handoff/
+    );
+    assert.match(
+      controlSchemaSql,
+      /revoke all on function ingestion_platform\.set_autonomy_production_handoff/
+    );
+    assert.match(controlSchemaSql, /enable_production_inbox_handoff/);
+    assert.match(controlSchemaSql, /disable_production_inbox_handoff/);
     assert.match(controlSchemaSql, /ingestion_autonomy_runs_actor_type_check/);
   });
 

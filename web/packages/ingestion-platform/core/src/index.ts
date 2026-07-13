@@ -743,6 +743,29 @@ export {
   type PromoteAutonomyRampResult
 } from "./autonomy-ramp-control.js";
 export {
+  evaluateAutonomyProductionHandoffChange,
+  isProductionHandoffEnabled,
+  presentAutonomyProductionHandoffCard,
+  productionHandoffStateLabel,
+  PRODUCTION_HANDOFF_DISABLE_STATE,
+  PRODUCTION_HANDOFF_ENABLE_STATE,
+  type AutonomyProductionHandoffBlockCode,
+  type AutonomyProductionHandoffCardPresentation,
+  type AutonomyProductionHandoffState,
+  type EvaluateAutonomyProductionHandoffChangeInput,
+  type EvaluateAutonomyProductionHandoffChangeResult
+} from "./autonomy-production-handoff-policy.js";
+export {
+  parseAutonomyProductionHandoffRequest,
+  type AutonomyProductionHandoffRequest
+} from "./autonomy-production-handoff-request.js";
+export {
+  setAutonomyProductionHandoff,
+  type AutonomyProductionHandoffControlPgClientLike,
+  type SetAutonomyProductionHandoffInput,
+  type SetAutonomyProductionHandoffResult
+} from "./autonomy-production-handoff-control.js";
+export {
   type BatchControlActor,
   type BatchControlActorType
 } from "./batch-control-actor.js";

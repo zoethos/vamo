@@ -1,13 +1,18 @@
 "use client";
 
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
-import type { AutonomyDashboardView, AutonomyRampCardPresentation } from "@confluendo/ingestion-platform/core";
+import type {
+  AutonomyDashboardView,
+  AutonomyProductionHandoffCardPresentation,
+  AutonomyRampCardPresentation
+} from "@confluendo/ingestion-platform/core";
 import {
   autonomySourceLabel,
   formatAgentAction,
   friendlyUnit
 } from "./ingestion-console-labels";
 import { AutonomyRampControl } from "./autonomy-ramp-control";
+import { AutonomyProductionHandoffControl } from "./autonomy-production-handoff-control";
 import {
   humanizeAutonomyPhase,
   humanizeAutonomyRunStatus,
@@ -26,6 +31,7 @@ export function AgentView({
   autonomySource,
   autonomyError,
   rampCard,
+  productionHandoffCard,
   policyKey,
   rampContext
 }: {
@@ -33,6 +39,7 @@ export function AgentView({
   autonomySource: DashboardSource;
   autonomyError?: string;
   rampCard?: AutonomyRampCardPresentation | null;
+  productionHandoffCard?: AutonomyProductionHandoffCardPresentation | null;
   policyKey?: string | null;
   rampContext?: {
     role: AdminRole;
@@ -142,6 +149,15 @@ export function AgentView({
           projectKey={autonomyView.projectKey}
           policyKey={policyKey}
           rampCard={rampCard}
+          context={rampContext}
+        />
+      ) : null}
+
+      {productionHandoffCard && policyKey && rampContext ? (
+        <AutonomyProductionHandoffControl
+          projectKey={autonomyView.projectKey}
+          policyKey={policyKey}
+          handoffCard={productionHandoffCard}
           context={rampContext}
         />
       ) : null}
