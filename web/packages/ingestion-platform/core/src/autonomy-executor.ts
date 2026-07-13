@@ -466,6 +466,13 @@ async function loadAutonomyCycleContext(
       targetKey: policy.targetKey,
       planKey: batchPlanKey
     });
+    const productionPackageApproval = queueSnapshot
+      ? await loadProductionPackageWaveApprovalContext({
+          client,
+          projectKey: input.projectKey,
+          targetKey: policy.targetKey
+        })
+      : null;
 
     const rampEnvelope = applyRampProfileToEnvelope(policy);
     const effectivePolicy = rampEnvelope.effective;
@@ -477,6 +484,7 @@ async function loadAutonomyCycleContext(
       latestDryRunExecution: queueSnapshot?.latestExecution,
       latestStagingWave: queueSnapshot?.latestWave,
       productionPackage: queueSnapshot?.latestProductionPackageWave,
+      productionPackageApproval,
       rollingCounts,
       actor,
       now: input.now

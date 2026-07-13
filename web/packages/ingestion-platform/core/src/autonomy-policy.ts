@@ -117,12 +117,18 @@ export interface AutonomyProductionPackageState {
   }>;
 }
 
+export interface AutonomyProductionPackageApprovalContext {
+  occupiedUnitKeys?: ReadonlySet<string> | readonly string[];
+  hasPriorDeliveredPackage?: boolean;
+}
+
 export interface EvaluateAutonomyCycleInput {
   policy: AutonomyPolicyEnvelope | null;
   queueSnapshot: BatchQueueSnapshot | null;
   latestDryRunExecution?: BatchQueueLatestExecution | null;
   latestStagingWave?: BatchQueueLatestWave | null;
   productionPackage?: AutonomyProductionPackageState | null;
+  productionPackageApproval?: AutonomyProductionPackageApprovalContext | null;
   rollingCounts?: AutonomyRollingCounts;
   externalBlockers?: string[];
   actor: AutonomyActorContext;
@@ -667,7 +673,15 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     });
   }
 
-  const productionReady = selectProductionPackageEligibleUnits(inScopeItems, maxUnits, maxRows);
+  const productionApproval = input.productionPackageApproval ?? null;
+  const productionMaxUnits =
+    productionApproval?.hasPriorDeliveredPackage === false ? Math.min(maxUnits, 1) : maxUnits;
+  const productionReady = selectProductionPackageEligibleUnits(
+    inScopeItems,
+    productionMaxUnits,
+    maxRows,
+    normalizeUnitKeySet(productionApproval?.occupiedUnitKeys)
+  );
   if (productionReady.length > 0) {
     if (!productionHandoffEnabled(policy)) {
       return pauseProductionHandoffDisabled(policy, snapshot, baseTelemetry, productionPackage);
@@ -841,15 +855,26 @@ function selectStagingEligibleUnits(
 function selectProductionPackageEligibleUnits(
   items: BatchQueueItem[],
   maxUnits: number,
-  maxRows: number
+  maxRows: number,
+  occupiedUnitKeys: ReadonlySet<string> = new Set<string>()
 ): BatchQueueItem[] {
   const eligible = items.filter(
     (item) =>
       (item.status === "staging_canary_succeeded" || item.status === "production_package_ready") &&
       item.dryRunReport?.wroteToTarget === false &&
+      !occupiedUnitKeys.has(item.unitKey) &&
       item.blockReasons.length === 0
   );
   return selectBoundedUnits(eligible, maxUnits, maxRows);
+}
+
+function normalizeUnitKeySet(
+  value: AutonomyProductionPackageApprovalContext["occupiedUnitKeys"]
+): ReadonlySet<string> {
+  if (!value) {
+    return new Set<string>();
+  }
+  return value instanceof Set ? value : new Set(value);
 }
 
 function productionHandoffEnabled(policy: AutonomyPolicyEnvelope): boolean {

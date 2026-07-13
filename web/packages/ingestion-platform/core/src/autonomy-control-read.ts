@@ -8,6 +8,7 @@ import {
 } from "./autonomy-read-model.js";
 import { resolveAutonomyDrainBatchPlanKey } from "./batch-plan-selection.js";
 import { loadBatchQueueSnapshot, type BatchQueueControlReadPgClientLike } from "./batch-queue-control-read.js";
+import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
 
 /**
  * Live read of autonomy policy/run rows into `AutonomyDashboardView`.
@@ -113,6 +114,13 @@ export async function loadAutonomyDashboard(
       targetKey: policy.targetKey,
       planKey: batchPlanKey
     });
+    const productionPackageApproval = queueSnapshot
+      ? await loadProductionPackageWaveApprovalContext({
+          client,
+          projectKey: input.projectKey,
+          targetKey: policy.targetKey
+        })
+      : null;
 
     return buildAutonomyDashboardView({
       projectKey: input.projectKey,
@@ -122,6 +130,7 @@ export async function loadAutonomyDashboard(
       latestDryRunExecution: queueSnapshot?.latestExecution,
       latestStagingWave: queueSnapshot?.latestWave,
       productionPackage: queueSnapshot?.latestProductionPackageWave,
+      productionPackageApproval,
       actor: { type: "autonomous_agent", id: "confluendo-autonomy-read-model" }
     });
   } catch (error) {

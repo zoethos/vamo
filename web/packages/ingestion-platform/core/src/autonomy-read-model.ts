@@ -8,6 +8,7 @@
 import {
   evaluateAutonomyCycle,
   type AutonomyPolicyEnvelope,
+  type AutonomyProductionPackageApprovalContext,
   type AutonomyProductionPackageState,
   type AutonomyRollingCounts,
   type EvaluateAutonomyCycleResult
@@ -108,6 +109,7 @@ export interface BuildAutonomyDashboardViewInput {
   latestDryRunExecution?: BatchQueueLatestExecution | null;
   latestStagingWave?: BatchQueueLatestWave | null;
   productionPackage?: AutonomyProductionPackageState | null;
+  productionPackageApproval?: AutonomyProductionPackageApprovalContext | null;
   rollingCounts?: AutonomyRollingCounts;
   externalBlockers?: string[];
   actor?: { type: "autonomous_agent"; id: string };
@@ -178,6 +180,7 @@ export function buildAutonomyDashboardView(
     latestDryRunExecution: input.latestDryRunExecution,
     latestStagingWave: input.latestStagingWave,
     productionPackage: input.productionPackage ?? queueSnapshot?.latestProductionPackageWave ?? null,
+    productionPackageApproval: input.productionPackageApproval,
     rollingCounts: input.rollingCounts,
     externalBlockers: input.externalBlockers,
     actor
