@@ -367,6 +367,55 @@ describe("autonomy policy", () => {
     assert.equal(result.pauseReasonCode, "production_inbox_not_executable");
   });
 
+  it("does not park autonomy on delivered packages already applied by the consumer", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const snapshot = {
+      ...base,
+      items: base.items.map((item) => ({
+        ...item,
+        status: "consumer_applied" as const,
+        blockReasons: []
+      })),
+      blockerSummaries: [],
+      progress: {
+        ...base.progress,
+        planned: 0,
+        blocked: 0,
+        ready: 0,
+        applied: base.items.length,
+        productionPackage: {
+          ...base.progress.productionPackage,
+          delivered: 0,
+          applyPending: 0,
+          applied: base.items.length,
+          blocked: 0
+        }
+      }
+    };
+    const result = evaluateAutonomyCycle({
+      policy: activePolicy({
+        allowedTransitions: [
+          "approve_production_package_wave",
+          "deliver_production_package_wave",
+          "apply_consumer_package"
+        ],
+        productionInboxHandoffPolicy: { enabled: true }
+      }),
+      queueSnapshot: snapshot,
+      productionPackage: {
+        waveKey: "batch-production-inbox:sample",
+        packageKey: "batch-production-inbox:sample:unit-a",
+        packageId: "batch-production-inbox:sample:unit-a",
+        status: "delivered",
+        deliveryStatus: "production_inbox_delivered",
+        consumerApplyStatus: "applied"
+      },
+      actor: autonomousActor
+    });
+    assert.equal(result.decision, "no_op");
+    assert.equal(result.requiredAction, "wait_for_human");
+  });
+
   it("never infers environment from target key text", () => {
     const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
     const result = evaluateAutonomyCycle({
