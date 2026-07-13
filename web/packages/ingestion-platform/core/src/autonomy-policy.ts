@@ -884,6 +884,9 @@ function readProductionPackageBlocker(
 }
 
 function packageNeedsConsumerApply(productionPackage: AutonomyProductionPackageState): boolean {
+  if (productionPackage.consumerApplyStatus === "applied") {
+    return false;
+  }
   return (
     PACKAGE_APPLY_PENDING_STATUSES.has(productionPackage.status ?? "") ||
     productionPackage.deliveryStatus === "production_inbox_delivered" ||
