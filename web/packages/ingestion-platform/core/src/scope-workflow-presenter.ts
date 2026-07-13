@@ -234,9 +234,14 @@ function describeScopeDisposition(
 
   if (
     item.status === "consumer_applied" ||
-    item.crossPlanPackageLifecycle?.status === "consumer_applied"
+    item.crossPlanPackageLifecycle?.status === "consumer_applied" ||
+    deliveryWaveItem?.consumerApplyStatus === "applied"
   ) {
     return { key: "applied", label: "Applied by consumer", tone: "good" };
+  }
+
+  if (deliveryWaveItem?.consumerApplyStatus === "failed") {
+    return { key: "blocked", label: "Consumer apply failed", tone: "danger" };
   }
 
   if (
@@ -378,6 +383,13 @@ function describeScopeNextAction(
   }
   if (historical) {
     return `Follow delivery evidence in previous plan ${historical.planKey}.`;
+  }
+
+  if (deliveryWaveItem?.consumerApplyStatus === "applied") {
+    return "No further ingestion action — consumer apply is complete.";
+  }
+  if (deliveryWaveItem?.consumerApplyStatus === "failed") {
+    return "Review consumer apply failure evidence with the product team.";
   }
 
   if (item.blockReasons.length > 0 || item.status.endsWith("_blocked") || item.status === "blocked") {

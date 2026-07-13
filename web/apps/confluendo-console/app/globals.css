@@ -5997,6 +5997,10 @@ a:hover {
   display: none;
 }
 
+.admin-ux-workflow-mobile-panel {
+  display: none;
+}
+
 .admin-ux-overview-secondary {
   display: grid;
   gap: 1rem;
@@ -6052,6 +6056,10 @@ a:hover {
     font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .admin-ux-workflow-mobile-panel {
+    display: block;
   }
 
   .admin-ux-workflow-mobile-panel .admin-ux-workflow-navigator {

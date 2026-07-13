@@ -179,6 +179,49 @@ describe("presentScopeWorkflowContext", () => {
     assert.equal(context.evidenceTrail[3]?.available, false);
   });
 
+  it("uses consumer telemetry when the queue row has not refreshed yet", () => {
+    const base = sampleVamoEuPoiBatchQueueSnapshot();
+    const unitKey = base.items[0]!.unitKey;
+    const batchQueue = withItem(base, unitKey, {
+      status: "production_package_delivered"
+    });
+
+    batchQueue.latestProductionPackageWave = {
+      waveKey: "delivery-wave-applied",
+      status: "delivered",
+      targetEnvironment: "production",
+      targetKey: batchQueue.targetKey,
+      schemaContract: "vamo-place-intelligence@1",
+      maxUnits: 1,
+      maxRows: 10,
+      maxPackages: 1,
+      unitCount: 1,
+      totalPlannedRows: 2,
+      items: [
+        {
+          unitKey,
+          runOrder: 1,
+          status: "production_package_delivered",
+          plannedRowCount: 2,
+          schemaContract: "vamo-place-intelligence@1",
+          packageId: "pkg-applied",
+          consumerApplyStatus: "applied",
+          blockers: []
+        }
+      ]
+    };
+
+    const context = presentScopeWorkflowContext({
+      selectedUnitKey: unitKey,
+      batchQueue
+    });
+
+    assert.ok(context);
+    assert.equal(context.disposition.key, "applied");
+    assert.match(context.nextAction, /consumer apply is complete/i);
+    assert.equal(context.evidenceTrail[3]?.status, "Applied");
+  });
+
   it("treats source_snapshot_empty scopes as parked, not operator exceptions", () => {
     const base = sampleVamoEuPoiBatchQueueSnapshot();
     const unitKey = base.items.find((item) => item.status === "blocked")?.unitKey ?? base.items[0]!.unitKey;
