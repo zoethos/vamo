@@ -1,0 +1,14 @@
+kind: ingestion.snapshot_release_manifest
+sourceKey: fsq-os-places-snapshot
+sourceProvider: fsq_os_places
+releaseId: test-snapshot-release-2026-07
+acquiredAt: "2026-07-01T12:00:00Z"
+provenanceUrl: "https://places.foursquare.com/products/open-source-places"
+sourceAttribution: "FSQ Open Source Places"
+licenseIdentifier: "FSQ-OS-Places"
+factStorageApproved: true
+retentionStatement: "Retain until superseded by a newer approved snapshot or until source rights change."
+expectedSha256: PLACEHOLDER_SHA256
+sourceFormat: normalized_jsonl
+intendedConsumer: vamo
+intendedTarget: vamo-place-intelligence

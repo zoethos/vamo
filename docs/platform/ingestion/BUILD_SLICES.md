@@ -1702,8 +1702,34 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.5+** — expand bundled snapshot partitions toward
-full-data volume and first bounded dry-run execution waves.
+Next product slice: **IP-18.8.10+** — activate a reviewed snapshot release into the
+bundled consumer contract and re-seed supply after a real approved export exists.
+
+### IP-18.8.9 — implemented (versioned snapshot intake)
+
+**Status:** done — repeatable local intake for reviewed FSQ OS Places exports.
+**Not** live provider calls, **not** queue reseed, **not** snapshot activation,
+**not** console UI.
+
+Deliverables:
+
+- `snapshot-release-manifest.ts` — versioned release manifest parser recording
+  source key/provider, release id, acquired-at, provenance URL, attribution,
+  license, fact-storage approval, retention statement, expected SHA-256, source
+  format, and intended consumer/target.
+- `versioned-snapshot-intake.ts` — pure local intake helper that verifies input
+  SHA-256, validates Vamo candidate facts/attribution, rejects media bytes and
+  unknown fields, emits deterministic normalized JSONL plus coverage by country
+  and POI type from valid rows only.
+- `ip18:snapshot-intake` — preview by default; `--execute` requires
+  `CONFIRM_CONFLUENDO_SNAPSHOT_INTAKE=YES`, explicit `--manifest`, `--input`,
+  and a new `--output-dir`, refuses git-worktree output paths and replacement
+  of an existing release, atomically writes `source.jsonl`, `release.json`,
+  and `coverage-report.json`.
+- Intake vs activation documented: operators obtain the FSQ export through the
+  Places Portal with a separately stored source token, run local intake outside
+  the repo, then activate/reseed in a later reviewed slice. Never commit the
+  export or token.
 
 ### IP-18.8.4 — implemented (production package batch controls)
 
