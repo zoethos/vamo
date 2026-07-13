@@ -51,6 +51,10 @@
       "types": "./dist/core/src/vamo-place-intelligence-presentation.d.ts",
       "default": "./dist/core/src/vamo-place-intelligence-presentation.js"
     },
+    "./core/delivery-operator-presenter": {
+      "types": "./dist/core/src/delivery-operator-presenter.d.ts",
+      "default": "./dist/core/src/delivery-operator-presenter.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"

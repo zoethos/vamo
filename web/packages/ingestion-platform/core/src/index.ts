@@ -746,3 +746,17 @@ export {
   type BatchControlActor,
   type BatchControlActorType
 } from "./batch-control-actor.js";
+export {
+  APPLY_DURATION_NOTE,
+  approvalButtonDisabledReason,
+  approvalButtonLabel,
+  approvalEnvelopeOverrideWarning,
+  applyButtonDisabledReason,
+  applyButtonLabel,
+  deriveProductionPackageApprovalEnvelope,
+  type ApplyOperationPhase,
+  type ApplyPreflightPhase,
+  type ApprovalEnvelopeDerived,
+  type ApprovalEnvelopeOverride,
+  type ApprovalOperationPhase
+} from "./delivery-operator-presenter.js";
