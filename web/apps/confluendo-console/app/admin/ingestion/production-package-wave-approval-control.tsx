@@ -120,7 +120,9 @@ export function ProductionPackageWaveApprovalControl({
   hasPriorDeliveredPackage,
   packageProgress,
   latestWave,
-  context
+  context,
+  selectedUnitKey,
+  onOpenScope
 }: {
   projectKey: string;
   targetKey: string;
@@ -132,6 +134,8 @@ export function ProductionPackageWaveApprovalControl({
   packageProgress: PackageProgress;
   latestWave?: LatestWaveSummary | null;
   context: ProductionPackageWaveContext;
+  selectedUnitKey?: string | null;
+  onOpenScope?: (unitKey: string) => void;
 }) {
   const [reason, setReason] = useState("");
   const [selectedUnitKeys, setSelectedUnitKeys] = useState<string[]>([]);
@@ -232,13 +236,15 @@ export function ProductionPackageWaveApprovalControl({
       </p>
 
       <ProductionPackageApprovalQueue
-        items={items}
-        targetKey={targetKey}
         eligibleCount={eligibleCount}
+        items={items}
         occupiedUnitKeys={occupiedUnitKeys}
-        stagingEvidenceByUnitKey={stagingEvidenceByUnitKey}
-        selectedUnitKeys={selectedUnitKeys}
+        onOpenScope={onOpenScope}
         onSelectionChange={setSelectedUnitKeys}
+        selectedUnitKey={selectedUnitKey}
+        selectedUnitKeys={selectedUnitKeys}
+        stagingEvidenceByUnitKey={stagingEvidenceByUnitKey}
+        targetKey={targetKey}
       />
 
       <div className="admin-canary-fields">

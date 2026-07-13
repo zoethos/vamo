@@ -5778,7 +5778,226 @@ a:hover {
   text-transform: uppercase;
 }
 
+.admin-ux-scope-context {
+  gap: 0.85rem;
+}
+
+.admin-ux-scope-back {
+  align-self: flex-start;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.admin-ux-scope-back:hover,
+.admin-ux-scope-back:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-ux-scope-identity {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.admin-ux-scope-identity > strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.admin-ux-scope-key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.admin-ux-scope-copy {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: var(--surface-inset);
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.admin-ux-scope-copy:hover,
+.admin-ux-scope-copy:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.admin-ux-scope-display-fields {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface-inset);
+}
+
+.admin-ux-scope-display-fields dt {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ux-scope-display-fields dd {
+  margin: 0.15rem 0 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.admin-ux-scope-status,
+.admin-ux-scope-stage,
+.admin-ux-scope-lifecycle {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: var(--surface-inset);
+}
+
+.admin-ux-scope-status-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ux-scope-stage p,
+.admin-ux-scope-lifecycle p,
+.admin-ux-scope-next-action {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.admin-ux-scope-next-action {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--surface-inset) 88%, var(--accent) 12%);
+}
+
+.admin-ux-scope-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+
+.admin-ux-scope-metrics dt {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ux-scope-metrics dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.admin-ux-scope-evidence-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-ux-scope-evidence-list li {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 0.45rem;
+  background: var(--surface-raised);
+}
+
+.admin-ux-scope-evidence-list li.is-unavailable {
+  opacity: 0.72;
+}
+
+.admin-ux-scope-evidence-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.admin-ux-scope-evidence-head span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.admin-ux-scope-evidence-list p {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.admin-open-scope-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-open-scope-button:hover,
+.admin-open-scope-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-open-scope-button.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--surface-raised) 82%, var(--accent) 18%);
+  color: var(--text-primary);
+}
+
+.admin-open-scope-button-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.admin-open-scope-button-label {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-ux-attention-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .admin-ux-workflow-mobile-toggle {
+  display: none;
+}
+
+.admin-ux-workflow-mobile-panel {
   display: none;
 }
 
@@ -5837,6 +6056,10 @@ a:hover {
     font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .admin-ux-workflow-mobile-panel {
+    display: block;
   }
 
   .admin-ux-workflow-mobile-panel .admin-ux-workflow-navigator {

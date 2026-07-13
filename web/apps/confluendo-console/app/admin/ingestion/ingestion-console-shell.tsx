@@ -15,6 +15,7 @@ import {
   presentWorkflowDecisionHeader,
   presentWorkflowNavigator
 } from "@confluendo/ingestion-platform/core/workflow-navigator-presenter";
+import { presentScopeWorkflowContext } from "@confluendo/ingestion-platform/core/scope-workflow-presenter";
 import type {
   IngestionAction,
   IngestionEvent,
@@ -42,6 +43,7 @@ import {
   RecoveryCommandButton,
   TargetCommandButton
 } from "./ingestion-command-controls";
+import { OpenScopeButton } from "./open-scope-button";
 import { IngestionQueueTable } from "./ingestion-queue-table";
 import {
   autonomySourceLabel,
@@ -161,6 +163,36 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
   const [activeView, setActiveView] = useState<ConsoleView>("overview");
   const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
   const [mobileNavigatorOpen, setMobileNavigatorOpen] = useState(false);
+  const [selectedUnitKey, setSelectedUnitKey] = useState<string | null>(null);
+
+  const deliveryWaveItemsPresentation = useMemo(
+    () =>
+      props.latestProductionPackageWave?.items?.map((item) => ({
+        unitKey: item.unitKey,
+        statusPresentation: item.statusPresentation,
+        consumerApplyStatus: item.consumerApplyStatus,
+        packageId: item.packageId,
+        contentEquivalenceLabel: item.contentEquivalenceLabel,
+        telemetrySource: item.telemetrySource
+      })) ?? null,
+    [props.latestProductionPackageWave?.items]
+  );
+
+  const scopeContext = useMemo(
+    () =>
+      presentScopeWorkflowContext({
+        selectedUnitKey,
+        batchQueue: props.batchQueue,
+        stagingEvidenceByUnitKey: props.productionPackageStagingEvidenceByUnitKey,
+        deliveryWaveItemsPresentation
+      }),
+    [
+      deliveryWaveItemsPresentation,
+      props.batchQueue,
+      props.productionPackageStagingEvidenceByUnitKey,
+      selectedUnitKey
+    ]
+  );
 
   const workflowPresenterInput = useMemo(
     () => ({
@@ -184,6 +216,13 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
     () => presentWorkflowNavigator(workflowPresenterInput),
     [workflowPresenterInput]
   );
+  const workflowRailPresentation = scopeContext ?? workflowNavigator;
+  const openScope = (unitKey: string) => {
+    setSelectedUnitKey(unitKey);
+    setNavigatorCollapsed(false);
+    setMobileNavigatorOpen(true);
+  };
+  const clearScope = () => setSelectedUnitKey(null);
   const decisionHeader = useMemo(
     () =>
       presentWorkflowDecisionHeader({
@@ -292,9 +331,11 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           type="button"
         >
           {mobileNavigatorOpen ? "Hide workflow navigator" : "Show workflow navigator"}
-          {workflowNavigator.attentionCount > 0
-            ? ` · ${workflowNavigator.attentionCount} action needed`
-            : ""}
+          {scopeContext
+            ? ` · ${scopeContext.friendlyName}`
+            : workflowNavigator.attentionCount > 0
+              ? ` · ${workflowNavigator.attentionCount} action needed`
+              : ""}
         </button>
 
         {mobileNavigatorOpen ? (
@@ -303,13 +344,14 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
               activeView={activeView}
               collapsed={false}
               mobile
+              onBackToPortfolio={scopeContext ? clearScope : undefined}
               onCollapse={() => setMobileNavigatorOpen(false)}
               onExpand={() => setMobileNavigatorOpen(true)}
               onNavigateView={(view) => {
                 setActiveView(view);
                 setMobileNavigatorOpen(false);
               }}
-              presentation={workflowNavigator}
+              presentation={workflowRailPresentation}
             />
           </div>
         ) : null}
@@ -330,6 +372,8 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           coverageRows={props.coverageRows}
           batchCategories={props.batchCategories}
           attentionRows={props.attentionRows}
+          onOpenScope={openScope}
+          selectedUnitKey={selectedUnitKey}
           autonomyView={props.autonomyView}
         />
       ) : null}
@@ -343,6 +387,8 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchContext={batchContext}
           batchCountries={props.batchCountries}
           batchCategories={props.batchCategories}
+          onOpenScope={openScope}
+          selectedUnitKey={selectedUnitKey}
         />
       ) : null}
 
@@ -368,6 +414,8 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchQueueSource={props.batchQueueSource}
           batchCanaryWaveEligibleCount={props.batchCanaryWaveEligibleCount}
           batchContext={batchContext}
+          onOpenScope={openScope}
+          selectedUnitKey={selectedUnitKey}
         />
       ) : null}
 
@@ -382,6 +430,8 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           latestProductionPackageWave={props.latestProductionPackageWave}
           applyTelemetrySource={props.applyTelemetrySource}
           batchContext={batchContext}
+          onOpenScope={openScope}
+          selectedUnitKey={selectedUnitKey}
         />
       ) : null}
 
@@ -403,6 +453,9 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           progressiveSource={props.progressiveSource}
           canaryTarget={canaryTarget}
           progressiveContext={progressiveContext}
+          attentionRows={props.attentionRows}
+          onOpenScope={openScope}
+          selectedUnitKey={selectedUnitKey}
         />
       ) : null}
 
@@ -411,10 +464,11 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
         <WorkflowNavigator
           activeView={activeView}
           collapsed={navigatorCollapsed}
+          onBackToPortfolio={scopeContext ? clearScope : undefined}
           onCollapse={() => setNavigatorCollapsed(true)}
           onExpand={() => setNavigatorCollapsed(false)}
           onNavigateView={setActiveView}
-          presentation={workflowNavigator}
+          presentation={workflowRailPresentation}
         />
       </div>
 
@@ -434,6 +488,8 @@ function OverviewView({
   coverageRows,
   batchCategories,
   attentionRows,
+  onOpenScope,
+  selectedUnitKey,
   autonomyView
 }: {
   source: DashboardSource;
@@ -447,6 +503,8 @@ function OverviewView({
   coverageRows: IngestionConsoleShellProps["coverageRows"];
   batchCategories: string[];
   attentionRows: BatchQueueItem[];
+  onOpenScope: (unitKey: string) => void;
+  selectedUnitKey: string | null;
   autonomyView: AutonomyDashboardView;
 }) {
   return (
@@ -603,9 +661,18 @@ function OverviewView({
             <ol className="admin-ux-attention-list">
               {attentionRows.map((item) => (
                 <li key={item.unitKey}>
-                  <strong>{friendlyUnit(item.unitKey)}</strong>
-                  <span>{queueStatusLabels[item.status]}</span>
-                  <p>{item.blockReasons[0] ?? "Review the latest ledger evidence."}</p>
+                  <div className="admin-ux-attention-row">
+                    <div>
+                      <strong>{friendlyUnit(item.unitKey)}</strong>
+                      <span>{queueStatusLabels[item.status]}</span>
+                      <p>{item.blockReasons[0] ?? "Review the latest ledger evidence."}</p>
+                    </div>
+                    <OpenScopeButton
+                      onOpen={onOpenScope}
+                      selected={selectedUnitKey === item.unitKey}
+                      unitKey={item.unitKey}
+                    />
+                  </div>
                 </li>
               ))}
             </ol>
@@ -625,7 +692,9 @@ function QueueView({
   batchQueueEligibleCount,
   batchContext,
   batchCountries,
-  batchCategories
+  batchCategories,
+  onOpenScope,
+  selectedUnitKey
 }: {
   batchQueue: BatchQueueSnapshot;
   batchQueueSource: DashboardSource;
@@ -634,6 +703,8 @@ function QueueView({
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
   batchCountries: string[];
   batchCategories: string[];
+  onOpenScope: (unitKey: string) => void;
+  selectedUnitKey: string | null;
 }) {
   return (
     <section className="admin-ux-section admin-ux-view-panel" aria-label="Batch queue">
@@ -693,7 +764,12 @@ function QueueView({
           </table>
         </div>
       ) : null}
-      <IngestionQueueTable items={batchQueue.items} sourceKey={batchQueue.sourceKey} />
+      <IngestionQueueTable
+        items={batchQueue.items}
+        onOpenScope={onOpenScope}
+        selectedUnitKey={selectedUnitKey}
+        sourceKey={batchQueue.sourceKey}
+      />
       <details className="admin-evidence-details">
         <summary>Coverage matrix (raw)</summary>
         <div className="admin-table-wrap">
@@ -731,12 +807,16 @@ function StagingView({
   batchQueue,
   batchQueueSource,
   batchCanaryWaveEligibleCount,
-  batchContext
+  batchContext,
+  onOpenScope,
+  selectedUnitKey
 }: {
   batchQueue: BatchQueueSnapshot;
   batchQueueSource: DashboardSource;
   batchCanaryWaveEligibleCount: number;
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
+  onOpenScope: (unitKey: string) => void;
+  selectedUnitKey: string | null;
 }) {
   return (
     <section className="admin-ux-section admin-ux-view-panel" aria-label="Staging verification">
@@ -760,6 +840,8 @@ function StagingView({
         queueItems={batchQueue.items}
         latestWave={batchQueue.latestWave}
         context={batchContext}
+        onOpenScope={onOpenScope}
+        selectedUnitKey={selectedUnitKey}
       />
       {batchQueue.latestWave ? (
         <>
@@ -788,6 +870,7 @@ function StagingView({
                     <th>Expected target writes</th>
                     <th>Shipment</th>
                     <th>Exceptions</th>
+                    <th>Context</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -804,6 +887,13 @@ function StagingView({
                       <td>{item.plannedRowCount}</td>
                       <td>{item.shipmentId ?? "—"}</td>
                       <td>{item.blockers.length > 0 ? item.blockers.join(", ") : "—"}</td>
+                      <td>
+                        <OpenScopeButton
+                          onOpen={onOpenScope}
+                          selected={selectedUnitKey === item.unitKey}
+                          unitKey={item.unitKey}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -844,7 +934,9 @@ function DeliveryView({
   productionPackageHasPriorDeliveredPackage,
   latestProductionPackageWave,
   applyTelemetrySource,
-  batchContext
+  batchContext,
+  onOpenScope,
+  selectedUnitKey
 }: {
   batchQueue: BatchQueueSnapshot;
   batchQueueSource: DashboardSource;
@@ -855,6 +947,8 @@ function DeliveryView({
   latestProductionPackageWave: ProductionPackageWavePresentation | null;
   applyTelemetrySource?: string;
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
+  onOpenScope: (unitKey: string) => void;
+  selectedUnitKey: string | null;
 }) {
   return (
     <section className="admin-ux-section admin-ux-view-panel" aria-label="Consumer inbox delivery">
@@ -894,6 +988,8 @@ function DeliveryView({
         packageProgress={batchQueue.progress.productionPackage}
         latestWave={latestProductionPackageWave}
         context={batchContext}
+        onOpenScope={onOpenScope}
+        selectedUnitKey={selectedUnitKey}
       />
       {batchQueue.latestProductionPackageWave ? (
         <>
@@ -913,6 +1009,7 @@ function DeliveryView({
                     <th>Consumer apply</th>
                       <th>Content</th>
                       <th>Package id</th>
+                      <th>Context</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -936,6 +1033,13 @@ function DeliveryView({
                         <td>{item.contentEquivalenceLabel ?? "Hash unavailable"}</td>
                         <td>
                         <code>{item.packageId ?? "—"}</code>
+                      </td>
+                      <td>
+                        <OpenScopeButton
+                          onOpen={onOpenScope}
+                          selected={selectedUnitKey === item.unitKey}
+                          unitKey={item.unitKey}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -1110,7 +1214,10 @@ function DiagnosticsView({
   progressiveNextAction,
   progressiveSource,
   canaryTarget,
-  progressiveContext
+  progressiveContext,
+  attentionRows,
+  onOpenScope,
+  selectedUnitKey
 }: {
   principal: AdminPrincipal;
   source: DashboardSource;
@@ -1128,6 +1235,9 @@ function DiagnosticsView({
   progressiveSource: DashboardSource;
   canaryTarget?: ProgressiveRunView["rows"][number];
   progressiveContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: "live" | "sample" };
+  attentionRows: BatchQueueItem[];
+  onOpenScope: (unitKey: string) => void;
+  selectedUnitKey: string | null;
 }) {
   return (
     <>
@@ -1145,6 +1255,38 @@ function DiagnosticsView({
             {principal.role} · {principal.assuranceLevel}
           </span>
         </div>
+      </section>
+
+      <section className="admin-ux-section admin-ux-view-panel" aria-label="Scopes needing attention">
+        <div className="admin-section-heading admin-section-heading-compact">
+          <div>
+            <p className="admin-kicker">Needs attention</p>
+            <h2>Scopes requiring operator review</h2>
+          </div>
+          <span className="admin-table-count">{attentionRows.length}</span>
+        </div>
+        {attentionRows.length > 0 ? (
+          <ol className="admin-ux-attention-list">
+            {attentionRows.map((item) => (
+              <li key={item.unitKey}>
+                <div className="admin-ux-attention-row">
+                  <div>
+                    <strong>{friendlyUnit(item.unitKey)}</strong>
+                    <span>{queueStatusLabels[item.status]}</span>
+                    <p>{item.blockReasons[0] ?? "Review the latest ledger evidence."}</p>
+                  </div>
+                  <OpenScopeButton
+                    onOpen={onOpenScope}
+                    selected={selectedUnitKey === item.unitKey}
+                    unitKey={item.unitKey}
+                  />
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="admin-ux-empty">No operator action is currently required.</p>
+        )}
       </section>
 
       <section className="admin-signal-grid admin-legacy-section" aria-label="Ingestion summary">

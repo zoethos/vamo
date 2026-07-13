@@ -10,12 +10,15 @@ import {
   queueStatusLabels,
   type OperatorTone
 } from "./ingestion-console-labels";
+import { OpenScopeButton } from "./open-scope-button";
 
 export type QueueGroupBy = "none" | "status" | "lifecycle" | "country" | "category" | "source";
 
 interface IngestionQueueTableProps {
   items: BatchQueueItem[];
   sourceKey: string;
+  selectedUnitKey?: string | null;
+  onOpenScope?: (unitKey: string) => void;
 }
 
 function needsAttention(item: BatchQueueItem): boolean {
@@ -39,7 +42,7 @@ function groupKey(item: BatchQueueItem, groupBy: QueueGroupBy): string {
   }
 }
 
-export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTableProps) {
+export function IngestionQueueTable({ items, sourceKey, selectedUnitKey, onOpenScope }: IngestionQueueTableProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
@@ -251,15 +254,18 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
                   <th>Category</th>
                   <th>Effective lifecycle</th>
                   <th>Simulation</th>
+                  {onOpenScope ? <th>Context</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {group.items.map((item) => (
                   <QueueRow
                     key={item.unitKey}
-                    item={item}
                     expanded={expandedKeys.has(item.unitKey)}
+                    item={item}
+                    onOpenScope={onOpenScope}
                     onToggle={() => toggleExpanded(item.unitKey)}
+                    selectedUnitKey={selectedUnitKey}
                   />
                 ))}
               </tbody>
@@ -278,11 +284,15 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
 function QueueRow({
   item,
   expanded,
-  onToggle
+  onToggle,
+  onOpenScope,
+  selectedUnitKey
 }: {
   item: BatchQueueItem;
   expanded: boolean;
   onToggle: () => void;
+  onOpenScope?: (unitKey: string) => void;
+  selectedUnitKey?: string | null;
 }) {
   const lifecycle = describeEffectiveQueueLifecycle(item);
   const tone: OperatorTone = lifecycle.tone;
@@ -323,10 +333,19 @@ function QueueRow({
               ? item.blockReasons.join(", ")
               : "—"}
         </td>
+        {onOpenScope ? (
+          <td>
+            <OpenScopeButton
+              onOpen={onOpenScope}
+              selected={selectedUnitKey === item.unitKey}
+              unitKey={item.unitKey}
+            />
+          </td>
+        ) : null}
       </tr>
       {expanded ? (
         <tr className="admin-queue-details-row">
-          <td colSpan={7}>
+          <td colSpan={onOpenScope ? 8 : 7}>
             <dl className="admin-queue-details">
               <div>
                 <dt>Scope key</dt>
