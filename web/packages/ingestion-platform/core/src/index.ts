@@ -347,6 +347,14 @@ export {
   type BuildBatchQueueSnapshotInput
 } from "./batch-queue-read-model.js";
 export {
+  CROSS_PLAN_PACKAGE_LIFECYCLE_STATUSES,
+  isCrossPlanPackageLifecycleStatus,
+  resolveCrossPlanPackageLifecycles,
+  type CrossPlanPackageLifecycle,
+  type CrossPlanPackageLifecycleCandidate,
+  type CrossPlanPackageLifecycleStatus
+} from "./batch-cross-plan-package-lifecycle.js";
+export {
   mapSnapshotToPersistenceBundle,
   mapPersistenceBundleToSnapshot,
   assertValidQueueItemStatus,
@@ -471,7 +479,9 @@ export {
   type BatchProductionPackageWavePgClientLike
 } from "./batch-production-package-wave-control.js";
 export {
+  loadCrossPlanPackageLifecycles,
   loadProductionPackageWaveApprovalContext,
+  type LoadCrossPlanPackageLifecyclesInput,
   type LoadProductionPackageWaveApprovalContextInput,
   type ProductionPackageWaveApprovalContext
 } from "./batch-production-package-wave-read.js";

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { BatchQueueItem } from "@confluendo/ingestion-platform/core";
 import {
+  describeEffectiveQueueLifecycle,
   describeProductionPackageQueueNextAction,
   describeProductionPackageQueueStagingStatus,
   extractDryRunReportMetrics,
@@ -10,7 +11,6 @@ import {
   isProductionPackageWaveSelectable,
   matchesProductionPackageApprovalQueueFilter,
   productionPackageApprovalQueueFilterLabels,
-  queueStatusLabels,
   type ProductionPackageApprovalQueueFilter
 } from "./ingestion-console-labels";
 
@@ -66,6 +66,7 @@ export function ProductionPackageApprovalQueue({
           stagingSucceeded
         });
         const metrics = extractDryRunReportMetrics(item.dryRunReport);
+        const lifecycle = describeEffectiveQueueLifecycle(item);
         return {
           item,
           eligibleForPackage,
@@ -73,7 +74,8 @@ export function ProductionPackageApprovalQueue({
           stagingStatus: describeProductionPackageQueueStagingStatus(
             staging ? stagingSucceeded : undefined
           ),
-          packageStatus: queueStatusLabels[item.status] ?? item.status,
+          packageStatus: lifecycle.label,
+          packageStatusDetail: lifecycle.detail,
           nextAction: describeProductionPackageQueueNextAction(item, eligibleForPackage)
         };
       })
@@ -154,7 +156,7 @@ export function ProductionPackageApprovalQueue({
               ))}
               <th>Expected target writes</th>
               <th>Staging evidence</th>
-              <th>Package status</th>
+              <th>Effective delivery status</th>
               <th>Next action</th>
             </tr>
           </thead>
@@ -188,7 +190,12 @@ export function ProductionPackageApprovalQueue({
                 })}
                 <td>{row.expectedTargetWrites ?? "—"}</td>
                 <td>{row.stagingStatus}</td>
-                <td>{row.packageStatus}</td>
+                <td>
+                  <strong>{row.packageStatus}</strong>
+                  {row.packageStatusDetail ? (
+                    <code className="admin-evidence-code">{row.packageStatusDetail}</code>
+                  ) : null}
+                </td>
                 <td>{row.nextAction}</td>
               </tr>
             ))}

@@ -1,5 +1,6 @@
 import { Client, type QueryResult } from "pg";
 
+import { loadCrossPlanPackageLifecycles } from "./batch-production-package-wave-read.js";
 import {
   mapPersistenceBundleToSnapshot,
   type PersistedBatchPlanRow,
@@ -241,6 +242,13 @@ export async function loadBatchQueueSnapshot(
     const latestExecution = await loadLatestExecution(client, batchPlanId);
     const latestWave = await loadLatestWave(client, batchPlanId);
     const latestProductionPackageWave = await loadLatestProductionPackageWave(client, batchPlanId);
+    const crossPlanPackageLifecycleByUnitKey = await loadCrossPlanPackageLifecycles({
+      client,
+      projectKey: plan.projectKey,
+      targetKey: plan.targetKey,
+      currentBatchPlanId: batchPlanId,
+      unitKeys: itemResult.rows.map((row) => row.unitKey)
+    });
 
     return mapPersistenceBundleToSnapshot(
       plan.projectKey,
@@ -273,7 +281,8 @@ export async function loadBatchQueueSnapshot(
       })),
       latestExecution,
       latestWave,
-      latestProductionPackageWave
+      latestProductionPackageWave,
+      { crossPlanPackageLifecycleByUnitKey }
     );
   } catch (error) {
     if (isUndefinedTable(error)) {

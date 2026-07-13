@@ -7,6 +7,11 @@
 
 import { Client, type QueryResult } from "pg";
 
+import {
+  isCrossPlanPackageLifecycleStatus,
+  resolveCrossPlanPackageLifecycles,
+  type CrossPlanPackageLifecycle
+} from "./batch-cross-plan-package-lifecycle.js";
 import type { ProductionPackageStagingEvidence } from "./batch-production-package-wave-policy.js";
 import { collectOccupiedProductionPackageUnitKeys } from "./batch-production-package-wave-policy.js";
 import type { BatchQueueItemStatus } from "./batch-queue-read-model.js";
@@ -31,6 +36,14 @@ export interface LoadProductionPackageWaveApprovalContextInput {
   targetKey: string;
 }
 
+export interface LoadCrossPlanPackageLifecyclesInput {
+  client: ProductionPackageWaveReadPgClientLike;
+  projectKey: string;
+  targetKey: string;
+  currentBatchPlanId: string;
+  unitKeys: readonly string[];
+}
+
 interface StagingEvidenceRow extends Record<string, unknown> {
   unitKey: string;
   itemStatus: string;
@@ -44,7 +57,75 @@ interface OccupiedRow extends Record<string, unknown> {
   status: string;
 }
 
+interface CrossPlanLifecycleRow extends Record<string, unknown> {
+  unitKey: string;
+  planKey: string;
+  waveKey: string;
+  itemStatus: string;
+  updatedAt: string | Date | null;
+}
+
 const UNDEFINED_TABLE = "42P01";
+
+export async function loadCrossPlanPackageLifecycles(
+  input: LoadCrossPlanPackageLifecyclesInput
+): Promise<Record<string, CrossPlanPackageLifecycle>> {
+  const unitKeys = [...new Set(input.unitKeys.filter((unitKey) => unitKey.trim().length > 0))];
+  if (unitKeys.length === 0) {
+    return {};
+  }
+
+  try {
+    const result = await input.client.query<CrossPlanLifecycleRow>(
+      `
+        select
+          wi.unit_key as "unitKey",
+          bp.plan_key as "planKey",
+          w.wave_key as "waveKey",
+          wi.status as "itemStatus",
+          wi.updated_at as "updatedAt"
+        from ingestion_platform.ingestion_batch_production_package_wave_items wi
+        join ingestion_platform.ingestion_batch_production_package_waves w on w.id = wi.wave_id
+        join ingestion_platform.ingestion_batch_plans bp on bp.id = w.batch_plan_id
+        join ingestion_platform.ingestion_projects p on p.id = bp.project_id
+        where p.project_key = $1
+          and bp.target_key = $2
+          and bp.id <> $3::bigint
+          and wi.unit_key = any($4::text[])
+          and wi.status in (
+            'approved',
+            'delivering',
+            'delivered',
+            'consumer_apply_pending',
+            'consumer_applied',
+            'consumer_apply_failed'
+          )
+      `,
+      [input.projectKey, input.targetKey, input.currentBatchPlanId, unitKeys]
+    );
+
+    return resolveCrossPlanPackageLifecycles(
+      result.rows.flatMap((row) =>
+        isCrossPlanPackageLifecycleStatus(row.itemStatus)
+          ? [
+              {
+                unitKey: row.unitKey,
+                planKey: row.planKey,
+                waveKey: row.waveKey,
+                status: row.itemStatus,
+                updatedAt: row.updatedAt
+              }
+            ]
+          : []
+      )
+    );
+  } catch (error) {
+    if (isUndefinedTable(error)) {
+      return {};
+    }
+    throw error;
+  }
+}
 
 export async function loadProductionPackageWaveApprovalContext(
   input: LoadProductionPackageWaveApprovalContextInput

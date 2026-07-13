@@ -86,7 +86,8 @@ export default async function IngestionDashboardPage() {
         productionPackageEligibleCount = countStagingProvenPackageEligibleUnits(
           batchQueue,
           batchQueue.targetKey,
-          packageContext.stagingEvidenceByUnitKey
+          packageContext.stagingEvidenceByUnitKey,
+          packageContext.occupiedUnitKeys
         );
         productionPackageOccupiedUnitKeys = [...packageContext.occupiedUnitKeys];
         productionPackageStagingEvidenceByUnitKey = packageContext.stagingEvidenceByUnitKey;

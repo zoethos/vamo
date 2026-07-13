@@ -14,6 +14,7 @@ import {
   type ConsumerDisplayFieldSpec,
   type ResolvedConsumerDisplayField
 } from "./consumer-display-fields.js";
+import type { CrossPlanPackageLifecycle } from "./batch-cross-plan-package-lifecycle.js";
 
 export type BatchQueueItemStatus =
   | "planned"
@@ -98,6 +99,8 @@ export interface BatchQueueItem {
   dryRunReport?: BatchDryRunReport | null;
   proposal?: Record<string, unknown> | null;
   displayFields?: ResolvedConsumerDisplayField[];
+  /** Derived delivery evidence from an earlier plan for the same target scope. */
+  crossPlanPackageLifecycle?: CrossPlanPackageLifecycle | null;
 }
 
 export interface BatchQueueGroup {
