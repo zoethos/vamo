@@ -13,6 +13,9 @@ import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
 import { loadIp14ProgressiveBoard } from "@/lib/ip14-progressive-data";
 import { IngestionConsoleShell } from "./ingestion-console-shell";
 import {
+  isActionableWorkflowAttentionItem
+} from "@confluendo/ingestion-platform/core/workflow-navigator-presenter";
+import {
   percentOf,
   queueStatusTones
 } from "./ingestion-console-labels";
@@ -140,7 +143,11 @@ export default async function IngestionDashboardPage() {
     : null;
 
   const attentionRows = batchQueue.items
-    .filter((item) => queueStatusTones[item.status] === "danger" || item.blockReasons.length > 0)
+    .filter(
+      (item) =>
+        (queueStatusTones[item.status] === "danger" || item.blockReasons.length > 0) &&
+        isActionableWorkflowAttentionItem(item)
+    )
     .slice(0, 6);
 
   const operatorHealth =
