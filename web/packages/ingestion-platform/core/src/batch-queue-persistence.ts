@@ -4,6 +4,7 @@
  */
 
 import type { BatchPlanSpec } from "./batch-plan-spec.js";
+import type { CrossPlanPackageLifecycle } from "./batch-cross-plan-package-lifecycle.js";
 import {
   BATCH_QUEUE_ITEM_STATUSES,
   buildBatchQueueSnapshotFromItems,
@@ -100,14 +101,21 @@ export function mapPersistenceBundleToSnapshot(
   items: PersistedBatchQueueItemRow[],
   latestExecution?: BatchQueueLatestExecution | null,
   latestWave?: BatchQueueLatestWave | null,
-  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null
+  latestProductionPackageWave?: BatchQueueLatestProductionPackageWave | null,
+  options?: {
+    crossPlanPackageLifecycleByUnitKey?: Readonly<Record<string, CrossPlanPackageLifecycle>>;
+  }
 ): BatchQueueSnapshot {
   for (const item of items) {
     assertValidQueueItemStatus(item.status);
   }
 
   const queueItems = items
-    .map((row) => mapPersistenceRowToQueueItem(row))
+    .map((row) => {
+      const item = mapPersistenceRowToQueueItem(row);
+      const crossPlanPackageLifecycle = options?.crossPlanPackageLifecycleByUnitKey?.[item.unitKey];
+      return crossPlanPackageLifecycle ? { ...item, crossPlanPackageLifecycle } : item;
+    })
     .sort((a, b) => a.runOrder - b.runOrder);
 
   return buildBatchQueueSnapshotFromItems({

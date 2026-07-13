@@ -301,10 +301,66 @@ describe("batch queue control persistence", () => {
           now: "2026-07-02T13:00:00.000Z"
         });
 
+        const sampleItem = await client.query<{ id: string; unit_key: string; run_order: number }>(
+          `
+            select qi.id::text as id, qi.unit_key, qi.run_order
+            from ingestion_platform.ingestion_batch_queue_items qi
+            join ingestion_platform.ingestion_batch_plans bp on bp.id = qi.batch_plan_id
+            where bp.plan_key = 'vamo-eu-poi-sample'
+            order by qi.run_order asc
+            limit 1
+          `
+        );
+        const samplePlan = await client.query<{ id: string }>(
+          `
+            select id::text as id
+            from ingestion_platform.ingestion_batch_plans
+            where plan_key = 'vamo-eu-poi-sample'
+          `
+        );
+        const insertedWave = await client.query<{ id: string }>(
+          `
+            insert into ingestion_platform.ingestion_batch_production_package_waves (
+              project_id, batch_plan_id, wave_key, target_key, target_environment,
+              schema_contract, max_units, max_rows, max_packages, approval_reason,
+              approved_by, approved_at, approval_expires_at, actor_type, actor_id, status
+            )
+            select
+              p.id, $1::bigint, 'sample-wave:applied', 'vamo-place-intelligence', 'production',
+              'vamo-place-intelligence@1', 1, 2, 1, 'Existing delivery proof.',
+              '{}'::jsonb, '2026-07-02T12:10:00.000Z'::timestamptz,
+              '2026-07-02T12:25:00.000Z'::timestamptz, 'operator', 'test-admin', 'consumer_applied'
+            from ingestion_platform.ingestion_projects p
+            where p.project_key = 'vamo'
+            returning id::text as id
+          `,
+          [samplePlan.rows[0]?.id]
+        );
+        await client.query(
+          `
+            insert into ingestion_platform.ingestion_batch_production_package_wave_items (
+              wave_id, queue_item_id, unit_key, run_order, planned_row_count,
+              schema_contract, status
+            )
+            values ($1::bigint, $2::bigint, $3, $4, 2, 'vamo-place-intelligence@1', 'consumer_applied')
+          `,
+          [
+            insertedWave.rows[0]?.id,
+            sampleItem.rows[0]?.id,
+            sampleItem.rows[0]?.unit_key,
+            sampleItem.rows[0]?.run_order
+          ]
+        );
+
         const latest = await loadBatchQueueSnapshot({ client, projectKey: "vamo" });
         assert.ok(latest);
         assert.equal(latest.planId, "vamo-eu-full-data-v1");
         assert.equal(latest.progress.total, 2);
+        assert.deepEqual(latest.items[0]?.crossPlanPackageLifecycle, {
+          planKey: "vamo-eu-poi-sample",
+          waveKey: "sample-wave:applied",
+          status: "consumer_applied"
+        });
 
         const explicitSample = await loadBatchQueueSnapshot({
           client,

@@ -3,12 +3,11 @@
 import { useMemo, useState } from "react";
 import type { BatchQueueItem, BatchQueueItemStatus } from "@confluendo/ingestion-platform/core";
 import {
+  describeEffectiveQueueLifecycle,
   friendlyCategory,
   friendlyGeo,
   friendlyUnit,
-  lifecycleStage,
   queueStatusLabels,
-  queueStatusTones,
   type OperatorTone
 } from "./ingestion-console-labels";
 
@@ -20,15 +19,15 @@ interface IngestionQueueTableProps {
 }
 
 function needsAttention(item: BatchQueueItem): boolean {
-  return queueStatusTones[item.status] === "danger" || item.blockReasons.length > 0;
+  return describeEffectiveQueueLifecycle(item).tone === "danger" || item.blockReasons.length > 0;
 }
 
 function groupKey(item: BatchQueueItem, groupBy: QueueGroupBy): string {
   switch (groupBy) {
     case "status":
-      return queueStatusLabels[item.status];
+      return describeEffectiveQueueLifecycle(item).label;
     case "lifecycle":
-      return lifecycleStage(item.status);
+      return describeEffectiveQueueLifecycle(item).lifecycle;
     case "country":
       return friendlyGeo(item.country);
     case "category":
@@ -95,7 +94,8 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
         item.geography,
         item.category,
         item.sourceKey,
-        queueStatusLabels[item.status],
+        describeEffectiveQueueLifecycle(item).label,
+        item.crossPlanPackageLifecycle?.planKey,
         ...item.blockReasons
       ]
         .join(" ")
@@ -157,7 +157,7 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
           />
         </label>
         <label className="admin-queue-filter">
-          <span>Stage</span>
+          <span>Plan-local stage</span>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">All stages</option>
             {statuses.map((status) => (
@@ -217,8 +217,8 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
             value={groupBy}
             onChange={(event) => setGroupBy(event.target.value as QueueGroupBy)}
           >
-            <option value="lifecycle">Lifecycle stage</option>
-            <option value="status">Stage status</option>
+            <option value="lifecycle">Effective lifecycle</option>
+            <option value="status">Effective status</option>
             <option value="country">Country</option>
             <option value="category">Category</option>
             <option value="source">Source</option>
@@ -249,7 +249,7 @@ export function IngestionQueueTable({ items, sourceKey }: IngestionQueueTablePro
                   <th>Scope</th>
                   <th>Country</th>
                   <th>Category</th>
-                  <th>Stage</th>
+                  <th>Effective lifecycle</th>
                   <th>Simulation</th>
                 </tr>
               </thead>
@@ -284,7 +284,8 @@ function QueueRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const tone: OperatorTone = queueStatusTones[item.status];
+  const lifecycle = describeEffectiveQueueLifecycle(item);
+  const tone: OperatorTone = lifecycle.tone;
   const label = friendlyUnit(item.unitKey);
   const showRawKey = label !== item.unitKey;
 
@@ -311,8 +312,9 @@ function QueueRow({
         <td>{friendlyCategory(item.category)}</td>
         <td>
           <span className={`admin-ux-status admin-ux-tone-${tone}`}>
-            {queueStatusLabels[item.status]}
+            {lifecycle.label}
           </span>
+          {lifecycle.detail ? <span className="admin-queue-subline">{lifecycle.detail}</span> : null}
         </td>
         <td>
           {item.dryRunReport
@@ -347,9 +349,27 @@ function QueueRow({
                 <dd>{item.priority}</dd>
               </div>
               <div>
-                <dt>Lifecycle</dt>
-                <dd>{lifecycleStage(item.status)}</dd>
+                <dt>Effective lifecycle</dt>
+                <dd>{lifecycle.lifecycle}</dd>
               </div>
+              <div>
+                <dt>Plan-local status</dt>
+                <dd>{queueStatusLabels[item.status]}</dd>
+              </div>
+              {item.crossPlanPackageLifecycle ? (
+                <>
+                  <div>
+                    <dt>Previous plan</dt>
+                    <dd>{item.crossPlanPackageLifecycle.planKey}</dd>
+                  </div>
+                  <div className="admin-queue-details-wide">
+                    <dt>Previous delivery wave</dt>
+                    <dd>
+                      <code>{item.crossPlanPackageLifecycle.waveKey}</code>
+                    </dd>
+                  </div>
+                </>
+              ) : null}
               {item.blockReasons.length > 0 ? (
                 <div className="admin-queue-details-wide">
                   <dt>Exceptions</dt>

@@ -95,6 +95,80 @@ export const queueStatusTones: Record<BatchQueueItemStatus, OperatorTone> = {
   production_package_blocked: "danger"
 };
 
+export interface EffectiveQueueLifecyclePresentation {
+  label: string;
+  detail?: string;
+  lifecycle: string;
+  tone: OperatorTone;
+  fromPreviousPlan: boolean;
+}
+
+export function describeEffectiveQueueLifecycle(
+  item: BatchQueueItem
+): EffectiveQueueLifecyclePresentation {
+  const historical = item.crossPlanPackageLifecycle;
+  if (!historical) {
+    return {
+      label: queueStatusLabels[item.status],
+      lifecycle: lifecycleStage(item.status),
+      tone: queueStatusTones[item.status],
+      fromPreviousPlan: false
+    };
+  }
+
+  const detail = `Previous plan: ${historical.planKey}`;
+  switch (historical.status) {
+    case "approved":
+      return {
+        label: "Delivery approved in a previous plan",
+        detail,
+        lifecycle: "Consumer inbox delivery",
+        tone: "watch",
+        fromPreviousPlan: true
+      };
+    case "delivering":
+      return {
+        label: "Delivery in progress in a previous plan",
+        detail,
+        lifecycle: "Consumer inbox delivery",
+        tone: "info",
+        fromPreviousPlan: true
+      };
+    case "delivered":
+      return {
+        label: "Delivered to inbox in a previous plan",
+        detail,
+        lifecycle: "Consumer inbox delivery",
+        tone: "info",
+        fromPreviousPlan: true
+      };
+    case "consumer_apply_pending":
+      return {
+        label: "Waiting for Vamo apply in a previous plan",
+        detail,
+        lifecycle: "Consumer apply",
+        tone: "watch",
+        fromPreviousPlan: true
+      };
+    case "consumer_apply_failed":
+      return {
+        label: "Vamo apply failed in a previous plan",
+        detail,
+        lifecycle: "Consumer apply",
+        tone: "danger",
+        fromPreviousPlan: true
+      };
+    case "consumer_applied":
+      return {
+        label: "Already applied in a previous plan",
+        detail,
+        lifecycle: "Consumer apply",
+        tone: "good",
+        fromPreviousPlan: true
+      };
+  }
+}
+
 export interface StatusSlice {
   label: string;
   value: number;
@@ -408,6 +482,9 @@ export function isProductionPackageWaveSelectable(
   item: BatchQueueItem,
   input?: { occupied?: boolean; stagingSucceeded?: boolean }
 ): boolean {
+  if (item.crossPlanPackageLifecycle) {
+    return false;
+  }
   if (item.status !== "staging_canary_succeeded") {
     return false;
   }
@@ -440,16 +517,29 @@ export function matchesProductionPackageApprovalQueueFilter(
       return eligibleForPackage;
     case "delivered_to_inbox":
       return (
+        item.crossPlanPackageLifecycle?.status === "delivered" ||
+        item.crossPlanPackageLifecycle?.status === "delivering" ||
         item.status === "production_package_delivered" ||
         item.status === "production_package_delivering" ||
         item.status === "consumer_apply_pending"
       );
     case "apply_pending":
-      return item.status === "consumer_apply_pending";
+      return (
+        item.crossPlanPackageLifecycle?.status === "consumer_apply_pending" ||
+        item.status === "consumer_apply_pending"
+      );
     case "applied":
-      return item.status === "consumer_applied" || item.status === "applied";
+      return (
+        item.crossPlanPackageLifecycle?.status === "consumer_applied" ||
+        item.status === "consumer_applied" ||
+        item.status === "applied"
+      );
     case "blocked":
-      return item.status === "blocked" || item.status.endsWith("_blocked");
+      return (
+        item.crossPlanPackageLifecycle?.status === "consumer_apply_failed" ||
+        item.status === "blocked" ||
+        item.status.endsWith("_blocked")
+      );
     default:
       return true;
   }
@@ -471,6 +561,16 @@ export function describeProductionPackageQueueNextAction(
   item: BatchQueueItem,
   eligibleForPackage: boolean
 ): string {
+  const historical = item.crossPlanPackageLifecycle;
+  if (historical?.status === "consumer_applied") {
+    return `Complete in ${historical.planKey}`;
+  }
+  if (historical?.status === "consumer_apply_failed") {
+    return `Review failed apply in ${historical.planKey}`;
+  }
+  if (historical) {
+    return `Follow ${historical.planKey} delivery`;
+  }
   if (item.blockReasons.length > 0 || item.status.endsWith("_blocked") || item.status === "blocked") {
     return "Investigate blockers";
   }

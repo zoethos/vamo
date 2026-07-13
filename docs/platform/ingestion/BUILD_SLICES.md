@@ -1744,6 +1744,23 @@ Deliverables:
 - Bootstrap grants `confluendo_app` `EXECUTE` on the function only; no direct
   `UPDATE` on `ingestion_autonomy_policies`.
 
+### IP-18.8.8 — implemented (cross-plan lifecycle resolution)
+
+**Status:** done — the queue and Delivery views now resolve an effective
+operator lifecycle across prior plans for the same project, target, and scope.
+**Not** a queue-status mutation, policy change, delivery path, or schema
+change.
+
+Deliverables:
+
+- Read-only production package history is resolved by `unit_key` across prior
+  plans for the same target and attached only to the live queue snapshot.
+- Queue displays the effective lifecycle such as `Already applied in a previous
+  plan`, while the plan-local stage remains available as technical evidence.
+- Delivery filters and package selection treat prior-plan package states as
+  effective delivery states; applied scopes are not selectable.
+- Existing server-side occupied-unit enforcement remains authoritative.
+
 ### IP-18.8.3 — implemented (explicit batch plan selection for autonomy drain)
 
 **Status:** done — autonomy drain and dashboard reads pin an explicit batch plan

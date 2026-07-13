@@ -229,13 +229,18 @@ export function finalizeProductionPackageWaveApprovalPlan(
 export function countStagingProvenPackageEligibleUnits(
   snapshot: BatchQueueSnapshot,
   targetKey: string,
-  stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>
+  stagingEvidenceByUnitKey: Readonly<Record<string, ProductionPackageStagingEvidence>>,
+  occupiedUnitKeys?: ReadonlySet<string> | readonly string[]
 ): number {
+  const occupied = occupiedUnitKeys instanceof Set ? occupiedUnitKeys : new Set(occupiedUnitKeys ?? []);
   return snapshot.items.filter((item) => {
     if (item.status !== "staging_canary_succeeded" || item.targetKey !== targetKey) {
       return false;
     }
     if (item.blockReasons.length > 0) {
+      return false;
+    }
+    if (item.crossPlanPackageLifecycle || occupied.has(item.unitKey)) {
       return false;
     }
     const staging = stagingEvidenceByUnitKey[item.unitKey];

@@ -13,6 +13,7 @@ import {
 import {
   VAMO_PRODUCTION_PACKAGE_SCHEMA_CONTRACT,
   buildProductionPackageWaveKey,
+  countStagingProvenPackageEligibleUnits,
   evaluateProductionPackageWaveApproval,
   evaluateProductionPackageWaveDeliveryDrift,
   evaluateProductionPackageWaveEligibility,
@@ -165,6 +166,27 @@ describe("evaluateProductionPackageWaveEligibility", () => {
       validEligibilityInput({ snapshot, occupiedUnitKeys: occupied })
     );
     assertBlocked(result, "already_delivered_or_pending_apply");
+  });
+
+  it("does not count a prior-plan-applied scope as package eligible", () => {
+    const snapshot = snapshotWithItems([
+      stagingProvenItem("unit-a", {
+        crossPlanPackageLifecycle: {
+          planKey: "vamo-eu-poi-sample",
+          waveKey: "batch-production-inbox:vamo-eu-poi-sample:wave:58:unit:unit-a",
+          status: "consumer_applied"
+        }
+      })
+    ]);
+
+    assert.equal(
+      countStagingProvenPackageEligibleUnits(
+        snapshot,
+        "vamo-place-intelligence",
+        { "unit-a": { status: "succeeded", shipmentKey: "staging:unit-a" } }
+      ),
+      0
+    );
   });
 
   it("selects explicit multi-unit keys when all are staging verified", () => {
