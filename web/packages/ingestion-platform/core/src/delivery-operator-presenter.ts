@@ -158,7 +158,7 @@ export function applyButtonDisabledReason(input: {
   }
   if (input.inFlight || input.applyPhase === "applying" || input.applyPhase === "refreshing") {
     if (input.applyPhase === "applying") {
-      return `Applying ${input.selectedCount} package${input.selectedCount === 1 ? "" : "s"} to Vamo. This can take several seconds for current batches; larger batches will move to tracked background jobs.`;
+      return `Applying ${input.selectedCount} package${input.selectedCount === 1 ? "" : "s"} to Vamo. ${APPLY_DURATION_NOTE} ${APPLY_IN_FLIGHT_DO_NOT_RETRY}`;
     }
     if (input.applyPhase === "refreshing") {
       return "Refreshing delivery status after consumer apply.";
@@ -184,4 +184,106 @@ export function applyButtonDisabledReason(input: {
 }
 
 export const APPLY_DURATION_NOTE =
-  "This can take several seconds for current batches; larger batches will move to tracked background jobs.";
+  "This may take several seconds for current batches; larger batches will move to tracked background jobs.";
+
+export const APPLY_IN_FLIGHT_DO_NOT_RETRY =
+  "Do not refresh or retry unless the operation reports failure.";
+
+export const APPLY_AMBIGUOUS_RESULT_MESSAGE =
+  "The apply request did not return a final result. The operation may still have completed. Refresh delivery telemetry before retrying.";
+
+/** Client-side guard for synchronous batch apply; does not cancel server work. */
+export const APPLY_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
+
+export function formatApplyElapsedLabel(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  if (totalSeconds < 60) {
+    return `${totalSeconds || 1}s elapsed`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds > 0 ? `${minutes}m ${seconds}s elapsed` : `${minutes}m elapsed`;
+}
+
+export function applyInFlightStatusLines(input: {
+  selectedCount: number;
+  elapsedMs: number;
+}): {
+  headline: string;
+  durationLine: string;
+  guidanceLine: string;
+} {
+  return {
+    headline: `Applying ${input.selectedCount} package${input.selectedCount === 1 ? "" : "s"} to Vamo…`,
+    durationLine: `${formatApplyElapsedLabel(input.elapsedMs)} · ${APPLY_DURATION_NOTE}`,
+    guidanceLine: APPLY_IN_FLIGHT_DO_NOT_RETRY
+  };
+}
+
+export function summarizeBatchApplyStopOnFailure(input: {
+  selectedPackageIds: string[];
+  failedPackageId?: string;
+  skippedAppliedPackageIds?: string[];
+}): {
+  appliedCount: number;
+  failedPackageId?: string;
+  notAttemptedCount: number;
+  skippedCount: number;
+} {
+  const skippedCount = input.skippedAppliedPackageIds?.length ?? 0;
+  if (!input.failedPackageId) {
+    return {
+      appliedCount: 0,
+      notAttemptedCount: input.selectedPackageIds.length,
+      skippedCount
+    };
+  }
+  const failedIndex = input.selectedPackageIds.indexOf(input.failedPackageId);
+  if (failedIndex < 0) {
+    return {
+      appliedCount: 0,
+      failedPackageId: input.failedPackageId,
+      notAttemptedCount: input.selectedPackageIds.length,
+      skippedCount
+    };
+  }
+  return {
+    appliedCount: failedIndex,
+    failedPackageId: input.failedPackageId,
+    notAttemptedCount: Math.max(input.selectedPackageIds.length - failedIndex - 1, 0),
+    skippedCount
+  };
+}
+
+export function isAmbiguousBatchApplyResponse(input: {
+  status: number;
+  payload:
+    | {
+        ok?: boolean;
+        decision?: string;
+        blocks?: unknown[];
+        error?: string;
+      }
+    | null
+    | undefined;
+}): boolean {
+  if (!input.payload) {
+    return true;
+  }
+  if (input.payload.ok === true) {
+    return false;
+  }
+  if (input.payload.decision === "blocked" || input.payload.decision === "failed") {
+    return false;
+  }
+  if (Array.isArray(input.payload.blocks) && input.payload.blocks.length > 0) {
+    return false;
+  }
+  if (input.status === 408) {
+    return true;
+  }
+  if (input.status >= 400 && input.status < 500 && input.payload.error) {
+    return false;
+  }
+  return input.status >= 500 || !input.payload.error;
+}

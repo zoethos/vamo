@@ -8,7 +8,10 @@ import {
   approvalEnvelopeOverrideWarning,
   applyButtonDisabledReason,
   applyButtonLabel,
-  deriveProductionPackageApprovalEnvelope
+  applyInFlightStatusLines,
+  deriveProductionPackageApprovalEnvelope,
+  isAmbiguousBatchApplyResponse,
+  summarizeBatchApplyStopOnFailure
 } from "../src/delivery-operator-presenter.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -86,6 +89,37 @@ describe("apply operator presenter", () => {
       hasPreflight: false
     });
     assert.match(reason ?? "", /Checking apply preflight/);
+  });
+
+  it("builds in-flight status with elapsed time and retry guidance", () => {
+    const status = applyInFlightStatusLines({ selectedCount: 10, elapsedMs: 6500 });
+    assert.match(status.headline, /Applying 10 packages to Vamo/);
+    assert.match(status.durationLine, /6s elapsed/);
+    assert.match(status.guidanceLine, /Do not refresh or retry/);
+  });
+
+  it("summarizes stop-on-first-failure package counts", () => {
+    const summary = summarizeBatchApplyStopOnFailure({
+      selectedPackageIds: ["a", "b", "c", "d"],
+      failedPackageId: "c",
+      skippedAppliedPackageIds: ["x"]
+    });
+    assert.equal(summary.appliedCount, 2);
+    assert.equal(summary.notAttemptedCount, 1);
+    assert.equal(summary.failedPackageId, "c");
+    assert.equal(summary.skippedCount, 1);
+  });
+
+  it("treats missing payloads and server errors as ambiguous", () => {
+    assert.equal(isAmbiguousBatchApplyResponse({ status: 500, payload: { ok: false } }), true);
+    assert.equal(
+      isAmbiguousBatchApplyResponse({
+        status: 422,
+        payload: { ok: false, decision: "failed", error: "consumer apply failed" }
+      }),
+      false
+    );
+    assert.equal(isAmbiguousBatchApplyResponse({ status: 400, payload: { ok: false, error: "bad" } }), false);
   });
 });
 

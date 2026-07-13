@@ -4,9 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
 import {
+  APPLY_AMBIGUOUS_RESULT_MESSAGE,
   APPLY_DURATION_NOTE,
+  APPLY_IN_FLIGHT_DO_NOT_RETRY,
+  APPLY_REQUEST_TIMEOUT_MS,
   applyButtonDisabledReason,
   applyButtonLabel,
+  applyInFlightStatusLines,
+  isAmbiguousBatchApplyResponse,
+  summarizeBatchApplyStopOnFailure,
   type ApplyOperationPhase,
   type ApplyPreflightPhase
 } from "@confluendo/ingestion-platform/core/delivery-operator-presenter";
@@ -41,6 +47,22 @@ type BatchPreflight = {
   };
 };
 
+type BatchApplySuccessPayload = {
+  ok: true;
+  appliedPackageIds: string[];
+  skippedAppliedPackageIds: string[];
+  auditIds: string[];
+};
+
+type BatchApplyFailurePayload = {
+  ok: false;
+  decision?: "blocked" | "failed";
+  blocks?: { code: string }[];
+  error?: string;
+  failedPackageId?: string;
+  skippedAppliedPackageIds?: string[];
+};
+
 type Decision =
   | { state: "idle" }
   | {
@@ -50,7 +72,16 @@ type Decision =
       auditIds: string[];
     }
   | { state: "blocked"; blocks: string[] }
-  | { state: "error"; message: string };
+  | {
+      state: "partial_failure";
+      message: string;
+      failedPackageId?: string;
+      appliedCount: number;
+      notAttemptedCount: number;
+      skippedCount: number;
+    }
+  | { state: "ambiguous" }
+  | { state: "validation"; message: string };
 
 const freshStepUpHref =
   "/admin/mfa/challenge?reason=fresh_step_up_required&next=%2Fadmin%2Fingestion";
@@ -95,8 +126,10 @@ export function ProductionPackageConsumerApplyBatchControl({
   const [preflightBlocks, setPreflightBlocks] = useState<string[]>([]);
   const [preflightPhase, setPreflightPhase] = useState<ApplyPreflightPhase>("idle");
   const [applyPhase, setApplyPhase] = useState<ApplyOperationPhase>("idle");
+  const [applyElapsedMs, setApplyElapsedMs] = useState(0);
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
+  const applyStartedAtRef = useRef<number | null>(null);
   const router = useRouter();
   const contextDisabledReason = disabledReasonFor(context, eligibleItems.length);
   const operationBusy = applyPhase === "applying" || applyPhase === "refreshing";
@@ -164,7 +197,20 @@ export function ProductionPackageConsumerApplyBatchControl({
 
   useEffect(() => {
     setApplyPhase((phase) => (phase === "completed" ? "idle" : phase));
+    setDecision({ state: "idle" });
   }, [selectedPackageIds]);
+
+  useEffect(() => {
+    if (applyPhase !== "applying" || applyStartedAtRef.current === null) {
+      setApplyElapsedMs(0);
+      return;
+    }
+    const startedAt = applyStartedAtRef.current;
+    const tick = () => setApplyElapsedMs(Date.now() - startedAt);
+    tick();
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [applyPhase]);
 
   if (eligibleItems.length === 0) {
     return null;
@@ -175,6 +221,13 @@ export function ProductionPackageConsumerApplyBatchControl({
     applyPhase,
     selectedCount: selectedPackageIds.length
   });
+  const inFlightStatus =
+    applyPhase === "applying"
+      ? applyInFlightStatusLines({
+          selectedCount: selectedPackageIds.length,
+          elapsedMs: applyElapsedMs
+        })
+      : null;
 
   return (
     <div className="admin-canary-control admin-batch-wave-approval-control">
@@ -256,6 +309,14 @@ export function ProductionPackageConsumerApplyBatchControl({
         </div>
       ) : null}
 
+      {inFlightStatus ? (
+        <div className="admin-apply-in-flight-panel admin-command-result" role="status" aria-live="polite">
+          <strong>{inFlightStatus.headline}</strong>
+          <span>{inFlightStatus.durationLine}</span>
+          <span>{inFlightStatus.guidanceLine}</span>
+        </div>
+      ) : null}
+
       <label className="admin-canary-reason">
         <span>Audit reason</span>
         <textarea
@@ -289,14 +350,13 @@ export function ProductionPackageConsumerApplyBatchControl({
             {buttonDisabledReason}
           </p>
         ) : null}
-        {operationBusy ? (
-          <p className="admin-action-status" role="status">
-            {APPLY_DURATION_NOTE}
-          </p>
-        ) : null}
       </div>
 
-      <DecisionView decision={decision} applyPhase={applyPhase} />
+      <DecisionView
+        decision={decision}
+        applyPhase={applyPhase}
+        onRefreshDeliveryStatus={() => refreshDeliveryStatus()}
+      />
     </div>
   );
 
@@ -311,19 +371,33 @@ export function ProductionPackageConsumerApplyBatchControl({
     setSelectedPackageIds([...selectedPackageIds, packageId]);
   }
 
+  function refreshDeliveryStatus() {
+    setApplyPhase("refreshing");
+    router.refresh();
+    setApplyPhase("idle");
+    setDecision({ state: "idle" });
+  }
+
   async function submit() {
     if (inFlightRef.current) {
       return;
     }
     if (!reason.trim()) {
-      setDecision({ state: "error", message: "Audit reason is required." });
+      setDecision({ state: "validation", message: "Audit reason is required." });
       return;
     }
     if (buttonDisabledReason) {
       return;
     }
     inFlightRef.current = true;
+    applyStartedAtRef.current = Date.now();
+    setApplyElapsedMs(0);
     setApplyPhase("applying");
+    setDecision({ state: "idle" });
+
+    const abortController = new AbortController();
+    const timeoutId = window.setTimeout(() => abortController.abort(), APPLY_REQUEST_TIMEOUT_MS);
+
     try {
       const response = await fetch("/api/admin/ingestion/production-package-wave/apply-wave", {
         method: "POST",
@@ -334,17 +408,19 @@ export function ProductionPackageConsumerApplyBatchControl({
           packageIds: selectedPackageIds,
           auditReason: reason.trim(),
           confirmation: "YES"
-        })
+        }),
+        signal: abortController.signal
       });
       const payload = (await response.json().catch(() => null)) as
-        | {
-            ok: true;
-            appliedPackageIds: string[];
-            skippedAppliedPackageIds: string[];
-            auditIds: string[];
-          }
-        | { ok: false; blocks?: { code: string }[]; error?: string }
+        | BatchApplySuccessPayload
+        | BatchApplyFailurePayload
         | null;
+
+      if (isAmbiguousBatchApplyResponse({ status: response.status, payload })) {
+        setDecision({ state: "ambiguous" });
+        setApplyPhase("idle");
+        return;
+      }
 
       if (!payload?.ok) {
         if (payload?.blocks) {
@@ -357,7 +433,27 @@ export function ProductionPackageConsumerApplyBatchControl({
           setApplyPhase("idle");
           return;
         }
-        setDecision({ state: "error", message: payload?.error ?? "Batch apply failed." });
+        if (payload?.decision === "failed") {
+          const summary = summarizeBatchApplyStopOnFailure({
+            selectedPackageIds,
+            failedPackageId: payload.failedPackageId,
+            skippedAppliedPackageIds: payload.skippedAppliedPackageIds
+          });
+          setDecision({
+            state: "partial_failure",
+            message: payload.error ?? "Consumer apply reported a stop-on-first-failure result.",
+            failedPackageId: payload.failedPackageId,
+            appliedCount: summary.appliedCount,
+            notAttemptedCount: summary.notAttemptedCount,
+            skippedCount: summary.skippedCount
+          });
+          setApplyPhase("idle");
+          return;
+        }
+        setDecision({
+          state: "validation",
+          message: payload?.error ?? "The apply request was refused before packages were applied."
+        });
         setApplyPhase("idle");
         return;
       }
@@ -372,20 +468,24 @@ export function ProductionPackageConsumerApplyBatchControl({
       router.refresh();
       setApplyPhase("completed");
     } catch {
-      setDecision({ state: "error", message: "Batch apply request failed to send." });
+      setDecision({ state: "ambiguous" });
       setApplyPhase("idle");
     } finally {
+      window.clearTimeout(timeoutId);
       inFlightRef.current = false;
+      applyStartedAtRef.current = null;
     }
   }
 }
 
 function DecisionView({
   decision,
-  applyPhase
+  applyPhase,
+  onRefreshDeliveryStatus
 }: {
   decision: Decision;
   applyPhase: ApplyOperationPhase;
+  onRefreshDeliveryStatus: () => void;
 }) {
   if (decision.state === "idle") {
     return null;
@@ -400,14 +500,54 @@ function DecisionView({
         {decision.skippedAppliedPackageIds.length > 0 ? (
           <span>Skipped {decision.skippedAppliedPackageIds.length} already-applied package(s)</span>
         ) : null}
-        <span>
-          Audit ids: {decision.auditIds.map((auditId) => auditId).join(", ")}
-        </span>
+        <span>Audit ids: {decision.auditIds.join(", ")}</span>
         {applyPhase === "refreshing" ? (
           <span>Refreshing delivery status…</span>
         ) : applyPhase === "completed" ? (
           <span>Delivery status refresh completed.</span>
         ) : null}
+      </div>
+    );
+  }
+  if (decision.state === "partial_failure") {
+    return (
+      <div className="admin-command-result admin-command-result-error" role="alert">
+        <strong>{decision.message}</strong>
+        <span>Applied before stop: {decision.appliedCount} package(s)</span>
+        {decision.skippedCount > 0 ? (
+          <span>Skipped as already applied: {decision.skippedCount} package(s)</span>
+        ) : null}
+        {decision.failedPackageId ? (
+          <span>
+            Stopped on package: <code>{decision.failedPackageId}</code>
+          </span>
+        ) : null}
+        {decision.notAttemptedCount > 0 ? (
+          <span>Not attempted after stop: {decision.notAttemptedCount} package(s)</span>
+        ) : null}
+        <span>Refresh delivery telemetry before retrying the remaining packages.</span>
+        <button
+          type="button"
+          className="admin-command admin-command-neutral admin-inline-action"
+          onClick={onRefreshDeliveryStatus}
+        >
+          Refresh delivery status
+        </button>
+      </div>
+    );
+  }
+  if (decision.state === "ambiguous") {
+    return (
+      <div className="admin-command-result admin-command-result-watch" role="alert">
+        <strong>{APPLY_AMBIGUOUS_RESULT_MESSAGE}</strong>
+        <span>{APPLY_IN_FLIGHT_DO_NOT_RETRY}</span>
+        <button
+          type="button"
+          className="admin-command admin-command-neutral admin-inline-action"
+          onClick={onRefreshDeliveryStatus}
+        >
+          Refresh delivery status
+        </button>
       </div>
     );
   }
