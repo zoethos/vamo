@@ -26,7 +26,7 @@ import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
-import { ProductionPackageConsumerApplyControl } from "./production-package-consumer-apply-control";
+import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 import {
@@ -128,6 +128,9 @@ export interface IngestionConsoleShellProps {
   batchQueueEligibleCount: number;
   batchCanaryWaveEligibleCount: number;
   productionPackageEligibleCount: number;
+  productionPackageOccupiedUnitKeys: string[];
+  productionPackageStagingEvidenceByUnitKey: Record<string, { status?: string }>;
+  productionPackageHasPriorDeliveredPackage: boolean;
   latestProductionPackageWave: ProductionPackageWavePresentation | null;
   attentionRows: BatchQueueItem[];
   operatorHealth: OperatorHealth;
@@ -283,6 +286,9 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchQueue={props.batchQueue}
           batchQueueSource={props.batchQueueSource}
           productionPackageEligibleCount={props.productionPackageEligibleCount}
+          productionPackageOccupiedUnitKeys={props.productionPackageOccupiedUnitKeys}
+          productionPackageStagingEvidenceByUnitKey={props.productionPackageStagingEvidenceByUnitKey}
+          productionPackageHasPriorDeliveredPackage={props.productionPackageHasPriorDeliveredPackage}
           latestProductionPackageWave={props.latestProductionPackageWave}
           applyTelemetrySource={props.applyTelemetrySource}
           batchContext={batchContext}
@@ -746,6 +752,9 @@ function DeliveryView({
   batchQueue,
   batchQueueSource,
   productionPackageEligibleCount,
+  productionPackageOccupiedUnitKeys,
+  productionPackageStagingEvidenceByUnitKey,
+  productionPackageHasPriorDeliveredPackage,
   latestProductionPackageWave,
   applyTelemetrySource,
   batchContext
@@ -753,6 +762,9 @@ function DeliveryView({
   batchQueue: BatchQueueSnapshot;
   batchQueueSource: DashboardSource;
   productionPackageEligibleCount: number;
+  productionPackageOccupiedUnitKeys: string[];
+  productionPackageStagingEvidenceByUnitKey: Record<string, { status?: string }>;
+  productionPackageHasPriorDeliveredPackage: boolean;
   latestProductionPackageWave: ProductionPackageWavePresentation | null;
   applyTelemetrySource?: string;
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
@@ -774,7 +786,11 @@ function DeliveryView({
       <ProductionPackageWaveApprovalControl
         projectKey={batchQueue.projectKey}
         targetKey={batchQueue.targetKey}
+        items={batchQueue.items}
         eligibleCount={productionPackageEligibleCount}
+        occupiedUnitKeys={productionPackageOccupiedUnitKeys}
+        stagingEvidenceByUnitKey={productionPackageStagingEvidenceByUnitKey}
+        hasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
         packageProgress={batchQueue.progress.productionPackage}
         latestWave={latestProductionPackageWave}
         context={batchContext}
@@ -844,21 +860,19 @@ function DeliveryView({
               </table>
             </div>
           ) : null}
-          {latestProductionPackageWave?.items
-            ?.filter((item) => isConsumerApplyEligible(item))
-            .map((item) => (
-              <ProductionPackageConsumerApplyControl
-                key={`apply-${item.unitKey}`}
-                projectKey={batchQueue.projectKey}
-                packageId={item.packageId ?? ""}
-                unitKey={item.unitKey}
-                shipmentStatus={
-                  item.consumerApplyStatus === "pending" ? "production_inbox_delivered" : item.status
-                }
-                pendingItemCount={item.consumerApplyStatus === "pending" ? 1 : undefined}
-                context={batchContext}
-              />
-            ))}
+          {latestProductionPackageWave?.items && latestProductionPackageWave.items.length > 0 ? (
+            <ProductionPackageConsumerApplyBatchControl
+              projectKey={batchQueue.projectKey}
+              waveKey={batchQueue.latestProductionPackageWave!.waveKey}
+              items={latestProductionPackageWave.items.map((item) => ({
+                unitKey: item.unitKey,
+                packageId: item.packageId,
+                status: item.status,
+                consumerApplyStatus: item.consumerApplyStatus
+              }))}
+              context={batchContext}
+            />
+          ) : null}
         </>
       ) : (
         <p className="admin-ux-empty">No delivery batches recorded yet.</p>

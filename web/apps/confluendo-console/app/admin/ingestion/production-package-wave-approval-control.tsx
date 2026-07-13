@@ -1,8 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
+import type { BatchQueueItem } from "@confluendo/ingestion-platform/core";
+import { extractDryRunReportMetrics } from "./ingestion-console-labels";
+import { ProductionPackageApprovalQueue } from "./production-package-approval-queue";
 
 type DashboardSource = "live" | "sample" | "error";
 
@@ -48,6 +51,12 @@ type PackageProgress = {
   blocked: number;
 };
 
+type UnitIssue = {
+  unitKey: string;
+  code: string;
+  message: string;
+};
+
 type Decision =
   | { state: "idle" }
   | { state: "running" }
@@ -58,7 +67,7 @@ type Decision =
       idempotentReplay: boolean;
       plan: PackageWavePlan;
     }
-  | { state: "blocked"; blocks: string[] }
+  | { state: "blocked"; blocks: string[]; unitIssues?: UnitIssue[] }
   | { state: "error"; message: string; code?: string };
 
 const freshStepUpHref =
@@ -88,44 +97,87 @@ const blockLabels: Record<string, string> = {
   max_rows_invalid: "maxRows must be a positive integer.",
   max_packages_invalid: "maxPackages must be a positive integer.",
   first_wave_ramp_exceeded: "The first live production package wave is hard-capped at 1 unit / 1 package.",
-  no_eligible_items: "No staging-proven units with valid evidence are available."
+  no_eligible_items: "No staging-proven units with valid evidence are available.",
+  unit_key_not_found: "Selected unit is not in the active batch queue.",
+  unit_target_mismatch: "Selected unit target does not match this package wave.",
+  unit_selection_exceeds_max_units: "Selected units exceed maxUnits."
 };
 
 export function ProductionPackageWaveApprovalControl({
   projectKey,
   targetKey,
+  items,
   eligibleCount,
+  occupiedUnitKeys,
+  stagingEvidenceByUnitKey,
+  hasPriorDeliveredPackage,
   packageProgress,
   latestWave,
   context
 }: {
   projectKey: string;
   targetKey: string;
+  items: BatchQueueItem[];
   eligibleCount: number;
+  occupiedUnitKeys: string[];
+  stagingEvidenceByUnitKey: Record<string, { status?: string }>;
+  hasPriorDeliveredPackage: boolean;
   packageProgress: PackageProgress;
   latestWave?: LatestWaveSummary | null;
   context: ProductionPackageWaveContext;
 }) {
+  const defaultMaxUnits = hasPriorDeliveredPackage ? "5" : "1";
+  const defaultMaxPackages = hasPriorDeliveredPackage ? "5" : "1";
   const [reason, setReason] = useState("");
-  const [maxUnits, setMaxUnits] = useState("1");
+  const [maxUnits, setMaxUnits] = useState(defaultMaxUnits);
   const [maxRows, setMaxRows] = useState("10");
-  const [maxPackages, setMaxPackages] = useState("1");
+  const [maxPackages, setMaxPackages] = useState(defaultMaxPackages);
+  const [selectedUnitKeys, setSelectedUnitKeys] = useState<string[]>([]);
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
   const router = useRouter();
   const pending = decision.state === "running";
   const disabledReason = disabledReasonFor(context, eligibleCount);
 
+  const selectionSummary = useMemo(() => {
+    const selectedItems = items.filter((item) => selectedUnitKeys.includes(item.unitKey));
+    let totalWrites = 0;
+    for (const item of selectedItems) {
+      const metrics = extractDryRunReportMetrics(item.dryRunReport);
+      totalWrites += metrics?.expectedTargetWrites ?? 0;
+    }
+    return {
+      selectedUnits: selectedItems.length,
+      selectedPackages: selectedItems.length,
+      selectedWrites: totalWrites
+    };
+  }, [items, selectedUnitKeys]);
+
+  const approveLabel =
+    selectedUnitKeys.length > 0
+      ? `Approve selected package wave (${selectedUnitKeys.length})`
+      : eligibleCount > 0
+        ? "Approve selected package wave"
+        : "Approve selected package wave";
+
   return (
     <div className="admin-canary-control admin-batch-wave-approval-control">
-      <p className="admin-kicker">IP-18.6 · production package-wave approval</p>
+      <p className="admin-kicker">IP-18.8.4 · production package batch approval</p>
       <h3>Approve bounded production package wave</h3>
       <p className="admin-canary-note">
-        Records a control-plane package-wave approval for staging-verified scopes.
-        Requires admin + verified AAL2 + fresh MFA step-up. This does not deliver to the
-        production inbox — delivery is a separate confirmation-gated runbook step (IP-18.6.3).
-        Consumer apply remains consumer-owned.
+        Select staging-verified scopes, then approve one bounded production package wave.
+        Requires admin + verified AAL2 + fresh MFA step-up. Delivery and consumer apply remain
+        separate confirmation-gated steps.
       </p>
+
+      <ProductionPackageApprovalQueue
+        items={items}
+        targetKey={targetKey}
+        occupiedUnitKeys={occupiedUnitKeys}
+        stagingEvidenceByUnitKey={stagingEvidenceByUnitKey}
+        selectedUnitKeys={selectedUnitKeys}
+        onSelectionChange={setSelectedUnitKeys}
+      />
 
       <div className="admin-canary-fields">
         <label>
@@ -141,11 +193,7 @@ export function ProductionPackageWaveApprovalControl({
           <input type="text" value="vamo-place-intelligence@1" readOnly disabled />
         </label>
         <label>
-          <span>Eligible staging-verified scopes</span>
-          <input type="text" value={String(eligibleCount)} readOnly disabled />
-        </label>
-        <label>
-          <span>Max units (first wave: 1)</span>
+          <span>Max units{hasPriorDeliveredPackage ? "" : " (first wave: 1)"}</span>
           <input
             type="number"
             min={1}
@@ -165,7 +213,7 @@ export function ProductionPackageWaveApprovalControl({
           />
         </label>
         <label>
-          <span>Max packages (first wave: 1)</span>
+          <span>Max packages{hasPriorDeliveredPackage ? "" : " (first wave: 1)"}</span>
           <input
             type="number"
             min={1}
@@ -177,6 +225,14 @@ export function ProductionPackageWaveApprovalControl({
       </div>
 
       <div className="admin-stat-grid">
+        <article className="admin-stat">
+          <span>Selection summary</span>
+          <strong>{selectionSummary.selectedUnits}</strong>
+          <p>
+            {selectionSummary.selectedPackages} package(s) · {selectionSummary.selectedWrites}{" "}
+            expected target writes · caps {maxUnits}/{maxPackages}/{maxRows}
+          </p>
+        </article>
         <article className="admin-stat">
           <span>Package progress</span>
           <strong>{packageProgress.approved}</strong>
@@ -203,6 +259,12 @@ export function ProductionPackageWaveApprovalControl({
             <span>Approval expires: {new Date(latestWave.approvalExpiresAt).toLocaleString()}</span>
           ) : null}
           {latestWave.statusPresentation.detail ? <span>{latestWave.statusPresentation.detail}</span> : null}
+          {eligibleCount > 0 ? (
+            <span>
+              {eligibleCount} scope(s) remain eligible — approving again creates the next selected
+              package wave, not a replay of the latest wave.
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -223,14 +285,23 @@ export function ProductionPackageWaveApprovalControl({
           className="admin-command admin-command-primary admin-stateful-command"
           data-state={pending ? "busy" : disabledReason ? "unavailable" : "ready"}
           onClick={() => void submit()}
-          disabled={Boolean(disabledReason) || pending || eligibleCount === 0}
+          disabled={
+            Boolean(disabledReason) ||
+            pending ||
+            eligibleCount === 0 ||
+            selectedUnitKeys.length === 0
+          }
           title={disabledReason ?? undefined}
         >
-          {pending ? "Recording approval..." : "Approve production package wave"}
+          {pending ? "Recording approval..." : approveLabel}
         </button>
         {disabledReason ? (
           <p className="admin-action-status" data-state="unavailable">
             Unavailable: {disabledReason}
+          </p>
+        ) : selectedUnitKeys.length === 0 ? (
+          <p className="admin-action-status" data-state="unavailable">
+            Select at least one eligible staging-verified scope.
           </p>
         ) : null}
       </div>
@@ -244,6 +315,10 @@ export function ProductionPackageWaveApprovalControl({
     }
     if (!reason.trim()) {
       setDecision({ state: "error", message: "Audit reason is required." });
+      return;
+    }
+    if (selectedUnitKeys.length === 0) {
+      setDecision({ state: "error", message: "Select at least one eligible scope." });
       return;
     }
     inFlightRef.current = true;
@@ -261,7 +336,8 @@ export function ProductionPackageWaveApprovalControl({
           maxUnits: Number.parseInt(maxUnits, 10),
           maxRows: Number.parseInt(maxRows, 10),
           maxPackages: Number.parseInt(maxPackages, 10),
-          auditReason: reason.trim()
+          auditReason: reason.trim(),
+          unitKeys: selectedUnitKeys
         })
       });
       const payload = (await response.json().catch(() => null)) as
@@ -273,7 +349,14 @@ export function ProductionPackageWaveApprovalControl({
             idempotentReplay: boolean;
             plan: PackageWavePlan;
           }
-        | { ok: false; decision?: "blocked"; blocks?: { code: string }[]; error?: string; code?: string }
+        | {
+            ok: false;
+            decision?: "blocked";
+            blocks?: { code: string }[];
+            unitIssues?: UnitIssue[];
+            error?: string;
+            code?: string;
+          }
         | null;
 
       if (!payload) {
@@ -288,6 +371,7 @@ export function ProductionPackageWaveApprovalControl({
           idempotentReplay: payload.idempotentReplay,
           plan: payload.plan
         });
+        setSelectedUnitKeys([]);
         router.refresh();
         return;
       }
@@ -297,7 +381,7 @@ export function ProductionPackageWaveApprovalControl({
           window.location.assign(freshStepUpHref);
           return;
         }
-        setDecision({ state: "blocked", blocks });
+        setDecision({ state: "blocked", blocks, unitIssues: payload.unitIssues });
         return;
       }
       setDecision({
@@ -345,6 +429,15 @@ function DecisionView({ decision }: { decision: Decision }) {
             <li key={code}>{blockLabels[code] ?? code}</li>
           ))}
         </ul>
+        {decision.unitIssues && decision.unitIssues.length > 0 ? (
+          <ul>
+            {decision.unitIssues.map((issue) => (
+              <li key={issue.unitKey}>
+                <code>{issue.unitKey}</code>: {issue.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {decision.blocks.includes("fresh_step_up_required") ? (
           <a className="admin-command admin-command-neutral admin-inline-action" href={freshStepUpHref}>
             Refresh MFA step-up

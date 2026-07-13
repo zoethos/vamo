@@ -96,11 +96,15 @@ export async function POST(request: NextRequest) {
       auditReason: parsed.request.auditReason,
       stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey,
       occupiedUnitKeys: approvalContext.occupiedUnitKeys,
-      hasPriorDeliveredPackage: approvalContext.hasPriorDeliveredPackage
+      hasPriorDeliveredPackage: approvalContext.hasPriorDeliveredPackage,
+      unitKeys: parsed.request.unitKeys
     });
 
   if (!decision.ok) {
-    return NextResponse.json({ ok: false, decision: "blocked", blocks: decision.blocks }, { status: 409 });
+    return NextResponse.json(
+      { ok: false, decision: "blocked", blocks: decision.blocks, unitIssues: decision.unitIssues },
+      { status: 409 }
+    );
   }
 
   let enrichedPlan;

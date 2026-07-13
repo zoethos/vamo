@@ -449,6 +449,7 @@ export {
   finalizeProductionPackageWaveApprovalPlan,
   isApprovedProductionPackageWaveFresh,
   isLegacyProductionTargetKey,
+  isProductionPackageWaveSelectableUnit,
   type BatchProductionPackageWaveApprovalPlan,
   type BatchProductionPackageWaveBlock,
   type BatchProductionPackageWaveBlockCode,
@@ -460,7 +461,8 @@ export {
   type ProductionPackageDryRunEvidence,
   type ProductionPackageSchemaContract,
   type ProductionPackageStagingEvidence,
-  type ProductionPackageWaveSelectedUnit
+  type ProductionPackageWaveSelectedUnit,
+  type ProductionPackageWaveUnitSelectionIssue
 } from "./batch-production-package-wave-policy.js";
 export {
   approveBatchProductionPackageWave,
@@ -480,8 +482,28 @@ export {
 export {
   parseProductionPackageWaveApplyPreflightQuery,
   parseProductionPackageWaveApplyRequest,
-  type ProductionPackageWaveApplyRequest
+  parseProductionPackageWaveApplyWavePreflightQuery,
+  parseProductionPackageWaveApplyWaveRequest,
+  PRODUCTION_PACKAGE_WAVE_APPLY_CONFIRMATION,
+  type ProductionPackageWaveApplyRequest,
+  type ProductionPackageWaveApplyWaveRequest
 } from "./batch-production-package-wave-apply-request.js";
+export {
+  evaluateProductionPackageWaveBatchApply,
+  resolveProductionPackageWaveBatchApplyTargets,
+  summarizeProductionPackageWaveBatchApplyPreflight,
+  type EvaluateProductionPackageWaveBatchApplyInput,
+  type EvaluateProductionPackageWaveBatchApplyResult,
+  type ProductionPackageWaveBatchApplyBlock,
+  type ProductionPackageWaveBatchApplyTarget,
+  type ProductionPackageWaveBatchApplyWaveContext
+} from "./batch-production-package-wave-consumer-apply-batch-policy.js";
+export {
+  executeProductionPackageWaveConsumerApplyBatch,
+  loadProductionPackageWaveConsumerApplyBatchPreflight,
+  type ExecuteProductionPackageWaveConsumerApplyBatchInput,
+  type ExecuteProductionPackageWaveConsumerApplyBatchResult
+} from "./batch-production-package-wave-consumer-apply-batch.js";
 export {
   evaluateProductionPackageConsumerApply,
   evaluateProductionPackageConsumerApplyPreflight,
