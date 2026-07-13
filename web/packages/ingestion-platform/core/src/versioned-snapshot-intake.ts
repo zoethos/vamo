@@ -6,9 +6,8 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { resolve, sep } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { basename, dirname, resolve, sep } from "node:path";
 
 import type { SnapshotReleaseManifest } from "./snapshot-release-manifest.js";
 
@@ -34,6 +33,8 @@ export const ALLOWED_SNAPSHOT_ROW_KEYS = new Set([
 ]);
 
 export const ALLOWED_SNAPSHOT_SOURCE_KEYS = new Set(["id", "name", "latitude", "longitude"]);
+
+export const ALLOWED_SNAPSHOT_SCOPE_KEYS = new Set(["geography", "category"]);
 
 export type SnapshotIntakeIssueCategory = "invalid" | "duplicate" | "out_of_scope";
 
@@ -149,6 +150,14 @@ export function intakeVersionedSnapshot(input: {
   const validRows: NormalizedSnapshotRow[] = [];
 
   for (const entry of parsedRows) {
+    if (entry.invalidJson) {
+      issues.push({
+        lineNumber: entry.lineNumber,
+        category: "invalid",
+        reason: "invalid_json"
+      });
+      continue;
+    }
     const classification = classifyIntakeRow(entry.value, {
       manifest: input.manifest,
       allowedCategories
@@ -253,8 +262,14 @@ export function writeSnapshotIntakeArtifacts(input: {
   outputDir: string;
   artifacts: SnapshotIntakeArtifacts;
 }): void {
-  mkdirSync(input.outputDir, { recursive: true });
-  const stagingDir = mkdtempSync(resolve(tmpdir(), "confluendo-snapshot-intake-"));
+  const outputDir = resolve(input.outputDir);
+  if (existsSync(outputDir)) {
+    throw new Error("Snapshot intake output directory must not already exist.");
+  }
+
+  const outputParent = dirname(outputDir);
+  mkdirSync(outputParent, { recursive: true });
+  const stagingDir = mkdtempSync(resolve(outputParent, `.${basename(outputDir)}-staging-`));
   const fileNames = ["source.jsonl", "release.json", "coverage-report.json"] as const;
   const contents = [
     input.artifacts.sourceJsonl,
@@ -266,9 +281,9 @@ export function writeSnapshotIntakeArtifacts(input: {
     for (let index = 0; index < fileNames.length; index += 1) {
       writeFileSync(resolve(stagingDir, fileNames[index]!), contents[index]!, "utf8");
     }
-    for (const fileName of fileNames) {
-      renameSync(resolve(stagingDir, fileName), resolve(input.outputDir, fileName));
-    }
+    // Staging beside the final directory keeps the rename on one volume and
+    // publishes all three artifacts as one immutable release directory.
+    renameSync(stagingDir, outputDir);
   } finally {
     rmSync(stagingDir, { recursive: true, force: true });
   }
@@ -276,7 +291,8 @@ export function writeSnapshotIntakeArtifacts(input: {
 
 interface ParsedJsonlLine {
   lineNumber: number;
-  value: unknown;
+  value?: unknown;
+  invalidJson?: true;
 }
 
 interface NormalizedSnapshotRow {
@@ -295,11 +311,18 @@ interface NormalizedSnapshotRow {
 }
 
 function parseJsonlLines(content: string): ParsedJsonlLine[] {
-  const lines = content.split(/\r?\n/).filter((line) => line.trim().length > 0);
-  return lines.map((line, index) => ({
-    lineNumber: index + 1,
-    value: JSON.parse(line) as unknown
-  }));
+  const rows: ParsedJsonlLine[] = [];
+  for (const [index, line] of content.split(/\r?\n/).entries()) {
+    if (line.trim().length === 0) {
+      continue;
+    }
+    try {
+      rows.push({ lineNumber: index + 1, value: JSON.parse(line) as unknown });
+    } catch {
+      rows.push({ lineNumber: index + 1, invalidJson: true });
+    }
+  }
+  return rows;
 }
 
 function classifyIntakeRow(
@@ -337,8 +360,14 @@ function classifyIntakeRow(
   if (!scope || typeof scope !== "object" || Array.isArray(scope)) {
     return { valid: false, category: "invalid", reason: "missing_scope_fields" };
   }
-  const geography = readTrimmedString((scope as Record<string, unknown>).geography);
-  const category = readTrimmedString((scope as Record<string, unknown>).category)?.toLowerCase();
+  const scopeRecord = scope as Record<string, unknown>;
+  for (const key of Object.keys(scopeRecord)) {
+    if (!ALLOWED_SNAPSHOT_SCOPE_KEYS.has(key)) {
+      return { valid: false, category: "invalid", reason: "unknown_scope_field" };
+    }
+  }
+  const geography = readTrimmedString(scopeRecord.geography);
+  const category = readTrimmedString(scopeRecord.category)?.toLowerCase();
   if (!geography || !category) {
     return { valid: false, category: "invalid", reason: "missing_scope_fields" };
   }
@@ -365,16 +394,15 @@ function classifyIntakeRow(
     return { valid: false, category: "invalid", reason: "missing_required_source_fields" };
   }
 
-  if (record.media && typeof record.media === "object" && !Array.isArray(record.media)) {
+  if (record.media !== undefined && record.media !== null) {
+    if (!record.media || typeof record.media !== "object" || Array.isArray(record.media)) {
+      return { valid: false, category: "invalid", reason: "media_field_forbidden" };
+    }
     const media = record.media as Record<string, unknown>;
     if (media.bytesBase64) {
       return { valid: false, category: "invalid", reason: "media_bytes_forbidden" };
     }
-    for (const key of Object.keys(media)) {
-      if (key !== "bytesBase64") {
-        return { valid: false, category: "invalid", reason: "unknown_media_field" };
-      }
-    }
+    return { valid: false, category: "invalid", reason: "media_field_forbidden" };
   }
 
   return {

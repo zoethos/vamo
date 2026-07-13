@@ -143,6 +143,10 @@ This slice does **not** switch `vamo-eu-full-data-v1` to a new snapshot or
 re-seed the queue. Coverage counts come from valid intake rows only, never from
 planning projections.
 
+`--output-dir` must name a **new**, empty release directory outside the git
+worktree. Intake publishes the completed directory atomically and refuses to
+replace an existing release.
+
 ### Source-rights approval record (2026-07-12)
 
 Product/data owner approval for the bundled IP-18.8 Vamo full-data snapshot was

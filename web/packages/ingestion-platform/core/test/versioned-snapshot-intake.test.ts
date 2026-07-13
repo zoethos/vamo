@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,6 +61,14 @@ describe("parseSnapshotReleaseManifest", () => {
     });
     assert.equal(parsed.ok, false);
   });
+
+  it("rejects malformed manifest serialization without throwing", () => {
+    const parsed = parseSnapshotReleaseManifest("{ not valid JSON");
+    assert.equal(parsed.ok, false);
+    if (!parsed.ok) {
+      assert.equal(parsed.errors[0]?.code, "invalid_serialization");
+    }
+  });
 });
 
 describe("intakeVersionedSnapshot", () => {
@@ -111,6 +119,38 @@ describe("intakeVersionedSnapshot", () => {
     assert.equal(result.coverage.validRowCount, 1);
   });
 
+  it("classifies malformed JSON, unknown scope fields, and all media fields without throwing", () => {
+    const inputContent = [
+      "{not valid json}",
+      JSON.stringify({
+        source: { id: "fsq_unknown_scope", name: "Unknown Scope", latitude: 41.9, longitude: 12.5 },
+        scope: { geography: "rome-italy", category: "poi", providerToken: "not allowed" },
+        attribution: "FSQ Open Source Places"
+      }),
+      JSON.stringify({
+        source: { id: "fsq_media_string", name: "Media String", latitude: 41.9, longitude: 12.5 },
+        scope: { geography: "rome-italy", category: "poi" },
+        attribution: "FSQ Open Source Places",
+        media: "not allowed"
+      })
+    ].join("\n");
+    const manifestTemplate = readFileSync(join(fixtureDir, "manifest.yaml"), "utf8");
+    const parsed = parseSnapshotReleaseManifest(
+      manifestTemplate.replace("PLACEHOLDER_SHA256", sha256Hex(inputContent))
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    const result = intakeVersionedSnapshot({ manifest: parsed.manifest, inputContent });
+    assert.equal(result.ok, true);
+    assert.equal(result.accepted, false);
+    assert.ok(result.issues.some((issue) => issue.reason === "invalid_json" && issue.lineNumber === 1));
+    assert.ok(result.issues.some((issue) => issue.reason === "unknown_scope_field"));
+    assert.ok(result.issues.some((issue) => issue.reason === "media_field_forbidden"));
+  });
+
   it("rejects output directories inside the git worktree", () => {
     assert.equal(
       isOutputPathInsideRepo({
@@ -134,7 +174,8 @@ describe("intakeVersionedSnapshot", () => {
     assert.equal(result.ok, true);
     assert.equal(result.accepted, true);
 
-    const outputDir = mkdtempSync(join(tmpdir(), "snapshot-intake-test-"));
+    const outputParent = mkdtempSync(join(tmpdir(), "snapshot-intake-test-"));
+    const outputDir = join(outputParent, "release");
     try {
       writeSnapshotIntakeArtifacts({ outputDir, artifacts: result.artifacts });
       assert.ok(existsSync(join(outputDir, "source.jsonl")));
@@ -147,7 +188,26 @@ describe("intakeVersionedSnapshot", () => {
       assert.equal(coverage.derivedFromValidRowsOnly, true);
       assert.equal(coverage.validRowCount, 2);
     } finally {
-      rmSync(outputDir, { recursive: true, force: true });
+      rmSync(outputParent, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to overwrite an existing release directory", () => {
+    const { manifest, inputContent } = loadManifestWithSha(join(fixtureDir, "valid-input.jsonl"));
+    const result = intakeVersionedSnapshot({ manifest, inputContent, now: "2026-07-01T12:00:00Z" });
+    assert.equal(result.ok, true);
+    assert.equal(result.accepted, true);
+
+    const outputParent = mkdtempSync(join(tmpdir(), "snapshot-intake-existing-"));
+    const outputDir = join(outputParent, "release");
+    mkdirSync(outputDir);
+    try {
+      assert.throws(
+        () => writeSnapshotIntakeArtifacts({ outputDir, artifacts: result.artifacts }),
+        /must not already exist/
+      );
+    } finally {
+      rmSync(outputParent, { recursive: true, force: true });
     }
   });
 

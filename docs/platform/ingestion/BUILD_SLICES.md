@@ -1723,8 +1723,9 @@ Deliverables:
   and POI type from valid rows only.
 - `ip18:snapshot-intake` — preview by default; `--execute` requires
   `CONFIRM_CONFLUENDO_SNAPSHOT_INTAKE=YES`, explicit `--manifest`, `--input`,
-  and `--output-dir`, refuses git-worktree output paths, atomically writes
-  `source.jsonl`, `release.json`, and `coverage-report.json`.
+  and a new `--output-dir`, refuses git-worktree output paths and replacement
+  of an existing release, atomically writes `source.jsonl`, `release.json`,
+  and `coverage-report.json`.
 - Intake vs activation documented: operators obtain the FSQ export through the
   Places Portal with a separately stored source token, run local intake outside
   the repo, then activate/reseed in a later reviewed slice. Never commit the

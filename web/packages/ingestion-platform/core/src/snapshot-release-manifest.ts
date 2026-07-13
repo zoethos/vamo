@@ -43,7 +43,21 @@ export type ParseSnapshotReleaseManifestResult =
 export function parseSnapshotReleaseManifest(
   input: string | unknown
 ): ParseSnapshotReleaseManifestResult {
-  const value = typeof input === "string" ? parseYamlOrJson(input) : input;
+  let value: unknown;
+  try {
+    value = typeof input === "string" ? parseYamlOrJson(input) : input;
+  } catch {
+    return {
+      ok: false,
+      errors: [
+        {
+          path: "$",
+          code: "invalid_serialization",
+          message: "Manifest must be valid YAML or JSON."
+        }
+      ]
+    };
+  }
   const errors: SnapshotReleaseManifestParseError[] = [];
 
   if (!value || typeof value !== "object" || Array.isArray(value)) {
