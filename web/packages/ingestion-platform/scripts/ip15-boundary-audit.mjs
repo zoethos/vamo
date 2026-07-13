@@ -166,6 +166,48 @@ assert(
   `platform src must not infer environment from targetId/targetKey substrings:\n${envInferenceViolations.join("\n")}`
 );
 
+const fsqAcquisitionAdapter = path.join(
+  packageRoot,
+  "adapters",
+  "source",
+  "src",
+  "fsq-os-places-catalog-acquire.ts"
+);
+const fsqAcquisitionSource = readFileSync(fsqAcquisitionAdapter, "utf8");
+const platformSrcFiles = platformSrcRoots
+  .flatMap((root) => walk(root))
+  .filter((file) => /\.(js|mjs|ts)$/.test(file) && file !== fsqAcquisitionAdapter);
+
+const providerFetchOutsideAdapter = platformSrcFiles.filter((file) => {
+  const source = readFileSync(file, "utf8");
+  return /\bfetch\s*\(/.test(source) || /catalog\.foursquare\.com/.test(source);
+});
+
+assert(
+  providerFetchOutsideAdapter.length === 0,
+  `provider networking must exist only in fsq-os-places-catalog-acquire.ts:\n${providerFetchOutsideAdapter
+    .map(toRepoRelative)
+    .join("\n")}`
+);
+
+const consoleRuntimeWithFsqToken = consoleRuntimeFiles.filter((file) => {
+  const source = readFileSync(file, "utf8");
+  return /FSQ_OS_PLACES_CATALOG_TOKEN/.test(source);
+});
+
+assert(
+  consoleRuntimeWithFsqToken.length === 0,
+  `console runtime must not reference FSQ_OS_PLACES_CATALOG_TOKEN:\n${consoleRuntimeWithFsqToken
+    .map(toRepoRelative)
+    .join("\n")}`
+);
+
+assert(
+  !/\bFSQ_OS_PLACES_CATALOG_TOKEN\b/.test(fsqAcquisitionSource) ||
+    fsqAcquisitionSource.includes('FSQ_OS_PLACES_CATALOG_TOKEN_ENV'),
+  "FSQ acquisition adapter must reference the token env name only, never embed token values"
+);
+
 console.log("Confluendo boundary audit");
 console.log(`- package: ${platformPackage.name}`);
 console.log(`- console app: ${consolePackage.name}`);

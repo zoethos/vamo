@@ -840,3 +840,40 @@ export {
   type SnapshotIntakeRowIssue,
   type SnapshotReleaseMetadata
 } from "./versioned-snapshot-intake.js";
+export {
+  SOURCE_ACQUISITION_RELEASE_KIND,
+  SNAPSHOT_RELEASE_STATUSES,
+  buildSourceAcquisitionReleaseId,
+  isSnapshotReleaseStatus,
+  type SnapshotReleaseStatus,
+  type SourceAcquisitionReleaseRecord
+} from "./source-acquisition-contract.js";
+export {
+  SNAPSHOT_ARTIFACT_BUNDLE_FILES,
+  computeSnapshotArtifactBundleSha256,
+  createLocalSnapshotArtifactStore,
+  deriveSnapshotArtifactKey,
+  verifySnapshotArtifactBundleContents,
+  type SnapshotArtifactStore,
+  type SnapshotArtifactStorePutResult
+} from "./snapshot-artifact-store.js";
+export {
+  registerSnapshotRelease,
+  type RegisterSnapshotReleaseInput,
+  type RegisterSnapshotReleaseResult,
+  type SnapshotReleaseRegistryPgClientLike
+} from "./snapshot-release-registry-control.js";
+export {
+  FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,
+  FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
+  FSQ_SNAPSHOT_DEFAULT_LICENSE,
+  FSQ_SNAPSHOT_DEFAULT_RETENTION,
+  FSQ_SNAPSHOT_DEFAULT_SOURCE_KEY,
+  FSQ_SNAPSHOT_DEFAULT_SOURCE_PROVIDER,
+  formatFsqSnapshotAcquireLog,
+  redactFsqSnapshotAcquireLogValue,
+  runFsqSnapshotAcquire,
+  type FsqSnapshotAcquireExecuteResult,
+  type FsqSnapshotAcquirePreviewResult,
+  type FsqSnapshotAcquireResult
+} from "./fsq-snapshot-acquire.js";

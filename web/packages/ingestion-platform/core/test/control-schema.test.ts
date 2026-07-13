@@ -20,7 +20,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 describe("ingestion control schema", () => {
   it("declares only platform-owned ingestion tables", () => {
     assert.equal(CONTROL_SCHEMA_NAME, "ingestion_platform");
-    assert.equal(CONTROL_TABLES.length, 27);
+    assert.equal(CONTROL_TABLES.length, 28);
 
     for (const table of CONTROL_TABLES) {
       assert.match(table, /^ingestion_[a-z0-9_]+$/);
@@ -70,6 +70,28 @@ describe("ingestion control schema", () => {
     assert.doesNotMatch(confluendoBootstrapSql, /\bgrant all privileges\b/i);
     assert.doesNotMatch(confluendoBootstrapSql, /\bservice_role\b/i);
     assert.doesNotMatch(confluendoBootstrapSql, /\bcreate role\b/i);
+  });
+
+  it("declares snapshot release registry in the SQL artifact", () => {
+    assert.match(controlSchemaSql, /ingestion_snapshot_releases/);
+    assert.match(controlSchemaSql, /ingestion_snapshot_releases_status_check/);
+    assert.match(controlSchemaSql, /create or replace function ingestion_platform\.register_snapshot_release/);
+    assert.match(controlSchemaSql, /revoke all on function ingestion_platform\.register_snapshot_release/);
+  });
+
+  it("grants snapshot release registry read/execute in bootstrap SQL", () => {
+    assert.match(
+      confluendoBootstrapSql,
+      /grant select on ingestion_platform\.ingestion_snapshot_releases to confluendo_app/i
+    );
+    assert.match(
+      confluendoBootstrapSql,
+      /grant execute on function ingestion_platform\.register_snapshot_release/i
+    );
+    assert.doesNotMatch(
+      confluendoBootstrapSql,
+      /grant update on ingestion_platform\.ingestion_snapshot_releases/i
+    );
   });
 
   it("declares production package-wave control tables in the SQL artifact", () => {

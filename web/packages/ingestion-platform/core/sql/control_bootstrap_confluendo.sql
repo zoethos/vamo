@@ -114,6 +114,31 @@ grant execute on function ingestion_platform.set_autonomy_production_handoff(
   text
 ) to confluendo_app;
 
+-- IP-18.8.10 snapshot release registry: read-only for dashboard; registration
+-- remains owner-run via register_snapshot_release (no app UPDATE on releases).
+grant select on ingestion_platform.ingestion_snapshot_releases to confluendo_app;
+grant execute on function ingestion_platform.register_snapshot_release(
+  text,
+  text,
+  text,
+  text,
+  timestamptz,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  jsonb,
+  text,
+  text,
+  text
+) to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;

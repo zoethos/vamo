@@ -1452,4 +1452,263 @@ revoke all on function ingestion_platform.set_autonomy_production_handoff(
   text
 ) from public;
 
+create table if not exists ingestion_platform.ingestion_snapshot_releases (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  release_id text not null,
+  source_key text not null,
+  source_provider text not null,
+  status text not null,
+  acquired_at timestamptz not null,
+  provenance_url text not null,
+  input_sha256 text not null,
+  output_sha256 text not null,
+  source_attribution text not null,
+  license_identifier text not null,
+  retention_statement text not null,
+  intended_consumer text not null,
+  intended_target text not null,
+  artifact_key text not null,
+  artifact_uri text not null,
+  coverage jsonb not null default '{}'::jsonb,
+  row_counts jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_snapshot_releases_status_check check (
+    status in ('acquired', 'validated', 'rejected', 'activation_ready', 'superseded')
+  ),
+  constraint ingestion_snapshot_releases_coverage_object check (
+    jsonb_typeof(coverage) = 'object'
+  ),
+  constraint ingestion_snapshot_releases_row_counts_object check (
+    jsonb_typeof(row_counts) = 'object'
+  ),
+  constraint ingestion_snapshot_releases_metadata_object check (
+    jsonb_typeof(metadata) = 'object'
+  ),
+  unique (project_id, release_id)
+);
+
+create index if not exists ingestion_snapshot_releases_project_status_idx
+  on ingestion_platform.ingestion_snapshot_releases (project_id, status, created_at desc);
+
+create index if not exists ingestion_snapshot_releases_source_output_idx
+  on ingestion_platform.ingestion_snapshot_releases (source_key, output_sha256);
+
+create or replace function ingestion_platform.register_snapshot_release(
+  p_project_key text,
+  p_release_id text,
+  p_source_key text,
+  p_source_provider text,
+  p_acquired_at timestamptz,
+  p_provenance_url text,
+  p_input_sha256 text,
+  p_output_sha256 text,
+  p_source_attribution text,
+  p_license_identifier text,
+  p_retention_statement text,
+  p_intended_consumer text,
+  p_intended_target text,
+  p_artifact_key text,
+  p_artifact_uri text,
+  p_coverage jsonb,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_project_id bigint;
+  v_release_id bigint;
+  v_audit_id bigint;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_release_id := nullif(btrim(p_release_id), '');
+  p_source_key := nullif(btrim(p_source_key), '');
+  p_source_provider := nullif(btrim(p_source_provider), '');
+  p_provenance_url := nullif(btrim(p_provenance_url), '');
+  p_input_sha256 := nullif(btrim(p_input_sha256), '');
+  p_output_sha256 := nullif(btrim(p_output_sha256), '');
+  p_source_attribution := nullif(btrim(p_source_attribution), '');
+  p_license_identifier := nullif(btrim(p_license_identifier), '');
+  p_retention_statement := nullif(btrim(p_retention_statement), '');
+  p_intended_consumer := nullif(btrim(p_intended_consumer), '');
+  p_intended_target := nullif(btrim(p_intended_target), '');
+  p_artifact_key := nullif(btrim(p_artifact_key), '');
+  p_artifact_uri := nullif(btrim(p_artifact_uri), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_release_id is null then
+    raise exception 'missing_release_identity';
+  end if;
+
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+
+  if p_coverage is null or jsonb_typeof(p_coverage) <> 'object' then
+    raise exception 'invalid_coverage_payload';
+  end if;
+
+  select p.id
+  into v_project_id
+  from ingestion_platform.ingestion_projects p
+  where p.project_key = p_project_key;
+
+  if v_project_id is null then
+    raise exception 'project_not_found';
+  end if;
+
+  insert into ingestion_platform.ingestion_snapshot_releases (
+    project_id,
+    release_id,
+    source_key,
+    source_provider,
+    status,
+    acquired_at,
+    provenance_url,
+    input_sha256,
+    output_sha256,
+    source_attribution,
+    license_identifier,
+    retention_statement,
+    intended_consumer,
+    intended_target,
+    artifact_key,
+    artifact_uri,
+    coverage,
+    row_counts,
+    metadata,
+    updated_at
+  )
+  values (
+    v_project_id,
+    p_release_id,
+    p_source_key,
+    p_source_provider,
+    'activation_ready',
+    p_acquired_at,
+    p_provenance_url,
+    p_input_sha256,
+    p_output_sha256,
+    p_source_attribution,
+    p_license_identifier,
+    p_retention_statement,
+    p_intended_consumer,
+    p_intended_target,
+    p_artifact_key,
+    p_artifact_uri,
+    p_coverage,
+    jsonb_build_object(
+      'valid', coalesce((p_coverage->>'validRowCount')::integer, 0),
+      'invalid', coalesce((p_coverage->>'invalidRowCount')::integer, 0),
+      'duplicate', coalesce((p_coverage->>'duplicateRowCount')::integer, 0),
+      'outOfScope', coalesce((p_coverage->>'outOfScopeRowCount')::integer, 0)
+    ),
+    jsonb_build_object('registeredBy', 'register_snapshot_release'),
+    now()
+  )
+  on conflict (project_id, release_id) do update
+  set
+    status = excluded.status,
+    output_sha256 = excluded.output_sha256,
+    artifact_key = excluded.artifact_key,
+    artifact_uri = excluded.artifact_uri,
+    coverage = excluded.coverage,
+    row_counts = excluded.row_counts,
+    metadata = excluded.metadata,
+    updated_at = now()
+  returning id into v_release_id;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id,
+    actor_type,
+    actor_id,
+    action,
+    target_type,
+    target_id,
+    reason,
+    payload
+  )
+  values (
+    v_project_id,
+    p_actor_type,
+    p_actor_id,
+    'register_snapshot_release',
+    'snapshot_release',
+    v_release_id::text,
+    p_audit_reason,
+    jsonb_build_object(
+      'releaseId', p_release_id,
+      'sourceKey', p_source_key,
+      'sourceProvider', p_source_provider,
+      'status', 'activation_ready',
+      'artifactKey', p_artifact_key,
+      'outputSha256', p_output_sha256
+    )
+  )
+  returning id into v_audit_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id,
+    event_type,
+    severity,
+    signal,
+    message,
+    payload
+  )
+  values (
+    v_project_id,
+    'snapshot.release.registered',
+    'info',
+    'snapshot_release',
+    format('Snapshot release %s registered as activation_ready', p_release_id),
+    jsonb_build_object(
+      'releaseId', p_release_id,
+      'artifactKey', p_artifact_key,
+      'auditId', v_audit_id::text
+    )
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'releaseId', p_release_id,
+    'auditId', v_audit_id::text,
+    'status', 'activation_ready'
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.register_snapshot_release(
+  text,
+  text,
+  text,
+  text,
+  timestamptz,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  jsonb,
+  text,
+  text,
+  text
+) from public;
+
 commit;
