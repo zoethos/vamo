@@ -1791,6 +1791,93 @@ a:hover {
   margin-top: 0.85rem;
 }
 
+.admin-delivery-workflow-guide {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.admin-delivery-workflow-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-delivery-workflow-step {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid rgba(42, 46, 58, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.admin-delivery-workflow-step.is-current {
+  border-color: rgba(15, 118, 110, 0.34);
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+
+.admin-delivery-workflow-current,
+.admin-delivery-workflow-unknown,
+.admin-delivery-workflow-intro,
+.admin-delivery-workflow-next-action,
+.admin-delivery-workflow-page-scope {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.72);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.admin-delivery-workflow-unknown strong {
+  color: #1d4ed8;
+}
+
+.admin-delivery-workflow-safety {
+  margin: 0;
+}
+
+.admin-delivery-workflow-terminal {
+  margin: 0;
+}
+
+.admin-delivery-workflow-details {
+  margin-top: 0;
+}
+
+.admin-delivery-workflow-section {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.admin-delivery-workflow-section h4 {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.admin-delivery-workflow-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: rgba(12, 14, 22, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-delivery-workflow-table th,
+.admin-delivery-workflow-table td {
+  font-size: 0.8rem;
+  vertical-align: top;
+}
+
 .admin-evidence-code {
   display: block;
   margin-top: 0.2rem;
@@ -3807,6 +3894,45 @@ a:hover {
 .admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid div {
   border-color: rgba(250, 250, 251, 0.1);
   background: rgba(250, 250, 251, 0.06);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-guide {
+  border-color: rgba(142, 197, 255, 0.2);
+  background: linear-gradient(180deg, rgba(20, 33, 50, 0.94), rgba(13, 20, 35, 0.96));
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-step {
+  border-color: rgba(250, 250, 251, 0.12);
+  background: rgba(250, 250, 251, 0.05);
+  color: rgba(233, 237, 244, 0.68);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-step.is-current {
+  border-color: rgba(0, 194, 168, 0.28);
+  background: rgba(0, 194, 168, 0.12);
+  color: var(--jade-teal);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-current,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-unknown,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-intro,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-next-action,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-page-scope,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-list {
+  color: rgba(233, 237, 244, 0.78);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-unknown strong {
+  color: #9ec5ff;
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-section h4 {
+  color: rgba(233, 237, 244, 0.88);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-workflow-table th,
+.admin-console[data-theme="dark"] .admin-delivery-workflow-table td {
+  color: rgba(233, 237, 244, 0.78);
 }
 
 .admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid dt {
