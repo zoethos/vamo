@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { AdminAssuranceLevel, AdminPrincipal } from "@confluendo/ingestion-platform/admin-auth";
 import type {
   AutonomyDashboardView,
@@ -11,6 +11,10 @@ import type {
   BatchQueueItemStatus,
   BatchQueueSnapshot
 } from "@confluendo/ingestion-platform/core";
+import {
+  presentWorkflowDecisionHeader,
+  presentWorkflowNavigator
+} from "@confluendo/ingestion-platform/core/workflow-navigator-presenter";
 import type {
   IngestionAction,
   IngestionEvent,
@@ -29,6 +33,8 @@ import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-con
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
 import { DeliveryWorkflowGuide } from "./delivery-workflow-guide";
+import { ContextualDecisionHeader } from "./contextual-decision-header";
+import { WorkflowNavigator } from "./workflow-navigator";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 import {
@@ -153,6 +159,40 @@ export interface IngestionConsoleShellProps {
 
 export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
   const [activeView, setActiveView] = useState<ConsoleView>("overview");
+  const [navigatorCollapsed, setNavigatorCollapsed] = useState(false);
+  const [mobileNavigatorOpen, setMobileNavigatorOpen] = useState(false);
+
+  const workflowPresenterInput = useMemo(
+    () => ({
+      batchQueue: props.batchQueue,
+      batchQueueEligibleCount: props.batchQueueEligibleCount,
+      batchCanaryWaveEligibleCount: props.batchCanaryWaveEligibleCount,
+      productionPackageEligibleCount: props.productionPackageEligibleCount,
+      attentionRows: props.attentionRows,
+      operatorHealthTitle: props.operatorHealth.title,
+      operatorNextAction: props.operatorNextAction,
+      latestWaveScopeCount: props.latestProductionPackageWave?.items?.length,
+      expectedDeliveryWrites: props.batchQueue.latestProductionPackageWave?.items?.reduce(
+        (total, item) => total + item.plannedRowCount,
+        0
+      ),
+      activeView
+    }),
+    [activeView, props]
+  );
+
+  const workflowNavigator = useMemo(
+    () => presentWorkflowNavigator(workflowPresenterInput),
+    [workflowPresenterInput]
+  );
+  const decisionHeader = useMemo(
+    () =>
+      presentWorkflowDecisionHeader({
+        ...workflowPresenterInput,
+        batchQueueSourceLabel: batchQueueSourceLabel(props.batchQueueSource)
+      }),
+    [workflowPresenterInput, props.batchQueueSource]
+  );
 
   const commandContext = {
     role: props.principal.role,
@@ -193,14 +233,29 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           <span>Confluendo</span>
         </Link>
         <div className="admin-masthead-controls">
-          <div className="admin-nav" aria-label="Admin sections">
-            <Link className="admin-nav-link" href="/admin/providers">
+          <div className="admin-product-switch" aria-label="Confluendo products">
+            <Link className="admin-product-switch-link" href="/admin/providers">
               Providers
             </Link>
-            <Link className="admin-nav-link admin-nav-link-active" href="/admin/ingestion">
+            <Link
+              aria-current="page"
+              className="admin-product-switch-link admin-product-switch-link-active"
+              href="/admin/ingestion"
+            >
               Ingestion
             </Link>
           </div>
+          <button
+            className="admin-help-placeholder"
+            disabled
+            title="Help center arrives in UX-3. This control is visual only for now."
+            type="button"
+          >
+            <span aria-hidden="true" className="admin-help-placeholder-icon">
+              ?
+            </span>
+            Help
+          </button>
           <AdminSessionActions
             principal={props.principal}
             freshStepUpExpiresAt={props.freshStepUpExpiresAt}
@@ -229,10 +284,42 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
         ))}
       </nav>
 
+      <div className="admin-ux-workspace">
+        <button
+          aria-controls="ingestion-mobile-workflow-navigator"
+          aria-expanded={mobileNavigatorOpen}
+          className="admin-ux-workflow-mobile-toggle"
+          onClick={() => setMobileNavigatorOpen((open) => !open)}
+          type="button"
+        >
+          {mobileNavigatorOpen ? "Hide workflow navigator" : "Show workflow navigator"}
+          {workflowNavigator.attentionCount > 0
+            ? ` · ${workflowNavigator.attentionCount} action needed`
+            : ""}
+        </button>
+
+        {mobileNavigatorOpen ? (
+          <div className="admin-ux-workflow-mobile-panel" id="ingestion-mobile-workflow-navigator">
+            <WorkflowNavigator
+              activeView={activeView}
+              collapsed={false}
+              mobile
+              onCollapse={() => setMobileNavigatorOpen(false)}
+              onExpand={() => setMobileNavigatorOpen(true)}
+              onNavigateView={(view) => {
+                setActiveView(view);
+                setMobileNavigatorOpen(false);
+              }}
+              presentation={workflowNavigator}
+            />
+          </div>
+        ) : null}
+
+        <div className="admin-ux-canvas">
+          <ContextualDecisionHeader presentation={decisionHeader} />
+
       {activeView === "overview" ? (
         <OverviewView
-          operatorHealth={props.operatorHealth}
-          operatorNextAction={props.operatorNextAction}
           source={props.source}
           ingestionActions={props.ingestionActions}
           commandContext={commandContext}
@@ -320,13 +407,23 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
         />
       ) : null}
 
+        </div>
+
+        <WorkflowNavigator
+          activeView={activeView}
+          collapsed={navigatorCollapsed}
+          onCollapse={() => setNavigatorCollapsed(true)}
+          onExpand={() => setNavigatorCollapsed(false)}
+          onNavigateView={setActiveView}
+          presentation={workflowNavigator}
+        />
+      </div>
+
     </main>
   );
 }
 
 function OverviewView({
-  operatorHealth,
-  operatorNextAction,
   source,
   ingestionActions,
   commandContext,
@@ -340,8 +437,6 @@ function OverviewView({
   attentionRows,
   autonomyView
 }: {
-  operatorHealth: OperatorHealth;
-  operatorNextAction: string;
   source: DashboardSource;
   ingestionActions: IngestionAction[];
   commandContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: "live" | "sample" };
@@ -357,18 +452,7 @@ function OverviewView({
 }) {
   return (
     <>
-      <section className="admin-ux-overview" aria-label="Ingestion overview">
-        <div className={`admin-ux-health admin-ux-tone-${operatorHealth.tone}`}>
-          <div>
-            <span className="admin-ux-label">Ingestion health</span>
-            <h1>{operatorHealth.title}</h1>
-            <p>{operatorHealth.detail}</p>
-          </div>
-          <div className="admin-ux-next-action">
-            <span className="admin-ux-label">Next recommended action</span>
-            <strong>{operatorNextAction}</strong>
-          </div>
-        </div>
+      <section className="admin-ux-overview-secondary" aria-label="Manual overrides and metrics">
         <aside className="admin-ux-control-panel" aria-label="Manual overrides">
           <div className="admin-surface-header">
             <span>Manual overrides</span>
@@ -396,8 +480,8 @@ function OverviewView({
         <div className="admin-ux-panel">
           <div className="admin-ux-panel-heading">
             <div>
-              <span className="admin-ux-label">Agent</span>
-              <h2>Next agent cycle</h2>
+              <span className="admin-ux-label">Automation</span>
+              <h2>Next automation cycle</h2>
             </div>
             <strong>{formatAgentAction(autonomyView.nextCycle.requiredAction)}</strong>
           </div>

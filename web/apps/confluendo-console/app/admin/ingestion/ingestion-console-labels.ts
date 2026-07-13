@@ -21,8 +21,8 @@ export type ConsoleView = (typeof CONSOLE_VIEWS)[number];
 export const consoleViewLabels: Record<ConsoleView, string> = {
   overview: "Overview",
   queue: "Queue",
-  agent: "Agent",
-  staging: "Staging",
+  agent: "Automation",
+  staging: "Verify",
   delivery: "Delivery",
   diagnostics: "Diagnostics"
 };

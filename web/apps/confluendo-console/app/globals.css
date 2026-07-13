@@ -729,19 +729,27 @@ a:hover {
 .admin-console {
   padding: 2rem clamp(1rem, 3vw, 2.5rem) 3rem;
   color-scheme: light;
+  --surface: #ffffff;
+  --surface-raised: #f7fafc;
+  --surface-inset: #eef2f7;
+  --text-primary: #0c0e16;
+  --text-muted: rgba(12, 14, 22, 0.62);
+  --border: rgba(42, 46, 58, 0.16);
+  --accent: #0f766e;
+  --good: #0f766e;
+  --watch: #a9720f;
+  --danger: #b91c1c;
   --dashboard-toggle-bg: rgba(255, 255, 255, 0.9);
   --dashboard-toggle-border: rgba(42, 46, 58, 0.14);
-  --dashboard-toggle-text: var(--ink);
+  --dashboard-toggle-text: var(--text-primary);
   --dashboard-toggle-track: rgba(15, 118, 110, 0.12);
-  --dashboard-toggle-thumb: #0f766e;
-  background:
-    linear-gradient(180deg, rgba(250, 250, 251, 0.94), rgba(233, 236, 242, 0.96)),
-    var(--warm-white);
-  color: var(--ink);
+  --dashboard-toggle-thumb: var(--accent);
+  background: var(--surface-raised);
+  color: var(--text-primary);
 }
 
 .admin-console a {
-  color: #0f766e;
+  color: var(--accent);
 }
 
 .admin-masthead,
@@ -3598,24 +3606,31 @@ a:hover {
 
 .admin-console[data-theme="dark"] {
   color-scheme: dark;
+  --surface: rgba(255, 255, 255, 0.11);
+  --surface-raised: #212a3d;
+  --surface-inset: #151b28;
+  --text-primary: #e9edf4;
+  --text-muted: rgba(233, 237, 244, 0.68);
+  --border: rgba(255, 255, 255, 0.15);
+  --accent: #2fd4c0;
+  --good: #34d399;
+  --watch: #fbbf24;
+  --danger: #f87171;
   --dashboard-toggle-bg: rgba(250, 250, 251, 0.08);
   --dashboard-toggle-border: rgba(250, 250, 251, 0.16);
   --dashboard-toggle-text: rgba(250, 250, 251, 0.9);
   --dashboard-toggle-track: rgba(12, 14, 22, 0.64);
-  --dashboard-toggle-thumb: var(--go-lime);
-  background:
-    radial-gradient(circle at 13% 8%, rgba(0, 194, 168, 0.18), transparent 28rem),
-    radial-gradient(circle at 84% 10%, rgba(255, 91, 77, 0.13), transparent 28rem),
-    linear-gradient(145deg, #0c0e16 0%, #111827 54%, #102322 100%);
-  color: var(--warm-white);
+  --dashboard-toggle-thumb: var(--accent);
+  background: #13161f;
+  color: var(--text-primary);
 }
 
 .admin-console[data-theme="dark"] a {
-  color: var(--jade-teal);
+  color: var(--accent);
 }
 
 .admin-console[data-theme="dark"] .admin-brand {
-  color: var(--warm-white);
+  color: var(--text-primary);
 }
 
 .admin-console[data-theme="dark"] .admin-brand:hover {
@@ -5387,6 +5402,469 @@ a:hover {
   }
 
   .admin-event {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* UX-1 workflow-led ingestion shell */
+.admin-product-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.admin-product-switch-link {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  padding: 0.45rem 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-product-switch-link:hover,
+.admin-product-switch-link:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-inset);
+}
+
+.admin-product-switch-link-active {
+  color: var(--text-primary);
+  background: var(--surface-inset);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.admin-help-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  opacity: 0.88;
+}
+
+.admin-help-placeholder-icon {
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.admin-ux-workspace {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.admin-ux-canvas {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0 0.25rem 1.5rem;
+}
+
+.admin-ux-decision-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: 1rem;
+  padding: 0.95rem 1.1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.admin-ux-decision-kicker {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ux-decision-state {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.admin-ux-decision-purpose {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.admin-ux-decision-action {
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.admin-ux-decision-action-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--accent);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.admin-ux-decision-action strong {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.admin-ux-decision-help-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.admin-ux-workflow-navigator {
+  flex: none;
+  width: 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem 0.9rem 1.25rem;
+  border-left: 1px solid var(--border);
+  background: var(--surface-inset);
+  color: var(--text-primary);
+}
+
+.admin-ux-workflow-navigator-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.admin-ux-workflow-kicker {
+  display: block;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-ux-workflow-title {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.95rem;
+}
+
+.admin-ux-workflow-collapse,
+.admin-ux-workflow-rail-toggle {
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-ux-workflow-attention {
+  display: flex;
+  gap: 0.55rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-radius: 11px;
+  background: var(--surface-raised);
+}
+
+.admin-ux-workflow-attention-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.25rem;
+  border-radius: 999px;
+  background: var(--danger);
+}
+
+.admin-ux-workflow-attention strong {
+  display: block;
+  color: var(--danger);
+  font-size: 0.78rem;
+}
+
+.admin-ux-workflow-attention p {
+  margin: 0.2rem 0 0.45rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.admin-ux-workflow-attention-action,
+.admin-ux-workflow-stage {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.admin-ux-workflow-attention-action {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-ux-workflow-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-ux-workflow-connector {
+  display: block;
+  width: 2px;
+  height: 0.7rem;
+  margin-left: 1.1rem;
+  background: var(--border);
+}
+
+.admin-ux-workflow-stage {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+}
+
+.admin-ux-workflow-stage.is-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.admin-ux-workflow-stage-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.admin-ux-workflow-stage-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: var(--text-muted);
+}
+
+.admin-ux-workflow-stage-dot.admin-ux-tone-good {
+  background: var(--good);
+}
+
+.admin-ux-workflow-stage-dot.admin-ux-tone-watch,
+.admin-ux-workflow-stage-dot.admin-ux-tone-info {
+  background: var(--watch);
+}
+
+.admin-ux-workflow-stage-dot.admin-ux-tone-danger {
+  background: var(--danger);
+}
+
+.admin-ux-workflow-stage-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.admin-ux-workflow-stage-summary {
+  margin: 0.45rem 0 0.5rem 1.35rem;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.admin-ux-workflow-stage-metrics {
+  display: flex;
+  gap: 0.8rem;
+  margin-left: 1.35rem;
+}
+
+.admin-ux-workflow-stage-metrics strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.admin-ux-workflow-stage-metrics span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.admin-ux-workflow-ownership {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.admin-ux-workflow-rail-collapsed {
+  flex: none;
+  width: 3.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface-inset);
+}
+
+.admin-ux-workflow-rail-badge {
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.admin-ux-workflow-rail-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-ux-workflow-mobile-toggle {
+  display: none;
+}
+
+.admin-ux-overview-secondary {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-console .admin-ux-tabs {
+  border-bottom-color: var(--border);
+  background: color-mix(in srgb, var(--surface-raised) 92%, transparent);
+}
+
+.admin-console .admin-ux-tabs button {
+  color: var(--text-muted);
+}
+
+.admin-console .admin-ux-tabs button:hover,
+.admin-console .admin-ux-tabs button:focus-visible,
+.admin-console .admin-ux-tabs button.admin-ux-tab-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.admin-console .admin-ux-panel,
+.admin-console .admin-ux-metric,
+.admin-console .admin-ux-control-panel {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.admin-console .admin-ux-panel-note,
+.admin-console .admin-view-lead,
+.admin-console .admin-queue-summary,
+.admin-console .admin-queue-stats {
+  color: var(--text-muted);
+}
+
+.admin-console button:not(:disabled),
+.admin-console .admin-queue-filter-chip,
+.admin-console .admin-action-button {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.admin-console button:not(:disabled):hover,
+.admin-console button:not(:disabled):focus-visible,
+.admin-console .admin-queue-filter-chip:hover,
+.admin-console .admin-queue-filter-chip:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--text-primary);
+}
+
+@media (max-width: 1080px) {
+  .admin-ux-workflow-navigator:not(.is-mobile),
+  .admin-ux-workflow-rail-collapsed {
+    display: none;
+  }
+
+  .admin-ux-workflow-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.4rem;
+    margin: 0 0.25rem 0.75rem;
+    padding: 0.45rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .admin-ux-workflow-mobile-panel .admin-ux-workflow-navigator {
+    width: auto;
+    border-left: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 0 0.25rem 0.75rem;
+  }
+
+  .admin-ux-decision-header {
     grid-template-columns: 1fr;
   }
 }
