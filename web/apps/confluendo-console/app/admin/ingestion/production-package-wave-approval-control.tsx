@@ -214,6 +214,7 @@ export function ProductionPackageWaveApprovalControl({
   });
 
   const approveLabel = approvalButtonLabel(operationPhase, selectedUnitKeys.length);
+  const hasSelectedScopes = selectedUnitKeys.length > 0;
 
   useEffect(() => {
     setOperationPhase((phase) => (phase === "refreshing" ? "idle" : phase));
@@ -271,9 +272,15 @@ export function ProductionPackageWaveApprovalControl({
           </article>
         </div>
         <p className="admin-envelope-detail">
-          Approval caps sent to the server: {effectiveEnvelope.maxUnits} unit(s) ·{" "}
-          {effectiveEnvelope.maxPackages} package(s) · {effectiveEnvelope.maxTargetWrites} max
-          target writes
+          {hasSelectedScopes ? (
+            <>
+              Approval caps that will be sent to the server: {effectiveEnvelope.maxUnits} unit(s) ·{" "}
+              {effectiveEnvelope.maxPackages} package(s) · {effectiveEnvelope.maxTargetWrites} max
+              target writes
+            </>
+          ) : (
+            "Select staging-verified scopes to preview the approval envelope. No approval caps are sent until a scope is selected."
+          )}
         </p>
         {effectiveEnvelope.rampCapLabel ? (
           <p className="admin-envelope-detail">Server ramp cap: {effectiveEnvelope.rampCapLabel}</p>

@@ -3755,6 +3755,37 @@ a:hover {
   color: #9ec5ff;
 }
 
+.admin-console[data-theme="dark"] .admin-command-result p,
+.admin-console[data-theme="dark"] .admin-command-result li,
+.admin-console[data-theme="dark"] .admin-command-result span,
+.admin-console[data-theme="dark"] .admin-command-result small,
+.admin-console[data-theme="dark"] .admin-command-result label,
+.admin-console[data-theme="dark"] .admin-action-status,
+.admin-console[data-theme="dark"] .admin-action-status[data-state="unavailable"],
+.admin-console[data-theme="dark"] .admin-envelope-detail,
+.admin-console[data-theme="dark"] .admin-envelope-stat span,
+.admin-console[data-theme="dark"] .admin-evidence-details,
+.admin-console[data-theme="dark"] .admin-evidence-details p {
+  color: rgba(233, 237, 244, 0.74);
+}
+
+.admin-console[data-theme="dark"] .admin-command-result strong,
+.admin-console[data-theme="dark"] .admin-envelope-stat strong,
+.admin-console[data-theme="dark"] .admin-evidence-details strong {
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-envelope-warning {
+  color: #ffd28a;
+}
+
+.admin-console[data-theme="dark"] .admin-command-result code,
+.admin-console[data-theme="dark"] .admin-evidence-code {
+  border-color: rgba(142, 197, 255, 0.16);
+  background: rgba(10, 16, 30, 0.62);
+  color: #dbeafe;
+}
+
 .admin-console[data-theme="dark"] .admin-delivery-checkpoint {
   border-color: rgba(142, 197, 255, 0.24);
   background: linear-gradient(180deg, rgba(20, 33, 50, 0.94), rgba(13, 20, 35, 0.96));
