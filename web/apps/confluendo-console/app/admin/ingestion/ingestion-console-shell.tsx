@@ -283,17 +283,16 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
               Ingestion
             </Link>
           </div>
-          <button
+          <Link
             className="admin-help-placeholder"
-            disabled
-            title="Help center arrives in UX-3. This control is visual only for now."
-            type="button"
+            href="/admin/help#lifecycle"
+            title="Open the operations manual"
           >
             <span aria-hidden="true" className="admin-help-placeholder-icon">
               ?
             </span>
             Help
-          </button>
+          </Link>
           <AdminSessionActions
             principal={props.principal}
             freshStepUpExpiresAt={props.freshStepUpExpiresAt}

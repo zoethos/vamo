@@ -5454,8 +5454,20 @@ a:hover {
   color: var(--text-primary);
   font-size: 0.82rem;
   font-weight: 700;
-  cursor: not-allowed;
+  cursor: pointer;
   opacity: 0.88;
+  text-decoration: none;
+}
+
+.admin-help-placeholder:hover,
+.admin-help-placeholder:focus-visible {
+  background: var(--surface-inset);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
+.admin-help-link-active {
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .admin-help-placeholder-icon {
@@ -6071,6 +6083,331 @@ a:hover {
   }
 
   .admin-ux-decision-header {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* UX-3: durable reference guidance lives beside the dynamic workflow navigator. */
+.admin-help-page.provider-dashboard {
+  min-height: 100vh;
+  padding: 1.25rem clamp(1rem, 3vw, 2.5rem) 3rem;
+  background: var(--surface-inset);
+  background-image: none;
+  color: var(--text-primary);
+}
+
+.admin-help-page .provider-masthead {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.admin-help-heading,
+.admin-help-lifecycle,
+.admin-help-layout {
+  width: min(100%, 1120px);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.admin-help-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 3.25rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-help-heading > div {
+  max-width: 46rem;
+}
+
+.admin-help-eyebrow {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-help-heading h1 {
+  max-width: 21ch;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 760;
+  line-height: 1.08;
+}
+
+.admin-help-heading p:not(.admin-help-eyebrow) {
+  margin: 0.9rem 0 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.admin-help-return {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.admin-help-return:hover,
+.admin-help-return:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.admin-help-lifecycle {
+  display: grid;
+  grid-template-columns: minmax(13rem, 0.7fr) minmax(0, 2fr);
+  gap: 2.25rem;
+  padding: 2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-help-section-heading h2,
+.admin-help-reference-section h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.35rem;
+  line-height: 1.25;
+}
+
+.admin-help-section-heading p:not(.admin-help-eyebrow) {
+  margin: 0.65rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.admin-help-workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-help-workflow-steps li {
+  position: relative;
+  min-height: 9rem;
+  padding: 1rem;
+  background: var(--surface-raised);
+}
+
+.admin-help-workflow-steps li + li {
+  border-left: 1px solid var(--border);
+}
+
+.admin-help-workflow-index {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  margin-bottom: 1.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.admin-help-workflow-steps strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.admin-help-workflow-steps p {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.admin-help-layout {
+  display: grid;
+  grid-template-columns: minmax(12.5rem, 0.6fr) minmax(0, 2fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  padding: 2.5rem 0;
+}
+
+.admin-help-toc {
+  align-self: start;
+  position: sticky;
+  top: 1.25rem;
+}
+
+.admin-help-toc-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-help-toc nav {
+  display: grid;
+  gap: 0.1rem;
+  border-left: 1px solid var(--border);
+}
+
+.admin-help-toc a {
+  display: block;
+  padding: 0.45rem 0.75rem;
+  border-left: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.admin-help-toc a:hover,
+.admin-help-toc a:focus-visible {
+  border-left-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.admin-help-sections {
+  min-width: 0;
+}
+
+.admin-help-reference-section {
+  scroll-margin-top: 1.5rem;
+  padding: 0 0 2rem;
+}
+
+.admin-help-reference-section + .admin-help-reference-section {
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.admin-help-reference-section > p:not(.admin-help-eyebrow) {
+  max-width: 66ch;
+  margin: 0.8rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.admin-help-reference-section dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 1.25rem 0 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.admin-help-reference-section dl > div {
+  min-height: 6.5rem;
+  padding: 1rem;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.admin-help-reference-section dt {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.admin-help-reference-section dd {
+  margin: 0.4rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .admin-help-heading,
+  .admin-help-lifecycle,
+  .admin-help-layout {
+    width: min(100%, 720px);
+  }
+
+  .admin-help-heading,
+  .admin-help-lifecycle {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .admin-help-heading {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .admin-help-workflow-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-help-workflow-steps li {
+    min-height: auto;
+  }
+
+  .admin-help-workflow-steps li + li {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .admin-help-workflow-index {
+    margin-bottom: 0.65rem;
+  }
+
+  .admin-help-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .admin-help-toc {
+    position: static;
+  }
+
+  .admin-help-toc nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--border);
+  }
+
+  .admin-help-toc a {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 580px) {
+  .admin-help-page.provider-dashboard {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  .admin-help-heading {
+    padding-top: 2rem;
+  }
+
+  .admin-help-heading h1 {
+    font-size: 2rem;
+  }
+
+  .admin-help-reference-section dl,
+  .admin-help-toc nav {
     grid-template-columns: 1fr;
   }
 }

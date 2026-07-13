@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type {
   WorkflowDecisionHeaderPresentation,
   WorkflowStageTone
@@ -7,12 +8,10 @@ import type {
 
 type ContextualDecisionHeaderProps = {
   presentation: WorkflowDecisionHeaderPresentation;
-  onHelpAnchor?: () => void;
 };
 
 export function ContextualDecisionHeader({
-  presentation,
-  onHelpAnchor
+  presentation
 }: ContextualDecisionHeaderProps) {
   return (
     <section
@@ -27,14 +26,13 @@ export function ContextualDecisionHeader({
       <aside className="admin-ux-decision-action">
         <span className="admin-ux-decision-action-label">Next safe action</span>
         <strong>{presentation.nextAction}</strong>
-        <button
+        <Link
           className="admin-ux-decision-help-link"
-          onClick={onHelpAnchor}
-          title="Help center arrives in UX-3. This control does not open a page yet."
-          type="button"
+          href={`/admin/help#${presentation.helpSection}`}
+          title={`Open ${presentation.helpSectionLabel.toLowerCase()}`}
         >
           {presentation.helpSectionLabel} →
-        </button>
+        </Link>
       </aside>
     </section>
   );

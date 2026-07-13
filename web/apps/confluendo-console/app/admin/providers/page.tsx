@@ -58,6 +58,12 @@ export default async function ProviderDashboardPage() {
               Ingestion
             </Link>
           </div>
+          <Link className="admin-help-placeholder" href="/admin/help#providers">
+            <span aria-hidden="true" className="admin-help-placeholder-icon">
+              ?
+            </span>
+            Help
+          </Link>
           <AdminSessionActions
             principal={principal}
             freshStepUpExpiresAt={freshStepUpExpiresAt}

@@ -26,6 +26,14 @@ export type WorkflowNavigatorStageKey =
 
 export type WorkflowStageTone = "good" | "watch" | "danger" | "neutral" | "info";
 
+export type WorkflowHelpSectionKey =
+  | "lifecycle"
+  | "queue"
+  | "automation"
+  | "verification"
+  | "delivery"
+  | "troubleshooting";
+
 export type WorkflowStageNavigation =
   | { kind: "view"; view: WorkflowConsoleView }
   | { kind: "href"; href: string };
@@ -60,6 +68,7 @@ export interface WorkflowDecisionHeaderPresentation {
   state: string;
   purpose: string;
   nextAction: string;
+  helpSection: WorkflowHelpSectionKey;
   helpSectionLabel: string;
   tone: WorkflowStageTone;
 }
@@ -101,14 +110,15 @@ export function presentWorkflowDecisionHeader(
     navigator.stages.find((entry) => entry.key === stageForView) ??
     navigator.stages.find((entry) => entry.key === "queue_ready")!;
 
-  const helpSectionLabel = helpLabelForView(input.activeView);
+  const helpSection = helpSectionForView(input.activeView);
 
   return {
     kicker: viewKicker(input.activeView),
     state: stage.summary,
     purpose: viewPurpose(input.activeView, input.batchQueueSourceLabel),
     nextAction: sanitizeOperatorCopy(input.operatorNextAction || stage.summary),
-    helpSectionLabel,
+    helpSection,
+    helpSectionLabel: helpLabelForSection(helpSection),
     tone: stage.tone
   };
 }
@@ -431,17 +441,34 @@ function viewPurpose(view: WorkflowConsoleView, sourceLabel?: string): string {
   }
 }
 
-function helpLabelForView(view: WorkflowConsoleView): string {
+function helpSectionForView(view: WorkflowConsoleView): WorkflowHelpSectionKey {
   switch (view) {
     case "queue":
-      return "Queue guide";
+      return "queue";
     case "agent":
-      return "Automation guide";
+      return "automation";
     case "staging":
+      return "verification";
+    case "delivery":
+      return "delivery";
+    case "diagnostics":
+      return "troubleshooting";
+    default:
+      return "lifecycle";
+  }
+}
+
+function helpLabelForSection(section: WorkflowHelpSectionKey): string {
+  switch (section) {
+    case "queue":
+      return "Queue guide";
+    case "automation":
+      return "Automation guide";
+    case "verification":
       return "Verification guide";
     case "delivery":
       return "Delivery guide";
-    case "diagnostics":
+    case "troubleshooting":
       return "Diagnostics guide";
     default:
       return "Workflow guide";
