@@ -26,6 +26,7 @@ const batchApplyControlPath = join(
   webRoot,
   "apps/confluendo-console/app/admin/ingestion/production-package-consumer-apply-batch-control.tsx"
 );
+const consoleGlobalsCssPath = join(webRoot, "apps/confluendo-console/app/globals.css");
 
 describe("deriveProductionPackageApprovalEnvelope", () => {
   it("derives caps from ten selected scopes", () => {
@@ -157,5 +158,19 @@ describe("production package-wave approval control artifact", () => {
     const source = readFileSync(batchApplyControlPath, "utf8");
     assert.doesNotMatch(source, /AbortController/);
     assert.match(source, /APPLY_AMBIGUOUS_RESULT_MESSAGE/);
+  });
+
+  it("shows an empty approval-envelope state before sending server caps", () => {
+    const source = readFileSync(approvalControlPath, "utf8");
+    assert.match(source, /hasSelectedScopes/);
+    assert.match(source, /Select staging-verified scopes to preview the approval envelope/);
+    assert.match(source, /Approval caps that will be sent to the server/);
+  });
+
+  it("keeps shared dark-mode result templates readable", () => {
+    const source = readFileSync(consoleGlobalsCssPath, "utf8");
+    assert.match(source, /\.admin-console\[data-theme="dark"\] \.admin-command-result p/);
+    assert.match(source, /\.admin-console\[data-theme="dark"\] \.admin-envelope-detail/);
+    assert.match(source, /\.admin-console\[data-theme="dark"\] \.admin-evidence-code/);
   });
 });
