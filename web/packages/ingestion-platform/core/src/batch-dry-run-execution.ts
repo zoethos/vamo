@@ -15,6 +15,7 @@ import {
   type BatchDryRunUnitReport
 } from "./batch-dry-run-simulator.js";
 import type { BatchQueueItem } from "./batch-queue-read-model.js";
+import { mapVamoSourceCategoryToFeatureType } from "./batch-staging-canary-wave-target-compat.js";
 
 export interface BatchDryRunExecutionPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -194,6 +195,7 @@ export async function executeBatchDryRun(
             category: unit.category,
             targetKey: unit.targetKey,
             targetEnvironment: unit.targetEnvironment,
+            ...deriveSimulationCountsFromQueueItem(unit),
             now
           });
 
@@ -294,6 +296,47 @@ export async function executeBatchDryRun(
   } finally {
     await closeClient(ownedClient);
   }
+}
+
+export function deriveSimulationCountsFromQueueItem(
+  unit: BatchQueueItem
+): Pick<Parameters<typeof simulateBatchDryRunUnit>[0], "candidateCount" | "targetWriteCount" | "rowLimit"> {
+  const proposal = unit.proposal;
+  const scope = readRecord(proposal?.scope);
+  const quotaBudget = readRecord(proposal?.quotaBudget);
+  const scopedRowLimit = readPositiveInteger(scope?.rowLimit);
+  const quotaRows = readPositiveInteger(quotaBudget?.maxRows);
+  const rowLimit = scopedRowLimit ?? quotaRows;
+
+  if (!rowLimit) {
+    return {};
+  }
+
+  return {
+    candidateCount: rowLimit,
+    targetWriteCount: deriveTargetWriteCount(unit, rowLimit),
+    rowLimit
+  };
+}
+
+function deriveTargetWriteCount(unit: BatchQueueItem, validSourceRows: number): number {
+  if (unit.targetKey === "vamo-place-intelligence" && mapVamoSourceCategoryToFeatureType(unit.category)) {
+    return validSourceRows * 2;
+  }
+  return validSourceRows;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function readPositiveInteger(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return undefined;
+  }
+  return value;
 }
 
 async function openClient(

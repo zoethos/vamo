@@ -10,7 +10,10 @@ import {
   sampleVamoEuPoiBatchQueueSnapshot
 } from "../src/batch-queue-read-model.js";
 import { evaluateBatchDryRunExecution } from "../src/batch-dry-run-execution-policy.js";
-import { executeBatchDryRun } from "../src/batch-dry-run-execution.js";
+import {
+  deriveSimulationCountsFromQueueItem,
+  executeBatchDryRun
+} from "../src/batch-dry-run-execution.js";
 import { simulateBatchDryRunUnit } from "../src/batch-dry-run-simulator.js";
 import { loadBatchQueueSnapshot } from "../src/batch-queue-control-read.js";
 import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
@@ -40,6 +43,58 @@ describe("batch dry-run execution control", () => {
     assert.equal(report.updateCount, 0);
     assert.equal(report.noOpCount, 0);
     assert.equal(report.wroteToTarget, false);
+  });
+
+  it("derives full-data Vamo dry-run counts from bounded proposals", () => {
+    const counts = deriveSimulationCountsFromQueueItem({
+      unitKey: "vamo-place-intelligence:barcelona-spain:landmark",
+      runOrder: 1,
+      geography: "barcelona-spain",
+      geographyKind: "city",
+      country: "spain",
+      category: "landmark",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      sourceKey: "fsq-os-places-snapshot",
+      priority: 0,
+      status: "dry_run_ready",
+      blockReasons: [],
+      proposal: {
+        scope: {
+          geography: "barcelona-spain",
+          category: "landmark",
+          rowLimit: 1
+        },
+        quotaBudget: {
+          maxRows: 1
+        }
+      }
+    });
+
+    assert.deepEqual(counts, {
+      candidateCount: 1,
+      targetWriteCount: 2,
+      rowLimit: 1
+    });
+  });
+
+  it("leaves unproposed dry-run units on the legacy deterministic simulator path", () => {
+    const counts = deriveSimulationCountsFromQueueItem({
+      unitKey: "vamo-place-intelligence:barcelona-spain:landmark",
+      runOrder: 1,
+      geography: "barcelona-spain",
+      geographyKind: "city",
+      country: "spain",
+      category: "landmark",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      sourceKey: "fsq-os-places-sample",
+      priority: 0,
+      status: "dry_run_ready",
+      blockReasons: []
+    });
+
+    assert.deepEqual(counts, {});
   });
 
   it(
