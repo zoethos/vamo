@@ -797,28 +797,11 @@ function DeliveryView({
       />
       {batchQueue.latestProductionPackageWave ? (
         <>
-          <p className="admin-next-action">
-            <strong>Latest delivery batch:</strong> {batchQueue.latestProductionPackageWave.waveKey}{" "}
-            ·{" "}
-            {latestProductionPackageWave?.statusPresentation.label ??
-              batchQueue.latestProductionPackageWave.status}{" "}
-            · {batchQueue.latestProductionPackageWave.targetEnvironment} ·{" "}
-            {batchQueue.latestProductionPackageWave.unitCount} scope(s)
-            {batchQueue.latestProductionPackageWave.approvalAuditId
-              ? ` · approval audit record ${batchQueue.latestProductionPackageWave.approvalAuditId}`
-              : ""}
-            {batchQueue.latestProductionPackageWave.deliveryAuditId
-              ? ` · delivery audit record ${batchQueue.latestProductionPackageWave.deliveryAuditId}`
-              : ""}
-            {applyTelemetrySource === "inbox"
-              ? " · apply telemetry from inbox"
-              : batchQueue.latestProductionPackageWave.status === "delivered" ||
-                  batchQueue.latestProductionPackageWave.status === "consumer_apply_pending" ||
-                  batchQueue.latestProductionPackageWave.status === "consumer_applied" ||
-                  batchQueue.latestProductionPackageWave.status === "consumer_apply_failed"
-                ? " · apply telemetry unavailable"
-                : ""}
-          </p>
+          <DeliveryCheckpointCard
+            wave={batchQueue.latestProductionPackageWave}
+            presentation={latestProductionPackageWave}
+            applyTelemetrySource={applyTelemetrySource}
+          />
           {latestProductionPackageWave?.items && latestProductionPackageWave.items.length > 0 ? (
             <div className="admin-table-wrap">
               <table className="admin-target-table">
@@ -900,6 +883,95 @@ function DeliveryView({
         </article>
       </div>
     </section>
+  );
+}
+
+function DeliveryCheckpointCard({
+  wave,
+  presentation,
+  applyTelemetrySource
+}: {
+  wave: NonNullable<BatchQueueSnapshot["latestProductionPackageWave"]>;
+  presentation: ProductionPackageWavePresentation | null;
+  applyTelemetrySource?: string;
+}) {
+  const status = presentation?.statusPresentation.label ?? wave.status;
+  const tone = presentation?.statusPresentation.tone ?? "neutral";
+  const telemetryLabel =
+    applyTelemetrySource === "inbox"
+      ? "Inbox telemetry connected"
+      : isDeliveredOrAppliedWaveStatus(wave.status)
+        ? "Telemetry unavailable"
+        : "Not required yet";
+  const telemetryDetail =
+    applyTelemetrySource === "inbox"
+      ? "Apply state is being read from the consumer inbox."
+      : isDeliveredOrAppliedWaveStatus(wave.status)
+        ? "Refresh telemetry before treating apply state as final."
+        : "Telemetry starts after inbox delivery.";
+  const checkpointHint =
+    wave.status === "delivered" || wave.status === "consumer_apply_pending"
+      ? "Inbox delivery is complete. The next workflow step is applying the selected packages to Vamo."
+      : wave.status === "consumer_applied"
+        ? "Vamo has applied this batch. Keep this checkpoint as the evidence trail."
+        : "Use this checkpoint to decide the next delivery or apply action.";
+
+  return (
+    <article className={`admin-delivery-checkpoint admin-delivery-checkpoint-${tone}`}>
+      <div className="admin-delivery-checkpoint-header">
+        <div>
+          <p className="admin-kicker">Current delivery checkpoint</p>
+          <h3>Latest production package batch</h3>
+          <p>{checkpointHint}</p>
+        </div>
+        <span className={`admin-delivery-state admin-delivery-state-${tone}`}>{status}</span>
+      </div>
+      <dl className="admin-delivery-checkpoint-grid">
+        <div className="admin-delivery-checkpoint-wide">
+          <dt>Batch wave</dt>
+          <dd>
+            <code>{wave.waveKey}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>Environment</dt>
+          <dd>{wave.targetEnvironment}</dd>
+        </div>
+        <div>
+          <dt>Scopes in batch</dt>
+          <dd>{wave.unitCount}</dd>
+        </div>
+        <div>
+          <dt>Approval audit</dt>
+          <dd>{wave.approvalAuditId ? `#${wave.approvalAuditId}` : "Not recorded"}</dd>
+        </div>
+        <div>
+          <dt>Delivery audit</dt>
+          <dd>{wave.deliveryAuditId ? `#${wave.deliveryAuditId}` : "Not delivered yet"}</dd>
+        </div>
+        <div className="admin-delivery-checkpoint-wide">
+          <dt>Apply telemetry</dt>
+          <dd>
+            <strong>{telemetryLabel}</strong>
+            <span>{telemetryDetail}</span>
+          </dd>
+        </div>
+      </dl>
+      {presentation?.statusPresentation.detail ? (
+        <p className="admin-delivery-checkpoint-note">
+          {presentation.statusPresentation.detail}
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+function isDeliveredOrAppliedWaveStatus(status: string): boolean {
+  return (
+    status === "delivered" ||
+    status === "consumer_apply_pending" ||
+    status === "consumer_applied" ||
+    status === "consumer_apply_failed"
   );
 }
 

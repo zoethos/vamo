@@ -3166,6 +3166,122 @@ a:hover {
   color: #854d0e;
 }
 
+.admin-delivery-checkpoint {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.96));
+  color: rgba(12, 14, 22, 0.78);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.admin-delivery-checkpoint-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-delivery-checkpoint-header h3 {
+  margin: 0.1rem 0 0;
+  color: var(--ink);
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+.admin-delivery-checkpoint-header p:not(.admin-kicker) {
+  max-width: 48rem;
+  margin: 0.35rem 0 0;
+  color: rgba(12, 14, 22, 0.62);
+  line-height: 1.45;
+}
+
+.admin-delivery-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  border: 1px solid rgba(42, 46, 58, 0.12);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.admin-delivery-state-good {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: rgba(15, 118, 110, 0.1);
+  color: #0f766e;
+}
+
+.admin-delivery-state-watch {
+  border-color: rgba(161, 98, 7, 0.24);
+  background: rgba(254, 249, 195, 0.9);
+  color: #854d0e;
+}
+
+.admin-delivery-state-danger {
+  border-color: rgba(185, 28, 28, 0.24);
+  background: rgba(254, 242, 242, 0.95);
+  color: #991b1b;
+}
+
+.admin-delivery-checkpoint-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.admin-delivery-checkpoint-grid div {
+  min-width: 0;
+  border: 1px solid rgba(42, 46, 58, 0.1);
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.admin-delivery-checkpoint-grid dt {
+  margin: 0 0 0.35rem;
+  color: rgba(12, 14, 22, 0.48);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admin-delivery-checkpoint-grid dd {
+  margin: 0;
+  color: rgba(12, 14, 22, 0.82);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.admin-delivery-checkpoint-grid dd span,
+.admin-delivery-checkpoint-note {
+  display: block;
+  margin-top: 0.25rem;
+  color: rgba(12, 14, 22, 0.56);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-delivery-checkpoint-grid code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-delivery-checkpoint-wide {
+  grid-column: span 2;
+}
+
 .admin-wide-control {
   width: 100%;
   min-height: 2.65rem;
@@ -3574,6 +3690,57 @@ a:hover {
   border-color: rgba(255, 184, 77, 0.24);
   background: rgba(255, 184, 77, 0.12);
   color: #ffd28a;
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint {
+  border-color: rgba(142, 197, 255, 0.24);
+  background: linear-gradient(180deg, rgba(20, 33, 50, 0.94), rgba(13, 20, 35, 0.96));
+  color: rgba(233, 237, 244, 0.84);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-header h3,
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid dd {
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-header p:not(.admin-kicker),
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid dd span,
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-note {
+  color: rgba(233, 237, 244, 0.72);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid div {
+  border-color: rgba(250, 250, 251, 0.1);
+  background: rgba(250, 250, 251, 0.06);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-checkpoint-grid dt {
+  color: rgba(233, 237, 244, 0.58);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-state {
+  border-color: rgba(250, 250, 251, 0.12);
+  background: rgba(250, 250, 251, 0.08);
+  color: #f8fafc;
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-state-good {
+  border-color: rgba(0, 194, 168, 0.28);
+  background: rgba(0, 194, 168, 0.12);
+  color: var(--jade-teal);
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-state-watch {
+  border-color: rgba(255, 184, 77, 0.28);
+  background: rgba(255, 184, 77, 0.12);
+  color: #ffd28a;
+}
+
+.admin-console[data-theme="dark"] .admin-delivery-state-danger {
+  border-color: rgba(255, 91, 77, 0.28);
+  background: rgba(255, 91, 77, 0.12);
+  color: #ff8a7f;
 }
 
 .admin-console[data-theme="dark"] code {
@@ -4854,6 +5021,10 @@ a:hover {
   .admin-policy-panel {
     grid-template-columns: 1fr;
   }
+
+  .admin-delivery-checkpoint-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -4911,6 +5082,23 @@ a:hover {
   .admin-table-count {
     align-self: flex-start;
     white-space: normal;
+  }
+
+  .admin-delivery-checkpoint {
+    padding: 0.85rem;
+  }
+
+  .admin-delivery-checkpoint-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-delivery-checkpoint-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-delivery-checkpoint-wide {
+    grid-column: auto;
   }
 
   .admin-event {
