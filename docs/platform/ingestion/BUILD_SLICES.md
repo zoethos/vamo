@@ -1702,8 +1702,39 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.10+** — activate a reviewed snapshot release into the
-bundled consumer contract and re-seed supply after a real approved export exists.
+Next product slice: **IP-18.8.11+** — activate a reviewed snapshot release into the
+bundled consumer contract and re-seed supply after a registered acquisition exists.
+
+### IP-18.8.10 — implemented (source acquisition and snapshot registry)
+
+**Status:** done — provider-facing FSQ acquisition boundary, immutable artifact
+store adapter, and control-plane release registry. **Not** snapshot activation,
+**not** queue reseed, **not** console source-token UI, **not** FSQ calls from
+console/scheduler/queue/delivery paths.
+
+Deliverables:
+
+- `source-acquisition-contract.ts` — provider-neutral release record with
+  statuses `acquired`, `validated`, `rejected`, `activation_ready`, `superseded`.
+- `fsq-os-places-catalog-acquire.ts` — sole FSQ HTTP boundary; bounded
+  country/category scopes; preview is write-free; execute requires
+  `FSQ_OS_PLACES_CATALOG_TOKEN` from server/job secrets only.
+- `snapshot-artifact-store.ts` — immutable artifact key
+  `{sourceKey}/{releaseId}/{outputSha256}` with local test store and bundle
+  checksum verification (`source.jsonl`, `release.json`, `coverage-report.json`).
+- `ingestion_snapshot_releases` table plus owner-controlled
+  `register_snapshot_release(...)` with audit/event evidence; `confluendo_app`
+  may read and execute registration but cannot directly update release status.
+- `ip18:fsq-snapshot-acquire` — preview by default; execute requires `--execute`,
+  `CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES`, token from env, and
+  `--artifact-store-dir` outside the git worktree.
+
+Acquisition vs activation:
+
+- **Acquisition** — fetch/normalize provider export, validate via IP-18.8.9 intake,
+  store immutable artifacts, optionally register `activation_ready` metadata.
+- **Activation** — later slice only: bind the registered release into the bundled
+  consumer contract and re-seed `vamo-eu-full-data-v1` supply.
 
 ### IP-18.8.9 — implemented (versioned snapshot intake)
 
@@ -1726,10 +1757,11 @@ Deliverables:
   and a new `--output-dir`, refuses git-worktree output paths and replacement
   of an existing release, atomically writes `source.jsonl`, `release.json`,
   and `coverage-report.json`.
-- Intake vs activation documented: operators obtain the FSQ export through the
-  Places Portal with a separately stored source token, run local intake outside
-  the repo, then activate/reseed in a later reviewed slice. Never commit the
-  export or token.
+- Intake vs activation documented: operators may still run manual IP-18.8.9
+  intake for reviewed exports, but hosted autonomy should consume registered
+  acquisition artifacts from IP-18.8.10 instead of calling FSQ directly.
+  Activation/reseed remains a later reviewed slice. Never commit the export or
+  token.
 
 ### IP-18.8.4 — implemented (production package batch controls)
 

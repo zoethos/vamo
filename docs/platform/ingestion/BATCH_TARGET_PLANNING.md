@@ -100,6 +100,55 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
+## Source acquisition and snapshot registry (IP-18.8.10)
+
+IP-18.8.10 adds the provider-facing acquisition boundary and control-plane
+release registry. It is separate from activation and queue reseed:
+
+- **Acquisition** — bounded FSQ OS Places catalog fetch through the dedicated
+  adapter/job only; normalize deterministically; reuse IP-18.8.9 intake;
+  store immutable artifacts; optionally register `activation_ready` metadata in
+  the Confluendo control plane.
+- **Activation** — later slice only: bind the registered release into the bundled
+  consumer contract and re-seed `vamo-eu-full-data-v1` supply.
+
+Boundary rules:
+
+1. `FSQ_OS_PLACES_CATALOG_TOKEN` lives in server/job secrets only — never in
+   console code, manifests, artifacts, logs, or tests.
+2. Preview is write-free and token-free.
+3. Execute requires `--execute`, `CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES`,
+   and `--artifact-store-dir` outside the git worktree.
+4. Console, scheduler, queue, dry-run, staging, delivery, and consumer apply
+   paths must not call FSQ directly.
+
+Operator commands:
+
+```bash
+# Preview bounded scopes — writes nothing, token-free
+npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
+  --countries italy,france --categories poi,landmark
+
+# Execute after review (server/job secret store only)
+CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
+FSQ_OS_PLACES_CATALOG_TOKEN=... \
+INGESTION_CONTROL_DATABASE_URL=... \
+npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
+  --execute \
+  --countries italy,france \
+  --categories poi,landmark \
+  --artifact-store-dir /secure/confluendo-snapshot-artifacts
+```
+
+Artifact layout:
+
+- immutable key: `{sourceKey}/{releaseId}/{outputSha256}`
+- bundle files: `source.jsonl`, `release.json`, `coverage-report.json`
+- registry status after successful registration: `activation_ready`
+
+This slice does **not** activate a release, reseed the queue, or write to any
+Vamo database.
+
 ## Versioned snapshot intake (IP-18.8.9)
 
 IP-18.8.9 adds a reviewed local intake path for approved FSQ OS Places exports.
