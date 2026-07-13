@@ -55,6 +55,10 @@
       "types": "./dist/core/src/delivery-operator-presenter.d.ts",
       "default": "./dist/core/src/delivery-operator-presenter.js"
     },
+    "./core/delivery-workflow-presenter": {
+      "types": "./dist/core/src/delivery-workflow-presenter.d.ts",
+      "default": "./dist/core/src/delivery-workflow-presenter.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"

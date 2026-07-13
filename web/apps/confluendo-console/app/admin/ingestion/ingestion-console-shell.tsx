@@ -27,6 +27,7 @@ import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
+import { DeliveryWorkflowGuide } from "./delivery-workflow-guide";
 import { ProductionInboxControl } from "./production-inbox-control";
 import { StagingCanaryControl } from "./staging-canary-control";
 import {
@@ -783,6 +784,19 @@ function DeliveryView({
         </div>
         <span className="admin-readonly-pill">{batchQueueSourceLabel(batchQueueSource)}</span>
       </div>
+      <DeliveryWorkflowGuide
+        latestWaveStatus={
+          latestProductionPackageWave?.status ?? batchQueue.latestProductionPackageWave?.status ?? null
+        }
+        consumerApplyStatus={latestProductionPackageWave?.consumerApplyStatus ?? null}
+        applyTelemetrySource={applyTelemetrySource}
+        eligibleCount={productionPackageEligibleCount}
+        deliveredCount={batchQueue.progress.productionPackage.delivered}
+        applyPendingCount={batchQueue.progress.productionPackage.applyPending}
+        appliedCount={batchQueue.progress.productionPackage.applied}
+        blockedCount={batchQueue.progress.productionPackage.blocked}
+        hasLatestWave={Boolean(batchQueue.latestProductionPackageWave)}
+      />
       <ProductionPackageWaveApprovalControl
         projectKey={batchQueue.projectKey}
         targetKey={batchQueue.targetKey}

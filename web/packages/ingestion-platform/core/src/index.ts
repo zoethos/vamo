@@ -760,3 +760,23 @@ export {
   type ApprovalEnvelopeOverride,
   type ApprovalOperationPhase
 } from "./delivery-operator-presenter.js";
+export {
+  buildDeliveryTerminalStatus,
+  buildDeliveryWhatToDoNext,
+  DELIVERY_APPLY_STATE_UNKNOWN_LABEL,
+  DELIVERY_APPROVAL_ENVELOPE_EMPTY_COPY,
+  DELIVERY_COMPACT_INTRO,
+  DELIVERY_LONG_RUNNING_COPY,
+  DELIVERY_PAGE_INTRO,
+  DELIVERY_PARTIAL_BATCH_APPLY_COPY,
+  DELIVERY_REFRESH_TELEMETRY_SAFETY,
+  DELIVERY_STATE_TERMINOLOGY,
+  DELIVERY_WORKFLOW_STEPS,
+  deliveryWorkflowStepLabel,
+  isDeliveredApplyStateUnknown,
+  resolveDeliveryWorkflowHighlight,
+  type DeliveryStateTermRow,
+  type DeliveryWorkflowGuideInput,
+  type DeliveryWorkflowHighlight,
+  type DeliveryWorkflowStepKey
+} from "./delivery-workflow-presenter.js";

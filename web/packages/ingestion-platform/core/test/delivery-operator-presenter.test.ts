@@ -163,7 +163,7 @@ describe("production package-wave approval control artifact", () => {
   it("shows an empty approval-envelope state before sending server caps", () => {
     const source = readFileSync(approvalControlPath, "utf8");
     assert.match(source, /hasSelectedScopes/);
-    assert.match(source, /Select staging-verified scopes to preview the approval envelope/);
+    assert.match(source, /DELIVERY_APPROVAL_ENVELOPE_EMPTY_COPY/);
     assert.match(source, /Approval caps that will be sent to the server/);
   });
 

@@ -11,6 +11,7 @@ import {
   deriveProductionPackageApprovalEnvelope,
   type ApprovalOperationPhase
 } from "@confluendo/ingestion-platform/core/delivery-operator-presenter";
+import { DELIVERY_APPROVAL_ENVELOPE_EMPTY_COPY } from "@confluendo/ingestion-platform/core/delivery-workflow-presenter";
 import { extractDryRunReportMetrics } from "./ingestion-console-labels";
 import { ProductionPackageApprovalQueue } from "./production-package-approval-queue";
 
@@ -279,7 +280,10 @@ export function ProductionPackageWaveApprovalControl({
               target writes
             </>
           ) : (
-            "Select staging-verified scopes to preview the approval envelope. No approval caps are sent until a scope is selected."
+            <>
+              {DELIVERY_APPROVAL_ENVELOPE_EMPTY_COPY} No approval caps are sent until a scope is
+              selected.
+            </>
           )}
         </p>
         {effectiveEnvelope.rampCapLabel ? (
