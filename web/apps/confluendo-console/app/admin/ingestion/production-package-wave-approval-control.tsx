@@ -173,6 +173,7 @@ export function ProductionPackageWaveApprovalControl({
       <ProductionPackageApprovalQueue
         items={items}
         targetKey={targetKey}
+        eligibleCount={eligibleCount}
         occupiedUnitKeys={occupiedUnitKeys}
         stagingEvidenceByUnitKey={stagingEvidenceByUnitKey}
         selectedUnitKeys={selectedUnitKeys}

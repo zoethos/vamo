@@ -26,6 +26,7 @@ type StagingEvidenceHint = {
 export function ProductionPackageApprovalQueue({
   items,
   targetKey,
+  eligibleCount,
   occupiedUnitKeys,
   stagingEvidenceByUnitKey,
   selectedUnitKeys,
@@ -33,6 +34,7 @@ export function ProductionPackageApprovalQueue({
 }: {
   items: BatchQueueItem[];
   targetKey: string;
+  eligibleCount: number;
   occupiedUnitKeys: string[];
   stagingEvidenceByUnitKey: Record<string, StagingEvidenceHint>;
   selectedUnitKeys: string[];
@@ -83,6 +85,12 @@ export function ProductionPackageApprovalQueue({
 
   const selectedSet = useMemo(() => new Set(selectedUnitKeys), [selectedUnitKeys]);
   const selectableRows = rows.filter((row) => row.eligibleForPackage);
+  const displayedRowLabel =
+    filter === "eligible_for_package" && eligibleCount > rows.length
+      ? `Showing first ${rows.length} of ${eligibleCount} eligible scope(s)`
+      : rows.length === items.length
+      ? `Showing ${rows.length} scope(s)`
+      : `Showing ${rows.length} scope(s) for this filter`;
 
   function toggleUnit(unitKey: string) {
     if (selectedSet.has(unitKey)) {
@@ -120,8 +128,7 @@ export function ProductionPackageApprovalQueue({
       </div>
 
       <p className="admin-queue-summary">
-        Showing <strong>{rows.length}</strong> scope(s) · selected{" "}
-        <strong>{selectedUnitKeys.length}</strong>
+        {displayedRowLabel} · selected <strong>{selectedUnitKeys.length}</strong>
       </p>
 
       <div className="admin-table-wrap">
