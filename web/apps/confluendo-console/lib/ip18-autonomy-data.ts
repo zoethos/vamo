@@ -5,9 +5,11 @@ import { loadAutonomyDashboard, loadAutonomyPolicy } from "@confluendo/ingestion
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
 import {
   loadAutonomyRampReadiness,
+  presentAutonomyProductionHandoffCard,
   presentAutonomyRampCard,
   sampleVamoAutonomyDashboardView,
   type AutonomyDashboardView,
+  type AutonomyProductionHandoffCardPresentation,
   type AutonomyRampCardPresentation
 } from "@confluendo/ingestion-platform/core";
 
@@ -16,6 +18,7 @@ export type Ip187AutonomySource = "live" | "sample" | "error";
 export interface Ip187AutonomyData {
   view: AutonomyDashboardView;
   rampCard: AutonomyRampCardPresentation | null;
+  productionHandoffCard: AutonomyProductionHandoffCardPresentation | null;
   policyKey: string | null;
   source: Ip187AutonomySource;
   error?: string;
@@ -50,7 +53,13 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
       policyKey: view.policy.policyKey
     });
     if (!policy) {
-      return { view, rampCard: null, policyKey: view.policy.policyKey, source: "live" };
+      return {
+        view,
+        rampCard: null,
+        productionHandoffCard: null,
+        policyKey: view.policy.policyKey,
+        source: "live"
+      };
     }
 
     const [queueSnapshot, readiness] = await Promise.all([
@@ -68,10 +77,12 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
       blockerSummaries: queueSnapshot?.blockerSummaries ?? [],
       blockedUnitCount: queueSnapshot?.progress.blocked ?? 0
     });
+    const productionHandoffCard = presentAutonomyProductionHandoffCard(policy);
 
     return {
       view,
       rampCard,
+      productionHandoffCard,
       policyKey: policy.policyKey,
       source: "live"
     };
@@ -90,35 +101,38 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
 function sample(): Ip187AutonomyData {
   const view = sampleVamoAutonomyDashboardView();
   const policyKey = view.policy?.policyKey ?? "vamo-eu-poi-staging";
+  const samplePolicy = view.policy
+    ? {
+        policyId: view.policy.policyId,
+        policyKey: view.policy.policyKey,
+        projectKey: view.projectKey,
+        sourceKey: view.policy.sourceKey,
+        targetKey: view.policy.targetKey,
+        targetEnvironment: view.policy.targetEnvironment as "staging",
+        status: view.policy.status as "active",
+        allowedTiers: [],
+        allowedGeographies: [],
+        allowedCategories: [],
+        allowedTransitions: ["schedule_dry_run", "execute_dry_run", "approve_staging_wave"],
+        maxUnitsPerCycle: view.policy.maxUnitsPerCycle,
+        maxRowsPerCycle: view.policy.maxRowsPerCycle,
+        rollingLimits: view.policy.rampProfile.rollingLimits,
+        guardThresholds: {},
+        productionInboxHandoffPolicy: { requiresIp18_6: true },
+        policyVersion: view.policy.policyVersion,
+        rampMode: view.policy.rampMode,
+        summary: view.policy.summary
+      }
+    : null;
   return {
     view,
-    rampCard: view.policy
+    rampCard: samplePolicy
       ? presentAutonomyRampCard({
-          policy: {
-            policyId: view.policy.policyId,
-            policyKey: view.policy.policyKey,
-            projectKey: view.projectKey,
-            sourceKey: view.policy.sourceKey,
-            targetKey: view.policy.targetKey,
-            targetEnvironment: view.policy.targetEnvironment as "staging",
-            status: view.policy.status as "active",
-            allowedTiers: [],
-            allowedGeographies: [],
-            allowedCategories: [],
-            allowedTransitions: ["schedule_dry_run", "execute_dry_run", "approve_staging_wave"],
-            maxUnitsPerCycle: view.policy.maxUnitsPerCycle,
-            maxRowsPerCycle: view.policy.maxRowsPerCycle,
-            rollingLimits: view.policy.rampProfile.rollingLimits,
-            guardThresholds: {},
-            productionInboxHandoffPolicy: { requiresIp18_6: true },
-            policyVersion: view.policy.policyVersion,
-            rampMode: view.policy.rampMode,
-            summary: view.policy.summary
-          },
+          policy: samplePolicy,
           readiness: {
-            policyId: view.policy.policyId,
-            policyKey: view.policy.policyKey,
-            currentMode: view.policy.rampMode,
+            policyId: samplePolicy.policyId,
+            policyKey: samplePolicy.policyKey,
+            currentMode: samplePolicy.rampMode,
             since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
             runs: { advanced: 2, completed: 1, failed: 0, paused: 0 },
             stagingCanarySucceededUnits: 0
@@ -127,6 +141,7 @@ function sample(): Ip187AutonomyData {
           blockedUnitCount: 0
         })
       : null,
+    productionHandoffCard: samplePolicy ? presentAutonomyProductionHandoffCard(samplePolicy) : null,
     policyKey,
     source: "sample"
   };

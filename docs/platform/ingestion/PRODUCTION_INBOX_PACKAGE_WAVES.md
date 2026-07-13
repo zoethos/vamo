@@ -169,6 +169,32 @@ Production package-wave approval should mirror the IP-17/IP-16 bar:
 
 Approval records the decision only. Delivery remains confirmation-gated.
 
+## Production Handoff Policy Control
+
+After IP-18.8.7, the normal operator path for allowing autonomy to advance
+production package approval and production inbox delivery is the
+`/admin/ingestion` Agent tab, not an ad hoc SQL update.
+
+The console control calls
+`ingestion_platform.set_autonomy_production_handoff(...)`, a security-definer
+function that:
+
+- checks the operator's expected current state to avoid stale writes;
+- writes the policy mutation, audit row, and event row in one transaction;
+- when enabling, sets `production_inbox_handoff_policy.enabled=true` and
+  `requiresIp18_6=false`;
+- keeps `consumerApplyEnabled=false`;
+- adds only `approve_production_package_wave` and
+  `deliver_production_package_wave` to the allowed transition list;
+- when disabling, removes those two production package transitions immediately.
+
+The app role receives `EXECUTE` on that function only. It still does **not**
+receive direct `UPDATE` privileges on `ingestion_autonomy_policies`.
+
+Apply to Vamo remains a separate, operator-owned control. Enabling production
+handoff does not allow the agent to mutate Vamo product tables and does not
+enable autonomous consumer apply.
+
 ## Execution Policy
 
 Execution should be CLI/runbook first, then autonomous later:

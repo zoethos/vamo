@@ -1208,4 +1208,248 @@ revoke all on function ingestion_platform.promote_autonomy_ramp(
   text
 ) from public;
 
+create or replace function ingestion_platform.set_autonomy_production_handoff(
+  p_project_key text,
+  p_policy_key text,
+  p_expected_enabled boolean,
+  p_requested_enabled boolean,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_project_id bigint;
+  v_policy_id bigint;
+  v_policy_version integer;
+  v_current_enabled boolean;
+  v_previous_policy jsonb;
+  v_next_policy jsonb;
+  v_previous_transitions jsonb;
+  v_next_transitions jsonb;
+  v_audit_id bigint;
+  v_action text;
+  v_event_type text;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_policy_key := nullif(btrim(p_policy_key), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_policy_key is null then
+    raise exception 'missing_policy_identity';
+  end if;
+
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+
+  if p_expected_enabled is null or p_requested_enabled is null then
+    raise exception 'missing_handoff_state';
+  end if;
+
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+
+  select
+    p.id,
+    ap.id,
+    ap.policy_version,
+    ap.production_inbox_handoff_policy,
+    ap.allowed_transitions,
+    case
+      when ap.production_inbox_handoff_policy->>'requiresIp18_6' = 'true' then false
+      when ap.production_inbox_handoff_policy->>'enabled' = 'true' then true
+      else false
+    end
+  into
+    v_project_id,
+    v_policy_id,
+    v_policy_version,
+    v_previous_policy,
+    v_previous_transitions,
+    v_current_enabled
+  from ingestion_platform.ingestion_autonomy_policies ap
+  join ingestion_platform.ingestion_projects p on p.id = ap.project_id
+  where p.project_key = p_project_key
+    and ap.policy_key = p_policy_key
+  for update of ap;
+
+  if v_policy_id is null then
+    raise exception 'policy_not_found';
+  end if;
+
+  if v_current_enabled <> p_expected_enabled then
+    raise exception 'production_handoff_conflict';
+  end if;
+
+  if v_current_enabled = p_requested_enabled then
+    raise exception 'same_production_handoff_state';
+  end if;
+
+  if p_requested_enabled then
+    v_next_policy := jsonb_set(
+      jsonb_set(
+        jsonb_set(
+          coalesce(v_previous_policy, '{}'::jsonb),
+          '{enabled}',
+          'true'::jsonb,
+          true
+        ),
+        '{requiresIp18_6}',
+        'false'::jsonb,
+        true
+      ),
+      '{consumerApplyEnabled}',
+      'false'::jsonb,
+      true
+    );
+
+    select coalesce(jsonb_agg(value order by first_ord), '[]'::jsonb)
+    into v_next_transitions
+    from (
+      select value, min(ord) as first_ord
+      from (
+        select value, ord::integer
+        from jsonb_array_elements_text(v_previous_transitions) with ordinality as existing(value, ord)
+        union all
+        select 'approve_production_package_wave', 100000
+        union all
+        select 'deliver_production_package_wave', 100001
+      ) combined
+      group by value
+    ) deduped;
+  else
+    v_next_policy := jsonb_set(
+      jsonb_set(
+        jsonb_set(
+          coalesce(v_previous_policy, '{}'::jsonb),
+          '{enabled}',
+          'false'::jsonb,
+          true
+        ),
+        '{requiresIp18_6}',
+        'false'::jsonb,
+        true
+      ),
+      '{consumerApplyEnabled}',
+      'false'::jsonb,
+      true
+    );
+
+    select coalesce(jsonb_agg(value order by ord), '[]'::jsonb)
+    into v_next_transitions
+    from jsonb_array_elements_text(v_previous_transitions) with ordinality as existing(value, ord)
+    where value not in ('approve_production_package_wave', 'deliver_production_package_wave');
+  end if;
+
+  update ingestion_platform.ingestion_autonomy_policies
+  set production_inbox_handoff_policy = v_next_policy,
+      allowed_transitions = v_next_transitions,
+      policy_version = policy_version + 1,
+      approved_by = p_actor_id,
+      approval_reason = p_audit_reason,
+      updated_at = now()
+  where id = v_policy_id;
+
+  v_action := case
+    when p_requested_enabled then 'enable_production_inbox_handoff'
+    else 'disable_production_inbox_handoff'
+  end;
+  v_event_type := case
+    when p_requested_enabled then 'autonomy.production_handoff.enabled'
+    else 'autonomy.production_handoff.disabled'
+  end;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id,
+    actor_type,
+    actor_id,
+    action,
+    target_type,
+    target_id,
+    reason,
+    payload
+  )
+  values (
+    v_project_id,
+    p_actor_type,
+    p_actor_id,
+    v_action,
+    'autonomy_policy',
+    v_policy_id::text,
+    p_audit_reason,
+    jsonb_build_object(
+      'policyKey', p_policy_key,
+      'policyVersion', v_policy_version + 1,
+      'fromEnabled', v_current_enabled,
+      'toEnabled', p_requested_enabled,
+      'beforeProductionInboxHandoffPolicy', v_previous_policy,
+      'afterProductionInboxHandoffPolicy', v_next_policy,
+      'beforeAllowedTransitions', v_previous_transitions,
+      'afterAllowedTransitions', v_next_transitions
+    )
+  )
+  returning id into v_audit_id;
+
+  update ingestion_platform.ingestion_autonomy_policies
+  set approved_audit_id = v_audit_id::text
+  where id = v_policy_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id,
+    event_type,
+    severity,
+    signal,
+    message,
+    payload
+  )
+  values (
+    v_project_id,
+    v_event_type,
+    'info',
+    'autonomy_production_handoff',
+    format('Production package autonomy handoff %s for %s',
+      case when p_requested_enabled then 'enabled' else 'disabled' end,
+      p_policy_key
+    ),
+    jsonb_build_object(
+      'policyKey', p_policy_key,
+      'policyVersion', v_policy_version + 1,
+      'fromEnabled', v_current_enabled,
+      'toEnabled', p_requested_enabled,
+      'auditId', v_audit_id::text,
+      'productionInboxHandoffPolicy', v_next_policy,
+      'allowedTransitions', v_next_transitions
+    )
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'policyId', v_policy_id::text,
+    'fromEnabled', v_current_enabled,
+    'toEnabled', p_requested_enabled,
+    'policyVersion', v_policy_version + 1,
+    'auditId', v_audit_id::text,
+    'productionInboxHandoffPolicy', v_next_policy,
+    'allowedTransitions', v_next_transitions
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.set_autonomy_production_handoff(
+  text,
+  text,
+  boolean,
+  boolean,
+  text,
+  text,
+  text
+) from public;
+
 commit;

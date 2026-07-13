@@ -24,6 +24,12 @@ After IP-18.6.1, phases 1–2 must include the production package-wave tables
 `ingestion_batch_production_package_wave_items`) before the dashboard or CLI
 can load live package-wave state. Missing tables degrade gracefully to no
 package-wave projection.
+
+After IP-18.8.7, phases 1–2 must also include
+`ingestion_platform.set_autonomy_production_handoff(...)`. The admin console
+uses that audited function to enable or disable autonomous production package
+approval/delivery. The runtime role must receive `EXECUTE` on the function, but
+still must not receive direct `UPDATE` on `ingestion_autonomy_policies`.
 | 3 | Vamo live proposal seed | `sql/ip16_vamo_live_proposal_seed.sql` | Confluendo DBA | Confluendo control DB |
 | 4 | Vamo target cache schema | `VAMO_CUSTOMER_ZERO_BOOTSTRAP.md` | Vamo DBA/operator | Vamo staging, then production schema-only |
 | 5 | Vamo staging proof and canary role | `VAMO_CUSTOMER_ZERO_BOOTSTRAP.md` | Vamo DBA/operator | Vamo staging only |
@@ -99,6 +105,9 @@ grant insert, update on ingestion_platform.ingestion_autonomy_runs to confluendo
 grant execute on function ingestion_platform.promote_autonomy_ramp(
   text, text, text, text, text, text, text
 ) to confluendo_app;
+grant execute on function ingestion_platform.set_autonomy_production_handoff(
+  text, text, boolean, boolean, text, text, text
+) to confluendo_app;
 
 grant insert on ingestion_platform.ingestion_audit_log to confluendo_app;
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
@@ -109,7 +118,10 @@ the blanket `grant select on all tables` (policy authoring remains owner-run).
 `ingestion_autonomy_runs` receives `INSERT`/`UPDATE` for future agent cycles.
 Neither table receives `DELETE` grants. IP-18.7.4 adds the app-callable
 `promote_autonomy_ramp(...)` function for audited ramp changes, but still no
-direct `UPDATE` grant on `ingestion_autonomy_policies`.
+direct `UPDATE` grant on `ingestion_autonomy_policies`. IP-18.8.7 adds the
+app-callable `set_autonomy_production_handoff(...)` function for audited
+production package handoff changes; it follows the same function-only grant
+pattern and keeps Apply to Vamo disabled for autonomy.
 
 These are Confluendo **control-plane** grants only. They do not grant
 Confluendo any write access to Vamo production, and they do not replace the

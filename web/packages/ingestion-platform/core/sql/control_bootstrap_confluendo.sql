@@ -104,6 +104,15 @@ grant execute on function ingestion_platform.promote_autonomy_ramp(
   text,
   text
 ) to confluendo_app;
+grant execute on function ingestion_platform.set_autonomy_production_handoff(
+  text,
+  text,
+  boolean,
+  boolean,
+  text,
+  text,
+  text
+) to confluendo_app;
 
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 

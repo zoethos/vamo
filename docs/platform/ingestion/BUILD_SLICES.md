@@ -1721,6 +1721,29 @@ Deliverables:
 - `POST /api/admin/ingestion/production-package-wave/apply-wave` plus batch
   preflight; sequential per-package apply with stop-on-first-failure.
 
+### IP-18.8.7 — implemented (production handoff policy control)
+
+**Status:** done — admin-console control for enabling or disabling autonomous
+production package approval/delivery inside the active autonomy policy. **Not**
+a general policy editor, **not** autonomous Apply to Vamo, **not** a production
+inbox writer path.
+
+Deliverables:
+
+- `ingestion_platform.set_autonomy_production_handoff(...)` security-definer
+  function owns the policy mutation, audit row, event row, optimistic
+  concurrency, and allowed-transition update.
+- `/admin/ingestion` Agent tab exposes a Production package handoff card with
+  audit reason, fixed target-state confirmation, admin/AAL2/fresh-step-up
+  gating for enable, and immediate audited disable.
+- Enabling sets `production_inbox_handoff_policy.enabled=true`,
+  `requiresIp18_6=false`, and `consumerApplyEnabled=false`, then adds only
+  `approve_production_package_wave` and `deliver_production_package_wave`.
+- Disabling removes those two transitions and keeps Apply to Vamo
+  operator-controlled.
+- Bootstrap grants `confluendo_app` `EXECUTE` on the function only; no direct
+  `UPDATE` on `ingestion_autonomy_policies`.
+
 ### IP-18.8.3 — implemented (explicit batch plan selection for autonomy drain)
 
 **Status:** done — autonomy drain and dashboard reads pin an explicit batch plan
