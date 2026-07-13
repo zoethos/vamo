@@ -1747,6 +1747,50 @@ a:hover {
   color: rgba(12, 14, 22, 0.7);
 }
 
+.admin-approval-envelope-panel {
+  margin-top: 1rem;
+}
+
+.admin-envelope-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.admin-envelope-stat {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.admin-envelope-stat span {
+  font-size: 0.78rem;
+  color: rgba(12, 14, 22, 0.58);
+}
+
+.admin-envelope-stat strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.admin-envelope-detail {
+  margin: 0.65rem 0 0;
+  color: rgba(12, 14, 22, 0.62);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-envelope-warning {
+  margin: 0.55rem 0 0;
+  color: #991b1b;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-advanced-override {
+  margin-top: 0.85rem;
+}
+
 .admin-evidence-code {
   display: block;
   margin-top: 0.2rem;

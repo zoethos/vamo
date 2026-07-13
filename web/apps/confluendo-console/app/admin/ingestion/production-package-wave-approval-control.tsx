@@ -1,9 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
 import type { BatchQueueItem } from "@confluendo/ingestion-platform/core";
+import {
+  approvalButtonDisabledReason,
+  approvalButtonLabel,
+  approvalEnvelopeOverrideWarning,
+  deriveProductionPackageApprovalEnvelope,
+  type ApprovalOperationPhase
+} from "@confluendo/ingestion-platform/core/delivery-operator-presenter";
 import { extractDryRunReportMetrics } from "./ingestion-console-labels";
 import { ProductionPackageApprovalQueue } from "./production-package-approval-queue";
 
@@ -59,7 +66,6 @@ type UnitIssue = {
 
 type Decision =
   | { state: "idle" }
-  | { state: "running" }
   | {
       state: "approved";
       auditId: string;
@@ -126,48 +132,101 @@ export function ProductionPackageWaveApprovalControl({
   latestWave?: LatestWaveSummary | null;
   context: ProductionPackageWaveContext;
 }) {
-  const defaultMaxUnits = hasPriorDeliveredPackage ? "5" : "1";
-  const defaultMaxPackages = hasPriorDeliveredPackage ? "5" : "1";
   const [reason, setReason] = useState("");
-  const [maxUnits, setMaxUnits] = useState(defaultMaxUnits);
-  const [maxRows, setMaxRows] = useState("10");
-  const [maxPackages, setMaxPackages] = useState(defaultMaxPackages);
   const [selectedUnitKeys, setSelectedUnitKeys] = useState<string[]>([]);
+  const [advancedOverride, setAdvancedOverride] = useState<{
+    maxUnits: string;
+    maxPackages: string;
+    maxTargetWrites: string;
+  } | null>(null);
+  const [operationPhase, setOperationPhase] = useState<ApprovalOperationPhase>("idle");
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
   const router = useRouter();
-  const pending = decision.state === "running";
-  const disabledReason = disabledReasonFor(context, eligibleCount);
+  const contextDisabledReason = disabledReasonFor(context, eligibleCount);
 
-  const selectionSummary = useMemo(() => {
+  const expectedTargetWrites = useMemo(() => {
     const selectedItems = items.filter((item) => selectedUnitKeys.includes(item.unitKey));
     let totalWrites = 0;
     for (const item of selectedItems) {
       const metrics = extractDryRunReportMetrics(item.dryRunReport);
       totalWrites += metrics?.expectedTargetWrites ?? 0;
     }
-    return {
-      selectedUnits: selectedItems.length,
-      selectedPackages: selectedItems.length,
-      selectedWrites: totalWrites
-    };
+    return totalWrites;
   }, [items, selectedUnitKeys]);
 
-  const approveLabel =
-    selectedUnitKeys.length > 0
-      ? `Approve selected package wave (${selectedUnitKeys.length})`
-      : eligibleCount > 0
-        ? "Approve selected package wave"
-        : "Approve selected package wave";
+  const derivedEnvelope = useMemo(
+    () =>
+      deriveProductionPackageApprovalEnvelope({
+        selectedScopes: selectedUnitKeys.length,
+        expectedTargetWrites,
+        hasPriorDeliveredPackage
+      }),
+    [expectedTargetWrites, hasPriorDeliveredPackage, selectedUnitKeys.length]
+  );
+
+  const parsedOverride = useMemo(() => {
+    if (!advancedOverride) {
+      return null;
+    }
+    const maxUnits = Number.parseInt(advancedOverride.maxUnits, 10);
+    const maxPackages = Number.parseInt(advancedOverride.maxPackages, 10);
+    const maxTargetWrites = Number.parseInt(advancedOverride.maxTargetWrites, 10);
+    if (
+      !Number.isFinite(maxUnits) ||
+      !Number.isFinite(maxPackages) ||
+      !Number.isFinite(maxTargetWrites) ||
+      maxUnits < 1 ||
+      maxPackages < 1 ||
+      maxTargetWrites < 1
+    ) {
+      return null;
+    }
+    return { maxUnits, maxPackages, maxTargetWrites };
+  }, [advancedOverride]);
+
+  const effectiveEnvelope = useMemo(
+    () =>
+      deriveProductionPackageApprovalEnvelope({
+        selectedScopes: derivedEnvelope.selectedScopes,
+        expectedTargetWrites: derivedEnvelope.expectedTargetWrites,
+        hasPriorDeliveredPackage,
+        override: parsedOverride
+      }),
+    [derivedEnvelope, hasPriorDeliveredPackage, parsedOverride]
+  );
+
+  const overrideWarning = useMemo(() => {
+    if (!parsedOverride) {
+      return undefined;
+    }
+    return approvalEnvelopeOverrideWarning(derivedEnvelope, parsedOverride);
+  }, [derivedEnvelope, parsedOverride]);
+
+  const buttonDisabledReason = approvalButtonDisabledReason({
+    contextDisabledReason,
+    phase: operationPhase,
+    eligibleCount,
+    selectedCount: selectedUnitKeys.length,
+    auditReason: reason,
+    envelope: effectiveEnvelope,
+    overrideWarning
+  });
+
+  const approveLabel = approvalButtonLabel(operationPhase, selectedUnitKeys.length);
+
+  useEffect(() => {
+    setOperationPhase((phase) => (phase === "refreshing" ? "idle" : phase));
+  }, [items, packageProgress, latestWave]);
 
   return (
     <div className="admin-canary-control admin-batch-wave-approval-control">
-      <p className="admin-kicker">IP-18.8.4 · production package batch approval</p>
+      <p className="admin-kicker">IP-18.8.5 · production package batch approval</p>
       <h3>Approve bounded production package wave</h3>
       <p className="admin-canary-note">
-        Select staging-verified scopes, then approve one bounded production package wave.
-        Requires admin + verified AAL2 + fresh MFA step-up. Delivery and consumer apply remain
-        separate confirmation-gated steps.
+        Select staging-verified scopes, review the derived approval envelope, then approve one
+        bounded production package wave. Requires admin + verified AAL2 + fresh MFA step-up.
+        Delivery and consumer apply remain separate confirmation-gated steps.
       </p>
 
       <ProductionPackageApprovalQueue
@@ -193,47 +252,120 @@ export function ProductionPackageWaveApprovalControl({
           <span>Schema contract</span>
           <input type="text" value="vamo-place-intelligence@1" readOnly disabled />
         </label>
-        <label>
-          <span>Max units{hasPriorDeliveredPackage ? "" : " (first wave: 1)"}</span>
-          <input
-            type="number"
-            min={1}
-            value={maxUnits}
-            onChange={(event) => setMaxUnits(event.target.value)}
-            disabled={Boolean(disabledReason) || pending}
-          />
-        </label>
-        <label>
-          <span>Max target writes</span>
-          <input
-            type="number"
-            min={1}
-            value={maxRows}
-            onChange={(event) => setMaxRows(event.target.value)}
-            disabled={Boolean(disabledReason) || pending}
-          />
-        </label>
-        <label>
-          <span>Max packages{hasPriorDeliveredPackage ? "" : " (first wave: 1)"}</span>
-          <input
-            type="number"
-            min={1}
-            value={maxPackages}
-            onChange={(event) => setMaxPackages(event.target.value)}
-            disabled={Boolean(disabledReason) || pending}
-          />
-        </label>
       </div>
 
-      <div className="admin-stat-grid">
-        <article className="admin-stat">
-          <span>Selection summary</span>
-          <strong>{selectionSummary.selectedUnits}</strong>
-          <p>
-            {selectionSummary.selectedPackages} package(s) · {selectionSummary.selectedWrites}{" "}
-            expected target writes · caps {maxUnits}/{maxPackages}/{maxRows}
+      <div className="admin-approval-envelope-panel admin-command-result" role="status">
+        <strong>Approval envelope</strong>
+        <div className="admin-envelope-grid">
+          <article className="admin-envelope-stat">
+            <span>Selected scopes</span>
+            <strong>{effectiveEnvelope.selectedScopes}</strong>
+          </article>
+          <article className="admin-envelope-stat">
+            <span>Expected packages</span>
+            <strong>{effectiveEnvelope.expectedPackages}</strong>
+          </article>
+          <article className="admin-envelope-stat">
+            <span>Expected target writes</span>
+            <strong>{effectiveEnvelope.expectedTargetWrites}</strong>
+          </article>
+        </div>
+        <p className="admin-envelope-detail">
+          Approval caps sent to the server: {effectiveEnvelope.maxUnits} unit(s) ·{" "}
+          {effectiveEnvelope.maxPackages} package(s) · {effectiveEnvelope.maxTargetWrites} max
+          target writes
+        </p>
+        {effectiveEnvelope.rampCapLabel ? (
+          <p className="admin-envelope-detail">Server ramp cap: {effectiveEnvelope.rampCapLabel}</p>
+        ) : null}
+        {effectiveEnvelope.exceedsRampCap ? (
+          <p className="admin-envelope-warning" role="alert">
+            First live wave allows only one scope. Reduce the selection or wait until a prior wave has
+            delivered.
           </p>
-        </article>
+        ) : null}
+        {overrideWarning ? (
+          <p className="admin-envelope-warning" role="alert">
+            {overrideWarning}
+          </p>
+        ) : null}
+      </div>
+
+      <details className="admin-evidence-details admin-advanced-override">
+        <summary>Advanced override</summary>
+        <p className="admin-envelope-detail">
+          Override approval caps only when you need tighter bounds than the derived envelope. The
+          server still validates every bound.
+        </p>
+        <div className="admin-canary-fields">
+          <label>
+            <span>Max units override</span>
+            <input
+              type="number"
+              min={1}
+              value={advancedOverride?.maxUnits ?? String(derivedEnvelope.maxUnits || 1)}
+              onChange={(event) =>
+                setAdvancedOverride({
+                  maxUnits: event.target.value,
+                  maxPackages: advancedOverride?.maxPackages ?? String(derivedEnvelope.maxPackages || 1),
+                  maxTargetWrites:
+                    advancedOverride?.maxTargetWrites ??
+                    String(derivedEnvelope.maxTargetWrites || 1)
+                })
+              }
+              disabled={Boolean(contextDisabledReason) || operationPhase !== "idle"}
+            />
+          </label>
+          <label>
+            <span>Max target writes override</span>
+            <input
+              type="number"
+              min={1}
+              value={
+                advancedOverride?.maxTargetWrites ?? String(derivedEnvelope.maxTargetWrites || 1)
+              }
+              onChange={(event) =>
+                setAdvancedOverride({
+                  maxUnits: advancedOverride?.maxUnits ?? String(derivedEnvelope.maxUnits || 1),
+                  maxPackages: advancedOverride?.maxPackages ?? String(derivedEnvelope.maxPackages || 1),
+                  maxTargetWrites: event.target.value
+                })
+              }
+              disabled={Boolean(contextDisabledReason) || operationPhase !== "idle"}
+            />
+          </label>
+          <label>
+            <span>Max packages override</span>
+            <input
+              type="number"
+              min={1}
+              value={advancedOverride?.maxPackages ?? String(derivedEnvelope.maxPackages || 1)}
+              onChange={(event) =>
+                setAdvancedOverride({
+                  maxUnits: advancedOverride?.maxUnits ?? String(derivedEnvelope.maxUnits || 1),
+                  maxPackages: event.target.value,
+                  maxTargetWrites:
+                    advancedOverride?.maxTargetWrites ??
+                    String(derivedEnvelope.maxTargetWrites || 1)
+                })
+              }
+              disabled={Boolean(contextDisabledReason) || operationPhase !== "idle"}
+            />
+          </label>
+        </div>
+        {advancedOverride ? (
+          <button
+            type="button"
+            className="admin-command admin-command-neutral admin-inline-action"
+            onClick={() => setAdvancedOverride(null)}
+            disabled={operationPhase !== "idle"}
+          >
+            Reset to derived envelope
+          </button>
+        ) : null}
+      </details>
+
+      <div className="admin-stat-grid">
         <article className="admin-stat">
           <span>Package progress</span>
           <strong>{packageProgress.approved}</strong>
@@ -254,7 +386,9 @@ export function ProductionPackageWaveApprovalControl({
       {latestWave ? (
         <div className="admin-command-result" role="status">
           <strong>Latest package wave: {latestWave.statusPresentation.label}</strong>
-          <span>Wave key: {latestWave.waveKey}</span>
+          <span>
+            Wave key: <code>{latestWave.waveKey}</code>
+          </span>
           <span>Schema: {latestWave.schemaContract}</span>
           {latestWave.approvalExpiresAt ? (
             <span>Approval expires: {new Date(latestWave.approvalExpiresAt).toLocaleString()}</span>
@@ -262,7 +396,7 @@ export function ProductionPackageWaveApprovalControl({
           {latestWave.statusPresentation.detail ? <span>{latestWave.statusPresentation.detail}</span> : null}
           {eligibleCount > 0 ? (
             <span>
-              {eligibleCount} scope(s) remain eligible — approving again creates the next selected
+              {eligibleCount} eligible scope(s) remain — approving again creates the next selected
               package wave, not a replay of the latest wave.
             </span>
           ) : null}
@@ -277,32 +411,24 @@ export function ProductionPackageWaveApprovalControl({
           rows={2}
           maxLength={280}
           placeholder="Why approve this bounded production package wave now?"
-          disabled={Boolean(disabledReason) || pending}
+          disabled={Boolean(contextDisabledReason) || operationPhase !== "idle"}
         />
       </label>
       <div className="admin-action-row">
         <button
           type="button"
           className="admin-command admin-command-primary admin-stateful-command"
-          data-state={pending ? "busy" : disabledReason ? "unavailable" : "ready"}
-          onClick={() => void submit()}
-          disabled={
-            Boolean(disabledReason) ||
-            pending ||
-            eligibleCount === 0 ||
-            selectedUnitKeys.length === 0
+          data-state={
+            operationPhase !== "idle" ? "busy" : buttonDisabledReason ? "unavailable" : "ready"
           }
-          title={disabledReason ?? undefined}
+          onClick={() => void submit()}
+          disabled={Boolean(buttonDisabledReason)}
         >
-          {pending ? "Recording approval..." : approveLabel}
+          {approveLabel}
         </button>
-        {disabledReason ? (
+        {buttonDisabledReason ? (
           <p className="admin-action-status" data-state="unavailable">
-            Unavailable: {disabledReason}
-          </p>
-        ) : selectedUnitKeys.length === 0 ? (
-          <p className="admin-action-status" data-state="unavailable">
-            Select at least one eligible staging-verified scope.
+            {buttonDisabledReason}
           </p>
         ) : null}
       </div>
@@ -311,19 +437,12 @@ export function ProductionPackageWaveApprovalControl({
   );
 
   async function submit() {
-    if (inFlightRef.current) {
-      return;
-    }
-    if (!reason.trim()) {
-      setDecision({ state: "error", message: "Audit reason is required." });
-      return;
-    }
-    if (selectedUnitKeys.length === 0) {
-      setDecision({ state: "error", message: "Select at least one eligible scope." });
+    if (inFlightRef.current || buttonDisabledReason) {
       return;
     }
     inFlightRef.current = true;
-    setDecision({ state: "running" });
+    setOperationPhase("recording");
+    let refreshAfterSuccess = false;
 
     try {
       const response = await fetch("/api/admin/ingestion/production-package-wave/approve", {
@@ -334,9 +453,9 @@ export function ProductionPackageWaveApprovalControl({
           targetKey,
           targetEnvironment: "production",
           schemaContract: "vamo-place-intelligence@1",
-          maxUnits: Number.parseInt(maxUnits, 10),
-          maxRows: Number.parseInt(maxRows, 10),
-          maxPackages: Number.parseInt(maxPackages, 10),
+          maxUnits: effectiveEnvelope.maxUnits,
+          maxRows: effectiveEnvelope.maxTargetWrites,
+          maxPackages: effectiveEnvelope.maxPackages,
           auditReason: reason.trim(),
           unitKeys: selectedUnitKeys
         })
@@ -373,6 +492,9 @@ export function ProductionPackageWaveApprovalControl({
           plan: payload.plan
         });
         setSelectedUnitKeys([]);
+        setAdvancedOverride(null);
+        refreshAfterSuccess = true;
+        setOperationPhase("refreshing");
         router.refresh();
         return;
       }
@@ -394,12 +516,15 @@ export function ProductionPackageWaveApprovalControl({
       setDecision({ state: "error", message: "The approval request failed to send." });
     } finally {
       inFlightRef.current = false;
+      if (!refreshAfterSuccess) {
+        setOperationPhase("idle");
+      }
     }
   }
 }
 
 function DecisionView({ decision }: { decision: Decision }) {
-  if (decision.state === "idle" || decision.state === "running") {
+  if (decision.state === "idle") {
     return null;
   }
   if (decision.state === "approved") {
@@ -407,12 +532,16 @@ function DecisionView({ decision }: { decision: Decision }) {
       <div className="admin-command-result admin-command-result-ok" role="status">
         <strong>Production package wave approved (control plane only)</strong>
         <span>
-          {decision.plan.unitKeys.length} unit(s) · {decision.plan.totalPlannedRows} expected target
-          writes · {decision.plan.targetEnvironment}
+          {decision.plan.unitKeys.length} selected scope(s) · {decision.plan.totalPlannedRows}{" "}
+          expected target writes · {decision.plan.targetEnvironment}
         </span>
         <span>Schema: {decision.plan.schemaContract}</span>
-        <span>Wave key: {decision.waveKey}</span>
-        <span>Audit id: {decision.auditId}</span>
+        <span>
+          Wave key: <code>{decision.waveKey}</code>
+        </span>
+        <span>
+          Audit id: <code>{decision.auditId}</code>
+        </span>
         {decision.idempotentReplay ? <span>Idempotent replay — no duplicate wave created.</span> : null}
         <span>
           Approval expires: {new Date(decision.plan.approvalExpiresAt).toLocaleString()} · production

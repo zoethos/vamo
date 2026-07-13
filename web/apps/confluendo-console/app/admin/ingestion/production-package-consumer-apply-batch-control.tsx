@@ -3,6 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
+import {
+  APPLY_DURATION_NOTE,
+  applyButtonDisabledReason,
+  applyButtonLabel,
+  type ApplyOperationPhase,
+  type ApplyPreflightPhase
+} from "@confluendo/ingestion-platform/core/delivery-operator-presenter";
 import { friendlyUnit } from "./ingestion-console-labels";
 
 type DashboardSource = "live" | "sample" | "error";
@@ -36,8 +43,6 @@ type BatchPreflight = {
 
 type Decision =
   | { state: "idle" }
-  | { state: "loading_preflight" }
-  | { state: "running" }
   | {
       state: "applied";
       appliedPackageIds: string[];
@@ -62,7 +67,8 @@ const blockLabels: Record<string, string> = {
   no_apply_targets: "No delivered packages with pending apply items were selected.",
   package_not_in_wave: "Package is not part of this wave.",
   shipment_not_delivered: "Shipment must be delivered with pending items.",
-  already_applied: "Package has already been applied."
+  already_applied: "Package has already been applied.",
+  preflight_failed: "Batch apply preflight could not be loaded."
 };
 
 export function ProductionPackageConsumerApplyBatchControl({
@@ -87,18 +93,36 @@ export function ProductionPackageConsumerApplyBatchControl({
   const [reason, setReason] = useState("");
   const [preflight, setPreflight] = useState<BatchPreflight | null>(null);
   const [preflightBlocks, setPreflightBlocks] = useState<string[]>([]);
+  const [preflightPhase, setPreflightPhase] = useState<ApplyPreflightPhase>("idle");
+  const [applyPhase, setApplyPhase] = useState<ApplyOperationPhase>("idle");
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
   const router = useRouter();
-  const pending = decision.state === "running";
-  const disabledReason = disabledReasonFor(context, eligibleItems.length);
+  const contextDisabledReason = disabledReasonFor(context, eligibleItems.length);
+  const operationBusy = applyPhase === "applying" || applyPhase === "refreshing";
+
+  const buttonDisabledReason = applyButtonDisabledReason({
+    contextDisabledReason,
+    preflightPhase,
+    applyPhase,
+    inFlight: operationBusy,
+    selectedCount: selectedPackageIds.length,
+    auditReason: reason,
+    preflightBlocks,
+    hasPreflight: Boolean(preflight)
+  });
 
   useEffect(() => {
-    if (disabledReason || selectedPackageIds.length === 0) {
+    if (disabledReasonFor(context, eligibleItems.length) || selectedPackageIds.length === 0) {
+      setPreflight(null);
+      setPreflightBlocks([]);
+      setPreflightPhase("idle");
       return;
     }
     let cancelled = false;
-    setDecision({ state: "loading_preflight" });
+    setPreflight(null);
+    setPreflightBlocks([]);
+    setPreflightPhase("checking");
     const params = new URLSearchParams({
       projectKey,
       waveKey,
@@ -113,40 +137,52 @@ export function ProductionPackageConsumerApplyBatchControl({
           | { ok: true } & BatchPreflight
           | { ok: false; blocks?: { code: string }[]; error?: string }
           | null;
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         if (!payload?.ok) {
           setPreflight(null);
           setPreflightBlocks(payload?.blocks?.map((block) => block.code) ?? ["preflight_failed"]);
-          setDecision({ state: "idle" });
+          setPreflightPhase("idle");
           return;
         }
         setPreflight(payload);
         setPreflightBlocks([]);
-        setDecision({ state: "idle" });
+        setPreflightPhase("idle");
       } catch {
         if (!cancelled) {
           setPreflight(null);
           setPreflightBlocks(["preflight_failed"]);
-          setDecision({ state: "idle" });
+          setPreflightPhase("idle");
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [disabledReason, projectKey, selectedPackageIds, waveKey]);
+  }, [context, eligibleItems.length, projectKey, selectedPackageIds, waveKey]);
+
+  useEffect(() => {
+    setApplyPhase((phase) => (phase === "completed" ? "idle" : phase));
+  }, [selectedPackageIds]);
 
   if (eligibleItems.length === 0) {
     return null;
   }
 
+  const buttonLabel = applyButtonLabel({
+    preflightPhase,
+    applyPhase,
+    selectedCount: selectedPackageIds.length
+  });
+
   return (
     <div className="admin-canary-control admin-batch-wave-approval-control">
-      <p className="admin-kicker">IP-18.8.4 · batch apply to Vamo</p>
+      <p className="admin-kicker">IP-18.8.5 · batch apply to Vamo</p>
       <h3>Apply selected packages to Vamo</h3>
       <p className="admin-canary-note">
         Applies delivered inbox packages sequentially through the existing consumer-owned apply
-        function. Stops on first failure. Already-applied packages are skipped.
+        function. Stops on first failure. Already-applied packages are skipped. {APPLY_DURATION_NOTE}
       </p>
 
       <div className="admin-table-wrap">
@@ -167,6 +203,7 @@ export function ProductionPackageConsumerApplyBatchControl({
                     type="checkbox"
                     checked={selectedPackageIds.includes(item.packageId!)}
                     onChange={() => togglePackage(item.packageId!)}
+                    disabled={operationBusy || preflightPhase === "checking"}
                   />
                 </td>
                 <td>
@@ -182,6 +219,13 @@ export function ProductionPackageConsumerApplyBatchControl({
           </tbody>
         </table>
       </div>
+
+      {preflightPhase === "checking" ? (
+        <p className="admin-action-status" role="status">
+          Checking apply preflight for {selectedPackageIds.length} selected package
+          {selectedPackageIds.length === 1 ? "" : "s"}…
+        </p>
+      ) : null}
 
       {preflight ? (
         <div className="admin-command-result" role="status">
@@ -220,7 +264,7 @@ export function ProductionPackageConsumerApplyBatchControl({
           rows={2}
           maxLength={280}
           placeholder="Why apply these delivered packages to Vamo now?"
-          disabled={Boolean(disabledReason) || pending}
+          disabled={Boolean(contextDisabledReason) || operationBusy}
         />
       </label>
 
@@ -228,28 +272,38 @@ export function ProductionPackageConsumerApplyBatchControl({
         <button
           type="button"
           className="admin-command admin-command-primary admin-stateful-command"
-          data-state={pending ? "busy" : disabledReason ? "unavailable" : "ready"}
-          onClick={() => void submit()}
-          disabled={
-            Boolean(disabledReason) ||
-            pending ||
-            selectedPackageIds.length === 0 ||
-            preflightBlocks.length > 0 ||
-            !preflight
+          data-state={
+            preflightPhase === "checking" || operationBusy
+              ? "busy"
+              : buttonDisabledReason
+                ? "unavailable"
+                : "ready"
           }
-          title={disabledReason ?? undefined}
+          onClick={() => void submit()}
+          disabled={Boolean(buttonDisabledReason)}
         >
-          {pending
-            ? "Applying packages..."
-            : `Apply selected packages to Vamo (${selectedPackageIds.length})`}
+          {buttonLabel}
         </button>
+        {buttonDisabledReason ? (
+          <p className="admin-action-status" data-state="unavailable">
+            {buttonDisabledReason}
+          </p>
+        ) : null}
+        {operationBusy ? (
+          <p className="admin-action-status" role="status">
+            {APPLY_DURATION_NOTE}
+          </p>
+        ) : null}
       </div>
 
-      <DecisionView decision={decision} />
+      <DecisionView decision={decision} applyPhase={applyPhase} />
     </div>
   );
 
   function togglePackage(packageId: string) {
+    if (operationBusy || preflightPhase === "checking") {
+      return;
+    }
     if (selectedPackageIds.includes(packageId)) {
       setSelectedPackageIds(selectedPackageIds.filter((id) => id !== packageId));
       return;
@@ -258,14 +312,18 @@ export function ProductionPackageConsumerApplyBatchControl({
   }
 
   async function submit() {
-    if (inFlightRef.current || !reason.trim()) {
-      if (!reason.trim()) {
-        setDecision({ state: "error", message: "Audit reason is required." });
-      }
+    if (inFlightRef.current) {
+      return;
+    }
+    if (!reason.trim()) {
+      setDecision({ state: "error", message: "Audit reason is required." });
+      return;
+    }
+    if (buttonDisabledReason) {
       return;
     }
     inFlightRef.current = true;
-    setDecision({ state: "running" });
+    setApplyPhase("applying");
     try {
       const response = await fetch("/api/admin/ingestion/production-package-wave/apply-wave", {
         method: "POST",
@@ -296,9 +354,11 @@ export function ProductionPackageConsumerApplyBatchControl({
             return;
           }
           setDecision({ state: "blocked", blocks });
+          setApplyPhase("idle");
           return;
         }
         setDecision({ state: "error", message: payload?.error ?? "Batch apply failed." });
+        setApplyPhase("idle");
         return;
       }
 
@@ -308,32 +368,46 @@ export function ProductionPackageConsumerApplyBatchControl({
         skippedAppliedPackageIds: payload.skippedAppliedPackageIds,
         auditIds: payload.auditIds
       });
+      setApplyPhase("refreshing");
       router.refresh();
+      setApplyPhase("completed");
     } catch {
       setDecision({ state: "error", message: "Batch apply request failed to send." });
+      setApplyPhase("idle");
     } finally {
       inFlightRef.current = false;
     }
   }
 }
 
-function DecisionView({ decision }: { decision: Decision }) {
-  if (
-    decision.state === "idle" ||
-    decision.state === "loading_preflight" ||
-    decision.state === "running"
-  ) {
+function DecisionView({
+  decision,
+  applyPhase
+}: {
+  decision: Decision;
+  applyPhase: ApplyOperationPhase;
+}) {
+  if (decision.state === "idle") {
     return null;
   }
   if (decision.state === "applied") {
     return (
       <div className="admin-command-result admin-command-result-ok" role="status">
-        <strong>Batch consumer apply completed</strong>
+        <strong>
+          {applyPhase === "completed" ? "Batch consumer apply completed" : "Batch consumer apply succeeded"}
+        </strong>
         <span>Applied {decision.appliedPackageIds.length} package(s)</span>
         {decision.skippedAppliedPackageIds.length > 0 ? (
           <span>Skipped {decision.skippedAppliedPackageIds.length} already-applied package(s)</span>
         ) : null}
-        <span>Audit ids: {decision.auditIds.join(", ")}</span>
+        <span>
+          Audit ids: {decision.auditIds.map((auditId) => auditId).join(", ")}
+        </span>
+        {applyPhase === "refreshing" ? (
+          <span>Refreshing delivery status…</span>
+        ) : applyPhase === "completed" ? (
+          <span>Delivery status refresh completed.</span>
+        ) : null}
       </div>
     );
   }
@@ -356,7 +430,10 @@ function DecisionView({ decision }: { decision: Decision }) {
   );
 }
 
-function disabledReasonFor(context: { role: AdminRole; assuranceLevel: AdminAssuranceLevel; source: DashboardSource }, eligibleCount: number): string | undefined {
+function disabledReasonFor(
+  context: { role: AdminRole; assuranceLevel: AdminAssuranceLevel; source: DashboardSource },
+  eligibleCount: number
+): string | undefined {
   if (context.source !== "live") {
     return "Batch consumer apply requires a live control plane.";
   }
