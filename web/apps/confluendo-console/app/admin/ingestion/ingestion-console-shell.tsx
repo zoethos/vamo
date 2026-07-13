@@ -169,7 +169,6 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
       batchCanaryWaveEligibleCount: props.batchCanaryWaveEligibleCount,
       productionPackageEligibleCount: props.productionPackageEligibleCount,
       attentionRows: props.attentionRows,
-      operatorHealthTitle: props.operatorHealth.title,
       operatorNextAction: props.operatorNextAction,
       latestWaveScopeCount: props.latestProductionPackageWave?.items?.length,
       expectedDeliveryWrites: props.batchQueue.latestProductionPackageWave?.items?.reduce(

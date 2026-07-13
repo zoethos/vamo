@@ -5818,23 +5818,6 @@ a:hover {
   color: var(--text-muted);
 }
 
-.admin-console button:not(:disabled),
-.admin-console .admin-queue-filter-chip,
-.admin-console .admin-action-button {
-  border-color: var(--border);
-  background: var(--surface);
-  color: var(--text-primary);
-}
-
-.admin-console button:not(:disabled):hover,
-.admin-console button:not(:disabled):focus-visible,
-.admin-console .admin-queue-filter-chip:hover,
-.admin-console .admin-queue-filter-chip:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  color: var(--text-primary);
-}
-
 @media (max-width: 1080px) {
   .admin-ux-workflow-navigator:not(.is-mobile),
   .admin-ux-workflow-rail-collapsed {

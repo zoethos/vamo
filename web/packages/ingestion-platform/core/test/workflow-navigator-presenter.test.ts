@@ -19,7 +19,6 @@ function baseInput(
     batchCanaryWaveEligibleCount: 1,
     productionPackageEligibleCount: 0,
     attentionRows: [],
-    operatorHealthTitle: "Healthy",
     operatorNextAction: "Run the next bounded simulation cycle.",
     activeView: "overview",
     ...overrides
@@ -48,8 +47,8 @@ describe("presentWorkflowNavigator", () => {
     assert.ok(queue);
     assert.ok(simulate);
     assert.ok(verify);
-    assert.equal(queue.metrics.length, 3);
-    assert.equal(simulate.metrics.length, 3);
+    assert.equal(queue.metrics.length, 4);
+    assert.equal(simulate.metrics.length, 4);
     assert.equal(verify.metrics.length, 3);
     assert.equal(queue.navigation.kind, "view");
     assert.equal(simulate.navigation.kind, "view");
@@ -75,13 +74,51 @@ describe("presentWorkflowNavigator", () => {
       })
     );
     assert.equal(navigator.attentionCount, attentionRows.length);
-    const attention = navigator.stages.find((stage) => stage.key === "needs_attention");
-    assert.ok(attention);
+    assert.equal(navigator.stages.some((stage) => stage.key === "needs_attention"), false);
+    const attention = navigator.attentionStage;
     assert.equal(attention.actionNeeded, attentionRows.length > 0);
     assert.equal(attention.navigation.kind, "view");
     if (attention.navigation.kind === "view") {
       assert.equal(attention.navigation.view, "diagnostics");
     }
+  });
+
+  it("keeps empty snapshot scopes parked instead of flagging them as operator attention", () => {
+    const batchQueue = sampleVamoEuPoiBatchQueueSnapshot();
+    const parkedScope = {
+      ...batchQueue.items[0]!,
+      status: "blocked" as const,
+      blockReasons: ["source_snapshot_empty"]
+    };
+    const navigator = presentWorkflowNavigator(
+      baseInput({
+        attentionRows: [parkedScope],
+        batchQueue: {
+          ...batchQueue,
+          items: [parkedScope],
+          progress: {
+            ...batchQueue.progress,
+            planned: 0,
+            blocked: 1,
+            ready: 0,
+            execution: {
+              dryRunReady: 0,
+              dryRunRunning: 0,
+              dryRunSucceeded: 0,
+              dryRunBlocked: 0
+            }
+          },
+          blockerSummaries: [{ reason: "source_snapshot_empty", count: 1 }]
+        }
+      })
+    );
+
+    assert.equal(navigator.attentionCount, 0);
+    assert.equal(navigator.attentionStage.actionNeeded, false);
+    assert.doesNotMatch(navigator.attentionStage.summary, /snapshot supply missing/i);
+    const queue = navigator.stages.find((stage) => stage.key === "queue_ready");
+    assert.ok(queue);
+    assert.match(queue.summary, /parked until snapshot coverage expands/i);
   });
 
   it("never invents snapshot state when a registered release is absent", () => {

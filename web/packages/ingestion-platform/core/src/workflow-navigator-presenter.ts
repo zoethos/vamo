@@ -51,6 +51,7 @@ export interface WorkflowNavigatorPresentation {
   attentionCount: number;
   attentionSummary: string | null;
   stages: WorkflowNavigatorStagePresentation[];
+  attentionStage: WorkflowNavigatorStagePresentation;
   ownershipNote: string;
 }
 
@@ -74,7 +75,6 @@ export interface WorkflowNavigatorPresenterInput {
   batchCanaryWaveEligibleCount: number;
   productionPackageEligibleCount: number;
   attentionRows: readonly BatchQueueItem[];
-  operatorHealthTitle: string;
   operatorNextAction: string;
   registeredSnapshotRelease?: RegisteredSnapshotReleaseSummary | null;
   latestWaveScopeCount?: number;
@@ -84,6 +84,7 @@ export interface WorkflowNavigatorPresenterInput {
 
 const OWNERSHIP_NOTE =
   "Confluendo owns ingestion control and delivery to the consumer inbox. Applying into product tables stays on the consumer side.";
+const PARKED_EMPTY_SOURCE_BLOCK_REASON = "source_snapshot_empty";
 
 // Extend input with optional source label for decision header only.
 export interface WorkflowDecisionPresenterInput extends WorkflowNavigatorPresenterInput {
@@ -96,6 +97,7 @@ export function presentWorkflowDecisionHeader(
   const navigator = presentWorkflowNavigator(input);
   const stageForView = stageKeyForView(input.activeView);
   const stage =
+    (stageForView === "needs_attention" ? navigator.attentionStage : undefined) ??
     navigator.stages.find((entry) => entry.key === stageForView) ??
     navigator.stages.find((entry) => entry.key === "queue_ready")!;
 
@@ -115,20 +117,30 @@ export function presentWorkflowNavigator(
   input: WorkflowNavigatorPresenterInput
 ): WorkflowNavigatorPresentation {
   const progress = input.batchQueue.progress;
-  const attentionCount = input.attentionRows.length;
+  const parkedEmptySourceCount = input.batchQueue.items.filter(
+    (item) => !isActionableWorkflowAttentionItem(item)
+  ).length;
+  const actionableAttentionRows = input.attentionRows.filter(isActionableWorkflowAttentionItem);
+  const attentionCount = actionableAttentionRows.length;
+  const attentionStage = presentNeedsAttentionStage(
+    attentionCount,
+    input.batchQueue.blockerSummaries.filter(
+      (blocker) => blocker.reason !== PARKED_EMPTY_SOURCE_BLOCK_REASON
+    )
+  );
   const stages: WorkflowNavigatorStagePresentation[] = [
     presentSourceReleaseStage(input.registeredSnapshotRelease),
-    presentQueueReadyStage(progress, input.batchQueueEligibleCount),
+    presentQueueReadyStage(progress, input.batchQueueEligibleCount, parkedEmptySourceCount),
     presentSimulateStage(progress),
     presentVerifyStagingStage(progress, input.batchCanaryWaveEligibleCount),
     presentPrepareDeliveryStage(
       input.productionPackageEligibleCount,
+      progress.productionPackage,
       input.batchQueue.latestProductionPackageWave,
       input.latestWaveScopeCount,
       input.expectedDeliveryWrites
     ),
-    presentApplyVamoStage(progress.productionPackage),
-    presentNeedsAttentionStage(attentionCount, input.batchQueue.blockerSummaries)
+    presentApplyVamoStage(progress.productionPackage)
   ];
 
   return {
@@ -140,8 +152,17 @@ export function presentWorkflowNavigator(
         ? `${attentionCount} scope${attentionCount === 1 ? "" : "s"} need operator review before automation can advance them.`
         : null,
     stages,
+    attentionStage,
     ownershipNote: OWNERSHIP_NOTE
   };
+}
+
+export function isActionableWorkflowAttentionItem(item: BatchQueueItem): boolean {
+  return !(
+    item.status === "blocked" &&
+    item.blockReasons.length > 0 &&
+    item.blockReasons.every((reason) => reason === PARKED_EMPTY_SOURCE_BLOCK_REASON)
+  );
 }
 
 function presentSourceReleaseStage(
@@ -166,47 +187,50 @@ function presentSourceReleaseStage(
 
 function presentQueueReadyStage(
   progress: BatchQueueSnapshot["progress"],
-  eligibleCount: number
+  eligibleCount: number,
+  parkedEmptySourceCount: number
 ): WorkflowNavigatorStagePresentation {
-  const ready = progress.ready + progress.execution.dryRunReady;
-  const parked = progress.planned;
-  const blocked = progress.blocked;
+  const ready = progress.ready;
+  const actionableBlocked = Math.max(progress.blocked - parkedEmptySourceCount, 0);
   return {
     key: "queue_ready",
     label: "Queue ready",
-    tone: blocked > 0 ? "watch" : ready > 0 ? "info" : "neutral",
+    tone: actionableBlocked > 0 ? "watch" : ready > 0 ? "info" : "neutral",
     summary:
-      blocked > 0
-        ? `${blocked} scope${blocked === 1 ? "" : "s"} blocked before simulation can start.`
+      actionableBlocked > 0
+        ? `${actionableBlocked} scope${actionableBlocked === 1 ? "" : "s"} need review before simulation can start.`
         : ready > 0
           ? `${ready} scope${ready === 1 ? "" : "s"} ready for the next bounded step.`
+          : parkedEmptySourceCount > 0
+            ? `${parkedEmptySourceCount} source scope${parkedEmptySourceCount === 1 ? "" : "s"} parked until snapshot coverage expands.`
           : "Queue is waiting for new supply-ready scopes.",
     metrics: [
       { label: "Ready", value: ready },
-      { label: "Parked", value: parked },
-      { label: "Blocked", value: blocked }
+      { label: "Planned", value: progress.planned },
+      { label: "Parked", value: parkedEmptySourceCount },
+      { label: "Needs review", value: actionableBlocked }
     ],
     navigation: { kind: "view", view: "queue" },
-    actionNeeded: blocked > 0 || eligibleCount > 0
+    actionNeeded: actionableBlocked > 0 || eligibleCount > 0
   };
 }
 
 function presentSimulateStage(
   progress: BatchQueueSnapshot["progress"]
 ): WorkflowNavigatorStagePresentation {
-  const ready =
-    progress.ready +
-    progress.execution.dryRunReady +
-    progress.execution.dryRunRunning;
+  const ready = progress.execution.dryRunReady;
+  const running = progress.execution.dryRunRunning;
   const passed = progress.execution.dryRunSucceeded;
   const blocked = progress.execution.dryRunBlocked;
   return {
     key: "simulate",
     label: "Simulate",
-    tone: blocked > 0 ? "danger" : passed > 0 ? "good" : ready > 0 ? "info" : "neutral",
+    tone: blocked > 0 ? "danger" : running > 0 ? "info" : passed > 0 ? "good" : ready > 0 ? "info" : "neutral",
     summary:
       blocked > 0
         ? `${blocked} simulation scope${blocked === 1 ? "" : "s"} blocked and need review.`
+        : running > 0
+          ? `${running} simulation scope${running === 1 ? " is" : "s are"} running.`
         : passed > 0
           ? `${passed} scope${passed === 1 ? "" : "s"} passed simulation with safe evidence.`
           : ready > 0
@@ -214,11 +238,12 @@ function presentSimulateStage(
             : "No scopes are queued for simulation.",
     metrics: [
       { label: "Ready", value: ready },
+      { label: "Running", value: running },
       { label: "Passed", value: passed },
       { label: "Blocked", value: blocked }
     ],
     navigation: { kind: "view", view: "agent" },
-    actionNeeded: blocked > 0 || ready > 0
+    actionNeeded: blocked > 0 || ready > 0 || running > 0
   };
 }
 
@@ -253,30 +278,42 @@ function presentVerifyStagingStage(
 
 function presentPrepareDeliveryStage(
   eligibleCount: number,
+  productionPackage: BatchQueueSnapshot["progress"]["productionPackage"],
   latestWave: BatchQueueSnapshot["latestProductionPackageWave"],
   waveScopeCount?: number,
   expectedWrites?: number
 ): WorkflowNavigatorStagePresentation {
-  const activeWave = latestWave ? 1 : 0;
-  const scopeCount = waveScopeCount ?? latestWave?.items?.length ?? 0;
-  const writes = expectedWrites ?? sumPlannedRows(latestWave?.items);
+  const inFlight =
+    productionPackage.approved +
+    productionPackage.delivering +
+    productionPackage.delivered +
+    productionPackage.applyPending;
+  const hasActiveDelivery = inFlight > 0;
+  const scopeCount = hasActiveDelivery ? waveScopeCount ?? latestWave?.items?.length ?? 0 : 0;
+  const writes = hasActiveDelivery
+    ? expectedWrites ?? sumPlannedRows(latestWave?.items)
+    : 0;
+  const blocked = productionPackage.blocked;
   return {
     key: "prepare_delivery",
     label: "Prepare delivery",
-    tone: eligibleCount > 0 ? "watch" : activeWave > 0 ? "info" : "neutral",
+    tone: blocked > 0 ? "danger" : eligibleCount > 0 ? "watch" : hasActiveDelivery ? "info" : "neutral",
     summary:
-      activeWave > 0
-        ? `Active delivery batch with ${scopeCount} scope${scopeCount === 1 ? "" : "s"}${writes > 0 ? ` and about ${writes} expected writes` : ""}.`
+      blocked > 0
+        ? `${blocked} delivery package${blocked === 1 ? " is" : "s are"} blocked and need review.`
+      : hasActiveDelivery
+        ? `${inFlight} delivery package${inFlight === 1 ? " is" : "s are"} in progress or waiting for consumer apply${scopeCount > 0 ? ` across ${scopeCount} scope${scopeCount === 1 ? "" : "s"}` : ""}${writes > 0 ? ` with ${writes} expected writes` : ""}.`
         : eligibleCount > 0
           ? `${eligibleCount} scope${eligibleCount === 1 ? "" : "s"} eligible for delivery package approval.`
           : "No scopes are ready to prepare for consumer inbox delivery.",
     metrics: [
       { label: "Eligible", value: eligibleCount },
-      { label: "Active", value: activeWave },
-      { label: "Writes", value: writes }
+      { label: "In flight", value: inFlight },
+      { label: "Expected writes", value: writes },
+      { label: "Blocked", value: blocked }
     ],
     navigation: { kind: "view", view: "delivery" },
-    actionNeeded: eligibleCount > 0 || activeWave > 0
+    actionNeeded: eligibleCount > 0 || hasActiveDelivery || blocked > 0
   };
 }
 
