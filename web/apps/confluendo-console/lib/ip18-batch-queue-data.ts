@@ -4,7 +4,11 @@ import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-que
 import {
   refreshProductionPackageApplyTelemetry,
   sampleVamoEuPoiBatchQueueSnapshot,
-  type BatchQueueSnapshot
+  type BatchQueueSnapshot,
+  hasActiveSnapshotCommissionRequest,
+  loadLatestSnapshotCommissionRequest,
+  presentSnapshotCommissionCard,
+  type SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
 import {
   loadActiveSnapshotReleasePlanBinding,
@@ -19,6 +23,10 @@ export interface Ip18BatchQueueData {
   error?: string;
   applyTelemetrySource?: "inbox" | "missing";
   registeredSnapshotRelease?: ReturnType<typeof toRegisteredSnapshotReleaseSummary> | null;
+  snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotCommissionDefaultCountries: string[];
+  snapshotCommissionDefaultCategories: string[];
+  snapshotCommissionDefaultMaxRowsPerScope: number;
 }
 
 /**
@@ -68,6 +76,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     }
 
     let registeredSnapshotRelease = null;
+    let snapshotCommissionCard;
     try {
       const binding = await loadActiveSnapshotReleasePlanBinding({
         connectionString: controlDb,
@@ -79,7 +88,52 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
       console.error("Active snapshot release binding read failed", error);
     }
 
-    return { snapshot, source: "live", applyTelemetrySource, registeredSnapshotRelease };
+    const defaultCountries = Object.keys(snapshot.coverage.perCountry).sort();
+    const defaultCategories = Object.keys(snapshot.coverage.perCategory).sort();
+    const defaultMaxRowsPerScope = 250;
+
+    try {
+      const [latestRequest, hasActiveRequest] = await Promise.all([
+        loadLatestSnapshotCommissionRequest({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        }),
+        hasActiveSnapshotCommissionRequest({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        })
+      ]);
+      snapshotCommissionCard = presentSnapshotCommissionCard({
+        request: latestRequest,
+        hasActiveRequest,
+        defaultSourceKey: snapshot.sourceKey,
+        defaultCountries,
+        defaultCategories,
+        defaultMaxRowsPerScope
+      });
+    } catch (error) {
+      console.error("Snapshot commission request read failed", error);
+      snapshotCommissionCard = presentSnapshotCommissionCard({
+        hasActiveRequest: false,
+        defaultSourceKey: snapshot.sourceKey,
+        defaultCountries,
+        defaultCategories,
+        defaultMaxRowsPerScope
+      });
+    }
+
+    return {
+      snapshot,
+      source: "live",
+      applyTelemetrySource,
+      registeredSnapshotRelease,
+      snapshotCommissionCard,
+      snapshotCommissionDefaultCountries: defaultCountries,
+      snapshotCommissionDefaultCategories: defaultCategories,
+      snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope
+    };
   } catch (error) {
     console.error("IP-18 batch queue live read failed", error);
     return {
@@ -91,8 +145,22 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
 }
 
 function sample(): Ip18BatchQueueData {
+  const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+  const defaultCountries = Object.keys(snapshot.coverage.perCountry).sort();
+  const defaultCategories = Object.keys(snapshot.coverage.perCategory).sort();
+  const defaultMaxRowsPerScope = 250;
   return {
-    snapshot: sampleVamoEuPoiBatchQueueSnapshot(),
-    source: "sample"
+    snapshot,
+    source: "sample",
+    snapshotCommissionCard: presentSnapshotCommissionCard({
+      hasActiveRequest: false,
+      defaultSourceKey: snapshot.sourceKey,
+      defaultCountries,
+      defaultCategories,
+      defaultMaxRowsPerScope
+    }),
+    snapshotCommissionDefaultCountries: defaultCountries,
+    snapshotCommissionDefaultCategories: defaultCategories,
+    snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope
   };
 }

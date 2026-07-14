@@ -1702,8 +1702,60 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.13+** — live release commissioning, acquisition,
-and activation under operator confirmation (not autonomous provider fetching).
+Next product slice: **IP-18.8.14+** — follow-on operator workflow and
+commissioning hardening as needed.
+
+### IP-18.8.13 — implemented (operator-confirmed snapshot release commissioning)
+
+**Status:** done — durable control-plane commissioning requests for bounded FSQ
+snapshot acquisition. **Not** browser/provider acquisition, **not** artifact or
+S3 exposure in console JSON/props, **not** automatic activation, **not** Vamo
+writes, **not** inbox delivery, **not** consumer apply.
+
+Deliverables:
+
+- `ingestion_snapshot_commission_requests` plus security-definer
+  `create_snapshot_commission_request`, `claim_snapshot_commission_request`, and
+  `complete_snapshot_commission_request`. App role may create/read via approved
+  functions only; claim/complete remain owner/worker-only.
+- Pure helpers for request parsing, policy evaluation, state transitions, and
+  safe operator presentation in core.
+- Console POST route `/api/admin/ingestion/snapshot-commission/request` with
+  admin + AAL2 + fresh step-up enforcement. Records requests only; never calls
+  the provider or returns secrets.
+- `SnapshotCommissionControl` in the operator queue workflow with bounded scope
+  selection, status/recovery presentation, and no browser-side execute button.
+- `ip18:snapshot-commission-worker` trusted CLI/job worker: atomically claims
+  one request, invokes existing IP-18.8.10 acquisition with server/job FSQ
+  token and IP-18.8.12 artifact store, registers the release, and ends in
+  `activation_pending`. Activation remains the separately confirmed IP-18.8.11
+  action.
+
+State model:
+
+`requested → running → release_registered → activation_pending`; failures move
+to `failed`. Release registration never activates automatically.
+
+Control-plane deployment checkpoint (2026-07-14):
+
+- The Confluendo control plane currently has one live database; it does not
+  yet have a distinct control-staging environment. The IP-18.8.13
+  `control_schema.sql` and `control_bootstrap_confluendo.sql` pair was applied
+  and structurally verified on that sole live database.
+- This is a single-environment exception, not a staging-to-production
+  promotion. Current control-plane drift is not measurable because there is
+  no separate staging control database.
+- **Blocked with owner:** Confluendo platform owner (Tiziano) must provision a
+  separate control-staging environment by **2026-07-21**, before the next
+  schema-affecting Confluendo release. That environment must use the same
+  staging-first verification path before production promotion.
+
+Human provisioning prerequisite:
+
+1. Schedule the trusted worker (`ip18:snapshot-commission-worker`) on a
+   server/job host with owner `INGESTION_CONTROL_DATABASE_URL`, FSQ catalog
+   token, artifact-store config, and
+   `CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER=YES`.
 
 ### IP-18.8.12 — implemented (hosted snapshot artifact store)
 

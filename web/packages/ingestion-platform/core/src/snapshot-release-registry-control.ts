@@ -23,6 +23,7 @@ export interface RegisterSnapshotReleaseInput {
     id: string;
   };
   auditReason: string;
+  registrationMetadata?: Record<string, string>;
 }
 
 export interface RegisterSnapshotReleaseResult {
@@ -78,7 +79,8 @@ export async function registerSnapshotRelease(
           $16::jsonb,
           $17,
           $18,
-          $19
+          $19,
+          $20::jsonb
         ) as result
       `,
       [
@@ -100,7 +102,8 @@ export async function registerSnapshotRelease(
         JSON.stringify(input.release.coverage),
         input.actor.type,
         input.actor.id,
-        input.auditReason
+        input.auditReason,
+        JSON.stringify(input.registrationMetadata ?? {})
       ]
     );
 

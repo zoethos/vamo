@@ -56,7 +56,11 @@ export default async function IngestionDashboardPage() {
     source: batchQueueSource,
     error: batchQueueError,
     applyTelemetrySource,
-    registeredSnapshotRelease
+    registeredSnapshotRelease,
+    snapshotCommissionCard,
+    snapshotCommissionDefaultCountries,
+    snapshotCommissionDefaultCategories,
+    snapshotCommissionDefaultMaxRowsPerScope
   } = await loadIp18BatchQueue("vamo");
   const {
     view: autonomyView,
@@ -296,6 +300,10 @@ export default async function IngestionDashboardPage() {
       productionPackageHasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
       latestProductionPackageWave={latestProductionPackageWave}
       registeredSnapshotRelease={registeredSnapshotRelease}
+      snapshotCommissionCard={snapshotCommissionCard}
+      snapshotCommissionDefaultCountries={snapshotCommissionDefaultCountries}
+      snapshotCommissionDefaultCategories={snapshotCommissionDefaultCategories}
+      snapshotCommissionDefaultMaxRowsPerScope={snapshotCommissionDefaultMaxRowsPerScope}
       attentionRows={attentionRows}
       operatorHealth={operatorHealth}
       operatorNextAction={operatorNextAction}

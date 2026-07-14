@@ -9,7 +9,8 @@ import type {
   AutonomyRampCardPresentation,
   BatchQueueItem,
   BatchQueueItemStatus,
-  BatchQueueSnapshot
+  BatchQueueSnapshot,
+  SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
 import {
   presentWorkflowDecisionHeader,
@@ -30,6 +31,7 @@ import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
+import { SnapshotCommissionControl } from "./snapshot-commission-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
@@ -150,6 +152,10 @@ export interface IngestionConsoleShellProps {
     coverageSummary?: string;
     validRowCount?: number;
   } | null;
+  snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotCommissionDefaultCountries: string[];
+  snapshotCommissionDefaultCategories: string[];
+  snapshotCommissionDefaultMaxRowsPerScope: number;
   attentionRows: BatchQueueItem[];
   operatorHealth: OperatorHealth;
   operatorNextAction: string;
@@ -395,6 +401,12 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchContext={batchContext}
           batchCountries={props.batchCountries}
           batchCategories={props.batchCategories}
+          snapshotCommissionCard={props.snapshotCommissionCard}
+          snapshotCommissionDefaultCountries={props.snapshotCommissionDefaultCountries}
+          snapshotCommissionDefaultCategories={props.snapshotCommissionDefaultCategories}
+          snapshotCommissionDefaultMaxRowsPerScope={props.snapshotCommissionDefaultMaxRowsPerScope}
+          freshStepUpExpiresAt={props.freshStepUpExpiresAt}
+          serverNowMs={props.serverNowMs}
           onOpenScope={openScope}
           selectedUnitKey={selectedUnitKey}
         />
@@ -701,6 +713,12 @@ function QueueView({
   batchContext,
   batchCountries,
   batchCategories,
+  snapshotCommissionCard,
+  snapshotCommissionDefaultCountries,
+  snapshotCommissionDefaultCategories,
+  snapshotCommissionDefaultMaxRowsPerScope,
+  freshStepUpExpiresAt,
+  serverNowMs,
   onOpenScope,
   selectedUnitKey
 }: {
@@ -711,11 +729,41 @@ function QueueView({
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
   batchCountries: string[];
   batchCategories: string[];
+  snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotCommissionDefaultCountries: string[];
+  snapshotCommissionDefaultCategories: string[];
+  snapshotCommissionDefaultMaxRowsPerScope: number;
+  freshStepUpExpiresAt?: string;
+  serverNowMs: number;
   onOpenScope: (unitKey: string) => void;
   selectedUnitKey: string | null;
 }) {
   return (
     <section className="admin-ux-section admin-ux-view-panel" aria-label="Batch queue">
+      <div className="admin-section-heading admin-section-heading-compact">
+        <div>
+          <p className="admin-kicker">Source release</p>
+          <h2>Snapshot release commissioning</h2>
+          <p className="admin-view-lead">
+            Request bounded FSQ acquisition for a trusted worker. The console never executes provider
+            calls or reads artifacts directly.
+          </p>
+        </div>
+        <span className="admin-readonly-pill">{batchQueueSourceLabel(batchQueueSource)}</span>
+      </div>
+      <SnapshotCommissionControl
+        projectKey={batchQueue.projectKey}
+        planKey={batchQueue.planId}
+        sourceKey={batchQueue.sourceKey}
+        commissionCard={snapshotCommissionCard}
+        defaultCountries={snapshotCommissionDefaultCountries}
+        defaultCategories={snapshotCommissionDefaultCategories}
+        defaultMaxRowsPerScope={snapshotCommissionDefaultMaxRowsPerScope}
+        context={batchContext}
+        freshStepUpExpiresAt={freshStepUpExpiresAt}
+        serverNowMs={serverNowMs}
+      />
+
       <div className="admin-section-heading admin-section-heading-compact">
         <div>
           <p className="admin-kicker">Batch queue</p>

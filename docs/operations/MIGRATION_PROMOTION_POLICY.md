@@ -52,6 +52,17 @@ local migration -> staging apply -> staging smoke -> production promotion -> pro
      destructive checks, or provider-cost checks against production.
    - Record the production verification result in the handoff.
 
+6. **Do not fabricate a staging promotion.**
+   - A platform with only one live control database cannot satisfy the
+     staging-first path by reapplying a schema batch to that same database.
+   - Apply an urgent control-plane change to the sole database only with an
+     explicit `blocked_with_owner` environment-topology exception. Record the
+     database verification, the missing staging environment, a named owner,
+     and a dated provisioning target.
+   - Provision a distinct staging control environment before the next
+     schema-affecting release. It must use this policy normally; the exception
+     does not convert the sole database into staging.
+
 ## Required Agent Checkpoint
 
 Every agent handoff for a schema-affecting slice must include this block:
