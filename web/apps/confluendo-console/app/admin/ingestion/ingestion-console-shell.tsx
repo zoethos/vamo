@@ -10,6 +10,7 @@ import type {
   BatchQueueItem,
   BatchQueueItemStatus,
   BatchQueueSnapshot,
+  SnapshotActivationCardPresentation,
   SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
 import {
@@ -32,6 +33,7 @@ import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { SnapshotCommissionControl } from "./snapshot-commission-control";
+import { SnapshotActivationControl } from "./snapshot-activation-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
@@ -153,6 +155,7 @@ export interface IngestionConsoleShellProps {
     validRowCount?: number;
   } | null;
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotActivationCard: SnapshotActivationCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -402,6 +405,7 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchCountries={props.batchCountries}
           batchCategories={props.batchCategories}
           snapshotCommissionCard={props.snapshotCommissionCard}
+          snapshotActivationCard={props.snapshotActivationCard}
           snapshotCommissionDefaultCountries={props.snapshotCommissionDefaultCountries}
           snapshotCommissionDefaultCategories={props.snapshotCommissionDefaultCategories}
           snapshotCommissionDefaultMaxRowsPerScope={props.snapshotCommissionDefaultMaxRowsPerScope}
@@ -714,6 +718,7 @@ function QueueView({
   batchCountries,
   batchCategories,
   snapshotCommissionCard,
+  snapshotActivationCard,
   snapshotCommissionDefaultCountries,
   snapshotCommissionDefaultCategories,
   snapshotCommissionDefaultMaxRowsPerScope,
@@ -730,6 +735,7 @@ function QueueView({
   batchCountries: string[];
   batchCategories: string[];
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotActivationCard: SnapshotActivationCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -759,6 +765,13 @@ function QueueView({
         defaultCountries={snapshotCommissionDefaultCountries}
         defaultCategories={snapshotCommissionDefaultCategories}
         defaultMaxRowsPerScope={snapshotCommissionDefaultMaxRowsPerScope}
+        context={batchContext}
+        freshStepUpExpiresAt={freshStepUpExpiresAt}
+        serverNowMs={serverNowMs}
+      />
+      <SnapshotActivationControl
+        projectKey={batchQueue.projectKey}
+        activationCard={snapshotActivationCard}
         context={batchContext}
         freshStepUpExpiresAt={freshStepUpExpiresAt}
         serverNowMs={serverNowMs}

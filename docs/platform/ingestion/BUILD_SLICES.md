@@ -1702,8 +1702,49 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.14+** — follow-on operator workflow and
-commissioning hardening as needed.
+### IP-18.8.14 — implemented (operator-confirmed snapshot activation)
+
+**Status:** implemented locally — a separately confirmed activation request is
+now required before a trusted worker can bind a registered source release and
+reconcile its queue supply. **Not** automatic activation, **not** browser
+artifact access, **not** provider acquisition, **not** Vamo writes, **not**
+inbox delivery, and **not** consumer apply.
+
+Deliverables:
+
+- `ingestion_snapshot_activation_requests` plus security-definer
+  `create_snapshot_activation_request`,
+  `claim_snapshot_activation_request`, and
+  `complete_snapshot_activation_request`. The app role may create/read through
+  approved functions only; claim/complete remain owner/worker-only.
+- Pure helpers for parsing, policy gates, state transitions, and safe operator
+  presentation.
+- Console POST route `/api/admin/ingestion/snapshot-activation/request` with
+  server-derived plan/release identity, admin + AAL2 + fresh step-up, audit
+  reason, and an explicit dropdown confirmation. The route never imports the
+  activation executor or artifact-store configuration.
+- `SnapshotActivationControl` in Queue, after commissioning: it displays the
+  registered release, request state, and recovery-safe next action.
+- `ip18:snapshot-activation-worker` trusted CLI/job worker: claims one request,
+  invokes the existing IP-18.8.11 artifact verification/binding/reconciliation
+  path, and completes `activated` or `failed` with a safe operator result.
+
+State model:
+
+`requested → running → activated`; failures move to `failed`. A commissioning
+request reaching `activation_pending` is the required input. The operator
+request and worker execution are distinct; no queue binding occurs when the
+browser submits the request.
+
+Control-plane promotion checkpoint:
+
+1. Apply `control_schema.sql` and `control_bootstrap_confluendo.sql` to
+   **Confluendo control staging** and verify app-role create/read-only access
+   plus worker-only claim/complete behavior.
+2. Promote the identical pair to control production in the same release window
+   after staging is green.
+3. Do not point `INGESTION_TEST_DATABASE_URL` at either control environment;
+   destructive DB smokes require a disposable database.
 
 ### IP-18.8.13 — implemented (operator-confirmed snapshot release commissioning)
 
@@ -1738,17 +1779,12 @@ to `failed`. Release registration never activates automatically.
 
 Control-plane deployment checkpoint (2026-07-14):
 
-- The Confluendo control plane currently has one live database; it does not
-  yet have a distinct control-staging environment. The IP-18.8.13
-  `control_schema.sql` and `control_bootstrap_confluendo.sql` pair was applied
-  and structurally verified on that sole live database.
-- This is a single-environment exception, not a staging-to-production
-  promotion. Current control-plane drift is not measurable because there is
-  no separate staging control database.
-- **Blocked with owner:** Confluendo platform owner (Tiziano) must provision a
-  separate control-staging environment by **2026-07-21**, before the next
-  schema-affecting Confluendo release. That environment must use the same
-  staging-first verification path before production promotion.
+- A distinct `confluendo-control-staging` environment now exists. The
+  IP-18.8.13 `control_schema.sql` and `control_bootstrap_confluendo.sql` pair
+  was applied and structurally verified there with least-privilege app access.
+- Future schema-affecting Confluendo releases must use that staging environment
+  first, then promote the identical reviewed SQL pair to control production in
+  the same release window. The initial single-environment exception is closed.
 
 Human provisioning prerequisite:
 

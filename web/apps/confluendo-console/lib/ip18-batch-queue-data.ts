@@ -6,8 +6,12 @@ import {
   sampleVamoEuPoiBatchQueueSnapshot,
   type BatchQueueSnapshot,
   hasActiveSnapshotCommissionRequest,
+  hasActiveSnapshotActivationRequest,
+  loadLatestSnapshotActivationRequest,
   loadLatestSnapshotCommissionRequest,
+  presentSnapshotActivationCard,
   presentSnapshotCommissionCard,
+  type SnapshotActivationCardPresentation,
   type SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
 import {
@@ -24,6 +28,7 @@ export interface Ip18BatchQueueData {
   applyTelemetrySource?: "inbox" | "missing";
   registeredSnapshotRelease?: ReturnType<typeof toRegisteredSnapshotReleaseSummary> | null;
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
+  snapshotActivationCard: SnapshotActivationCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -77,6 +82,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
 
     let registeredSnapshotRelease = null;
     let snapshotCommissionCard;
+    let snapshotActivationCard;
     try {
       const binding = await loadActiveSnapshotReleasePlanBinding({
         connectionString: controlDb,
@@ -93,13 +99,23 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     const defaultMaxRowsPerScope = 250;
 
     try {
-      const [latestRequest, hasActiveRequest] = await Promise.all([
+      const [latestRequest, hasActiveRequest, latestActivationRequest, hasActiveActivationRequest] = await Promise.all([
         loadLatestSnapshotCommissionRequest({
           connectionString: controlDb,
           projectKey,
           planKey: snapshot.planId
         }),
         hasActiveSnapshotCommissionRequest({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        }),
+        loadLatestSnapshotActivationRequest({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        }),
+        hasActiveSnapshotActivationRequest({
           connectionString: controlDb,
           projectKey,
           planKey: snapshot.planId
@@ -113,8 +129,13 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
         defaultCategories,
         defaultMaxRowsPerScope
       });
+      snapshotActivationCard = presentSnapshotActivationCard({
+        commissionRequest: latestRequest,
+        activationRequest: latestActivationRequest,
+        hasActiveRequest: hasActiveActivationRequest
+      });
     } catch (error) {
-      console.error("Snapshot commission request read failed", error);
+      console.error("Snapshot commissioning or activation request read failed", error);
       snapshotCommissionCard = presentSnapshotCommissionCard({
         hasActiveRequest: false,
         defaultSourceKey: snapshot.sourceKey,
@@ -122,6 +143,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
         defaultCategories,
         defaultMaxRowsPerScope
       });
+      snapshotActivationCard = presentSnapshotActivationCard({ hasActiveRequest: false });
     }
 
     return {
@@ -130,6 +152,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
       applyTelemetrySource,
       registeredSnapshotRelease,
       snapshotCommissionCard,
+      snapshotActivationCard,
       snapshotCommissionDefaultCountries: defaultCountries,
       snapshotCommissionDefaultCategories: defaultCategories,
       snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope
@@ -159,6 +182,7 @@ function sample(): Ip18BatchQueueData {
       defaultCategories,
       defaultMaxRowsPerScope
     }),
+    snapshotActivationCard: presentSnapshotActivationCard({ hasActiveRequest: false }),
     snapshotCommissionDefaultCountries: defaultCountries,
     snapshotCommissionDefaultCategories: defaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope

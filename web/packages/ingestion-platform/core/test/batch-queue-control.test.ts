@@ -79,7 +79,7 @@ describe("batch queue control persistence", () => {
             order by table_name
           `
         );
-        assert.equal(CONTROL_TABLES.length, 30);
+        assert.equal(CONTROL_TABLES.length, 31);
         assert.deepEqual(
           tables.rows.map((row) => row.table_name),
           [...CONTROL_TABLES].sort()

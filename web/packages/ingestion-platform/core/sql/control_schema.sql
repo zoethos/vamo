@@ -2477,4 +2477,354 @@ revoke all on function ingestion_platform.complete_snapshot_commission_request(
   text
 ) from public;
 
+-- IP-18.8.14 separately confirmed snapshot activation requests
+create table if not exists ingestion_platform.ingestion_snapshot_activation_requests (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  commission_request_id bigint not null references ingestion_platform.ingestion_snapshot_commission_requests(id) on delete restrict,
+  release_id text not null,
+  status text not null,
+  audit_reason text not null,
+  requested_by_type text not null,
+  requested_by_id text not null,
+  requested_at timestamptz not null default now(),
+  claimed_at timestamptz,
+  claimed_by_id text,
+  worker_run_key text,
+  claim_expires_at timestamptz,
+  attempt_count integer not null default 0,
+  binding_id bigint,
+  activation_audit_id bigint,
+  error_code text,
+  error_message text,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_snapshot_activation_requests_status_check check (
+    status in ('requested', 'running', 'activated', 'failed')
+  ),
+  constraint ingestion_snapshot_activation_requests_attempt_count_nonnegative check (
+    attempt_count >= 0
+  )
+);
+
+create index if not exists ingestion_snapshot_activation_requests_project_plan_status_idx
+  on ingestion_platform.ingestion_snapshot_activation_requests (project_id, batch_plan_id, status, requested_at desc);
+
+create unique index if not exists ingestion_snapshot_activation_requests_one_active_per_plan_idx
+  on ingestion_platform.ingestion_snapshot_activation_requests (project_id, batch_plan_id)
+  where status in ('requested', 'running');
+
+create index if not exists ingestion_snapshot_activation_requests_worker_run_key_idx
+  on ingestion_platform.ingestion_snapshot_activation_requests (worker_run_key)
+  where worker_run_key is not null;
+
+create index if not exists ingestion_snapshot_activation_requests_claim_expires_idx
+  on ingestion_platform.ingestion_snapshot_activation_requests (status, claim_expires_at)
+  where status = 'running';
+
+create or replace function ingestion_platform.create_snapshot_activation_request(
+  p_project_key text,
+  p_plan_key text,
+  p_commission_request_id bigint,
+  p_release_id text,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_project_id bigint;
+  v_plan_id bigint;
+  v_plan_source_key text;
+  v_plan_status text;
+  v_commission_release_id text;
+  v_commission_status text;
+  v_release_source_key text;
+  v_release_status text;
+  v_request_id bigint;
+  v_audit_id bigint;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_plan_key := nullif(btrim(p_plan_key), '');
+  p_release_id := nullif(btrim(p_release_id), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_plan_key is null or p_commission_request_id is null or p_release_id is null then
+    raise exception 'missing_activation_identity';
+  end if;
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+
+  select p.id into v_project_id
+  from ingestion_platform.ingestion_projects p
+  where p.project_key = p_project_key;
+  if v_project_id is null then
+    raise exception 'project_not_found';
+  end if;
+
+  select bp.id, bp.source_key, bp.status
+  into v_plan_id, v_plan_source_key, v_plan_status
+  from ingestion_platform.ingestion_batch_plans bp
+  where bp.project_id = v_project_id and bp.plan_key = p_plan_key;
+  if v_plan_id is null then
+    raise exception 'plan_not_found';
+  end if;
+  if v_plan_status is distinct from 'active' then
+    raise exception 'plan_not_active';
+  end if;
+
+  select c.registered_release_id, c.status
+  into v_commission_release_id, v_commission_status
+  from ingestion_platform.ingestion_snapshot_commission_requests c
+  where c.id = p_commission_request_id
+    and c.project_id = v_project_id
+    and c.batch_plan_id = v_plan_id;
+  if v_commission_status is distinct from 'activation_pending'
+    or v_commission_release_id is distinct from p_release_id then
+    raise exception 'release_not_activation_pending';
+  end if;
+
+  select r.source_key, r.status
+  into v_release_source_key, v_release_status
+  from ingestion_platform.ingestion_snapshot_releases r
+  where r.project_id = v_project_id and r.release_id = p_release_id;
+  if v_release_status is distinct from 'activation_ready' then
+    raise exception 'release_not_activation_ready';
+  end if;
+  if v_release_source_key is distinct from v_plan_source_key then
+    raise exception 'release_source_mismatch';
+  end if;
+
+  begin
+    insert into ingestion_platform.ingestion_snapshot_activation_requests (
+      project_id, batch_plan_id, commission_request_id, release_id, status,
+      audit_reason, requested_by_type, requested_by_id, requested_at, updated_at
+    ) values (
+      v_project_id, v_plan_id, p_commission_request_id, p_release_id, 'requested',
+      p_audit_reason, p_actor_type, p_actor_id, now(), now()
+    ) returning id into v_request_id;
+  exception
+    when unique_violation then
+      raise exception 'activation_request_already_active';
+  end;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id, actor_type, actor_id, action, target_type, target_id, reason, payload
+  ) values (
+    v_project_id, p_actor_type, p_actor_id,
+    'create_snapshot_activation_request', 'snapshot_activation_request',
+    v_request_id::text, p_audit_reason,
+    jsonb_build_object(
+      'requestId', v_request_id::text,
+      'planKey', p_plan_key,
+      'commissionRequestId', p_commission_request_id::text,
+      'releaseId', p_release_id,
+      'status', 'requested'
+    )
+  ) returning id into v_audit_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id, event_type, severity, signal, message, payload
+  ) values (
+    v_project_id,
+    'snapshot.activation.requested',
+    'info',
+    'snapshot.activation.requested',
+    format('Snapshot activation request %s created for plan %s.', v_request_id::text, p_plan_key),
+    jsonb_build_object('requestId', v_request_id::text, 'planKey', p_plan_key, 'auditId', v_audit_id::text)
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'requestId', v_request_id::text,
+    'auditId', v_audit_id::text,
+    'status', 'requested',
+    'releaseId', p_release_id
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.create_snapshot_activation_request(
+  text, text, bigint, text, text, text, text
+) from public;
+
+create or replace function ingestion_platform.claim_snapshot_activation_request(
+  p_worker_id text,
+  p_worker_run_key text,
+  p_lease_seconds integer default 1800
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_request ingestion_platform.ingestion_snapshot_activation_requests%rowtype;
+  v_project_key text;
+  v_plan_key text;
+begin
+  p_worker_id := nullif(btrim(p_worker_id), '');
+  p_worker_run_key := nullif(btrim(p_worker_run_key), '');
+  if p_worker_id is null or p_worker_run_key is null then
+    raise exception 'missing_worker_identity';
+  end if;
+  if p_lease_seconds is null or p_lease_seconds <= 0 then
+    raise exception 'invalid_lease_seconds';
+  end if;
+
+  select r.* into v_request
+  from ingestion_platform.ingestion_snapshot_activation_requests r
+  where r.worker_run_key = p_worker_run_key
+  limit 1;
+
+  if found then
+    select p.project_key, bp.plan_key into v_project_key, v_plan_key
+    from ingestion_platform.ingestion_projects p
+    join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id and bp.id = v_request.batch_plan_id
+    where p.id = v_request.project_id;
+    return jsonb_build_object(
+      'ok', true, 'idempotentReplay', true,
+      'requestId', v_request.id::text, 'projectKey', v_project_key, 'planKey', v_plan_key,
+      'commissionRequestId', v_request.commission_request_id::text, 'releaseId', v_request.release_id,
+      'status', v_request.status, 'attemptCount', v_request.attempt_count,
+      'claimExpiresAt', v_request.claim_expires_at, 'bindingId', v_request.binding_id::text,
+      'activationAuditId', v_request.activation_audit_id::text,
+      'errorCode', v_request.error_code, 'errorMessage', v_request.error_message
+    );
+  end if;
+
+  select r.* into v_request
+  from ingestion_platform.ingestion_snapshot_activation_requests r
+  where r.status = 'running' and r.claim_expires_at is not null and r.claim_expires_at < now()
+  order by r.requested_at asc, r.id asc
+  for update skip locked limit 1;
+
+  if found then
+    update ingestion_platform.ingestion_snapshot_activation_requests
+    set claimed_at = now(), claimed_by_id = p_worker_id, worker_run_key = p_worker_run_key,
+        claim_expires_at = now() + make_interval(secs => p_lease_seconds),
+        attempt_count = v_request.attempt_count + 1, updated_at = now()
+    where id = v_request.id returning * into v_request;
+  else
+    select r.* into v_request
+    from ingestion_platform.ingestion_snapshot_activation_requests r
+    where r.status = 'requested'
+    order by r.requested_at asc, r.id asc
+    for update skip locked limit 1;
+    if not found then
+      return jsonb_build_object('ok', false, 'code', 'no_pending_request');
+    end if;
+    update ingestion_platform.ingestion_snapshot_activation_requests
+    set status = 'running', claimed_at = now(), claimed_by_id = p_worker_id, worker_run_key = p_worker_run_key,
+        claim_expires_at = now() + make_interval(secs => p_lease_seconds),
+        attempt_count = v_request.attempt_count + 1, updated_at = now()
+    where id = v_request.id returning * into v_request;
+  end if;
+
+  select p.project_key, bp.plan_key into v_project_key, v_plan_key
+  from ingestion_platform.ingestion_projects p
+  join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id and bp.id = v_request.batch_plan_id
+  where p.id = v_request.project_id;
+  return jsonb_build_object(
+    'ok', true, 'idempotentReplay', false,
+    'requestId', v_request.id::text, 'projectKey', v_project_key, 'planKey', v_plan_key,
+    'commissionRequestId', v_request.commission_request_id::text, 'releaseId', v_request.release_id,
+    'status', v_request.status, 'attemptCount', v_request.attempt_count,
+    'claimExpiresAt', v_request.claim_expires_at
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.claim_snapshot_activation_request(text, text, integer) from public;
+
+create or replace function ingestion_platform.complete_snapshot_activation_request(
+  p_request_id bigint,
+  p_worker_run_key text,
+  p_status text,
+  p_binding_id bigint,
+  p_activation_audit_id bigint,
+  p_error_code text,
+  p_error_message text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_request ingestion_platform.ingestion_snapshot_activation_requests%rowtype;
+  v_audit_id bigint;
+begin
+  p_worker_run_key := nullif(btrim(p_worker_run_key), '');
+  p_status := nullif(btrim(p_status), '');
+  p_error_code := nullif(btrim(p_error_code), '');
+  p_error_message := nullif(btrim(p_error_message), '');
+  if p_worker_run_key is null or p_status is null then
+    raise exception 'missing_completion_identity';
+  end if;
+  if p_status not in ('activated', 'failed') then
+    raise exception 'invalid_completion_status';
+  end if;
+  select * into v_request
+  from ingestion_platform.ingestion_snapshot_activation_requests
+  where id = p_request_id and worker_run_key = p_worker_run_key
+  for update;
+  if not found then
+    raise exception 'activation_request_not_claimed';
+  end if;
+  if v_request.status in ('activated', 'failed') then
+    return jsonb_build_object('ok', true, 'idempotentReplay', true, 'requestId', v_request.id::text, 'status', v_request.status);
+  end if;
+  if v_request.status <> 'running' then
+    raise exception 'invalid_status_transition';
+  end if;
+  if p_status = 'activated' and (p_binding_id is null or p_activation_audit_id is null) then
+    raise exception 'missing_activation_result';
+  end if;
+  if p_status = 'failed' and p_error_code is null then
+    raise exception 'missing_error_code';
+  end if;
+
+  update ingestion_platform.ingestion_snapshot_activation_requests
+  set status = p_status,
+      binding_id = case when p_status = 'activated' then p_binding_id else binding_id end,
+      activation_audit_id = case when p_status = 'activated' then p_activation_audit_id else activation_audit_id end,
+      error_code = p_error_code,
+      error_message = p_error_message,
+      completed_at = now(), claim_expires_at = null, updated_at = now()
+  where id = v_request.id returning * into v_request;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id, actor_type, actor_id, action, target_type, target_id, reason, payload
+  ) values (
+    v_request.project_id, 'worker', v_request.claimed_by_id,
+    'complete_snapshot_activation_request', 'snapshot_activation_request',
+    v_request.id::text, v_request.audit_reason,
+    jsonb_build_object(
+      'requestId', v_request.id::text, 'status', v_request.status,
+      'releaseId', v_request.release_id, 'bindingId', v_request.binding_id,
+      'activationAuditId', v_request.activation_audit_id, 'errorCode', v_request.error_code
+    )
+  ) returning id into v_audit_id;
+
+  return jsonb_build_object(
+    'ok', true, 'idempotentReplay', false,
+    'requestId', v_request.id::text, 'status', v_request.status, 'auditId', v_audit_id::text
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.complete_snapshot_activation_request(
+  bigint, text, text, bigint, bigint, text, text
+) from public;
+
 commit;

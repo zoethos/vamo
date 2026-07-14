@@ -39,7 +39,7 @@ describe("batch production package-wave approval control", () => {
       try {
         await client.query("drop schema if exists ingestion_platform cascade");
         await client.query(controlSchemaSql);
-        assert.equal(CONTROL_TABLES.length, 30);
+        assert.equal(CONTROL_TABLES.length, 31);
 
         await client.query(
           `

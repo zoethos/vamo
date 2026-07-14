@@ -166,6 +166,19 @@ grant execute on function ingestion_platform.create_snapshot_commission_request(
   text
 ) to confluendo_app;
 
+-- IP-18.8.14 snapshot activation requests: the app may create/read a
+-- separately confirmed request, while the trusted worker retains claim/complete.
+grant select on ingestion_platform.ingestion_snapshot_activation_requests to confluendo_app;
+grant execute on function ingestion_platform.create_snapshot_activation_request(
+  text,
+  text,
+  bigint,
+  text,
+  text,
+  text,
+  text
+) to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;
