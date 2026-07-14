@@ -58,6 +58,7 @@ export default async function IngestionDashboardPage() {
     applyTelemetrySource,
     registeredSnapshotRelease,
     snapshotCommissionCard,
+    snapshotActivationCard,
     snapshotCommissionDefaultCountries,
     snapshotCommissionDefaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope
@@ -301,6 +302,7 @@ export default async function IngestionDashboardPage() {
       latestProductionPackageWave={latestProductionPackageWave}
       registeredSnapshotRelease={registeredSnapshotRelease}
       snapshotCommissionCard={snapshotCommissionCard}
+      snapshotActivationCard={snapshotActivationCard}
       snapshotCommissionDefaultCountries={snapshotCommissionDefaultCountries}
       snapshotCommissionDefaultCategories={snapshotCommissionDefaultCategories}
       snapshotCommissionDefaultMaxRowsPerScope={snapshotCommissionDefaultMaxRowsPerScope}

@@ -593,7 +593,7 @@ describe("executeBatchProductionPackageWave", () => {
 async function resetControlSchema(client: Client): Promise<void> {
   await client.query("drop schema if exists ingestion_platform cascade");
   await client.query(controlSchemaSql);
-  assert.equal(CONTROL_TABLES.length, 30);
+  assert.equal(CONTROL_TABLES.length, 31);
 }
 
 async function seedApprovedProductionPackageWave(

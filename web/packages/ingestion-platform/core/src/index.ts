@@ -927,6 +927,44 @@ export {
   SNAPSHOT_ACTIVATION_CONFIRMATION_VALUE,
   runSnapshotReleaseActivation
 } from "./snapshot-release-activation.js";
+export {
+  SNAPSHOT_ACTIVATION_REQUEST_CONFIRMATION_STATE,
+  SNAPSHOT_ACTIVATION_REQUEST_STATUSES,
+  SNAPSHOT_ACTIVATION_REQUEST_ACTIVE_STATUSES,
+  SNAPSHOT_ACTIVATION_REQUEST_DEFAULT_LEASE_SECONDS,
+  canTransitionSnapshotActivationRequestStatus,
+  isSnapshotActivationRequestStatus,
+  parseSnapshotActivationRequestCreate,
+  type SnapshotActivationRequestCreateInput,
+  type SnapshotActivationRequestRecord,
+  type SnapshotActivationRequestStatus
+} from "./snapshot-activation-request.js";
+export {
+  evaluateSnapshotActivationRequestCreate,
+  type EvaluateSnapshotActivationRequestCreateInput,
+  type EvaluateSnapshotActivationRequestCreateResult,
+  type SnapshotActivationRequestBlockCode
+} from "./snapshot-activation-request-policy.js";
+export {
+  presentSnapshotActivationCard,
+  type SnapshotActivationCardPresentation
+} from "./snapshot-activation-request-presenter.js";
+export {
+  createSnapshotActivationRequest,
+  claimSnapshotActivationRequest,
+  completeSnapshotActivationRequest,
+  hasActiveSnapshotActivationRequest,
+  loadLatestSnapshotActivationRequest,
+  type CreateSnapshotActivationRequestInput,
+  type CreateSnapshotActivationRequestResult,
+  type SnapshotActivationRequestPgClientLike
+} from "./snapshot-activation-request-control.js";
+export {
+  SNAPSHOT_ACTIVATION_WORKER_CONFIRMATION_ENV,
+  SNAPSHOT_ACTIVATION_WORKER_CONFIRMATION_VALUE,
+  runSnapshotActivationWorker,
+  type SnapshotActivationWorkerResult
+} from "./snapshot-activation-worker.js";
 export { resolveSnapshotCandidateLoader } from "./activated-snapshot-candidate-loader.js";
 export {
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,

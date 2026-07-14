@@ -202,6 +202,28 @@ Local limitation: trusted CLIs may still use `--artifact-store-dir` or
 `INGESTION_ARTIFACT_STORE_DIR` on a trusted host. The hosted autonomy scheduler
 requires S3-compatible artifact-store configuration and fails closed without it.
 
+## Operator-confirmed activation requests (IP-18.8.14)
+
+When a trusted commissioning worker has registered a release and its status is
+`activation_pending`, Queue shows **Activate verified snapshot release**. The
+operator supplies an audit reason, selects **Request activation**, and passes a
+fresh MFA check. That action records an activation request only.
+
+The browser neither reads the artifact nor calls the binding function. A trusted
+job then runs:
+
+```bash
+CONFIRM_CONFLUENDO_SNAPSHOT_ACTIVATION_WORKER=YES \
+INGESTION_CONTROL_DATABASE_URL=... \
+npm --workspace @confluendo/ingestion-platform run ip18:snapshot-activation-worker
+```
+
+The worker requires the same server/job-only artifact-store configuration as
+the activation CLI. It claims one request, invokes the existing verified
+activation path, and records `activated` or `failed`. It never acquires from a
+provider. A failed request does not change the active binding; correct the
+safe precondition and submit a new operator request.
+
 Hosted artifact store (IP-18.8.12) — human provisioning prerequisite:
 
 1. Provision a private Confluendo-owned S3-compatible bucket outside Vamo.
