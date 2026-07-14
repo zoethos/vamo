@@ -21,6 +21,10 @@ import {
   resolveSnapshotCandidateLoader
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec, parseTargetProjectSpec } from "../dist/spec/src/index.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -167,41 +171,64 @@ console.log("");
 
 const { pipeline, target } = loadSpecs();
 
+let artifactStoreDirResolved;
+let artifactStore;
+if (
+  artifactStoreDir?.trim() ||
+  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3" ||
+  process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
+) {
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  artifactStoreDirResolved = artifactStoreResolved.artifactStoreDir;
+  artifactStore = artifactStoreResolved.store;
+}
+
 const resolvedLoader = await resolveSnapshotCandidateLoader({
   controlConnectionString: controlDsn,
   projectKey,
   planKey: wave.planKey,
-  artifactStoreDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  artifactStoreDir: artifactStoreDirResolved,
+  artifactStore,
   pipeline
 });
 
-const result = await executeBatchStagingCanaryWave({
-  controlConnectionString: controlDsn,
-  stagingConnectionString: stagingDsn,
-  projectKey,
-  targetEnvironment,
-  waveKey,
-  approvalAuditId,
-  maxUnits: maxUnits ? Number(maxUnits) : undefined,
-  maxRows: maxRows ? Number(maxRows) : undefined,
-  actor: { type: "operator", id: actorId },
-  reason: auditReason,
-  target,
-  proveStaging: makeProveStaging(stagingDsn),
-  deps: {
-    loadCandidates: ({ unit, scope }) => resolvedLoader.waveLoader({ unit, scope })
-  }
-});
+try {
+  const result = await executeBatchStagingCanaryWave({
+    controlConnectionString: controlDsn,
+    stagingConnectionString: stagingDsn,
+    projectKey,
+    targetEnvironment,
+    waveKey,
+    approvalAuditId,
+    maxUnits: maxUnits ? Number(maxUnits) : undefined,
+    maxRows: maxRows ? Number(maxRows) : undefined,
+    actor: { type: "operator", id: actorId },
+    reason: auditReason,
+    target,
+    proveStaging: makeProveStaging(stagingDsn),
+    deps: {
+      loadCandidates: ({ unit, scope }) => resolvedLoader.waveLoader({ unit, scope })
+    }
+  });
 
-console.log("");
-console.log(`Wave status: ${result.waveStatus}`);
-console.log(`Execution audit: ${result.executionAuditId ?? "none"}`);
-console.log(`Idempotent replay: ${result.idempotentReplay}`);
-console.log(`Succeeded: ${result.succeededCount} · Blocked: ${result.blockedCount} · Skipped: ${result.skippedCount}`);
-for (const unit of result.unitResults) {
-  console.log(
-    `  - ${unit.unitKey}: ${unit.status}${unit.shipmentId ? ` · shipment ${unit.shipmentId}` : ""}${unit.shipmentKey ? ` · key ${unit.shipmentKey}` : ""}`
-  );
+  console.log("");
+  console.log(`Wave status: ${result.waveStatus}`);
+  console.log(`Execution audit: ${result.executionAuditId ?? "none"}`);
+  console.log(`Idempotent replay: ${result.idempotentReplay}`);
+  console.log(`Succeeded: ${result.succeededCount} · Blocked: ${result.blockedCount} · Skipped: ${result.skippedCount}`);
+  for (const unit of result.unitResults) {
+    console.log(
+      `  - ${unit.unitKey}: ${unit.status}${unit.shipmentId ? ` · shipment ${unit.shipmentId}` : ""}${unit.shipmentKey ? ` · key ${unit.shipmentKey}` : ""}`
+    );
+  }
+} finally {
+  await resolvedLoader.dispose();
 }
 
 function flowHeader() {

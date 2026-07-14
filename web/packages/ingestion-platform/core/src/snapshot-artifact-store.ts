@@ -3,17 +3,24 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import {
+  readSnapshotArtifactField,
+  SNAPSHOT_ARTIFACT_BUNDLE_FILES
+} from "./snapshot-artifact-bundle.js";
+import { writeImmutableArtifactContent } from "./snapshot-artifact-immutable-write.js";
+import { assertArtifactKeySafe } from "./snapshot-artifact-key.js";
+import {
+  classifyArtifactReadError,
+  isObjectNotFoundError,
+  SnapshotArtifactStorageError
+} from "./snapshot-artifact-storage-error.js";
 import type { SnapshotIntakeArtifacts } from "./versioned-snapshot-intake.js";
 import { sha256Hex } from "./versioned-snapshot-intake.js";
 
-export const SNAPSHOT_ARTIFACT_BUNDLE_FILES = [
-  "source.jsonl",
-  "release.json",
-  "coverage-report.json"
-] as const;
+export { SNAPSHOT_ARTIFACT_BUNDLE_FILES } from "./snapshot-artifact-bundle.js";
 
 export interface SnapshotArtifactStore {
   putReleaseBundle(input: {
@@ -44,12 +51,7 @@ export function deriveSnapshotArtifactKey(input: {
 export function computeSnapshotArtifactBundleSha256(artifacts: SnapshotIntakeArtifacts): string {
   const digest = createHash("sha256");
   for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
-    const content =
-      fileName === "source.jsonl"
-        ? artifacts.sourceJsonl
-        : fileName === "release.json"
-          ? artifacts.releaseJson
-          : artifacts.coverageReportJson;
+    const content = readSnapshotArtifactField(artifacts, fileName);
     digest.update(fileName);
     digest.update("\0");
     digest.update(content);
@@ -60,38 +62,102 @@ export function computeSnapshotArtifactBundleSha256(artifacts: SnapshotIntakeArt
 
 export function createLocalSnapshotArtifactStore(baseDir: string): SnapshotArtifactStore {
   const rootDir = resolve(baseDir);
-  return {
+  const store: SnapshotArtifactStore = {
     async putReleaseBundle(input) {
+      if (!assertArtifactKeySafe(input.artifactKey)) {
+        throw new SnapshotArtifactStorageError("artifact_key_unsafe", "Artifact key is unsafe.");
+      }
+
       const artifactDir = join(rootDir, ...input.artifactKey.split("/"));
-      mkdirSync(artifactDir, { recursive: true });
-      writeFileSync(join(artifactDir, "source.jsonl"), input.artifacts.sourceJsonl, "utf8");
-      writeFileSync(join(artifactDir, "release.json"), input.artifacts.releaseJson, "utf8");
-      writeFileSync(
-        join(artifactDir, "coverage-report.json"),
-        input.artifacts.coverageReportJson,
-        "utf8"
-      );
-      const bundleSha256 = computeSnapshotArtifactBundleSha256(input.artifacts);
-      const artifactUri = `file://${join(artifactDir)}`;
+      const expectedBundleSha256 = computeSnapshotArtifactBundleSha256(input.artifacts);
+
+      for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
+        const filePath = join(artifactDir, fileName);
+        const expectedContent = readSnapshotArtifactField(input.artifacts, fileName);
+        await writeImmutableArtifactContent({
+          expectedContent,
+          readExisting: async () => {
+            if (!existsSync(filePath)) {
+              return null;
+            }
+            try {
+              return readFileSync(filePath, "utf8");
+            } catch (error) {
+              throw classifyArtifactReadError(error);
+            }
+          },
+          writeIfAbsent: async (content) => {
+            mkdirSync(artifactDir, { recursive: true });
+            try {
+              writeFileSync(filePath, content, { encoding: "utf8", flag: "wx" });
+            } catch (error) {
+              if (isObjectNotFoundError(error)) {
+                throw error;
+              }
+              throw classifyArtifactReadError(error);
+            }
+          }
+        });
+      }
+
+      const loaded = await store.readReleaseBundle({ artifactKey: input.artifactKey });
+      const bundleSha256 = computeSnapshotArtifactBundleSha256(loaded);
+      if (bundleSha256 !== expectedBundleSha256) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_conflict",
+          "Verified local bundle checksum does not match expected content."
+        );
+      }
+
       return {
         artifactKey: input.artifactKey,
-        artifactUri,
+        artifactUri: `file://${artifactDir}`,
         bundleSha256
       };
     },
     async readReleaseBundle(input) {
+      if (!assertArtifactKeySafe(input.artifactKey)) {
+        throw new SnapshotArtifactStorageError("artifact_key_unsafe", "Artifact key is unsafe.");
+      }
+
       const artifactDir = join(rootDir, ...input.artifactKey.split("/"));
-      return {
-        sourceJsonl: readFileSync(join(artifactDir, "source.jsonl"), "utf8"),
-        releaseJson: readFileSync(join(artifactDir, "release.json"), "utf8"),
-        coverageReportJson: readFileSync(join(artifactDir, "coverage-report.json"), "utf8")
-      };
+      const artifacts: Partial<SnapshotIntakeArtifacts> = {};
+      let foundCount = 0;
+
+      for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
+        const filePath = join(artifactDir, fileName);
+        if (!existsSync(filePath)) {
+          continue;
+        }
+        try {
+          artifacts[artifactFieldName(fileName)] = readFileSync(filePath, "utf8");
+          foundCount += 1;
+        } catch (error) {
+          throw classifyArtifactReadError(error);
+        }
+      }
+
+      if (foundCount === 0) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_missing",
+          "Snapshot artifact bundle was not found."
+        );
+      }
+      if (foundCount !== SNAPSHOT_ARTIFACT_BUNDLE_FILES.length) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_incomplete",
+          "Snapshot artifact bundle is incomplete."
+        );
+      }
+
+      return artifacts as SnapshotIntakeArtifacts;
     },
     async verifyReleaseBundle(input) {
-      const artifacts = await this.readReleaseBundle({ artifactKey: input.artifactKey });
+      const artifacts = await store.readReleaseBundle({ artifactKey: input.artifactKey });
       return computeSnapshotArtifactBundleSha256(artifacts) === input.expectedBundleSha256;
     }
   };
+  return store;
 }
 
 export function verifySnapshotArtifactBundleContents(artifacts: SnapshotIntakeArtifacts): boolean {
@@ -100,4 +166,16 @@ export function verifySnapshotArtifactBundleContents(artifacts: SnapshotIntakeAr
   }
   const release = JSON.parse(artifacts.releaseJson) as { outputSha256?: string };
   return sha256Hex(artifacts.sourceJsonl) === release.outputSha256;
+}
+
+function artifactFieldName(
+  fileName: (typeof SNAPSHOT_ARTIFACT_BUNDLE_FILES)[number]
+): keyof SnapshotIntakeArtifacts {
+  if (fileName === "source.jsonl") {
+    return "sourceJsonl";
+  }
+  if (fileName === "release.json") {
+    return "releaseJson";
+  }
+  return "coverageReportJson";
 }

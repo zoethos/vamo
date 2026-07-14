@@ -13,6 +13,10 @@ import {
   executeAutonomyCycle,
   previewAutonomyCycle
 } from "../dist/core/src/autonomy-executor.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 function npmConfigName(name) {
   return `npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`;
@@ -123,11 +127,29 @@ if (!dsn) {
   process.exit(1);
 }
 
+let artifactStoreDir;
+let artifactStore;
+if (
+  process.env.INGESTION_ARTIFACT_STORE_DIR?.trim() ||
+  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3"
+) {
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  artifactStoreDir = artifactStoreResolved.artifactStoreDir;
+  artifactStore = artifactStoreResolved.store;
+}
+
 const baseInput = {
   connectionString: dsn,
   productionInboxConnectionString: process.env.VAMO_PRODUCTION_INBOX_DATABASE_URL?.trim(),
   productionInboxEnvironment: process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT?.trim(),
-  artifactStoreDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim(),
+  artifactStoreDir,
+  artifactStore,
   projectKey,
   policyKey,
   targetKey,

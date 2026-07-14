@@ -1,5 +1,5 @@
 /**
- * Artifact-aware candidate loader for active snapshot release plans (IP-18.8.11).
+ * Artifact-aware candidate loader for active snapshot release plans (IP-18.8.11 / IP-18.8.12).
  */
 
 import { readFileSync } from "node:fs";
@@ -11,9 +11,8 @@ import {
   defaultLoadProductionPackageWaveCandidates,
   type BatchProductionPackageWaveDeliveryDeps
 } from "./batch-production-package-wave-delivery.js";
-import { defaultLoadWaveUnitCandidates } from "./batch-staging-canary-wave-execution.js";
-import type { BatchQueueItem } from "./batch-queue-read-model.js";
 import { runFixturePipeline, runSourcePipeline } from "./pipeline-runner.js";
+import { materializeArtifactBundleToScopedDir } from "./snapshot-artifact-materialize.js";
 import {
   assertArtifactKeyUnderStore,
   resolveArtifactDirectoryUnderStore,
@@ -22,6 +21,9 @@ import {
 import { loadSnapshotReleaseForActivation } from "./snapshot-release-activation-control.js";
 import { loadActiveSnapshotReleasePlanBinding } from "./snapshot-release-plan-binding-read.js";
 import { resolveDefaultProductionPackagePipelineBundleDir } from "./batch-production-package-wave-candidate-loader.js";
+import { createLocalSnapshotArtifactStore, type SnapshotArtifactStore } from "./snapshot-artifact-store.js";
+
+export type SnapshotCandidateLoaderDispose = () => void | Promise<void>;
 
 export interface ResolveSnapshotCandidateLoaderInput {
   controlConnectionString?: string;
@@ -29,6 +31,7 @@ export interface ResolveSnapshotCandidateLoaderInput {
   projectKey: string;
   planKey: string;
   artifactStoreDir?: string;
+  artifactStore?: SnapshotArtifactStore;
   pipeline?: PipelineSpec;
 }
 
@@ -36,7 +39,10 @@ export interface ResolvedSnapshotCandidateLoader {
   usesActivatedRelease: boolean;
   loader: ProductionPackageWaveCandidateLoader;
   waveLoader: NonNullable<BatchProductionPackageWaveDeliveryDeps["loadCandidates"]>;
+  dispose: SnapshotCandidateLoaderDispose;
 }
+
+const noopDispose: SnapshotCandidateLoaderDispose = async () => {};
 
 export async function resolveSnapshotCandidateLoader(
   input: ResolveSnapshotCandidateLoaderInput
@@ -54,12 +60,17 @@ export async function resolveSnapshotCandidateLoader(
 
   if (!binding) {
     const loader = createBundledLoader(pipeline, bundleDir);
-    return { usesActivatedRelease: false, loader, waveLoader: loader };
+    return { usesActivatedRelease: false, loader, waveLoader: loader, dispose: noopDispose };
   }
 
-  if (!input.artifactStoreDir?.trim()) {
+  const store =
+    input.artifactStore ??
+    (input.artifactStoreDir?.trim()
+      ? createLocalSnapshotArtifactStore(resolve(input.artifactStoreDir))
+      : null);
+  if (!store) {
     throw new Error(
-      "Active snapshot release binding requires INGESTION_ARTIFACT_STORE_DIR (or --artifact-store-dir) — bundled fixture fallback is forbidden."
+      "Active snapshot release binding requires a configured snapshot artifact store — bundled fixture fallback is forbidden."
     );
   }
 
@@ -80,6 +91,7 @@ export async function resolveSnapshotCandidateLoader(
       sourceKey: release.sourceKey,
       targetKey: release.intendedTarget
     },
+    artifactStore: store,
     artifactStoreDir: input.artifactStoreDir,
     expectedBundleSha256: binding.artifactBundleSha256
   });
@@ -89,19 +101,46 @@ export async function resolveSnapshotCandidateLoader(
     );
   }
 
-  const artifactDir = resolveArtifactDirectoryUnderStore({
-    artifactStoreDir: input.artifactStoreDir,
-    artifactKey: release.artifactKey
+  const resolvedArtifactDir = await resolveArtifactDirectoryForPipeline({
+    store,
+    artifactKey: release.artifactKey,
+    artifactStoreDir: input.artifactStoreDir
   });
-  if (!artifactDir || !assertArtifactKeyUnderStore(release.artifactKey, input.artifactStoreDir)) {
-    throw new Error("Active release artifact is outside the trusted artifact store root.");
-  }
 
-  const artifactLoader = createArtifactLoader(pipeline, artifactDir);
+  const artifactLoader = createArtifactLoader(pipeline, resolvedArtifactDir.artifactDir);
   return {
     usesActivatedRelease: true,
     loader: artifactLoader,
-    waveLoader: artifactLoader
+    waveLoader: artifactLoader,
+    dispose: resolvedArtifactDir.dispose
+  };
+}
+
+async function resolveArtifactDirectoryForPipeline(input: {
+  store: SnapshotArtifactStore;
+  artifactKey: string;
+  artifactStoreDir?: string;
+}): Promise<{ artifactDir: string; dispose: SnapshotCandidateLoaderDispose }> {
+  if (
+    input.artifactStoreDir?.trim() &&
+    assertArtifactKeyUnderStore(input.artifactKey, input.artifactStoreDir)
+  ) {
+    const artifactDir = resolveArtifactDirectoryUnderStore({
+      artifactStoreDir: input.artifactStoreDir,
+      artifactKey: input.artifactKey
+    });
+    if (artifactDir) {
+      return { artifactDir, dispose: noopDispose };
+    }
+  }
+
+  const materialized = await materializeArtifactBundleToScopedDir({
+    store: input.store,
+    artifactKey: input.artifactKey
+  });
+  return {
+    artifactDir: materialized.artifactDir,
+    dispose: materialized.dispose
   };
 }
 

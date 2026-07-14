@@ -1,10 +1,11 @@
 /**
- * Trusted local snapshot artifact verification for IP-18.8.11 activation.
+ * Trusted snapshot artifact verification for IP-18.8.11 / IP-18.8.12.
  */
 
 import { resolve, sep } from "node:path";
 
 import type { BatchPlanSpec } from "./batch-plan-spec.js";
+import { assertArtifactKeySafe } from "./snapshot-artifact-key.js";
 import type { SourceAcquisitionReleaseRecord } from "./source-acquisition-contract.js";
 import {
   computeSnapshotArtifactBundleSha256,
@@ -36,7 +37,7 @@ export interface VerifySnapshotActivationArtifactInput {
     | "coverage"
   >;
   plan: Pick<BatchPlanSpec, "projectKey" | "sourceKey" | "targetKey">;
-  artifactStoreDir: string;
+  artifactStoreDir?: string;
   /** Present after activation; binds the entire immutable artifact bundle. */
   expectedBundleSha256?: string;
   artifactStore?: SnapshotArtifactStore;
@@ -74,12 +75,25 @@ export async function verifySnapshotActivationArtifact(
     return { ok: false, blocks: planBlocks };
   }
 
-  if (!assertArtifactKeyUnderStore(input.release.artifactKey, input.artifactStoreDir)) {
+  if (!assertArtifactKeySafe(input.release.artifactKey)) {
+    return { ok: false, blocks: ["artifact_key_unsafe"] };
+  }
+
+  if (
+    input.artifactStoreDir &&
+    !assertArtifactKeyUnderStore(input.release.artifactKey, input.artifactStoreDir)
+  ) {
     return { ok: false, blocks: ["artifact_key_outside_store"] };
   }
 
   const store =
-    input.artifactStore ?? createLocalSnapshotArtifactStore(resolve(input.artifactStoreDir));
+    input.artifactStore ??
+    (input.artifactStoreDir
+      ? createLocalSnapshotArtifactStore(resolve(input.artifactStoreDir))
+      : null);
+  if (!store) {
+    return { ok: false, blocks: ["artifact_store_unconfigured"] };
+  }
 
   let artifacts: SnapshotIntakeArtifacts;
   try {

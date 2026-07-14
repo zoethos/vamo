@@ -5,6 +5,7 @@ import {
   runAutonomyScheduler,
   type HostedAutonomySchedulerEnv
 } from "@confluendo/ingestion-platform/core";
+import { createSnapshotArtifactStore } from "@confluendo/ingestion-platform/adapters/artifact";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,7 +74,12 @@ async function handleHostedSchedulerRequest(request: NextRequest) {
     CONFIRM_CONFLUENDO_AUTONOMY_PRODUCTION_DELIVERY:
       process.env.CONFIRM_CONFLUENDO_AUTONOMY_PRODUCTION_DELIVERY,
     VAMO_PRODUCTION_INBOX_DATABASE_URL: process.env.VAMO_PRODUCTION_INBOX_DATABASE_URL,
-    VAMO_PRODUCTION_INBOX_ENVIRONMENT: process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT
+    VAMO_PRODUCTION_INBOX_ENVIRONMENT: process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT,
+    CONFLUENDO_SNAPSHOT_ARTIFACT_STORE: process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE,
+    CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET: process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET,
+    CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION: process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION,
+    CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT: process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT,
+    CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX: process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX
   };
   const parsed = parseHostedAutonomySchedulerConfig(schedulerEnv);
   if (!parsed.ok) {
@@ -84,6 +90,8 @@ async function handleHostedSchedulerRequest(request: NextRequest) {
   }
 
   const { config } = parsed;
+
+  const artifactStore = await createSnapshotArtifactStore(config.artifactStoreConfig);
 
   try {
     const result = await runAutonomyScheduler({
@@ -98,7 +106,8 @@ async function handleHostedSchedulerRequest(request: NextRequest) {
       maxCycles: config.maxCycles,
       intervalMs: config.intervalMs,
       productionInboxConnectionString: config.productionInboxConnectionString,
-      productionInboxEnvironment: config.productionInboxEnvironment
+      productionInboxEnvironment: config.productionInboxEnvironment,
+      artifactStore
     });
 
     return NextResponse.json({

@@ -11,6 +11,8 @@ import {
   DEFAULT_AUTONOMY_SCHEDULER_MAX_CYCLES,
   MAX_AUTONOMY_SCHEDULER_CYCLES
 } from "./autonomy-scheduler.js";
+import type { SnapshotArtifactStoreS3Config } from "./snapshot-artifact-store-config.js";
+import { parseSnapshotArtifactStoreConfig } from "./snapshot-artifact-store-config.js";
 
 export const HOSTED_AUTONOMY_SCHEDULER_CONFIRMATION = "YES";
 export const HOSTED_AUTONOMY_PRODUCTION_DELIVERY_CONFIRMATION = "YES";
@@ -33,6 +35,11 @@ export interface HostedAutonomySchedulerEnv {
   CONFIRM_CONFLUENDO_AUTONOMY_PRODUCTION_DELIVERY?: string;
   VAMO_PRODUCTION_INBOX_DATABASE_URL?: string;
   VAMO_PRODUCTION_INBOX_ENVIRONMENT?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX?: string;
 }
 
 export interface HostedAutonomySchedulerConfig {
@@ -48,6 +55,7 @@ export interface HostedAutonomySchedulerConfig {
   productionDeliveryEnabled: boolean;
   productionInboxConnectionString?: string;
   productionInboxEnvironment?: string;
+  artifactStoreConfig: SnapshotArtifactStoreS3Config;
 }
 
 export interface HostedAutonomySchedulerBlock {
@@ -150,6 +158,31 @@ export function parseHostedAutonomySchedulerConfig(
     return { ok: false, blocks };
   }
 
+  const artifactStoreParsed = parseSnapshotArtifactStoreConfig({
+    env,
+    requireHostedStore: true
+  });
+  if (!artifactStoreParsed.ok) {
+    return {
+      ok: false,
+      blocks: artifactStoreParsed.blocks.map((block) => ({
+        code: block.code,
+        message: block.message
+      }))
+    };
+  }
+  if (artifactStoreParsed.config.kind !== "s3") {
+    return {
+      ok: false,
+      blocks: [
+        {
+          code: "hosted_artifact_store_required",
+          message: "Hosted autonomy requires CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3."
+        }
+      ]
+    };
+  }
+
   return {
     ok: true,
     config: {
@@ -168,7 +201,8 @@ export function parseHostedAutonomySchedulerConfig(
         : undefined,
       productionInboxEnvironment: productionDeliveryEnabled
         ? productionInboxEnvironment
-        : undefined
+        : undefined,
+      artifactStoreConfig: artifactStoreParsed.config
     }
   };
 }

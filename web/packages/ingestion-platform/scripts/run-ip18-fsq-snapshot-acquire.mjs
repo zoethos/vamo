@@ -29,6 +29,10 @@ import {
   runFsqSnapshotAcquire
 } from "../dist/core/src/index.js";
 import { FSQ_OS_PLACES_CATALOG_TOKEN_ENV } from "../dist/adapters/source/src/index.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -83,9 +87,23 @@ if (countries.length === 0 || categories.length === 0) {
   process.exit(1);
 }
 
-if (execute && !artifactStoreDir) {
-  console.error("Missing required argument for execute mode: --artifact-store-dir");
+if (execute && !artifactStoreDir && process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() !== "s3") {
+  console.error("Missing required argument for execute mode: --artifact-store-dir or hosted S3 artifact store env.");
   process.exit(1);
+}
+
+let artifactStore;
+let artifactStoreBaseDir;
+if (execute) {
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  artifactStore = artifactStoreResolved.store;
+  artifactStoreBaseDir = artifactStoreResolved.artifactStoreDir;
 }
 
 console.log("IP-18.8.10 FSQ snapshot acquisition");
@@ -101,7 +119,8 @@ const result = await runFsqSnapshotAcquire({
   preview: !execute,
   confirmation: process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV],
   catalogToken,
-  artifactStoreBaseDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  artifactStoreBaseDir,
+  artifactStore,
   projectKey,
   controlConnectionString,
   actor: { type: "operator", id: actorId },
@@ -167,7 +186,7 @@ if (!catalogToken?.trim()) {
   process.exit(1);
 }
 
-const resolvedArtifactDir = artifactStoreDir ? resolve(artifactStoreDir) : undefined;
+const resolvedArtifactDir = artifactStoreBaseDir ? resolve(artifactStoreBaseDir) : undefined;
 if (resolvedArtifactDir && isOutputPathInsideRepo({ outputDir: resolvedArtifactDir, repoRoot })) {
   console.error("Refusing to write snapshot artifacts inside the git worktree.");
   process.exit(1);

@@ -858,6 +858,44 @@ export {
   type SnapshotArtifactStorePutResult
 } from "./snapshot-artifact-store.js";
 export {
+  assertArtifactKeySafe,
+  objectKeyForArtifactBundleFile
+} from "./snapshot-artifact-key.js";
+export {
+  materializeArtifactBundleToScopedDir,
+  type MaterializedSnapshotArtifactBundle
+} from "./snapshot-artifact-materialize.js";
+export {
+  LEGACY_LOCAL_ARTIFACT_STORE_DIR_ENV,
+  SNAPSHOT_ARTIFACT_S3_BUCKET_ENV,
+  SNAPSHOT_ARTIFACT_S3_ENDPOINT_ENV,
+  SNAPSHOT_ARTIFACT_S3_PREFIX_ENV,
+  SNAPSHOT_ARTIFACT_S3_REGION_ENV,
+  SNAPSHOT_ARTIFACT_STORE_KIND_ENV,
+  parseSnapshotArtifactStoreConfig,
+  type ParseSnapshotArtifactStoreConfigInput,
+  type ParseSnapshotArtifactStoreConfigResult,
+  type SnapshotArtifactStoreConfig,
+  type SnapshotArtifactStoreConfigBlock,
+  type SnapshotArtifactStoreJobEnv,
+  type SnapshotArtifactStoreKind,
+  type SnapshotArtifactStoreLocalConfig,
+  type SnapshotArtifactStoreS3Config
+} from "./snapshot-artifact-store-config.js";
+export {
+  SnapshotArtifactStorageError,
+  classifyArtifactReadError,
+  isSnapshotArtifactStorageError,
+  type SnapshotArtifactStorageErrorCode
+} from "./snapshot-artifact-storage-error.js";
+export {
+  writeImmutableArtifactContent
+} from "./snapshot-artifact-immutable-write.js";
+export {
+  readSnapshotArtifactField,
+  type SnapshotArtifactBundleFileName
+} from "./snapshot-artifact-bundle.js";
+export {
   registerSnapshotRelease,
   type RegisterSnapshotReleaseInput,
   type RegisterSnapshotReleaseResult,

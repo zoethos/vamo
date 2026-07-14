@@ -17,7 +17,14 @@ const schedulerRoute = join(
   "apps/confluendo-console/app/api/admin/ingestion/autonomy/scheduler/route.ts"
 );
 
+const hostedArtifactEnv = {
+  CONFLUENDO_SNAPSHOT_ARTIFACT_STORE: "s3",
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET: "confluendo-snapshot-artifacts",
+  CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION: "eu-west-1"
+};
+
 const baseEnv = {
+  ...hostedArtifactEnv,
   INGESTION_CONTROL_DATABASE_URL: "postgresql://control.example/postgres",
   CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY: "vamo",
   CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY: "vamo-eu-poi-staging-v1",
@@ -125,6 +132,11 @@ describe("authorizeHostedAutonomySchedulerRequest", () => {
 });
 
 describe("hosted autonomy scheduler route artifact", () => {
+  it("does not import artifact adapters from core modules", () => {
+    const schedulerSource = readFileSync(join(packageRoot, "core/src/autonomy-hosted-scheduler.ts"), "utf8");
+    assert.doesNotMatch(schedulerSource, /adapters\/artifact/);
+  });
+
   it("uses the bounded scheduler and server-side env gates", () => {
     const routeSource = readFileSync(schedulerRoute, "utf8");
     assert.match(routeSource, /runAutonomyScheduler/);
@@ -134,6 +146,18 @@ describe("hosted autonomy scheduler route artifact", () => {
     assert.match(routeSource, /CRON_SECRET/);
   });
 
+  it("requires hosted S3 artifact store configuration", () => {
+    const parsed = parseHostedAutonomySchedulerConfig({
+      INGESTION_CONTROL_DATABASE_URL: "postgresql://control.example/postgres",
+      CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY: "vamo",
+      CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY: "vamo-eu-poi-staging-v1",
+      CONFIRM_CONFLUENDO_HOSTED_AUTONOMY_SCHEDULER: "YES"
+    });
+    assert.equal(parsed.ok, false);
+    if (parsed.ok) return;
+    assert.ok(parsed.blocks.some((block) => block.code === "hosted_artifact_store_missing"));
+  });
+
   it("does not call live staging execution or consumer apply", () => {
     const routeSource = readFileSync(schedulerRoute, "utf8");
     assert.doesNotMatch(routeSource, /executeBatchStagingCanaryWave/);
@@ -141,6 +165,9 @@ describe("hosted autonomy scheduler route artifact", () => {
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_STAGING_DATABASE_URL/);
     assert.match(routeSource, /VAMO_STAGING_CANARY_APP_DATABASE_URL/);
+    assert.match(routeSource, /createSnapshotArtifactStore/);
+    assert.match(routeSource, /@confluendo\/ingestion-platform\/adapters\/artifact/);
+    assert.doesNotMatch(routeSource, /@aws-sdk\/client-s3/);
   });
 });
 

@@ -198,10 +198,30 @@ Safety rules:
 4. Console/browser read paths expose binding metadata only — never artifact URI,
    filesystem path, or control DSN.
 
-Local limitation: activation and artifact-aware staging/delivery currently require
-a job-accessible artifact store on the trusted host (`INGESTION_ARTIFACT_STORE_DIR`
-or `--artifact-store-dir`). Hosted scheduler activation/delivery needs a
-separately commissioned server-accessible object store in a later slice.
+Local limitation: trusted CLIs may still use `--artifact-store-dir` or
+`INGESTION_ARTIFACT_STORE_DIR` on a trusted host. The hosted autonomy scheduler
+requires S3-compatible artifact-store configuration and fails closed without it.
+
+Hosted artifact store (IP-18.8.12) — human provisioning prerequisite:
+
+1. Provision a private Confluendo-owned S3-compatible bucket outside Vamo.
+2. Create a least-privilege job credential restricted to that bucket (and
+   optional prefix) for snapshot artifact keys only.
+3. Configure server/job environment only (hosted scheduler, acquisition execute,
+   activation execute, staging/production delivery jobs):
+
+```bash
+CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3
+CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET=<private-bucket>
+CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION=<region>
+# Optional for R2/MinIO:
+# CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT=https://...
+# CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX=confluendo/snapshots
+# Standard AWS credential env vars — server/job only, never in the browser.
+```
+
+Vamo has no artifact-store credentials. Artifacts are never exposed via signed
+URLs, API responses, console props, or dashboard routes.
 
 ## Versioned snapshot intake (IP-18.8.9)
 

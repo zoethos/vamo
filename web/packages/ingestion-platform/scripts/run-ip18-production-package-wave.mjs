@@ -23,6 +23,10 @@ import {
   resolveSnapshotCandidateLoader
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec } from "../dist/spec/src/index.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -152,83 +156,106 @@ if (!loadedWave) {
   process.exit(1);
 }
 
+let artifactStoreDirResolved;
+let artifactStore;
+if (
+  artifactStoreDir?.trim() ||
+  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3" ||
+  process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
+) {
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  artifactStoreDirResolved = artifactStoreResolved.artifactStoreDir;
+  artifactStore = artifactStoreResolved.store;
+}
+
 const resolvedLoader = await resolveSnapshotCandidateLoader({
   controlConnectionString: controlDsn,
   projectKey,
   planKey: loadedWave.planKey,
-  artifactStoreDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  artifactStoreDir: artifactStoreDirResolved,
+  artifactStore,
   pipeline
 });
 
-const result = await executeBatchProductionPackageWave({
-  controlConnectionString: controlDsn,
-  productionInboxConnectionString: productionDsn,
-  projectKey,
-  targetEnvironment,
-  waveKey,
-  approvalAuditId,
-  maxUnits: maxUnits ? Number.parseInt(maxUnits, 10) : undefined,
-  maxRows: maxRows ? Number.parseInt(maxRows, 10) : undefined,
-  maxPackages: maxPackages ? Number.parseInt(maxPackages, 10) : undefined,
-  execute: execute && confirmed && environment === "production" && Boolean(productionDsn),
-  actor: { type: "operator", id: actorId },
-  reason: auditReason,
-  proveProduction: productionDsn ? makeProveProduction(productionDsn) : async () => false,
-  deps: {
-    loadCandidates: ({ unit, scope }) => resolvedLoader.loader({ unit, scope })
-  }
-});
+try {
+  const result = await executeBatchProductionPackageWave({
+    controlConnectionString: controlDsn,
+    productionInboxConnectionString: productionDsn,
+    projectKey,
+    targetEnvironment,
+    waveKey,
+    approvalAuditId,
+    maxUnits: maxUnits ? Number.parseInt(maxUnits, 10) : undefined,
+    maxRows: maxRows ? Number.parseInt(maxRows, 10) : undefined,
+    maxPackages: maxPackages ? Number.parseInt(maxPackages, 10) : undefined,
+    execute: execute && confirmed && environment === "production" && Boolean(productionDsn),
+    actor: { type: "operator", id: actorId },
+    reason: auditReason,
+    proveProduction: productionDsn ? makeProveProduction(productionDsn) : async () => false,
+    deps: {
+      loadCandidates: ({ unit, scope }) => resolvedLoader.loader({ unit, scope })
+    }
+  });
 
-console.log("");
-console.log("=== IP-18.6.3 Production Package-Wave Delivery ===");
-console.log("(IP-17 inbox adapter · consumer apply remains Vamo-owned)");
-console.log("");
-bullet("project", projectKey);
-bullet("wave key", result.waveKey);
-bullet("wave status", result.waveStatus);
-bullet("preview only", String(result.previewOnly));
-bullet("pending units", result.plan.pendingUnitKeys.join(", ") || "(none)");
-bullet("delivered units", String(result.deliveredCount));
-bullet("skipped units", String(result.skippedCount));
-bullet("blocked units", String(result.blockedCount));
-console.log("");
-
-if (!execute || !confirmed || environment !== "production" || !productionDsn) {
-  console.log("Confirmation gate");
-  bullet("CONFIRM_CONFLUENDO_PRODUCTION_PACKAGE_WAVE=YES", confirmed ? "yes" : "MISSING");
-  bullet("VAMO_PRODUCTION_INBOX_DATABASE_URL", productionDsn ? "set" : "MISSING");
-  bullet(
-    "VAMO_PRODUCTION_INBOX_ENVIRONMENT",
-    environment === "production" ? "production" : `INVALID (${environment ?? "unset"})`
-  );
-  bullet("INGESTION_CONTROL_DATABASE_URL", controlDsn ? "set" : "MISSING");
-  bullet("--execute flag", execute ? "yes" : "MISSING");
   console.log("");
-  console.log("Safety summary");
-  for (const line of result.safetySummary) {
-    bullet("•", line);
-  }
+  console.log("=== IP-18.6.3 Production Package-Wave Delivery ===");
+  console.log("(IP-17 inbox adapter · consumer apply remains Vamo-owned)");
   console.log("");
-  console.error("NO PRODUCTION INBOX WRITE PERFORMED. Execute requires every gate above.");
-  process.exit(1);
-}
+  bullet("project", projectKey);
+  bullet("wave key", result.waveKey);
+  bullet("wave status", result.waveStatus);
+  bullet("preview only", String(result.previewOnly));
+  bullet("pending units", result.plan.pendingUnitKeys.join(", ") || "(none)");
+  bullet("delivered units", String(result.deliveredCount));
+  bullet("skipped units", String(result.skippedCount));
+  bullet("blocked units", String(result.blockedCount));
+  console.log("");
 
-if (result.blockedCount > 0) {
-  console.error("Delivery stopped with blocked unit(s).");
+  if (!execute || !confirmed || environment !== "production" || !productionDsn) {
+    console.log("Confirmation gate");
+    bullet("CONFIRM_CONFLUENDO_PRODUCTION_PACKAGE_WAVE=YES", confirmed ? "yes" : "MISSING");
+    bullet("VAMO_PRODUCTION_INBOX_DATABASE_URL", productionDsn ? "set" : "MISSING");
+    bullet(
+      "VAMO_PRODUCTION_INBOX_ENVIRONMENT",
+      environment === "production" ? "production" : `INVALID (${environment ?? "unset"})`
+    );
+    bullet("INGESTION_CONTROL_DATABASE_URL", controlDsn ? "set" : "MISSING");
+    bullet("--execute flag", execute ? "yes" : "MISSING");
+    console.log("");
+    console.log("Safety summary");
+    for (const line of result.safetySummary) {
+      bullet("•", line);
+    }
+    console.log("");
+    console.error("NO PRODUCTION INBOX WRITE PERFORMED. Execute requires every gate above.");
+    process.exit(1);
+  }
+
+  if (result.blockedCount > 0) {
+    console.error("Delivery stopped with blocked unit(s).");
+    for (const unit of result.unitResults) {
+      if (unit.status === "blocked") {
+        console.error(`  ${unit.unitKey}: [${unit.blockCode}] ${unit.blockMessage}`);
+      }
+    }
+    process.exit(1);
+  }
+
+  console.log("Production inbox delivery recorded in control plane. Vamo apply is separate.");
+  bullet("delivery audit id", result.deliveryAuditId ?? "(none)");
+  bullet("idempotent replay", String(result.idempotentReplay));
   for (const unit of result.unitResults) {
-    if (unit.status === "blocked") {
-      console.error(`  ${unit.unitKey}: [${unit.blockCode}] ${unit.blockMessage}`);
+    if (unit.status === "delivered" || unit.status === "skipped") {
+      bullet(`${unit.unitKey} package`, unit.packageId);
+      bullet(`${unit.unitKey} checksum`, unit.checksum || "(replay)");
     }
   }
-  process.exit(1);
-}
-
-console.log("Production inbox delivery recorded in control plane. Vamo apply is separate.");
-bullet("delivery audit id", result.deliveryAuditId ?? "(none)");
-bullet("idempotent replay", String(result.idempotentReplay));
-for (const unit of result.unitResults) {
-  if (unit.status === "delivered" || unit.status === "skipped") {
-    bullet(`${unit.unitKey} package`, unit.packageId);
-    bullet(`${unit.unitKey} checksum`, unit.checksum || "(replay)");
-  }
+} finally {
+  await resolvedLoader.dispose();
 }

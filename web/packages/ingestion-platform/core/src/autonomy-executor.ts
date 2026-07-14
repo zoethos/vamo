@@ -82,6 +82,7 @@ export interface AutonomyCycleBaseInput {
   targetKey?: string;
   batchPlanKey?: string;
   artifactStoreDir?: string;
+  artifactStore?: import("./snapshot-artifact-store.js").SnapshotArtifactStore;
   agentId: string;
   reason?: string;
   now?: string;
@@ -702,43 +703,48 @@ async function applyAutonomyAction(
       controlConnectionString: input.connectionString,
       projectKey: input.projectKey,
       planKey: queueSnapshot.planId,
-      artifactStoreDir: input.artifactStoreDir
+      artifactStoreDir: input.artifactStoreDir,
+      artifactStore: input.artifactStore
     });
-    const result = await executeBatchProductionPackageWave({
-      controlClient: params.client,
-      productionInboxConnectionString: input.productionInboxConnectionString,
-      projectKey: input.projectKey,
-      targetEnvironment: "production",
-      waveKey,
-      maxUnits: Math.max(1, evaluation.maxUnitsApplied),
-      maxRows: Math.max(1, evaluation.maxRowsApplied),
-      maxPackages: Math.max(1, evaluation.maxUnitsApplied),
-      execute: true,
-      actor,
-      reason: auditReason,
-      proveProduction: () => input.productionInboxEnvironment === "production",
-      deps: {
-        loadCandidates: resolvedLoader.loader
-      },
-      now
-    });
-    const firstPackage = result.unitResults.find((unit) => unit.packageKey);
-    return {
-      actionApplied: "deliver_production_package_wave",
-      idempotentReplay: result.idempotentReplay,
-      auditId: result.deliveryAuditId,
-      waveKey: result.waveKey,
-      packageKey: firstPackage?.packageKey ?? productionPackage?.packageKey ?? null,
-      telemetryEvidence: {
+    try {
+      const result = await executeBatchProductionPackageWave({
+        controlClient: params.client,
+        productionInboxConnectionString: input.productionInboxConnectionString,
+        projectKey: input.projectKey,
+        targetEnvironment: "production",
+        waveKey,
+        maxUnits: Math.max(1, evaluation.maxUnitsApplied),
+        maxRows: Math.max(1, evaluation.maxRowsApplied),
+        maxPackages: Math.max(1, evaluation.maxUnitsApplied),
+        execute: true,
+        actor,
+        reason: auditReason,
+        proveProduction: () => input.productionInboxEnvironment === "production",
+        deps: {
+          loadCandidates: resolvedLoader.loader
+        },
+        now
+      });
+      const firstPackage = result.unitResults.find((unit) => unit.packageKey);
+      return {
+        actionApplied: "deliver_production_package_wave",
+        idempotentReplay: result.idempotentReplay,
+        auditId: result.deliveryAuditId,
         waveKey: result.waveKey,
         packageKey: firstPackage?.packageKey ?? productionPackage?.packageKey ?? null,
-        deliveredCount: result.deliveredCount,
-        skippedCount: result.skippedCount,
-        blockedCount: result.blockedCount,
-        idempotentReplay: result.idempotentReplay
-      },
-      guardOutcome: { safetySummary: result.safetySummary }
-    };
+        telemetryEvidence: {
+          waveKey: result.waveKey,
+          packageKey: firstPackage?.packageKey ?? productionPackage?.packageKey ?? null,
+          deliveredCount: result.deliveredCount,
+          skippedCount: result.skippedCount,
+          blockedCount: result.blockedCount,
+          idempotentReplay: result.idempotentReplay
+        },
+        guardOutcome: { safetySummary: result.safetySummary }
+      };
+    } finally {
+      await resolvedLoader.dispose();
+    }
   }
 
   throw new Error(
