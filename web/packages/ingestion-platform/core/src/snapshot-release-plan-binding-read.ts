@@ -10,6 +10,8 @@ export interface ActiveSnapshotReleasePlanBindingSummary {
   releaseId: string;
   sourceKey: string;
   status: "activated";
+  /** Trusted-server integrity evidence. Never passed through to browser summaries. */
+  artifactBundleSha256: string;
   validRowCount?: number;
   coverageSummary?: string;
 }
@@ -31,6 +33,7 @@ export interface SnapshotReleaseBindingReadPgClientLike {
 interface BindingRow extends Record<string, unknown> {
   releaseId: string;
   sourceKey: string;
+  artifactBundleSha256: string;
   coverage: Record<string, unknown>;
 }
 
@@ -44,6 +47,7 @@ export async function loadActiveSnapshotReleasePlanBinding(
         select
           r.release_id as "releaseId",
           r.source_key as "sourceKey",
+          b.artifact_bundle_sha256 as "artifactBundleSha256",
           b.coverage
         from ingestion_platform.ingestion_snapshot_release_plan_bindings b
         join ingestion_platform.ingestion_batch_plans bp on bp.id = b.batch_plan_id
@@ -75,6 +79,7 @@ export async function loadActiveSnapshotReleasePlanBinding(
       releaseId: row.releaseId,
       sourceKey: row.sourceKey,
       status: "activated",
+      artifactBundleSha256: row.artifactBundleSha256,
       validRowCount,
       coverageSummary
     };

@@ -33,6 +33,10 @@ const bindingReadModule = readFileSync(
   "core/src/snapshot-release-plan-binding-read.ts",
   "utf8"
 );
+const approvalRouteModule = readFileSync(
+  "../../apps/confluendo-console/app/api/admin/ingestion/production-package-wave/approve/route.ts",
+  "utf8"
+);
 
 describe("snapshot release activation reconcile", () => {
   it("promotes parked empty scopes when coverage appears", () => {
@@ -140,31 +144,44 @@ describe("snapshot release activation reconcile", () => {
 });
 
 describe("snapshot release activation artifact verification", () => {
-  it("blocks control mutation path when bundle checksum drifts", async () => {
+  it("blocks control mutation path when the activated bundle drifts", async () => {
     const storeDir = mkdtempSync(join(tmpdir(), "snapshot-activation-artifact-"));
     try {
-      const { release, artifactKey } = await writeVerifiedArtifactBundle(storeDir);
+      const { release, artifactKey, bundleSha256 } = await writeVerifiedArtifactBundle(storeDir);
       const spec = loadFullDataSpec();
       const verified = await verifySnapshotActivationArtifact({
         release,
         plan: spec,
-        artifactStoreDir: storeDir
+        artifactStoreDir: storeDir,
+        expectedBundleSha256: bundleSha256
       });
       assert.equal(verified.ok, true);
 
       const artifactDir = join(storeDir, ...artifactKey.split("/"));
-      writeFileSync(join(artifactDir, "source.jsonl"), '{"tampered":true}\n', "utf8");
+      writeFileSync(
+        join(artifactDir, "coverage-report.json"),
+        JSON.stringify({
+          kind: "ingestion.snapshot_coverage_report",
+          releaseId: release.releaseId,
+          validRowCount: 999,
+          invalidRowCount: 0,
+          duplicateRowCount: 0,
+          outOfScopeRowCount: 0
+        }),
+        "utf8"
+      );
 
       const blocked = await verifySnapshotActivationArtifact({
         release,
         plan: spec,
-        artifactStoreDir: storeDir
+        artifactStoreDir: storeDir,
+        expectedBundleSha256: bundleSha256
       });
       assert.equal(blocked.ok, false);
       if (blocked.ok) {
         throw new Error("expected checksum mismatch");
       }
-      assert.ok(blocked.blocks.includes("artifact_output_sha256_mismatch"));
+      assert.ok(blocked.blocks.includes("artifact_bundle_checksum_mismatch"));
     } finally {
       rmSync(storeDir, { recursive: true, force: true });
     }
@@ -216,6 +233,8 @@ describe("snapshot release browser boundary", () => {
     assert.doesNotMatch(bindingReadModule, /artifactUri/);
     assert.doesNotMatch(bindingReadModule, /artifact_key/);
     assert.doesNotMatch(bindingReadModule, /file:\/\//);
+    assert.doesNotMatch(approvalRouteModule, /INGESTION_ARTIFACT_STORE_DIR/);
+    assert.doesNotMatch(approvalRouteModule, /file:\/\//);
   });
 
   it("keeps legacy sample queue path when control database is unavailable", () => {
@@ -251,24 +270,41 @@ async function writeVerifiedArtifactBundle(storeDir: string) {
   const coverageReportJson = JSON.stringify({
     kind: "ingestion.snapshot_coverage_report",
     releaseId,
+    derivedFromValidRowsOnly: true,
     validRowCount: rows.length,
+    invalidRowCount: 0,
+    duplicateRowCount: 0,
+    outOfScopeRowCount: 0,
     byCountry: {},
     byPoiType: {}
   });
   const store = createLocalSnapshotArtifactStore(storeDir);
-  await store.putReleaseBundle({
+  const stored = await store.putReleaseBundle({
     artifactKey,
     artifacts: { sourceJsonl, releaseJson, coverageReportJson }
   });
+  const coverage = {
+    kind: "ingestion.snapshot_coverage_report" as const,
+    releaseId,
+    derivedFromValidRowsOnly: true as const,
+    validRowCount: rows.length,
+    invalidRowCount: 0,
+    duplicateRowCount: 0,
+    outOfScopeRowCount: 0,
+    byCountry: {},
+    byPoiType: {}
+  };
   return {
     artifactKey,
+    bundleSha256: stored.bundleSha256,
     release: {
       releaseId,
       sourceKey: spec.sourceKey,
       outputSha256,
       intendedConsumer: spec.projectKey,
       intendedTarget: spec.targetKey,
-      artifactKey
+      artifactKey,
+      coverage
     }
   };
 }

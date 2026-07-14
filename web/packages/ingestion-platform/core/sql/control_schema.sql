@@ -1778,6 +1778,10 @@ begin
     raise exception 'missing_artifact_bundle_sha256';
   end if;
 
+  if p_artifact_bundle_sha256 !~ '^[a-f0-9]{64}$' then
+    raise exception 'invalid_artifact_bundle_sha256';
+  end if;
+
   if p_actor_type is null or p_actor_id is null then
     raise exception 'missing_actor_identity';
   end if;
@@ -1799,7 +1803,8 @@ begin
   into v_plan_id, v_plan_source_key, v_plan_target_key
   from ingestion_platform.ingestion_batch_plans bp
   where bp.project_id = v_project_id
-    and bp.plan_key = p_plan_key;
+    and bp.plan_key = p_plan_key
+  for update;
 
   if v_plan_id is null then
     raise exception 'batch_plan_not_found';

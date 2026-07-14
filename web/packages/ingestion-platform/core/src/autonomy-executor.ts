@@ -39,6 +39,7 @@ import {
   enrichProductionPackageWaveApprovalPlanWithStagedContentHashes
 } from "./batch-production-package-wave-approval-content.js";
 import { resolveSnapshotCandidateLoader } from "./activated-snapshot-candidate-loader.js";
+import { loadActiveSnapshotReleasePlanBinding } from "./snapshot-release-plan-binding-read.js";
 import { executeBatchProductionPackageWave } from "./batch-production-package-wave-delivery.js";
 import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
 import {
@@ -942,17 +943,25 @@ async function buildAutonomousProductionPackageWavePlan(input: {
   const queueItemsByUnitKey = Object.fromEntries(
     input.queueSnapshot.items.map((item) => [item.unitKey, item])
   ) as Record<string, BatchQueueItem>;
-  const resolvedLoader = await resolveSnapshotCandidateLoader({
+  const activeRelease = await loadActiveSnapshotReleasePlanBinding({
     client: input.client,
     projectKey: input.policy.projectKey,
-    planKey: input.queueSnapshot.planId,
-    artifactStoreDir: input.artifactStoreDir
+    planKey: input.queueSnapshot.planId
   });
+  const loadCandidates = activeRelease
+    ? async () => []
+    : (
+        await resolveSnapshotCandidateLoader({
+          client: input.client,
+          projectKey: input.policy.projectKey,
+          planKey: input.queueSnapshot.planId
+        })
+      ).loader;
   return enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
     plan,
     queueItemsByUnitKey,
-    loadCandidates: resolvedLoader.loader,
-    useRecordedStagingHashes: resolvedLoader.usesActivatedRelease,
+    loadCandidates,
+    useRecordedStagingHashes: Boolean(activeRelease),
     stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey
   });
 }

@@ -80,7 +80,8 @@ export async function resolveSnapshotCandidateLoader(
       sourceKey: release.sourceKey,
       targetKey: release.intendedTarget
     },
-    artifactStoreDir: input.artifactStoreDir
+    artifactStoreDir: input.artifactStoreDir,
+    expectedBundleSha256: binding.artifactBundleSha256
   });
   if (!verified.ok) {
     throw new Error(

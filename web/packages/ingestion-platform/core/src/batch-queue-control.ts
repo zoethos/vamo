@@ -210,7 +210,9 @@ export async function persistBatchQueueSnapshot(
       );
     }
 
-    await client.query("commit");
+    if (manageTransaction) {
+      await client.query("commit");
+    }
     return { ok: true, batchPlanId };
   } catch (error) {
     if (manageTransaction) {

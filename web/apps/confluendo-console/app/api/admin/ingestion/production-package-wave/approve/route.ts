@@ -5,6 +5,7 @@ import {
   loadProductionPackageWaveApprovalContext,
   parseProductionPackageWaveApproveRequest,
   enrichProductionPackageWaveApprovalPlanWithStagedContentHashes,
+  loadActiveSnapshotReleasePlanBinding,
   resolveSnapshotCandidateLoader,
   describeProductionPackageContentEquivalence,
   type EvaluateProductionPackageWaveApprovalResult
@@ -108,17 +109,25 @@ export async function POST(request: NextRequest) {
 
   let enrichedPlan;
   try {
-    const resolvedLoader = await resolveSnapshotCandidateLoader({
-      controlConnectionString: connectionString,
+    const activeRelease = await loadActiveSnapshotReleasePlanBinding({
+      connectionString,
       projectKey: parsed.request.projectKey,
-      planKey: snapshot.planId,
-      artifactStoreDir: process.env.INGESTION_ARTIFACT_STORE_DIR
+      planKey: snapshot.planId
     });
+    const loadCandidates = activeRelease
+      ? async () => []
+      : (
+          await resolveSnapshotCandidateLoader({
+            controlConnectionString: connectionString,
+            projectKey: parsed.request.projectKey,
+            planKey: snapshot.planId
+          })
+        ).loader;
     enrichedPlan = await enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
       plan: decision.plan,
       queueItemsByUnitKey: Object.fromEntries(snapshot.items.map((item) => [item.unitKey, item])),
-      loadCandidates: resolvedLoader.loader,
-      useRecordedStagingHashes: resolvedLoader.usesActivatedRelease,
+      loadCandidates,
+      useRecordedStagingHashes: Boolean(activeRelease),
       stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey
     });
   } catch (error) {

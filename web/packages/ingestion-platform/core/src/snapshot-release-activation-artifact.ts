@@ -9,7 +9,6 @@ import type { SourceAcquisitionReleaseRecord } from "./source-acquisition-contra
 import {
   computeSnapshotArtifactBundleSha256,
   createLocalSnapshotArtifactStore,
-  verifySnapshotArtifactBundleContents,
   type SnapshotArtifactStore
 } from "./snapshot-artifact-store.js";
 import type { BatchSnapshotSourceRow } from "./batch-snapshot-supply-preview.js";
@@ -34,9 +33,12 @@ export interface VerifySnapshotActivationArtifactInput {
     | "intendedConsumer"
     | "intendedTarget"
     | "artifactKey"
+    | "coverage"
   >;
   plan: Pick<BatchPlanSpec, "projectKey" | "sourceKey" | "targetKey">;
   artifactStoreDir: string;
+  /** Present after activation; binds the entire immutable artifact bundle. */
+  expectedBundleSha256?: string;
   artifactStore?: SnapshotArtifactStore;
 }
 
@@ -87,29 +89,50 @@ export async function verifySnapshotActivationArtifact(
   }
 
   const bundleSha256 = computeSnapshotArtifactBundleSha256(artifacts);
-  const bundleVerified = await store.verifyReleaseBundle({
-    artifactKey: input.release.artifactKey,
-    expectedBundleSha256: bundleSha256
-  });
-  if (!bundleVerified) {
+  if (
+    input.expectedBundleSha256 &&
+    bundleSha256 !== input.expectedBundleSha256
+  ) {
     return { ok: false, blocks: ["artifact_bundle_checksum_mismatch"] };
   }
-  if (!verifySnapshotArtifactBundleContents(artifacts)) {
-    return { ok: false, blocks: ["artifact_output_sha256_mismatch"] };
+
+  let releaseJson: Record<string, unknown>;
+  let coverageReport: Record<string, unknown>;
+  let rows: BatchSnapshotSourceRow[];
+  try {
+    releaseJson = readJsonObject(artifacts.releaseJson);
+    coverageReport = readJsonObject(artifacts.coverageReportJson);
+    rows = parseSnapshotSourceRows(artifacts.sourceJsonl);
+  } catch {
+    return { ok: false, blocks: ["artifact_metadata_invalid"] };
   }
 
-  const releaseJson = JSON.parse(artifacts.releaseJson) as {
-    outputSha256?: string;
-    sourceKey?: string;
-  };
+  if (releaseJson.releaseId !== input.release.releaseId) {
+    return { ok: false, blocks: ["release_json_release_id_mismatch"] };
+  }
   if (releaseJson.outputSha256 !== input.release.outputSha256) {
     return { ok: false, blocks: ["release_json_output_sha256_mismatch"] };
   }
-  if (releaseJson.sourceKey && releaseJson.sourceKey !== input.release.sourceKey) {
+  if (releaseJson.sourceKey !== input.release.sourceKey) {
     return { ok: false, blocks: ["release_json_source_key_mismatch"] };
   }
-
-  const rows = parseSnapshotSourceRows(artifacts.sourceJsonl);
+  if (releaseJson.intendedConsumer !== input.release.intendedConsumer) {
+    return { ok: false, blocks: ["release_json_consumer_mismatch"] };
+  }
+  if (releaseJson.intendedTarget !== input.release.intendedTarget) {
+    return { ok: false, blocks: ["release_json_target_mismatch"] };
+  }
+  if (coverageReport.releaseId !== input.release.releaseId) {
+    return { ok: false, blocks: ["coverage_release_id_mismatch"] };
+  }
+  if (
+    coverageReport.validRowCount !== input.release.coverage.validRowCount ||
+    coverageReport.invalidRowCount !== input.release.coverage.invalidRowCount ||
+    coverageReport.duplicateRowCount !== input.release.coverage.duplicateRowCount ||
+    coverageReport.outOfScopeRowCount !== input.release.coverage.outOfScopeRowCount
+  ) {
+    return { ok: false, blocks: ["coverage_report_mismatch"] };
+  }
 
   return {
     ok: true,
@@ -152,4 +175,12 @@ function parseSnapshotSourceRows(sourceJsonl: string): BatchSnapshotSourceRow[] 
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as BatchSnapshotSourceRow);
+}
+
+function readJsonObject(value: string): Record<string, unknown> {
+  const parsed = JSON.parse(value);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Expected a JSON object.");
+  }
+  return parsed as Record<string, unknown>;
 }
