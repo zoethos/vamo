@@ -1,0 +1,165 @@
+/**
+ * Safe operator presenter for snapshot release commissioning (IP-18.8.13).
+ */
+
+import type { SnapshotCommissionRequestRecord, SnapshotCommissionRequestStatus } from "./snapshot-commission-request.js";
+
+export interface SnapshotCommissionCardPresentation {
+  hasRequest: boolean;
+  status: SnapshotCommissionRequestStatus | "none";
+  statusLabel: string;
+  tone: "neutral" | "info" | "good" | "watch" | "danger";
+  title: string;
+  description: string;
+  scopeSummary: string;
+  nextHumanAction: string;
+  recoveryHint?: string;
+  requestId?: string;
+  registeredReleaseId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  requestedAt?: string;
+  requestedById?: string;
+  canCreateRequest: boolean;
+  confirmationState: string;
+}
+
+export function presentSnapshotCommissionCard(input: {
+  request?: SnapshotCommissionRequestRecord | null;
+  hasActiveRequest: boolean;
+  defaultSourceKey: string;
+  defaultCountries: string[];
+  defaultCategories: string[];
+  defaultMaxRowsPerScope: number;
+}): SnapshotCommissionCardPresentation {
+  const request = input.request ?? null;
+  if (!request) {
+    return {
+      hasRequest: false,
+      status: "none",
+      statusLabel: "No request",
+      tone: "neutral",
+      title: "Source release commissioning",
+      description:
+        "Request a bounded FSQ snapshot acquisition for a trusted worker. The console never calls the provider directly.",
+      scopeSummary: formatScopeSummary({
+        sourceKey: input.defaultSourceKey,
+        countries: input.defaultCountries,
+        categories: input.defaultCategories,
+        maxRowsPerScope: input.defaultMaxRowsPerScope
+      }),
+      nextHumanAction:
+        "Submit a commissioning request with audit reason and fresh MFA step-up. A trusted worker executes acquisition later.",
+      canCreateRequest: !input.hasActiveRequest,
+      confirmationState: "request_commission"
+    };
+  }
+
+  const statusPresentation = presentCommissionStatus(request.status);
+  return {
+    hasRequest: true,
+    status: request.status,
+    statusLabel: statusPresentation.label,
+    tone: statusPresentation.tone,
+    title: "Source release commissioning",
+    description: statusPresentation.description,
+    scopeSummary: formatScopeSummary(request),
+    nextHumanAction: statusPresentation.nextHumanAction,
+    recoveryHint: statusPresentation.recoveryHint,
+    requestId: request.requestId,
+    registeredReleaseId: request.registeredReleaseId,
+    errorCode: request.errorCode,
+    errorMessage: request.errorMessage,
+    requestedAt: request.requestedAt,
+    requestedById: request.requestedById,
+    canCreateRequest: false,
+    confirmationState: "request_commission"
+  };
+}
+
+function presentCommissionStatus(status: SnapshotCommissionRequestStatus): {
+  label: string;
+  tone: SnapshotCommissionCardPresentation["tone"];
+  description: string;
+  nextHumanAction: string;
+  recoveryHint?: string;
+} {
+  switch (status) {
+    case "requested":
+      return {
+        label: "Requested",
+        tone: "info",
+        description: "The commissioning request is queued for a trusted worker.",
+        nextHumanAction: "Wait for the trusted worker to claim and execute acquisition.",
+        recoveryHint: "If the worker is unavailable, verify the job schedule and control-plane connectivity."
+      };
+    case "running":
+      return {
+        label: "Running",
+        tone: "info",
+        description: "A trusted worker is executing bounded FSQ acquisition.",
+        nextHumanAction: "Wait for acquisition to finish. Do not submit another request for this plan.",
+        recoveryHint: "If this state persists, inspect worker logs and retry from the worker after failure recovery."
+      };
+    case "release_registered":
+      return {
+        label: "Release registered",
+        tone: "watch",
+        description: "Acquisition succeeded and the release was registered in the control plane.",
+        nextHumanAction: "Wait for the worker to finalize commissioning as activation pending.",
+        recoveryHint: "If this state stalls, rerun the trusted worker with the same run key for idempotent recovery."
+      };
+    case "activation_pending":
+      return {
+        label: "Activation pending",
+        tone: "good",
+        description: "The snapshot release is registered and ready for separate activation.",
+        nextHumanAction:
+          "Run the trusted ip18:snapshot-activate command with explicit confirmation when ready to bind the release.",
+        recoveryHint: "Activation is never automatic from commissioning."
+      };
+    case "failed":
+      return {
+        label: "Failed",
+        tone: "danger",
+        description: "Commissioning failed before a release became activation-ready.",
+        nextHumanAction:
+          "Review the safe error summary, fix the underlying provider or scope issue, then submit a new commissioning request.",
+        recoveryHint: "Failed requests remain auditable; they are not deleted automatically."
+      };
+  }
+}
+
+function formatScopeSummary(input: {
+  sourceKey: string;
+  countries: readonly string[];
+  categories: readonly string[];
+  maxRowsPerScope: number;
+}): string {
+  return `${input.sourceKey} · ${input.countries.join(", ")} · ${input.categories.join(", ")} · max ${input.maxRowsPerScope} rows/scope`;
+}
+
+export function toSnapshotCommissionRequestSummary(
+  row: SnapshotCommissionRequestRecord
+): Omit<SnapshotCommissionRequestRecord, "workerRunKey"> {
+  return {
+    requestId: row.requestId,
+    projectKey: row.projectKey,
+    planKey: row.planKey,
+    sourceKey: row.sourceKey,
+    status: row.status,
+    countries: row.countries,
+    categories: row.categories,
+    maxRowsPerScope: row.maxRowsPerScope,
+    auditReason: row.auditReason,
+    requestedByType: row.requestedByType,
+    requestedById: row.requestedById,
+    requestedAt: row.requestedAt,
+    claimedAt: row.claimedAt,
+    claimedById: row.claimedById,
+    registeredReleaseId: row.registeredReleaseId,
+    errorCode: row.errorCode,
+    errorMessage: row.errorMessage,
+    completedAt: row.completedAt
+  };
+}

@@ -152,6 +152,20 @@ grant execute on function ingestion_platform.activate_snapshot_release(
   text
 ) to confluendo_app;
 
+-- IP-18.8.13 snapshot release commissioning: app may create/read via functions only.
+grant select on ingestion_platform.ingestion_snapshot_commission_requests to confluendo_app;
+grant execute on function ingestion_platform.create_snapshot_commission_request(
+  text,
+  text,
+  text,
+  jsonb,
+  jsonb,
+  integer,
+  text,
+  text,
+  text
+) to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;
