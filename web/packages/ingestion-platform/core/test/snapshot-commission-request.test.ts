@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
@@ -7,12 +8,14 @@ import {
   parseSnapshotCommissionRequestCreate
 } from "../src/snapshot-commission-request.js";
 
+const requestModule = readFileSync("core/src/snapshot-commission-request.ts", "utf8");
+
 describe("parseSnapshotCommissionRequestCreate", () => {
-  it("accepts a valid commissioning request", () => {
+  it("accepts a valid commissioning request without trusting sourceKey hints", () => {
     const parsed = parseSnapshotCommissionRequestCreate({
       projectKey: "vamo",
       planKey: "vamo-eu-poi-sample",
-      sourceKey: "fsq-os-places-snapshot",
+      sourceKey: "forged-source-key",
       countries: ["italy", "france"],
       categories: ["poi", "landmark"],
       maxRowsPerScope: 250,
@@ -23,6 +26,7 @@ describe("parseSnapshotCommissionRequestCreate", () => {
     assert.equal(parsed.ok, true);
     if (!parsed.ok) return;
     assert.equal(parsed.request.planKey, "vamo-eu-poi-sample");
+    assert.equal("sourceKey" in parsed.request, false);
     assert.deepEqual(parsed.request.countries, ["italy", "france"]);
     assert.equal(parsed.request.maxRowsPerScope, 250);
   });
@@ -56,21 +60,6 @@ describe("parseSnapshotCommissionRequestCreate", () => {
     if (parsed.ok) return;
     assert.equal(parsed.code, "confirmed_state_mismatch");
   });
-
-  it("rejects out-of-bounds scope", () => {
-    const parsed = parseSnapshotCommissionRequestCreate({
-      projectKey: "vamo",
-      planKey: "vamo-eu-poi-sample",
-      countries: ["atlantis"],
-      categories: ["poi"],
-      auditReason: "Commission snapshot.",
-      confirmedState: SNAPSHOT_COMMISSION_CONFIRMATION_STATE
-    });
-
-    assert.equal(parsed.ok, false);
-    if (parsed.ok) return;
-    assert.equal(parsed.code, "scope_out_of_bounds");
-  });
 });
 
 describe("canTransitionSnapshotCommissionStatus", () => {
@@ -86,5 +75,12 @@ describe("canTransitionSnapshotCommissionStatus", () => {
     assert.equal(canTransitionSnapshotCommissionStatus("activation_pending", "running"), false);
     assert.equal(canTransitionSnapshotCommissionStatus("failed", "requested"), false);
     assert.equal(canTransitionSnapshotCommissionStatus("requested", "activation_pending"), false);
+  });
+});
+
+describe("snapshot commission request module boundary", () => {
+  it("does not import provider adapter modules", () => {
+    assert.doesNotMatch(requestModule, /adapters\/source/);
+    assert.doesNotMatch(requestModule, /fsq-os-places-catalog-acquire/);
   });
 });

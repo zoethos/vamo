@@ -89,6 +89,7 @@ export async function runFsqSnapshotAcquire(input: {
   controlConnectionString?: string;
   actor?: { type: string; id: string };
   auditReason?: string;
+  commissionRequestId?: string;
   fetchFn?: Parameters<typeof acquireFsqOsPlacesCatalog>[0]["fetchFn"];
   fixtureRecords?: Parameters<typeof acquireFsqOsPlacesCatalog>[0]["fixtureRecords"];
   now?: string;
@@ -211,7 +212,10 @@ export async function runFsqSnapshotAcquire(input: {
         coverage: intake.coverage
       }),
       actor: input.actor,
-      auditReason: input.auditReason
+      auditReason: input.auditReason,
+      registrationMetadata: input.commissionRequestId
+        ? { commissionRequestId: input.commissionRequestId }
+        : undefined
     });
     registryAuditId = registered.auditId;
   }

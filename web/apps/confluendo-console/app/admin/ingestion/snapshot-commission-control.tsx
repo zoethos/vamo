@@ -115,7 +115,6 @@ export function SnapshotCommissionControl({
         body: JSON.stringify({
           projectKey,
           planKey,
-          sourceKey,
           countries,
           categories,
           maxRowsPerScope,

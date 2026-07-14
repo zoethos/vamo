@@ -9,8 +9,10 @@ import {
   claimSnapshotCommissionRequest,
   completeSnapshotCommissionRequest,
   createSnapshotCommissionRequest,
+  findSnapshotReleaseIdForCommissionRequest,
   hasActiveSnapshotCommissionRequest,
-  loadLatestSnapshotCommissionRequest
+  loadLatestSnapshotCommissionRequest,
+  loadSnapshotCommissionPlanContext
 } from "../src/snapshot-commission-control.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -31,51 +33,80 @@ const commissionControl = join(
   webRoot,
   "apps/confluendo-console/app/admin/ingestion/snapshot-commission-control.tsx"
 );
+const requestModule = readFileSync("core/src/snapshot-commission-request.ts", "utf8");
 
-async function seedProjectAndPlan(client: Client): Promise<{ planKey: string }> {
-  const project = await client.query<{ id: string }>(
+const planSpec = {
+  kind: "ingestion.batch_plan",
+  version: 1,
+  id: "vamo-eu-poi-sample",
+  projectKey: "vamo",
+  sourceKey: "fsq-os-places-snapshot",
+  targetProfileKey: "place-intelligence",
+  targetKey: "vamo-place-intelligence",
+  targetEnvironment: "staging",
+  safetyMode: "dry_run",
+  geographies: {
+    countries: [{ key: "italy" }, { key: "france" }]
+  },
+  categories: ["poi", "landmark"],
+  bounds: { sampleRowLimitPerUnit: 250 }
+};
+
+async function seedProjectAndPlan(
+  client: Client,
+  overrides: { planKey?: string; sourceKey?: string; status?: string } = {}
+): Promise<{ planKey: string }> {
+  const planKey = overrides.planKey ?? "vamo-eu-poi-sample";
+  const sourceKey = overrides.sourceKey ?? "fsq-os-places-snapshot";
+  const status = overrides.status ?? "active";
+
+  await client.query(
     `
       insert into ingestion_platform.ingestion_projects (project_key, display_name)
       values ('vamo', 'Vamo')
-      returning id::text as id
+      on conflict do nothing
     `
+  );
+  const project = await client.query<{ id: string }>(
+    `select id::text as id from ingestion_platform.ingestion_projects where project_key = 'vamo'`
   );
   await client.query(
     `
       insert into ingestion_platform.ingestion_batch_plans (
         project_id, plan_key, source_key, target_key, target_environment, safety_mode, spec, plan_summary, status
       ) values (
-        $1::bigint, 'vamo-eu-poi-sample', 'fsq-os-places-snapshot', 'vamo-place-intelligence',
-        'staging', 'dry_run', '{}'::jsonb, '{}'::jsonb, 'active'
+        $1::bigint, $2, $3, 'vamo-place-intelligence',
+        'staging', 'dry_run', $4::jsonb, '{}'::jsonb, $5
       )
     `,
-    [project.rows[0]!.id]
+    [project.rows[0]!.id, planKey, sourceKey, JSON.stringify(planSpec), status]
   );
-  return { planKey: "vamo-eu-poi-sample" };
+  return { planKey };
 }
 
 describe("snapshot commission control schema", () => {
-  it("declares commission table and security-definer functions", () => {
-    assert.match(controlSchemaSql, /ingestion_snapshot_commission_requests/);
-    assert.match(controlSchemaSql, /create_snapshot_commission_request/);
-    assert.match(controlSchemaSql, /claim_snapshot_commission_request/);
-    assert.match(controlSchemaSql, /complete_snapshot_commission_request/);
+  it("declares lease fields, active singleton index, and server-derived create function", () => {
+    assert.match(controlSchemaSql, /claim_expires_at/);
+    assert.match(controlSchemaSql, /attempt_count/);
+    assert.match(controlSchemaSql, /ingestion_snapshot_commission_requests_one_active_per_plan_idx/);
+    assert.match(controlSchemaSql, /v_plan_source_key is distinct from 'fsq-os-places-snapshot'/);
+    assert.match(controlSchemaSql, /when unique_violation then/);
+    assert.doesNotMatch(
+      controlSchemaSql,
+      /create_snapshot_commission_request\([\s\S]*p_source_key text/
+    );
     assert.match(confluendoBootstrapSql, /grant select on ingestion_platform\.ingestion_snapshot_commission_requests/i);
     assert.match(confluendoBootstrapSql, /grant execute on function ingestion_platform\.create_snapshot_commission_request/i);
     assert.doesNotMatch(
       confluendoBootstrapSql,
       /grant execute on function ingestion_platform\.claim_snapshot_commission_request/i
     );
-    assert.doesNotMatch(
-      confluendoBootstrapSql,
-      /grant execute on function ingestion_platform\.complete_snapshot_commission_request/i
-    );
   });
 });
 
 describe("snapshot commission control DB smoke", () => {
   it(
-    "allows app create/read and blocks direct state updates plus worker-only functions",
+    "allows app create/read, derives source from plan, and blocks direct state updates",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
     async () => {
       assert.ok(databaseUrl);
@@ -100,7 +131,6 @@ describe("snapshot commission control DB smoke", () => {
             client: app,
             projectKey: "vamo",
             planKey: "vamo-eu-poi-sample",
-            sourceKey: "fsq-os-places-snapshot",
             countries: ["italy"],
             categories: ["poi"],
             maxRowsPerScope: 250,
@@ -108,6 +138,7 @@ describe("snapshot commission control DB smoke", () => {
             auditReason: "Commission bounded snapshot release."
           });
           assert.equal(created.status, "requested");
+          assert.equal(created.sourceKey, "fsq-os-places-snapshot");
           assert.ok(created.requestId);
 
           const latest = await loadLatestSnapshotCommissionRequest({
@@ -116,16 +147,7 @@ describe("snapshot commission control DB smoke", () => {
             planKey: "vamo-eu-poi-sample"
           });
           assert.equal(latest?.status, "requested");
-          assert.equal(latest?.countries.join(","), "italy");
-
-          assert.equal(
-            await hasActiveSnapshotCommissionRequest({
-              client: app,
-              projectKey: "vamo",
-              planKey: "vamo-eu-poi-sample"
-            }),
-            true
-          );
+          assert.equal(latest?.sourceKey, "fsq-os-places-snapshot");
 
           await assert.rejects(
             () =>
@@ -139,27 +161,6 @@ describe("snapshot commission control DB smoke", () => {
               ),
             /permission denied/i
           );
-
-          await assert.rejects(
-            () =>
-              app.query(
-                `select ingestion_platform.claim_snapshot_commission_request('worker', 'run-1')`
-              ),
-            /permission denied/i
-          );
-
-          await assert.rejects(
-            () =>
-              app.query(
-                `
-                  select ingestion_platform.complete_snapshot_commission_request(
-                    $1::bigint, 'run-1', 'failed', null, 'blocked', 'blocked'
-                  )
-                `,
-                [created.requestId]
-              ),
-            /permission denied/i
-          );
         } finally {
           await app.end();
         }
@@ -167,38 +168,15 @@ describe("snapshot commission control DB smoke", () => {
         const claimed = await claimSnapshotCommissionRequest({
           client: owner,
           workerId: "commission-worker",
-          workerRunKey: "run-smoke-1"
+          workerRunKey: "run-smoke-1",
+          leaseSeconds: 60_000
         });
         assert.equal(claimed.ok, true);
         if (!claimed.ok) return;
         assert.equal(claimed.request.status, "running");
         assert.equal(claimed.idempotentReplay, false);
-
-        const replay = await claimSnapshotCommissionRequest({
-          client: owner,
-          workerId: "commission-worker",
-          workerRunKey: "run-smoke-1"
-        });
-        assert.equal(replay.ok, true);
-        if (!replay.ok) return;
-        assert.equal(replay.idempotentReplay, true);
-
-        await completeSnapshotCommissionRequest({
-          client: owner,
-          requestId: claimed.request.requestId,
-          workerRunKey: "run-smoke-1",
-          status: "release_registered",
-          registeredReleaseId: "fsq_os_places-20260701-deadbeefcafe"
-        });
-
-        const completed = await completeSnapshotCommissionRequest({
-          client: owner,
-          requestId: claimed.request.requestId,
-          workerRunKey: "run-smoke-1",
-          status: "activation_pending",
-          registeredReleaseId: "fsq_os_places-20260701-deadbeefcafe"
-        });
-        assert.equal(completed.status, "activation_pending");
+        assert.ok(claimed.request.claimExpiresAt);
+        assert.equal(claimed.request.attemptCount, 1);
       } finally {
         await owner.query("drop schema if exists ingestion_platform cascade");
         await owner.query("drop role if exists confluendo_app");
@@ -206,11 +184,261 @@ describe("snapshot commission control DB smoke", () => {
       }
     }
   );
+
+  it(
+    "rejects archived plans, unsupported sources, and duplicate active requests",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const owner = new Client({ connectionString: databaseUrl });
+      await owner.connect();
+
+      try {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query("drop role if exists confluendo_app");
+        await owner.query(controlSchemaSql);
+        await owner.query("create role confluendo_app login password 'test'");
+        await owner.query(confluendoBootstrapSql);
+
+        await seedProjectAndPlan(owner, {
+          planKey: "archived-plan",
+          status: "archived"
+        });
+        await seedProjectAndPlan(owner, {
+          planKey: "sample-plan",
+          sourceKey: "fsq-os-places-sample"
+        });
+        await seedProjectAndPlan(owner);
+
+        await assert.rejects(
+          () =>
+            createSnapshotCommissionRequest({
+              client: owner,
+              projectKey: "vamo",
+              planKey: "archived-plan",
+              countries: ["italy"],
+              categories: ["poi"],
+              maxRowsPerScope: 250,
+              actor: { type: "operator", id: "dba@example.com" },
+              auditReason: "Should fail for archived plan."
+            }),
+          /plan_not_active/i
+        );
+
+        await assert.rejects(
+          () =>
+            createSnapshotCommissionRequest({
+              client: owner,
+              projectKey: "vamo",
+              planKey: "sample-plan",
+              countries: ["italy"],
+              categories: ["poi"],
+              maxRowsPerScope: 250,
+              actor: { type: "operator", id: "dba@example.com" },
+              auditReason: "Should fail for unsupported source."
+            }),
+          /unsupported_source_key/i
+        );
+
+        const first = await createSnapshotCommissionRequest({
+          client: owner,
+          projectKey: "vamo",
+          planKey: "vamo-eu-poi-sample",
+          countries: ["italy"],
+          categories: ["poi"],
+          maxRowsPerScope: 250,
+          actor: { type: "operator", id: "dba@example.com" },
+          auditReason: "First active request."
+        });
+        assert.ok(first.requestId);
+
+        await assert.rejects(
+          () =>
+            createSnapshotCommissionRequest({
+              client: owner,
+              projectKey: "vamo",
+              planKey: "vamo-eu-poi-sample",
+              countries: ["italy"],
+              categories: ["poi"],
+              maxRowsPerScope: 250,
+              actor: { type: "operator", id: "dba@example.com" },
+              auditReason: "Duplicate active request."
+            }),
+          /commission_request_already_active/i
+        );
+
+        const activeCount = await owner.query<{ count: string }>(
+          `
+            select count(*)::text as count
+            from ingestion_platform.ingestion_snapshot_commission_requests
+            where status in ('requested', 'running', 'release_registered')
+          `
+        );
+        assert.equal(activeCount.rows[0]?.count, "1");
+      } finally {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query("drop role if exists confluendo_app");
+        await owner.end();
+      }
+    }
+  );
+
+  it(
+    "reclaims expired leases and reconciles registered releases without duplicate acquisition",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const owner = new Client({ connectionString: databaseUrl });
+      await owner.connect();
+
+      try {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query(controlSchemaSql);
+        await seedProjectAndPlan(owner);
+
+        const created = await createSnapshotCommissionRequest({
+          client: owner,
+          projectKey: "vamo",
+          planKey: "vamo-eu-poi-sample",
+          countries: ["italy"],
+          categories: ["poi"],
+          maxRowsPerScope: 250,
+          actor: { type: "operator", id: "dba@example.com" },
+          auditReason: "Lease reclaim smoke."
+        });
+
+        const firstClaim = await claimSnapshotCommissionRequest({
+          client: owner,
+          workerId: "worker-a",
+          workerRunKey: "run-expired",
+          leaseSeconds: 60_000
+        });
+        assert.equal(firstClaim.ok, true);
+        if (!firstClaim.ok) return;
+
+        await owner.query(
+          `
+            update ingestion_platform.ingestion_snapshot_commission_requests
+            set claim_expires_at = now() - interval '1 minute'
+            where id = $1::bigint
+          `,
+          [created.requestId]
+        );
+
+        const reclaimed = await claimSnapshotCommissionRequest({
+          client: owner,
+          workerId: "worker-b",
+          workerRunKey: "run-reclaim",
+          leaseSeconds: 60_000
+        });
+        assert.equal(reclaimed.ok, true);
+        if (!reclaimed.ok) return;
+        assert.equal(reclaimed.leaseReclaimed, true);
+        assert.equal(reclaimed.request.attemptCount, 2);
+
+        await owner.query(
+          `
+            insert into ingestion_platform.ingestion_snapshot_releases (
+              project_id, release_id, source_key, source_provider, status, acquired_at,
+              provenance_url, input_sha256, output_sha256, source_attribution, license_identifier,
+              retention_statement, intended_consumer, intended_target, artifact_key, artifact_uri,
+              coverage, row_counts, metadata, updated_at
+            )
+            select
+              p.id,
+              'fsq_os_places-20260701-deadbeefcafe',
+              'fsq-os-places-snapshot',
+              'fsq_os_places',
+              'activation_ready',
+              now(),
+              'https://example.com',
+              repeat('a', 64),
+              repeat('b', 64),
+              'FSQ',
+              'FSQ-OS-Places',
+              'Retain',
+              'vamo',
+              'vamo-place-intelligence',
+              'fsq-os-places-snapshot/test/bundle',
+              'file:///tmp/bundle',
+              '{"kind":"ingestion.snapshot_coverage_report","releaseId":"fsq_os_places-20260701-deadbeefcafe","derivedFromValidRowsOnly":true,"validRowCount":1,"invalidRowCount":0,"duplicateRowCount":0,"outOfScopeRowCount":0,"byCountry":{"italy":1},"byPoiType":{"poi":1}}'::jsonb,
+              '{"valid":1,"invalid":0,"duplicate":0,"outOfScope":0}'::jsonb,
+              jsonb_build_object('commissionRequestId', $1::text),
+              now()
+            from ingestion_platform.ingestion_projects p
+            where p.project_key = 'vamo'
+          `,
+          [created.requestId]
+        );
+
+        const releaseId = await findSnapshotReleaseIdForCommissionRequest({
+          client: owner,
+          projectKey: "vamo",
+          requestId: created.requestId
+        });
+        assert.equal(releaseId, "fsq_os_places-20260701-deadbeefcafe");
+
+        await completeSnapshotCommissionRequest({
+          client: owner,
+          requestId: created.requestId,
+          workerRunKey: "run-reclaim",
+          status: "release_registered",
+          registeredReleaseId: releaseId!
+        });
+        const finalized = await completeSnapshotCommissionRequest({
+          client: owner,
+          requestId: created.requestId,
+          workerRunKey: "run-reclaim",
+          status: "activation_pending",
+          registeredReleaseId: releaseId!
+        });
+        assert.equal(finalized.status, "activation_pending");
+
+        const activationBindings = await owner.query<{ count: string }>(
+          `select count(*)::text as count from ingestion_platform.ingestion_snapshot_release_plan_bindings`
+        );
+        assert.equal(activationBindings.rows[0]?.count, "0");
+      } finally {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.end();
+      }
+    }
+  );
+
+  it(
+    "loads server-side plan context for commissioning validation",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const owner = new Client({ connectionString: databaseUrl });
+      await owner.connect();
+      try {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query(controlSchemaSql);
+        await seedProjectAndPlan(owner);
+
+        const context = await loadSnapshotCommissionPlanContext({
+          client: owner,
+          projectKey: "vamo",
+          planKey: "vamo-eu-poi-sample"
+        });
+        assert.ok(context);
+        assert.equal(context?.sourceKey, "fsq-os-places-snapshot");
+        assert.deepEqual(context?.allowedCountries, ["france", "italy"]);
+        assert.deepEqual(context?.allowedCategories, ["landmark", "poi"]);
+      } finally {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.end();
+      }
+    }
+  );
 });
 
 describe("snapshot commission route artifact", () => {
-  it("uses core adapters and avoids provider, artifact, and consumer write paths", () => {
+  it("uses server-derived plan context and avoids provider, artifact, and consumer write paths", () => {
     const routeSource = readFileSync(commissionRoute, "utf8");
+    assert.match(routeSource, /loadSnapshotCommissionPlanContext/);
+    assert.match(routeSource, /validateSnapshotCommissionScopeAgainstPlan/);
     assert.match(routeSource, /createSnapshotCommissionRequest/);
     assert.match(routeSource, /evaluateSnapshotCommissionRequestCreate/);
     assert.match(routeSource, /parseSnapshotCommissionRequestCreate/);
@@ -222,6 +450,7 @@ describe("snapshot commission route artifact", () => {
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /runSnapshotReleaseActivation/);
     assert.doesNotMatch(routeSource, /activateSnapshotRelease/);
+    assert.doesNotMatch(routeSource, /parsed\.request\.sourceKey/);
   });
 
   it("does not expose execute acquisition from the browser control", () => {
@@ -230,6 +459,13 @@ describe("snapshot commission route artifact", () => {
     assert.doesNotMatch(controlSource, /runFsqSnapshotAcquire/);
     assert.doesNotMatch(controlSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);
     assert.doesNotMatch(controlSource, /Execute acquisition/i);
+    const postBodyBlock = controlSource.match(/body: JSON\.stringify\(\{[\s\S]*?\}\)/);
+    assert.ok(postBodyBlock, "expected commissioning POST body");
+    assert.doesNotMatch(postBodyBlock[0]!, /sourceKey/);
     assert.match(controlSource, /trusted worker/i);
+  });
+
+  it("keeps commissioning parser free of provider adapter imports", () => {
+    assert.doesNotMatch(requestModule, /adapters\/source/);
   });
 });

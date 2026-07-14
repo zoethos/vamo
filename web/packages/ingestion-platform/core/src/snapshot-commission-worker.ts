@@ -9,8 +9,10 @@ import type { SnapshotArtifactStore } from "./snapshot-artifact-store.js";
 import {
   claimSnapshotCommissionRequest,
   completeSnapshotCommissionRequest,
+  findSnapshotReleaseIdForCommissionRequest,
   type SnapshotCommissionPgClientLike
 } from "./snapshot-commission-control.js";
+import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
 import { runFsqSnapshotAcquire, FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE } from "./fsq-snapshot-acquire.js";
 
 export const SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_ENV =
@@ -35,10 +37,18 @@ export type RunSnapshotCommissionWorkerResult =
   | { ok: true; outcome: "idle"; message: string }
   | {
       ok: true;
-      outcome: "completed" | "idempotent_replay";
+      outcome: "completed" | "idempotent_replay" | "reconciled";
       requestId: string;
       registeredReleaseId: string;
       releaseStatus: "activation_pending";
+    }
+  | {
+      ok: true;
+      outcome: "pending_retry";
+      requestId: string;
+      registeredReleaseId?: string;
+      errorCode: "completion_update_failed";
+      errorMessage: string;
     }
   | {
       ok: true;
@@ -71,11 +81,7 @@ export async function runSnapshotCommissionWorker(
   }
 
   const request = claimed.request;
-  if (
-    claimed.idempotentReplay &&
-    request.status === "activation_pending" &&
-    request.registeredReleaseId
-  ) {
+  if (claimed.idempotentReplay && request.status === "activation_pending" && request.registeredReleaseId) {
     return {
       ok: true,
       outcome: "idempotent_replay",
@@ -85,21 +91,29 @@ export async function runSnapshotCommissionWorker(
     };
   }
 
-  if (claimed.idempotentReplay && request.status === "release_registered" && request.registeredReleaseId) {
-    await completeSnapshotCommissionRequest({
-      connectionString: input.connectionString,
-      client: input.client,
-      requestId: request.requestId,
-      workerRunKey: input.workerRunKey,
-      status: "activation_pending",
-      registeredReleaseId: request.registeredReleaseId
+  const reconciledReleaseId = await resolveRegisteredReleaseId(input, request);
+  if (reconciledReleaseId) {
+    const finalized = await finalizeCommissionRequest(input, request.requestId, reconciledReleaseId, {
+      currentStatus: request.status
     });
+    if (finalized.ok) {
+      return {
+        ok: true,
+        outcome: claimed.idempotentReplay ? "idempotent_replay" : "reconciled",
+        requestId: request.requestId,
+        registeredReleaseId: reconciledReleaseId,
+        releaseStatus: "activation_pending"
+      };
+    }
+    console.error("Snapshot commission reconciliation finalize failed", finalized.error);
+    return pendingRetryResult(request.requestId, reconciledReleaseId);
+  }
+
+  if (claimed.idempotentReplay) {
     return {
       ok: true,
-      outcome: "idempotent_replay",
-      requestId: request.requestId,
-      registeredReleaseId: request.registeredReleaseId,
-      releaseStatus: "activation_pending"
+      outcome: "idle",
+      message: "Commission request is already claimed by this worker run."
     };
   }
 
@@ -119,51 +133,31 @@ export async function runSnapshotCommissionWorker(
       controlConnectionString: input.connectionString,
       actor: { type: "worker", id: input.workerId },
       auditReason: `IP-18.8.13 snapshot commission worker for request ${request.requestId}.`,
+      commissionRequestId: request.requestId,
       now: input.now
     });
 
     if (!acquired.ok) {
-      await failRequest(input, request.requestId, "acquisition_blocked", acquired.blocks.join(", "));
-      return {
-        ok: true,
-        outcome: "failed",
-        requestId: request.requestId,
-        errorCode: "acquisition_blocked",
-        errorMessage: "Acquisition was blocked by policy or bounds checks."
-      };
+      await failRequest(input, request.requestId, "acquisition_blocked");
+      return failedResult(request.requestId, "acquisition_blocked");
     }
 
     const result = acquired.result;
     if (result.mode !== "execute" || !result.accepted) {
-      const blocks =
-        result.mode === "execute" && !result.accepted ? result.blocks.join(", ") : "acquisition_rejected";
-      await failRequest(input, request.requestId, "acquisition_rejected", blocks);
-      return {
-        ok: true,
-        outcome: "failed",
-        requestId: request.requestId,
-        errorCode: "acquisition_rejected",
-        errorMessage: "Acquisition completed without an accepted release."
-      };
+      await failRequest(input, request.requestId, "acquisition_rejected");
+      return failedResult(request.requestId, "acquisition_rejected");
     }
 
-    await completeSnapshotCommissionRequest({
-      connectionString: input.connectionString,
-      client: input.client,
-      requestId: request.requestId,
-      workerRunKey: input.workerRunKey,
-      status: "release_registered",
-      registeredReleaseId: result.releaseId
+    const finalized = await finalizeCommissionRequest(input, request.requestId, result.releaseId, {
+      currentStatus: "running"
     });
-
-    await completeSnapshotCommissionRequest({
-      connectionString: input.connectionString,
-      client: input.client,
-      requestId: request.requestId,
-      workerRunKey: input.workerRunKey,
-      status: "activation_pending",
-      registeredReleaseId: result.releaseId
-    });
+    if (!finalized.ok) {
+      console.error(
+        "Snapshot commission completion update failed after release registration",
+        finalized.error
+      );
+      return pendingRetryResult(request.requestId, result.releaseId);
+    }
 
     return {
       ok: true,
@@ -173,32 +167,102 @@ export async function runSnapshotCommissionWorker(
       releaseStatus: "activation_pending"
     };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Snapshot commission worker failed unexpectedly.";
-    await failRequest(input, request.requestId, "worker_execution_failed", message);
-    return {
-      ok: true,
-      outcome: "failed",
-      requestId: request.requestId,
-      errorCode: "worker_execution_failed",
-      errorMessage: "Trusted worker execution failed before release registration completed."
-    };
+    console.error("Snapshot commission worker acquisition failed", error);
+    await failRequest(input, request.requestId, "worker_execution_failed");
+    return failedResult(request.requestId, "worker_execution_failed");
   }
+}
+
+async function resolveRegisteredReleaseId(
+  input: RunSnapshotCommissionWorkerInput,
+  request: { requestId: string; projectKey: string; registeredReleaseId?: string }
+): Promise<string | null> {
+  if (request.registeredReleaseId) {
+    return request.registeredReleaseId;
+  }
+  return findSnapshotReleaseIdForCommissionRequest({
+    connectionString: input.connectionString,
+    client: input.client,
+    projectKey: request.projectKey,
+    requestId: request.requestId
+  });
+}
+
+async function finalizeCommissionRequest(
+  input: RunSnapshotCommissionWorkerInput,
+  requestId: string,
+  registeredReleaseId: string,
+  state: { currentStatus: string }
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  try {
+    if (state.currentStatus === "running") {
+      await completeSnapshotCommissionRequest({
+        connectionString: input.connectionString,
+        client: input.client,
+        requestId,
+        workerRunKey: input.workerRunKey,
+        status: "release_registered",
+        registeredReleaseId
+      });
+    }
+
+    await completeSnapshotCommissionRequest({
+      connectionString: input.connectionString,
+      client: input.client,
+      requestId,
+      workerRunKey: input.workerRunKey,
+      status: "activation_pending",
+      registeredReleaseId
+    });
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+function pendingRetryResult(
+  requestId: string,
+  registeredReleaseId?: string
+): Extract<RunSnapshotCommissionWorkerResult, { outcome: "pending_retry" }> {
+  return {
+    ok: true,
+    outcome: "pending_retry",
+    requestId,
+    registeredReleaseId,
+    errorCode: "completion_update_failed",
+    errorMessage: snapshotCommissionOperatorErrorForCode("completion_update_failed")
+  };
+}
+
+function failedResult(
+  requestId: string,
+  errorCode: string
+): Extract<RunSnapshotCommissionWorkerResult, { outcome: "failed" }> {
+  return {
+    ok: true,
+    outcome: "failed",
+    requestId,
+    errorCode,
+    errorMessage: snapshotCommissionOperatorErrorForCode(errorCode)
+  };
 }
 
 async function failRequest(
   input: RunSnapshotCommissionWorkerInput,
   requestId: string,
-  errorCode: string,
-  errorMessage: string
+  errorCode: string
 ): Promise<void> {
-  await completeSnapshotCommissionRequest({
-    connectionString: input.connectionString,
-    client: input.client,
-    requestId,
-    workerRunKey: input.workerRunKey,
-    status: "failed",
-    errorCode,
-    errorMessage
-  });
+  try {
+    await completeSnapshotCommissionRequest({
+      connectionString: input.connectionString,
+      client: input.client,
+      requestId,
+      workerRunKey: input.workerRunKey,
+      status: "failed",
+      errorCode,
+      errorMessage: snapshotCommissionOperatorErrorForCode(errorCode)
+    });
+  } catch (error) {
+    console.error("Snapshot commission failure update failed", error);
+  }
 }

@@ -943,10 +943,19 @@ export {
   type FsqSnapshotAcquireResult
 } from "./fsq-snapshot-acquire.js";
 export {
+  FSQ_ACQUISITION_ALLOWED_CATEGORIES,
+  FSQ_ACQUISITION_ALLOWED_COUNTRIES,
+  FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
+  FSQ_ACQUISITION_MAX_ROWS_PER_SCOPE_LIMIT,
+  validateFsqAcquisitionBounds,
+  type FsqAcquisitionScopePlan
+} from "./fsq-acquisition-scope.js";
+export {
   SNAPSHOT_COMMISSION_CONFIRMATION_STATE,
   SNAPSHOT_COMMISSION_REQUEST_STATUSES,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
   SNAPSHOT_COMMISSION_TERMINAL_STATUSES,
+  SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS,
   canTransitionSnapshotCommissionStatus,
   isSnapshotCommissionRequestStatus,
   parseSnapshotCommissionRequestCreate,
@@ -954,6 +963,19 @@ export {
   type SnapshotCommissionRequestRecord,
   type SnapshotCommissionRequestStatus
 } from "./snapshot-commission-request.js";
+export {
+  SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES,
+  presentSnapshotCommissionOperatorError,
+  sanitizeSnapshotCommissionOperatorMessage,
+  snapshotCommissionOperatorErrorForCode
+} from "./snapshot-commission-errors.js";
+export {
+  SNAPSHOT_COMMISSION_SUPPORTED_SOURCE_KEYS,
+  extractPlanCommissionBounds,
+  isSnapshotCommissionSupportedSourceKey,
+  validateSnapshotCommissionScopeAgainstPlan,
+  type SnapshotCommissionPlanContext
+} from "./snapshot-commission-plan-context.js";
 export {
   evaluateSnapshotCommissionRequestCreate,
   type EvaluateSnapshotCommissionRequestCreateInput,
@@ -966,11 +988,14 @@ export {
   type SnapshotCommissionCardPresentation
 } from "./snapshot-commission-presenter.js";
 export {
+  assertCommissionPlanIsCommissionable,
   claimSnapshotCommissionRequest,
   completeSnapshotCommissionRequest,
   createSnapshotCommissionRequest,
+  findSnapshotReleaseIdForCommissionRequest,
   hasActiveSnapshotCommissionRequest,
   loadLatestSnapshotCommissionRequest,
+  loadSnapshotCommissionPlanContext,
   type ClaimSnapshotCommissionRequestResult,
   type CompleteSnapshotCommissionRequestResult,
   type CreateSnapshotCommissionRequestResult,

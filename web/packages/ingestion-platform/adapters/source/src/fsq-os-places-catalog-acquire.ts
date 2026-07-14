@@ -5,36 +5,26 @@
  * acquisition. Tokens must come from server/job secrets at runtime only.
  */
 
+import {
+  FSQ_ACQUISITION_ALLOWED_CATEGORIES,
+  FSQ_ACQUISITION_ALLOWED_COUNTRIES,
+  FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
+  validateFsqAcquisitionBounds as validateCoreFsqAcquisitionBounds
+} from "../../../core/src/fsq-acquisition-scope.js";
+
+export {
+  FSQ_ACQUISITION_ALLOWED_CATEGORIES,
+  FSQ_ACQUISITION_ALLOWED_COUNTRIES,
+  FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE
+} from "../../../core/src/fsq-acquisition-scope.js";
+
 export const FSQ_OS_PLACES_CATALOG_TOKEN_ENV = "FSQ_OS_PLACES_CATALOG_TOKEN" as const;
+
 export const FSQ_OS_PLACES_DEFAULT_ATTRIBUTION = "FSQ Open Source Places" as const;
 export const FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL =
   "https://places.foursquare.com/products/open-source-places" as const;
 export const FSQ_OS_PLACES_DEFAULT_CATALOG_BASE_URL =
   "https://catalog.foursquare.com/os-places/v1/places" as const;
-
-export const FSQ_ACQUISITION_ALLOWED_COUNTRIES = [
-  "italy",
-  "france",
-  "germany",
-  "spain",
-  "portugal",
-  "netherlands",
-  "belgium",
-  "austria",
-  "switzerland",
-  "poland",
-  "greece",
-  "ireland"
-] as const;
-
-export const FSQ_ACQUISITION_ALLOWED_CATEGORIES = [
-  "poi",
-  "landmark",
-  "restaurant",
-  "transport"
-] as const;
-
-export const FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE = 250;
 
 export type FsqCatalogFetchFn = (input: {
   url: string;
@@ -79,39 +69,13 @@ export function validateFsqAcquisitionBounds(input: {
   categories: readonly string[];
   maxRowsPerScope?: number;
 }): { ok: true; plan: FsqCatalogAcquirePlan } | { ok: false; blocks: string[] } {
-  const blocks: string[] = [];
-  const countries = [...new Set(input.countries.map((entry) => entry.trim().toLowerCase()))].sort();
-  const categories = [...new Set(input.categories.map((entry) => entry.trim().toLowerCase()))].sort();
-
-  if (countries.length === 0) {
-    blocks.push("countries_required");
-  }
-  if (categories.length === 0) {
-    blocks.push("categories_required");
+  const bounds = validateCoreFsqAcquisitionBounds(input);
+  if (!bounds.ok) {
+    return bounds;
   }
 
-  for (const country of countries) {
-    if (!(FSQ_ACQUISITION_ALLOWED_COUNTRIES as readonly string[]).includes(country)) {
-      blocks.push(`country_out_of_bounds:${country}`);
-    }
-  }
-  for (const category of categories) {
-    if (!(FSQ_ACQUISITION_ALLOWED_CATEGORIES as readonly string[]).includes(category)) {
-      blocks.push(`category_out_of_bounds:${category}`);
-    }
-  }
-
-  const maxRowsPerScope = input.maxRowsPerScope ?? FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE;
-  if (!Number.isInteger(maxRowsPerScope) || maxRowsPerScope < 1 || maxRowsPerScope > 1000) {
-    blocks.push("max_rows_per_scope_out_of_bounds");
-  }
-
-  if (blocks.length > 0) {
-    return { ok: false, blocks };
-  }
-
-  const scopes = countries.flatMap((country) =>
-    categories.map((category) => ({
+  const scopes = bounds.plan.countries.flatMap((country) =>
+    bounds.plan.categories.map((category) => ({
       country,
       geography: country,
       category
@@ -121,10 +85,8 @@ export function validateFsqAcquisitionBounds(input: {
   return {
     ok: true,
     plan: {
-      countries,
-      categories,
-      scopes,
-      maxRowsPerScope
+      ...bounds.plan,
+      scopes
     }
   };
 }

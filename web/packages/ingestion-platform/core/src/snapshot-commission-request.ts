@@ -1,14 +1,8 @@
 /**
  * Snapshot release commissioning request model (IP-18.8.13).
  */
-
-import {
-  FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
-  validateFsqAcquisitionBounds
-} from "../../adapters/source/src/fsq-os-places-catalog-acquire.js";
-
+import { FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE } from "./fsq-acquisition-scope.js";
 export const SNAPSHOT_COMMISSION_CONFIRMATION_STATE = "request_commission" as const;
-
 export const SNAPSHOT_COMMISSION_REQUEST_STATUSES = [
   "requested",
   "running",
@@ -16,21 +10,18 @@ export const SNAPSHOT_COMMISSION_REQUEST_STATUSES = [
   "activation_pending",
   "failed"
 ] as const;
-
 export type SnapshotCommissionRequestStatus =
   (typeof SNAPSHOT_COMMISSION_REQUEST_STATUSES)[number];
-
 export const SNAPSHOT_COMMISSION_TERMINAL_STATUSES = [
   "activation_pending",
   "failed"
 ] as const satisfies readonly SnapshotCommissionRequestStatus[];
-
 export const SNAPSHOT_COMMISSION_ACTIVE_STATUSES = [
   "requested",
   "running",
   "release_registered"
 ] as const satisfies readonly SnapshotCommissionRequestStatus[];
-
+export const SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS = 30 * 60 * 1000;
 export interface SnapshotCommissionRequestRecord {
   requestId: string;
   projectKey: string;
@@ -47,29 +38,27 @@ export interface SnapshotCommissionRequestRecord {
   claimedAt?: string;
   claimedById?: string;
   workerRunKey?: string;
+  claimExpiresAt?: string;
+  attemptCount?: number;
   registeredReleaseId?: string;
   errorCode?: string;
   errorMessage?: string;
   completedAt?: string;
 }
-
 export interface SnapshotCommissionRequestCreateInput {
   projectKey: string;
   planKey: string;
-  sourceKey: string;
   countries: readonly string[];
   categories: readonly string[];
   maxRowsPerScope?: number;
   auditReason: string;
   confirmedState: string;
 }
-
 export function isSnapshotCommissionRequestStatus(
   value: string
 ): value is SnapshotCommissionRequestStatus {
   return (SNAPSHOT_COMMISSION_REQUEST_STATUSES as readonly string[]).includes(value);
 }
-
 export function canTransitionSnapshotCommissionStatus(
   from: SnapshotCommissionRequestStatus,
   to: SnapshotCommissionRequestStatus
@@ -88,7 +77,6 @@ export function canTransitionSnapshotCommissionStatus(
       return false;
   }
 }
-
 export function parseSnapshotCommissionRequestCreate(
   body: unknown
 ):
@@ -97,17 +85,14 @@ export function parseSnapshotCommissionRequestCreate(
   if (!body || typeof body !== "object") {
     return { ok: false, error: "Request body must be a JSON object.", code: "invalid_body" };
   }
-
   const value = body as Record<string, unknown>;
   const projectKey = readString(value.projectKey);
   const planKey = readString(value.planKey);
-  const sourceKey = readString(value.sourceKey) || "fsq-os-places-snapshot";
   const auditReason = readString(value.auditReason);
   const confirmedState = readString(value.confirmedState);
   const countries = readStringArray(value.countries);
   const categories = readStringArray(value.categories);
   const maxRowsPerScope = readPositiveInteger(value.maxRowsPerScope);
-
   if (!projectKey) {
     return { ok: false, error: "projectKey is required.", code: "project_key_required" };
   }
@@ -130,26 +115,11 @@ export function parseSnapshotCommissionRequestCreate(
   if (categories.length === 0) {
     return { ok: false, error: "At least one category is required.", code: "categories_required" };
   }
-
-  const bounds = validateFsqAcquisitionBounds({
-    countries,
-    categories,
-    maxRowsPerScope: maxRowsPerScope ?? FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE
-  });
-  if (!bounds.ok) {
-    return {
-      ok: false,
-      error: `Commission scope is out of bounds: ${bounds.blocks.join(", ")}.`,
-      code: "scope_out_of_bounds"
-    };
-  }
-
   return {
     ok: true,
     request: {
       projectKey,
       planKey,
-      sourceKey,
       countries,
       categories,
       maxRowsPerScope: maxRowsPerScope ?? FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
@@ -158,11 +128,9 @@ export function parseSnapshotCommissionRequestCreate(
     }
   };
 }
-
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
-
 function readStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -172,7 +140,6 @@ function readStringArray(value: unknown): string[] {
     .map((entry) => entry.trim().toLowerCase())
     .filter((entry) => entry.length > 0);
 }
-
 function readPositiveInteger(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") {
     return undefined;

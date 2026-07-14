@@ -136,7 +136,8 @@ grant execute on function ingestion_platform.register_snapshot_release(
   jsonb,
   text,
   text,
-  text
+  text,
+  jsonb
 ) to confluendo_app;
 
 -- IP-18.8.11 snapshot release activation: read-only binding visibility plus
@@ -155,7 +156,6 @@ grant execute on function ingestion_platform.activate_snapshot_release(
 -- IP-18.8.13 snapshot release commissioning: app may create/read via functions only.
 grant select on ingestion_platform.ingestion_snapshot_commission_requests to confluendo_app;
 grant execute on function ingestion_platform.create_snapshot_commission_request(
-  text,
   text,
   text,
   jsonb,

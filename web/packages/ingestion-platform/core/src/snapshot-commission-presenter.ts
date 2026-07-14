@@ -3,6 +3,7 @@
  */
 
 import type { SnapshotCommissionRequestRecord, SnapshotCommissionRequestStatus } from "./snapshot-commission-request.js";
+import { presentSnapshotCommissionOperatorError } from "./snapshot-commission-errors.js";
 
 export interface SnapshotCommissionCardPresentation {
   hasRequest: boolean;
@@ -69,7 +70,7 @@ export function presentSnapshotCommissionCard(input: {
     requestId: request.requestId,
     registeredReleaseId: request.registeredReleaseId,
     errorCode: request.errorCode,
-    errorMessage: request.errorMessage,
+    errorMessage: presentSnapshotCommissionOperatorError(request.errorCode, request.errorMessage),
     requestedAt: request.requestedAt,
     requestedById: request.requestedById,
     canCreateRequest: false,
@@ -159,7 +160,7 @@ export function toSnapshotCommissionRequestSummary(
     claimedById: row.claimedById,
     registeredReleaseId: row.registeredReleaseId,
     errorCode: row.errorCode,
-    errorMessage: row.errorMessage,
+    errorMessage: presentSnapshotCommissionOperatorError(row.errorCode, row.errorMessage),
     completedAt: row.completedAt
   };
 }

@@ -541,7 +541,7 @@ async function resetSchemas(client: Client): Promise<void> {
   await client.query("drop schema if exists canary_target cascade");
   await client.query("drop schema if exists confluendo_guard cascade");
   await client.query(controlSchemaSql);
-  assert.equal(CONTROL_TABLES.length, 29);
+  assert.equal(CONTROL_TABLES.length, 30);
 }
 
 async function setupStagingTarget(

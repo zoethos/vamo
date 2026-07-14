@@ -1515,7 +1515,8 @@ create or replace function ingestion_platform.register_snapshot_release(
   p_coverage jsonb,
   p_actor_type text,
   p_actor_id text,
-  p_audit_reason text
+  p_audit_reason text,
+  p_registration_metadata jsonb default '{}'::jsonb
 ) returns jsonb
 language plpgsql
 security definer
@@ -1615,7 +1616,8 @@ begin
       'duplicate', coalesce((p_coverage->>'duplicateRowCount')::integer, 0),
       'outOfScope', coalesce((p_coverage->>'outOfScopeRowCount')::integer, 0)
     ),
-    jsonb_build_object('registeredBy', 'register_snapshot_release'),
+    jsonb_build_object('registeredBy', 'register_snapshot_release')
+      || coalesce(p_registration_metadata, '{}'::jsonb),
     now()
   )
   on conflict (project_id, release_id) do update
@@ -1708,7 +1710,8 @@ revoke all on function ingestion_platform.register_snapshot_release(
   jsonb,
   text,
   text,
-  text
+  text,
+  jsonb
 ) from public;
 
 create table if not exists ingestion_platform.ingestion_snapshot_release_plan_bindings (
@@ -1960,6 +1963,8 @@ create table if not exists ingestion_platform.ingestion_snapshot_commission_requ
   claimed_at timestamptz,
   claimed_by_id text,
   worker_run_key text,
+  claim_expires_at timestamptz,
+  attempt_count integer not null default 0,
   registered_release_id text,
   error_code text,
   error_message text,
@@ -1977,20 +1982,30 @@ create table if not exists ingestion_platform.ingestion_snapshot_commission_requ
   ),
   constraint ingestion_snapshot_commission_requests_max_rows_positive check (
     max_rows_per_scope > 0
+  ),
+  constraint ingestion_snapshot_commission_requests_attempt_count_nonnegative check (
+    attempt_count >= 0
   )
 );
 
 create index if not exists ingestion_snapshot_commission_requests_project_plan_status_idx
   on ingestion_platform.ingestion_snapshot_commission_requests (project_id, batch_plan_id, status, requested_at desc);
 
+create unique index if not exists ingestion_snapshot_commission_requests_one_active_per_plan_idx
+  on ingestion_platform.ingestion_snapshot_commission_requests (project_id, batch_plan_id)
+  where status in ('requested', 'running', 'release_registered');
+
 create index if not exists ingestion_snapshot_commission_requests_worker_run_key_idx
   on ingestion_platform.ingestion_snapshot_commission_requests (worker_run_key)
   where worker_run_key is not null;
 
+create index if not exists ingestion_snapshot_commission_requests_claim_expires_idx
+  on ingestion_platform.ingestion_snapshot_commission_requests (status, claim_expires_at)
+  where status in ('running', 'release_registered');
+
 create or replace function ingestion_platform.create_snapshot_commission_request(
   p_project_key text,
   p_plan_key text,
-  p_source_key text,
   p_countries jsonb,
   p_categories jsonb,
   p_max_rows_per_scope integer,
@@ -2005,17 +2020,18 @@ as $$
 declare
   v_project_id bigint;
   v_plan_id bigint;
+  v_plan_source_key text;
+  v_plan_status text;
   v_request_id bigint;
   v_audit_id bigint;
 begin
   p_project_key := nullif(btrim(p_project_key), '');
   p_plan_key := nullif(btrim(p_plan_key), '');
-  p_source_key := nullif(btrim(p_source_key), '');
   p_actor_type := nullif(btrim(p_actor_type), '');
   p_actor_id := nullif(btrim(p_actor_id), '');
   p_audit_reason := nullif(btrim(p_audit_reason), '');
 
-  if p_project_key is null or p_plan_key is null or p_source_key is null then
+  if p_project_key is null or p_plan_key is null then
     raise exception 'missing_commission_identity';
   end if;
 
@@ -2047,7 +2063,8 @@ begin
     raise exception 'project_not_found';
   end if;
 
-  select bp.id into v_plan_id
+  select bp.id, bp.source_key, bp.status
+  into v_plan_id, v_plan_source_key, v_plan_status
   from ingestion_platform.ingestion_batch_plans bp
   where bp.project_id = v_project_id and bp.plan_key = p_plan_key;
 
@@ -2055,45 +2072,48 @@ begin
     raise exception 'plan_not_found';
   end if;
 
-  if exists (
-    select 1
-    from ingestion_platform.ingestion_snapshot_commission_requests r
-    where r.project_id = v_project_id
-      and r.batch_plan_id = v_plan_id
-      and r.status in ('requested', 'running', 'release_registered')
-  ) then
-    raise exception 'commission_request_already_active';
+  if v_plan_status is distinct from 'active' then
+    raise exception 'plan_not_active';
   end if;
 
-  insert into ingestion_platform.ingestion_snapshot_commission_requests (
-    project_id,
-    batch_plan_id,
-    source_key,
-    status,
-    countries,
-    categories,
-    max_rows_per_scope,
-    audit_reason,
-    requested_by_type,
-    requested_by_id,
-    requested_at,
-    updated_at
-  )
-  values (
-    v_project_id,
-    v_plan_id,
-    p_source_key,
-    'requested',
-    p_countries,
-    p_categories,
-    p_max_rows_per_scope,
-    p_audit_reason,
-    p_actor_type,
-    p_actor_id,
-    now(),
-    now()
-  )
-  returning id into v_request_id;
+  if v_plan_source_key is distinct from 'fsq-os-places-snapshot' then
+    raise exception 'unsupported_source_key';
+  end if;
+
+  begin
+    insert into ingestion_platform.ingestion_snapshot_commission_requests (
+      project_id,
+      batch_plan_id,
+      source_key,
+      status,
+      countries,
+      categories,
+      max_rows_per_scope,
+      audit_reason,
+      requested_by_type,
+      requested_by_id,
+      requested_at,
+      updated_at
+    )
+    values (
+      v_project_id,
+      v_plan_id,
+      v_plan_source_key,
+      'requested',
+      p_countries,
+      p_categories,
+      p_max_rows_per_scope,
+      p_audit_reason,
+      p_actor_type,
+      p_actor_id,
+      now(),
+      now()
+    )
+    returning id into v_request_id;
+  exception
+    when unique_violation then
+      raise exception 'commission_request_already_active';
+  end;
 
   insert into ingestion_platform.ingestion_audit_log (
     project_id,
@@ -2116,7 +2136,7 @@ begin
     jsonb_build_object(
       'requestId', v_request_id::text,
       'planKey', p_plan_key,
-      'sourceKey', p_source_key,
+      'sourceKey', v_plan_source_key,
       'countries', p_countries,
       'categories', p_categories,
       'maxRowsPerScope', p_max_rows_per_scope,
@@ -2150,13 +2170,13 @@ begin
     'ok', true,
     'requestId', v_request_id::text,
     'auditId', v_audit_id::text,
-    'status', 'requested'
+    'status', 'requested',
+    'sourceKey', v_plan_source_key
   );
 end;
 $$;
 
 revoke all on function ingestion_platform.create_snapshot_commission_request(
-  text,
   text,
   text,
   jsonb,
@@ -2169,7 +2189,8 @@ revoke all on function ingestion_platform.create_snapshot_commission_request(
 
 create or replace function ingestion_platform.claim_snapshot_commission_request(
   p_worker_id text,
-  p_worker_run_key text
+  p_worker_run_key text,
+  p_lease_seconds integer default 1800
 ) returns jsonb
 language plpgsql
 security definer
@@ -2187,19 +2208,23 @@ begin
     raise exception 'missing_worker_identity';
   end if;
 
+  if p_lease_seconds is null or p_lease_seconds <= 0 then
+    raise exception 'invalid_lease_seconds';
+  end if;
+
   select r.*
   into v_request
   from ingestion_platform.ingestion_snapshot_commission_requests r
   where r.worker_run_key = p_worker_run_key
-    and r.status in ('running', 'release_registered')
+    and r.status in ('running', 'release_registered', 'activation_pending')
   limit 1;
 
   if found then
     select p.project_key, bp.plan_key
     into v_project_key, v_plan_key
     from ingestion_platform.ingestion_projects p
-    join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id
-    where p.id = v_request.project_id and bp.id = v_request.batch_plan_id;
+    join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id and bp.id = v_request.batch_plan_id
+    where p.id = v_request.project_id;
 
     return jsonb_build_object(
       'ok', true,
@@ -2212,7 +2237,56 @@ begin
       'countries', v_request.countries,
       'categories', v_request.categories,
       'maxRowsPerScope', v_request.max_rows_per_scope,
-      'registeredReleaseId', v_request.registered_release_id
+      'registeredReleaseId', v_request.registered_release_id,
+      'attemptCount', v_request.attempt_count,
+      'claimExpiresAt', v_request.claim_expires_at
+    );
+  end if;
+
+  select r.*
+  into v_request
+  from ingestion_platform.ingestion_snapshot_commission_requests r
+  where r.status in ('running', 'release_registered')
+    and r.claim_expires_at is not null
+    and r.claim_expires_at < now()
+  order by r.requested_at asc, r.id asc
+  for update skip locked
+  limit 1;
+
+  if found then
+    update ingestion_platform.ingestion_snapshot_commission_requests
+    set
+      status = case when v_request.status = 'release_registered' then 'release_registered' else 'running' end,
+      claimed_at = now(),
+      claimed_by_id = p_worker_id,
+      worker_run_key = p_worker_run_key,
+      claim_expires_at = now() + make_interval(secs => p_lease_seconds),
+      attempt_count = v_request.attempt_count + 1,
+      updated_at = now()
+    where id = v_request.id
+    returning * into v_request;
+
+    select p.project_key, bp.plan_key
+    into v_project_key, v_plan_key
+    from ingestion_platform.ingestion_projects p
+    join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id and bp.id = v_request.batch_plan_id
+    where p.id = v_request.project_id;
+
+    return jsonb_build_object(
+      'ok', true,
+      'idempotentReplay', false,
+      'leaseReclaimed', true,
+      'requestId', v_request.id::text,
+      'projectKey', v_project_key,
+      'planKey', v_plan_key,
+      'sourceKey', v_request.source_key,
+      'status', v_request.status,
+      'countries', v_request.countries,
+      'categories', v_request.categories,
+      'maxRowsPerScope', v_request.max_rows_per_scope,
+      'registeredReleaseId', v_request.registered_release_id,
+      'attemptCount', v_request.attempt_count,
+      'claimExpiresAt', v_request.claim_expires_at
     );
   end if;
 
@@ -2234,6 +2308,8 @@ begin
     claimed_at = now(),
     claimed_by_id = p_worker_id,
     worker_run_key = p_worker_run_key,
+    claim_expires_at = now() + make_interval(secs => p_lease_seconds),
+    attempt_count = v_request.attempt_count + 1,
     updated_at = now()
   where id = v_request.id
   returning * into v_request;
@@ -2241,12 +2317,13 @@ begin
   select p.project_key, bp.plan_key
   into v_project_key, v_plan_key
   from ingestion_platform.ingestion_projects p
-  join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id
-  where p.id = v_request.project_id and bp.id = v_request.batch_plan_id;
+  join ingestion_platform.ingestion_batch_plans bp on bp.project_id = p.id and bp.id = v_request.batch_plan_id
+  where p.id = v_request.project_id;
 
   return jsonb_build_object(
     'ok', true,
     'idempotentReplay', false,
+    'leaseReclaimed', false,
     'requestId', v_request.id::text,
     'projectKey', v_project_key,
     'planKey', v_plan_key,
@@ -2254,14 +2331,18 @@ begin
     'status', v_request.status,
     'countries', v_request.countries,
     'categories', v_request.categories,
-    'maxRowsPerScope', v_request.max_rows_per_scope
+    'maxRowsPerScope', v_request.max_rows_per_scope,
+    'registeredReleaseId', v_request.registered_release_id,
+    'attemptCount', v_request.attempt_count,
+    'claimExpiresAt', v_request.claim_expires_at
   );
 end;
 $$;
 
 revoke all on function ingestion_platform.claim_snapshot_commission_request(
   text,
-  text
+  text,
+  integer
 ) from public;
 
 create or replace function ingestion_platform.complete_snapshot_commission_request(
@@ -2341,6 +2422,10 @@ begin
     error_code = p_error_code,
     error_message = p_error_message,
     completed_at = case when p_status in ('activation_pending', 'failed') then now() else completed_at end,
+    claim_expires_at = case
+      when p_status in ('activation_pending', 'failed') then null
+      else claim_expires_at
+    end,
     updated_at = now()
   where id = v_request.id
   returning * into v_request;

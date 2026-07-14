@@ -1,58 +1,59 @@
 /**
  * Control-plane snapshot commission request adapter (IP-18.8.13).
  */
-
 import { Client, type QueryResult } from "pg";
-
+import {
+  extractPlanCommissionBounds,
+  isSnapshotCommissionSupportedSourceKey,
+  type SnapshotCommissionPlanContext
+} from "./snapshot-commission-plan-context.js";
+import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
 import {
   isSnapshotCommissionRequestStatus,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
+  SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS,
   type SnapshotCommissionRequestRecord,
   type SnapshotCommissionRequestStatus
 } from "./snapshot-commission-request.js";
-
 export interface SnapshotCommissionPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     sql: string,
     values?: unknown[]
   ): Promise<QueryResult<T>>;
 }
-
 export interface CreateSnapshotCommissionRequestInput {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
   projectKey: string;
   planKey: string;
-  sourceKey: string;
   countries: readonly string[];
   categories: readonly string[];
   maxRowsPerScope: number;
   actor: { type: string; id: string };
   auditReason: string;
 }
-
 export interface CreateSnapshotCommissionRequestResult {
   ok: true;
   requestId: string;
   auditId: string;
   status: "requested";
+  sourceKey: string;
 }
-
 export interface ClaimSnapshotCommissionRequestInput {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
   workerId: string;
   workerRunKey: string;
+  leaseSeconds?: number;
 }
-
 export type ClaimSnapshotCommissionRequestResult =
   | {
       ok: true;
       idempotentReplay: boolean;
+      leaseReclaimed?: boolean;
       request: SnapshotCommissionRequestRecord;
     }
   | { ok: false; code: "no_pending_request" };
-
 export interface CompleteSnapshotCommissionRequestInput {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -63,7 +64,6 @@ export interface CompleteSnapshotCommissionRequestInput {
   errorCode?: string;
   errorMessage?: string;
 }
-
 export interface CompleteSnapshotCommissionRequestResult {
   ok: true;
   idempotentReplay: boolean;
@@ -72,32 +72,100 @@ export interface CompleteSnapshotCommissionRequestResult {
   registeredReleaseId?: string;
   auditId?: string;
 }
-
+export async function loadSnapshotCommissionPlanContext(input: {
+  connectionString?: string;
+  client?: SnapshotCommissionPgClientLike;
+  projectKey: string;
+  planKey: string;
+}): Promise<SnapshotCommissionPlanContext | null> {
+  const client = resolveClient(input);
+  const ownsClient = ownsConnection(input, client);
+  try {
+    const response = await client.query<PlanContextRow>(
+      `
+        select
+          p.project_key,
+          bp.plan_key,
+          bp.source_key,
+          bp.status as plan_status,
+          bp.spec
+        from ingestion_platform.ingestion_batch_plans bp
+        join ingestion_platform.ingestion_projects p on p.id = bp.project_id
+        where p.project_key = $1 and bp.plan_key = $2
+        limit 1
+      `,
+      [input.projectKey, input.planKey]
+    );
+    const row = response.rows[0];
+    if (!row) {
+      return null;
+    }
+    const bounds = extractPlanCommissionBounds(row.spec ?? {});
+    return {
+      projectKey: row.project_key,
+      planKey: row.plan_key,
+      sourceKey: row.source_key,
+      planStatus: row.plan_status,
+      allowedCountries: bounds.allowedCountries,
+      allowedCategories: bounds.allowedCategories,
+      maxRowsPerScopeLimit: bounds.maxRowsPerScopeLimit
+    };
+  } finally {
+    if (ownsClient) {
+      await (client as Client).end();
+    }
+  }
+}
+export async function findSnapshotReleaseIdForCommissionRequest(input: {
+  connectionString?: string;
+  client?: SnapshotCommissionPgClientLike;
+  projectKey: string;
+  requestId: string;
+}): Promise<string | null> {
+  const client = resolveClient(input);
+  const ownsClient = ownsConnection(input, client);
+  try {
+    const response = await client.query<{ release_id: string }>(
+      `
+        select r.release_id
+        from ingestion_platform.ingestion_snapshot_releases r
+        join ingestion_platform.ingestion_projects p on p.id = r.project_id
+        where p.project_key = $1
+          and r.metadata->>'commissionRequestId' = $2
+        order by r.created_at desc, r.id desc
+        limit 1
+      `,
+      [input.projectKey, input.requestId]
+    );
+    return response.rows[0]?.release_id ?? null;
+  } finally {
+    if (ownsClient) {
+      await (client as Client).end();
+    }
+  }
+}
 export async function createSnapshotCommissionRequest(
   input: CreateSnapshotCommissionRequestInput
 ): Promise<CreateSnapshotCommissionRequestResult> {
   const client = resolveClient(input);
   const ownsClient = ownsConnection(input, client);
-
   try {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
         select ingestion_platform.create_snapshot_commission_request(
           $1,
           $2,
-          $3,
+          $3::jsonb,
           $4::jsonb,
-          $5::jsonb,
+          $5,
           $6,
           $7,
-          $8,
-          $9
+          $8
         ) as result
       `,
       [
         input.projectKey,
         input.planKey,
-        input.sourceKey,
         JSON.stringify(input.countries),
         JSON.stringify(input.categories),
         input.maxRowsPerScope,
@@ -111,7 +179,8 @@ export async function createSnapshotCommissionRequest(
       ok: true,
       requestId: String(result.requestId),
       auditId: String(result.auditId),
-      status: "requested"
+      status: "requested",
+      sourceKey: String(result.sourceKey)
     };
   } finally {
     if (ownsClient) {
@@ -119,19 +188,21 @@ export async function createSnapshotCommissionRequest(
     }
   }
 }
-
 export async function claimSnapshotCommissionRequest(
   input: ClaimSnapshotCommissionRequestInput
 ): Promise<ClaimSnapshotCommissionRequestResult> {
   const client = resolveClient(input);
   const ownsClient = ownsConnection(input, client);
-
+  const leaseSeconds = Math.max(
+    1,
+    Math.floor((input.leaseSeconds ?? SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS) / 1000)
+  );
   try {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
-        select ingestion_platform.claim_snapshot_commission_request($1, $2) as result
+        select ingestion_platform.claim_snapshot_commission_request($1, $2, $3) as result
       `,
-      [input.workerId, input.workerRunKey]
+      [input.workerId, input.workerRunKey, leaseSeconds]
     );
     const result = response.rows[0]?.result ?? {};
     if (result.ok !== true) {
@@ -140,6 +211,7 @@ export async function claimSnapshotCommissionRequest(
     return {
       ok: true,
       idempotentReplay: result.idempotentReplay === true,
+      leaseReclaimed: result.leaseReclaimed === true,
       request: mapClaimResult(result)
     };
   } finally {
@@ -148,13 +220,15 @@ export async function claimSnapshotCommissionRequest(
     }
   }
 }
-
 export async function completeSnapshotCommissionRequest(
   input: CompleteSnapshotCommissionRequestInput
 ): Promise<CompleteSnapshotCommissionRequestResult> {
   const client = resolveClient(input);
   const ownsClient = ownsConnection(input, client);
-
+  const safeErrorMessage =
+    input.status === "failed" && input.errorCode
+      ? snapshotCommissionOperatorErrorForCode(input.errorCode)
+      : input.errorMessage ?? null;
   try {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
@@ -173,7 +247,7 @@ export async function completeSnapshotCommissionRequest(
         input.status,
         input.registeredReleaseId ?? null,
         input.errorCode ?? null,
-        input.errorMessage ?? null
+        safeErrorMessage
       ]
     );
     const result = response.rows[0]?.result ?? {};
@@ -192,7 +266,6 @@ export async function completeSnapshotCommissionRequest(
     }
   }
 }
-
 export async function loadLatestSnapshotCommissionRequest(input: {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -201,7 +274,6 @@ export async function loadLatestSnapshotCommissionRequest(input: {
 }): Promise<SnapshotCommissionRequestRecord | null> {
   const client = resolveClient(input);
   const ownsClient = ownsConnection(input, client);
-
   try {
     const response = await client.query<CommissionRow>(
       `
@@ -221,6 +293,8 @@ export async function loadLatestSnapshotCommissionRequest(input: {
           r.claimed_at,
           r.claimed_by_id,
           r.worker_run_key,
+          r.claim_expires_at,
+          r.attempt_count,
           r.registered_release_id,
           r.error_code,
           r.error_message,
@@ -242,7 +316,6 @@ export async function loadLatestSnapshotCommissionRequest(input: {
     }
   }
 }
-
 export async function hasActiveSnapshotCommissionRequest(input: {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -251,7 +324,6 @@ export async function hasActiveSnapshotCommissionRequest(input: {
 }): Promise<boolean> {
   const client = resolveClient(input);
   const ownsClient = ownsConnection(input, client);
-
   try {
     const response = await client.query<{ exists: boolean }>(
       `
@@ -274,7 +346,32 @@ export async function hasActiveSnapshotCommissionRequest(input: {
     }
   }
 }
-
+export function assertCommissionPlanIsCommissionable(
+  plan: SnapshotCommissionPlanContext
+): { ok: true } | { ok: false; code: string; error: string } {
+  if (plan.planStatus !== "active") {
+    return {
+      ok: false,
+      code: "plan_not_active",
+      error: snapshotCommissionOperatorErrorForCode("plan_not_active")
+    };
+  }
+  if (!isSnapshotCommissionSupportedSourceKey(plan.sourceKey)) {
+    return {
+      ok: false,
+      code: "unsupported_source_key",
+      error: snapshotCommissionOperatorErrorForCode("unsupported_source_key")
+    };
+  }
+  return { ok: true };
+}
+interface PlanContextRow extends Record<string, unknown> {
+  project_key: string;
+  plan_key: string;
+  source_key: string;
+  plan_status: string;
+  spec: Record<string, unknown>;
+}
 interface CommissionRow extends Record<string, unknown> {
   request_id: string;
   project_key: string;
@@ -291,12 +388,13 @@ interface CommissionRow extends Record<string, unknown> {
   claimed_at?: string | Date | null;
   claimed_by_id?: string | null;
   worker_run_key?: string | null;
+  claim_expires_at?: string | Date | null;
+  attempt_count?: number | null;
   registered_release_id?: string | null;
   error_code?: string | null;
   error_message?: string | null;
   completed_at?: string | Date | null;
 }
-
 function mapCommissionRow(row: CommissionRow): SnapshotCommissionRequestRecord {
   const status = String(row.status);
   if (!isSnapshotCommissionRequestStatus(status)) {
@@ -318,13 +416,14 @@ function mapCommissionRow(row: CommissionRow): SnapshotCommissionRequestRecord {
     claimedAt: row.claimed_at ? toIsoString(row.claimed_at) : undefined,
     claimedById: row.claimed_by_id ?? undefined,
     workerRunKey: row.worker_run_key ?? undefined,
+    claimExpiresAt: row.claim_expires_at ? toIsoString(row.claim_expires_at) : undefined,
+    attemptCount: row.attempt_count ?? undefined,
     registeredReleaseId: row.registered_release_id ?? undefined,
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
     completedAt: row.completed_at ? toIsoString(row.completed_at) : undefined
   };
 }
-
 function mapClaimResult(result: Record<string, unknown>): SnapshotCommissionRequestRecord {
   const status = String(result.status);
   if (!isSnapshotCommissionRequestStatus(status)) {
@@ -344,10 +443,14 @@ function mapClaimResult(result: Record<string, unknown>): SnapshotCommissionRequ
     requestedById: "",
     requestedAt: new Date(0).toISOString(),
     registeredReleaseId:
-      typeof result.registeredReleaseId === "string" ? result.registeredReleaseId : undefined
+      typeof result.registeredReleaseId === "string" ? result.registeredReleaseId : undefined,
+    attemptCount: typeof result.attemptCount === "number" ? result.attemptCount : undefined,
+    claimExpiresAt:
+      typeof result.claimExpiresAt === "string" || result.claimExpiresAt instanceof Date
+        ? toIsoString(result.claimExpiresAt as string | Date)
+        : undefined
   };
 }
-
 function resolveClient(input: {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -360,14 +463,12 @@ function resolveClient(input: {
   }
   return client;
 }
-
 function ownsConnection(
   input: { connectionString?: string; client?: SnapshotCommissionPgClientLike },
   client: SnapshotCommissionPgClientLike
 ): boolean {
   return Boolean(input.connectionString && !input.client && client instanceof Client);
 }
-
 function toIsoString(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

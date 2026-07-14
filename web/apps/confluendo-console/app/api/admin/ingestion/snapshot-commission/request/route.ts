@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  assertCommissionPlanIsCommissionable,
   createSnapshotCommissionRequest,
   evaluateSnapshotCommissionRequestCreate,
   hasActiveSnapshotCommissionRequest,
+  loadSnapshotCommissionPlanContext,
   parseSnapshotCommissionRequestCreate,
   presentSnapshotCommissionCard,
+  snapshotCommissionOperatorErrorForCode,
   toSnapshotCommissionRequestSummary,
+  validateSnapshotCommissionScopeAgainstPlan,
   type SnapshotCommissionRequestRecord
 } from "@confluendo/ingestion-platform/core";
 import { hasFreshAdminStepUp } from "@/lib/autonomy-ramp-step-up";
@@ -49,10 +53,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const hasActiveRequest = await hasActiveSnapshotCommissionRequest({
+  const planContext = await loadSnapshotCommissionPlanContext({
     connectionString,
     projectKey: parsed.request.projectKey,
     planKey: parsed.request.planKey
+  });
+  if (!planContext) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "plan_not_found",
+        error: snapshotCommissionOperatorErrorForCode("plan_not_found")
+      },
+      { status: 404 }
+    );
+  }
+
+  const planEligibility = assertCommissionPlanIsCommissionable(planContext);
+  if (!planEligibility.ok) {
+    return NextResponse.json(
+      { ok: false, code: planEligibility.code, error: planEligibility.error },
+      { status: 409 }
+    );
+  }
+
+  const scopeDecision = validateSnapshotCommissionScopeAgainstPlan({
+    countries: parsed.request.countries,
+    categories: parsed.request.categories,
+    maxRowsPerScope: parsed.request.maxRowsPerScope ?? 250,
+    plan: planContext
+  });
+  if (!scopeDecision.ok) {
+    return NextResponse.json(
+      { ok: false, code: scopeDecision.code, error: scopeDecision.error },
+      { status: 400 }
+    );
+  }
+
+  const hasActiveRequest = await hasActiveSnapshotCommissionRequest({
+    connectionString,
+    projectKey: parsed.request.projectKey,
+    planKey: planContext.planKey
   });
 
   const decision = evaluateSnapshotCommissionRequestCreate({
@@ -81,25 +122,24 @@ export async function POST(request: NextRequest) {
   try {
     const created = await createSnapshotCommissionRequest({
       connectionString,
-      projectKey: parsed.request.projectKey,
-      planKey: parsed.request.planKey,
-      sourceKey: parsed.request.sourceKey,
-      countries: parsed.request.countries,
-      categories: parsed.request.categories,
-      maxRowsPerScope: parsed.request.maxRowsPerScope ?? 250,
+      projectKey: planContext.projectKey,
+      planKey: planContext.planKey,
+      countries: scopeDecision.countries,
+      categories: scopeDecision.categories,
+      maxRowsPerScope: scopeDecision.maxRowsPerScope,
       actor: auth.actor,
       auditReason: decision.auditReason
     });
 
     const requestRecord: SnapshotCommissionRequestRecord = {
       requestId: created.requestId,
-      projectKey: parsed.request.projectKey,
-      planKey: parsed.request.planKey,
-      sourceKey: parsed.request.sourceKey,
+      projectKey: planContext.projectKey,
+      planKey: planContext.planKey,
+      sourceKey: created.sourceKey,
       status: created.status,
-      countries: [...parsed.request.countries],
-      categories: [...parsed.request.categories],
-      maxRowsPerScope: parsed.request.maxRowsPerScope ?? 250,
+      countries: [...scopeDecision.countries],
+      categories: [...scopeDecision.categories],
+      maxRowsPerScope: scopeDecision.maxRowsPerScope,
       auditReason: decision.auditReason,
       requestedByType: auth.actor.type,
       requestedById: auth.actor.id,
@@ -109,10 +149,10 @@ export async function POST(request: NextRequest) {
     const card = presentSnapshotCommissionCard({
       request: requestRecord,
       hasActiveRequest: true,
-      defaultSourceKey: parsed.request.sourceKey,
-      defaultCountries: [...parsed.request.countries],
-      defaultCategories: [...parsed.request.categories],
-      defaultMaxRowsPerScope: parsed.request.maxRowsPerScope ?? 250
+      defaultSourceKey: planContext.sourceKey,
+      defaultCountries: planContext.allowedCountries,
+      defaultCategories: planContext.allowedCategories,
+      defaultMaxRowsPerScope: planContext.maxRowsPerScopeLimit
     });
 
     return NextResponse.json({
@@ -120,6 +160,7 @@ export async function POST(request: NextRequest) {
       requestId: created.requestId,
       auditId: created.auditId,
       status: created.status,
+      sourceKey: created.sourceKey,
       card,
       request: toSnapshotCommissionRequestSummary(requestRecord)
     });
@@ -127,8 +168,40 @@ export async function POST(request: NextRequest) {
     console.error("Snapshot commission request failed", error);
     const message =
       error instanceof Error ? error.message : "Snapshot commission request could not be recorded.";
-    const status = /commission_request_already_active/i.test(message) ? 409 : 500;
-    return NextResponse.json({ ok: false, error: message }, { status });
+    if (/commission_request_already_active/i.test(message)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "commission_request_already_active",
+          error: snapshotCommissionOperatorErrorForCode("commission_request_already_active")
+        },
+        { status: 409 }
+      );
+    }
+    if (/plan_not_active/i.test(message)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "plan_not_active",
+          error: snapshotCommissionOperatorErrorForCode("plan_not_active")
+        },
+        { status: 409 }
+      );
+    }
+    if (/unsupported_source_key/i.test(message)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "unsupported_source_key",
+          error: snapshotCommissionOperatorErrorForCode("unsupported_source_key")
+        },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: "Snapshot commission request could not be recorded." },
+      { status: 500 }
+    );
   }
 }
 
