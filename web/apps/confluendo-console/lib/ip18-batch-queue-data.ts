@@ -6,6 +6,10 @@ import {
   sampleVamoEuPoiBatchQueueSnapshot,
   type BatchQueueSnapshot
 } from "@confluendo/ingestion-platform/core";
+import {
+  loadActiveSnapshotReleasePlanBinding,
+  toRegisteredSnapshotReleaseSummary
+} from "@confluendo/ingestion-platform/core/snapshot-release-plan-binding-read";
 
 export type Ip18BatchQueueSource = "live" | "sample" | "error";
 
@@ -14,6 +18,7 @@ export interface Ip18BatchQueueData {
   source: Ip18BatchQueueSource;
   error?: string;
   applyTelemetrySource?: "inbox" | "missing";
+  registeredSnapshotRelease?: ReturnType<typeof toRegisteredSnapshotReleaseSummary> | null;
 }
 
 /**
@@ -62,7 +67,19 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
       }
     }
 
-    return { snapshot, source: "live", applyTelemetrySource };
+    let registeredSnapshotRelease = null;
+    try {
+      const binding = await loadActiveSnapshotReleasePlanBinding({
+        connectionString: controlDb,
+        projectKey,
+        planKey: snapshot.planId
+      });
+      registeredSnapshotRelease = binding ? toRegisteredSnapshotReleaseSummary(binding) : null;
+    } catch (error) {
+      console.error("Active snapshot release binding read failed", error);
+    }
+
+    return { snapshot, source: "live", applyTelemetrySource, registeredSnapshotRelease };
   } catch (error) {
     console.error("IP-18 batch queue live read failed", error);
     return {

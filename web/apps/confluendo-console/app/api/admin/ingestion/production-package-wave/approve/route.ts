@@ -5,8 +5,7 @@ import {
   loadProductionPackageWaveApprovalContext,
   parseProductionPackageWaveApproveRequest,
   enrichProductionPackageWaveApprovalPlanWithStagedContentHashes,
-  createDefaultProductionPackageWaveCandidateLoader,
-  hashProductionPackageCandidateContent,
+  resolveSnapshotCandidateLoader,
   describeProductionPackageContentEquivalence,
   type EvaluateProductionPackageWaveApprovalResult
 } from "@confluendo/ingestion-platform/core";
@@ -109,10 +108,18 @@ export async function POST(request: NextRequest) {
 
   let enrichedPlan;
   try {
+    const resolvedLoader = await resolveSnapshotCandidateLoader({
+      controlConnectionString: connectionString,
+      projectKey: parsed.request.projectKey,
+      planKey: snapshot.planId,
+      artifactStoreDir: process.env.INGESTION_ARTIFACT_STORE_DIR
+    });
     enrichedPlan = await enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
       plan: decision.plan,
       queueItemsByUnitKey: Object.fromEntries(snapshot.items.map((item) => [item.unitKey, item])),
-      loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+      loadCandidates: resolvedLoader.loader,
+      useRecordedStagingHashes: resolvedLoader.usesActivatedRelease,
+      stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey
     });
   } catch (error) {
     console.error("Production package-wave staged content hash enrichment failed", error);

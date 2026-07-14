@@ -20,7 +20,7 @@ const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 describe("ingestion control schema", () => {
   it("declares only platform-owned ingestion tables", () => {
     assert.equal(CONTROL_SCHEMA_NAME, "ingestion_platform");
-    assert.equal(CONTROL_TABLES.length, 28);
+    assert.equal(CONTROL_TABLES.length, 29);
 
     for (const table of CONTROL_TABLES) {
       assert.match(table, /^ingestion_[a-z0-9_]+$/);
@@ -91,6 +91,23 @@ describe("ingestion control schema", () => {
     assert.doesNotMatch(
       confluendoBootstrapSql,
       /grant update on ingestion_platform\.ingestion_snapshot_releases/i
+    );
+  });
+
+  it("declares snapshot release plan bindings and activation function in SQL", () => {
+    assert.match(controlSchemaSql, /ingestion_snapshot_release_plan_bindings/);
+    assert.match(controlSchemaSql, /create or replace function ingestion_platform\.activate_snapshot_release/);
+    assert.match(
+      confluendoBootstrapSql,
+      /grant select on ingestion_platform\.ingestion_snapshot_release_plan_bindings to confluendo_app/i
+    );
+    assert.match(
+      confluendoBootstrapSql,
+      /grant execute on function ingestion_platform\.activate_snapshot_release/i
+    );
+    assert.doesNotMatch(
+      confluendoBootstrapSql,
+      /grant update on ingestion_platform\.ingestion_snapshot_release_plan_bindings/i
     );
   });
 

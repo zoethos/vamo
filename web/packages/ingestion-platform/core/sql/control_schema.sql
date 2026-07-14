@@ -1711,4 +1711,226 @@ revoke all on function ingestion_platform.register_snapshot_release(
   text
 ) from public;
 
+create table if not exists ingestion_platform.ingestion_snapshot_release_plan_bindings (
+  id bigint generated always as identity primary key,
+  project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,
+  batch_plan_id bigint not null references ingestion_platform.ingestion_batch_plans(id) on delete cascade,
+  release_id bigint not null references ingestion_platform.ingestion_snapshot_releases(id) on delete restrict,
+  status text not null,
+  artifact_bundle_sha256 text not null,
+  coverage jsonb not null default '{}'::jsonb,
+  activated_at timestamptz not null,
+  activated_by_type text not null,
+  activated_by_id text not null,
+  audit_reason text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint ingestion_snapshot_release_plan_bindings_status_check check (
+    status in ('active', 'superseded')
+  ),
+  constraint ingestion_snapshot_release_plan_bindings_coverage_object check (
+    jsonb_typeof(coverage) = 'object'
+  )
+);
+
+create unique index if not exists ingestion_snapshot_release_plan_bindings_one_active_per_plan_idx
+  on ingestion_platform.ingestion_snapshot_release_plan_bindings (batch_plan_id)
+  where status = 'active';
+
+create index if not exists ingestion_snapshot_release_plan_bindings_release_idx
+  on ingestion_platform.ingestion_snapshot_release_plan_bindings (release_id, status);
+
+create or replace function ingestion_platform.activate_snapshot_release(
+  p_project_key text,
+  p_plan_key text,
+  p_release_id text,
+  p_artifact_bundle_sha256 text,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_project_id bigint;
+  v_plan_id bigint;
+  v_plan_source_key text;
+  v_plan_target_key text;
+  v_release_row ingestion_platform.ingestion_snapshot_releases%rowtype;
+  v_binding_id bigint;
+  v_audit_id bigint;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_plan_key := nullif(btrim(p_plan_key), '');
+  p_release_id := nullif(btrim(p_release_id), '');
+  p_artifact_bundle_sha256 := nullif(btrim(p_artifact_bundle_sha256), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_plan_key is null or p_release_id is null then
+    raise exception 'missing_activation_identity';
+  end if;
+
+  if p_artifact_bundle_sha256 is null then
+    raise exception 'missing_artifact_bundle_sha256';
+  end if;
+
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+
+  select p.id
+  into v_project_id
+  from ingestion_platform.ingestion_projects p
+  where p.project_key = p_project_key;
+
+  if v_project_id is null then
+    raise exception 'project_not_found';
+  end if;
+
+  select bp.id, bp.source_key, bp.target_key
+  into v_plan_id, v_plan_source_key, v_plan_target_key
+  from ingestion_platform.ingestion_batch_plans bp
+  where bp.project_id = v_project_id
+    and bp.plan_key = p_plan_key;
+
+  if v_plan_id is null then
+    raise exception 'batch_plan_not_found';
+  end if;
+
+  select *
+  into v_release_row
+  from ingestion_platform.ingestion_snapshot_releases r
+  where r.project_id = v_project_id
+    and r.release_id = p_release_id;
+
+  if v_release_row.id is null then
+    raise exception 'release_not_found';
+  end if;
+
+  if v_release_row.status <> 'activation_ready' then
+    raise exception 'release_not_activation_ready';
+  end if;
+
+  if v_release_row.source_key <> v_plan_source_key then
+    raise exception 'release_source_mismatch';
+  end if;
+
+  if v_release_row.intended_target <> v_plan_target_key then
+    raise exception 'release_target_mismatch';
+  end if;
+
+  if v_release_row.intended_consumer <> p_project_key then
+    raise exception 'release_consumer_mismatch';
+  end if;
+
+  update ingestion_platform.ingestion_snapshot_release_plan_bindings
+  set status = 'superseded',
+      updated_at = now()
+  where batch_plan_id = v_plan_id
+    and status = 'active';
+
+  insert into ingestion_platform.ingestion_snapshot_release_plan_bindings (
+    project_id,
+    batch_plan_id,
+    release_id,
+    status,
+    artifact_bundle_sha256,
+    coverage,
+    activated_at,
+    activated_by_type,
+    activated_by_id,
+    audit_reason,
+    created_at,
+    updated_at
+  )
+  values (
+    v_project_id,
+    v_plan_id,
+    v_release_row.id,
+    'active',
+    p_artifact_bundle_sha256,
+    coalesce(v_release_row.coverage, '{}'::jsonb),
+    now(),
+    p_actor_type,
+    p_actor_id,
+    p_audit_reason,
+    now(),
+    now()
+  )
+  returning id into v_binding_id;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id,
+    actor_type,
+    actor_id,
+    action,
+    target_type,
+    target_id,
+    reason,
+    payload,
+    created_at
+  )
+  values (
+    v_project_id,
+    p_actor_type,
+    p_actor_id,
+    'activate_snapshot_release',
+    'batch_plan',
+    p_plan_key,
+    p_audit_reason,
+    jsonb_build_object(
+      'releaseId', p_release_id,
+      'artifactBundleSha256', p_artifact_bundle_sha256,
+      'bindingId', v_binding_id
+    ),
+    now()
+  )
+  returning id into v_audit_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id,
+    signal,
+    target,
+    detail,
+    tone,
+    created_at
+  )
+  values (
+    v_project_id,
+    'snapshot.release.activated',
+    p_plan_key,
+    format('Activated snapshot release %s for batch plan %s.', p_release_id, p_plan_key),
+    'info',
+    now()
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'bindingId', v_binding_id::text,
+    'releaseId', p_release_id,
+    'planKey', p_plan_key,
+    'auditId', v_audit_id::text,
+    'status', 'activated'
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.activate_snapshot_release(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text
+) from public;
+
 commit;

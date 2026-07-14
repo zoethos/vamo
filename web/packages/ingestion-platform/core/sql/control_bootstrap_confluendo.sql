@@ -139,6 +139,19 @@ grant execute on function ingestion_platform.register_snapshot_release(
   text
 ) to confluendo_app;
 
+-- IP-18.8.11 snapshot release activation: read-only binding visibility plus
+-- owner-run activation via activate_snapshot_release (no direct app mutation).
+grant select on ingestion_platform.ingestion_snapshot_release_plan_bindings to confluendo_app;
+grant execute on function ingestion_platform.activate_snapshot_release(
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text
+) to confluendo_app;
+
 grant usage, select on all sequences in schema ingestion_platform to confluendo_app;
 
 commit;

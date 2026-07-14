@@ -62,6 +62,8 @@ export interface RecordStagingCanaryShipmentInput {
   items: StagingCanaryShipmentItemForLedger[];
   /** Optional stable shipment key; defaults to staging-canary:{targetId}:approval:{approvalAuditId}. */
   shipmentKey?: string;
+  /** Merged into shipment summary JSON (for example stagedContentHash evidence). */
+  summaryExtras?: Record<string, unknown>;
   /**
    * Defaults to true. Set to false only when the caller already owns the
    * surrounding transaction on the provided client.
@@ -284,7 +286,8 @@ export async function recordStagingCanaryShipment(
         JSON.stringify({
           environment: "staging",
           approvalAuditId: input.approvalAuditId,
-          counts: input.counts
+          counts: input.counts,
+          ...(input.summaryExtras ?? {})
         }),
         now
       ]

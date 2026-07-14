@@ -15,11 +15,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  defaultLoadWaveUnitCandidates,
   evaluateBatchStagingCanaryWaveExecution,
   executeBatchStagingCanaryWave,
   loadStagingCanaryWave,
-  runFixturePipeline
+  resolveSnapshotCandidateLoader
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec, parseTargetProjectSpec } from "../dist/spec/src/index.js";
 
@@ -75,6 +74,7 @@ const waveKey = readArg("--wave-key", undefined);
 const approvalAuditId = readArg("--approval-audit-id", undefined);
 const maxUnits = readArg("--max-units", undefined);
 const maxRows = readArg("--max-rows", undefined);
+const artifactStoreDir = readArg("--artifact-store-dir", process.env.INGESTION_ARTIFACT_STORE_DIR);
 const auditReason = readArg(
   "--audit-reason",
   "IP-18.5.2 batch staging-canary wave execution"
@@ -167,6 +167,14 @@ console.log("");
 
 const { pipeline, target } = loadSpecs();
 
+const resolvedLoader = await resolveSnapshotCandidateLoader({
+  controlConnectionString: controlDsn,
+  projectKey,
+  planKey: wave.planKey,
+  artifactStoreDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  pipeline
+});
+
 const result = await executeBatchStagingCanaryWave({
   controlConnectionString: controlDsn,
   stagingConnectionString: stagingDsn,
@@ -181,14 +189,7 @@ const result = await executeBatchStagingCanaryWave({
   target,
   proveStaging: makeProveStaging(stagingDsn),
   deps: {
-    loadCandidates: ({ unit, scope }) =>
-      defaultLoadWaveUnitCandidates({
-        unit,
-        scope,
-        pipeline,
-        fixtureRoot: bundleDir,
-        runPipeline: runFixturePipeline
-      })
+    loadCandidates: ({ unit, scope }) => resolvedLoader.waveLoader({ unit, scope })
   }
 });
 

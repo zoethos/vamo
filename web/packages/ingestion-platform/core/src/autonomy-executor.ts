@@ -38,7 +38,7 @@ import {
 import {
   enrichProductionPackageWaveApprovalPlanWithStagedContentHashes
 } from "./batch-production-package-wave-approval-content.js";
-import { createDefaultProductionPackageWaveCandidateLoader } from "./batch-production-package-wave-candidate-loader.js";
+import { resolveSnapshotCandidateLoader } from "./activated-snapshot-candidate-loader.js";
 import { executeBatchProductionPackageWave } from "./batch-production-package-wave-delivery.js";
 import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
 import {
@@ -80,6 +80,7 @@ export interface AutonomyCycleBaseInput {
   policyKey?: string;
   targetKey?: string;
   batchPlanKey?: string;
+  artifactStoreDir?: string;
   agentId: string;
   reason?: string;
   now?: string;
@@ -651,6 +652,7 @@ async function applyAutonomyAction(
       evaluation,
       actor,
       auditReason,
+      artifactStoreDir: input.artifactStoreDir,
       now
     });
     const result = await approveBatchProductionPackageWave({
@@ -694,6 +696,13 @@ async function applyAutonomyAction(
         "Autonomous production package delivery requires VAMO_PRODUCTION_INBOX_DATABASE_URL."
       );
     }
+    const resolvedLoader = await resolveSnapshotCandidateLoader({
+      client: params.client,
+      controlConnectionString: input.connectionString,
+      projectKey: input.projectKey,
+      planKey: queueSnapshot.planId,
+      artifactStoreDir: input.artifactStoreDir
+    });
     const result = await executeBatchProductionPackageWave({
       controlClient: params.client,
       productionInboxConnectionString: input.productionInboxConnectionString,
@@ -708,7 +717,7 @@ async function applyAutonomyAction(
       reason: auditReason,
       proveProduction: () => input.productionInboxEnvironment === "production",
       deps: {
-        loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+        loadCandidates: resolvedLoader.loader
       },
       now
     });
@@ -854,6 +863,7 @@ async function buildAutonomousProductionPackageWavePlan(input: {
   evaluation: EvaluateAutonomyCycleResult;
   actor: BatchControlActor;
   auditReason: string;
+  artifactStoreDir?: string;
   now: string;
 }): Promise<BatchProductionPackageWaveApprovalPlan> {
   const approvalContext = await loadProductionPackageWaveApprovalContext({
@@ -932,10 +942,18 @@ async function buildAutonomousProductionPackageWavePlan(input: {
   const queueItemsByUnitKey = Object.fromEntries(
     input.queueSnapshot.items.map((item) => [item.unitKey, item])
   ) as Record<string, BatchQueueItem>;
+  const resolvedLoader = await resolveSnapshotCandidateLoader({
+    client: input.client,
+    projectKey: input.policy.projectKey,
+    planKey: input.queueSnapshot.planId,
+    artifactStoreDir: input.artifactStoreDir
+  });
   return enrichProductionPackageWaveApprovalPlanWithStagedContentHashes({
     plan,
     queueItemsByUnitKey,
-    loadCandidates: createDefaultProductionPackageWaveCandidateLoader()
+    loadCandidates: resolvedLoader.loader,
+    useRecordedStagingHashes: resolvedLoader.usesActivatedRelease,
+    stagingEvidenceByUnitKey: approvalContext.stagingEvidenceByUnitKey
   });
 }
 

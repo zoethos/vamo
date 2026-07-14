@@ -50,6 +50,7 @@ interface StagingEvidenceRow extends Record<string, unknown> {
   shipmentId: string | null;
   shipmentKey: string | null;
   shipmentStatus: string | null;
+  stagedContentHash: string | null;
 }
 
 interface OccupiedRow extends Record<string, unknown> {
@@ -146,7 +147,8 @@ export async function loadProductionPackageWaveApprovalContext(
             wi.status as "itemStatus",
             wi.shipment_id::text as "shipmentId",
             s.shipment_key as "shipmentKey",
-            s.status as "shipmentStatus"
+            s.status as "shipmentStatus",
+            s.summary->>'stagedContentHash' as "stagedContentHash"
           from ingestion_platform.ingestion_batch_canary_wave_items wi
           join ingestion_platform.ingestion_batch_canary_waves w on w.id = wi.wave_id
           join ingestion_platform.ingestion_batch_plans bp on bp.id = w.batch_plan_id
@@ -164,7 +166,8 @@ export async function loadProductionPackageWaveApprovalContext(
         stagingEvidenceByUnitKey[row.unitKey] = {
           status: row.shipmentStatus ?? row.itemStatus,
           shipmentKey: row.shipmentKey ?? undefined,
-          shipmentId: row.shipmentId ?? undefined
+          shipmentId: row.shipmentId ?? undefined,
+          stagedContentHash: row.stagedContentHash ?? undefined
         };
       }
 

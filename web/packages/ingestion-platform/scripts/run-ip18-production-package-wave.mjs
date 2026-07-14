@@ -18,9 +18,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  defaultLoadProductionPackageWaveCandidates,
   executeBatchProductionPackageWave,
-  runFixturePipeline
+  loadProductionPackageWave,
+  resolveSnapshotCandidateLoader
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec } from "../dist/spec/src/index.js";
 
@@ -127,6 +127,7 @@ const auditReason = readArg(
   "IP-18.6.3 confirmation-gated production package-wave delivery"
 );
 const actorId = readArg("--actor-id", "cli-operator");
+const artifactStoreDir = readArg("--artifact-store-dir", process.env.INGESTION_ARTIFACT_STORE_DIR);
 
 if (!controlDsn) {
   console.error("INGESTION_CONTROL_DATABASE_URL is required.");
@@ -139,6 +140,25 @@ if (!waveKey?.trim() && !approvalAuditId?.trim()) {
 }
 
 const pipeline = loadPipeline();
+
+const loadedWave = await loadProductionPackageWave({
+  connectionString: controlDsn,
+  projectKey,
+  waveKey,
+  approvalAuditId
+});
+if (!loadedWave) {
+  console.error("Production package wave was not found.");
+  process.exit(1);
+}
+
+const resolvedLoader = await resolveSnapshotCandidateLoader({
+  controlConnectionString: controlDsn,
+  projectKey,
+  planKey: loadedWave.planKey,
+  artifactStoreDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  pipeline
+});
 
 const result = await executeBatchProductionPackageWave({
   controlConnectionString: controlDsn,
@@ -155,14 +175,7 @@ const result = await executeBatchProductionPackageWave({
   reason: auditReason,
   proveProduction: productionDsn ? makeProveProduction(productionDsn) : async () => false,
   deps: {
-    loadCandidates: ({ unit, scope }) =>
-      defaultLoadProductionPackageWaveCandidates({
-        unit,
-        scope,
-        pipeline,
-        fixtureRoot: bundleDir,
-        runPipeline: (input) => runFixturePipeline(input)
-      })
+    loadCandidates: ({ unit, scope }) => resolvedLoader.loader({ unit, scope })
   }
 });
 

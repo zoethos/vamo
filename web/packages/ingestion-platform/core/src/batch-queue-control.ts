@@ -29,6 +29,7 @@ export interface PersistBatchQueueSnapshotInput {
   spec: BatchPlanSpec | Record<string, unknown>;
   planStatus?: "active" | "archived";
   now?: string;
+  manageTransaction?: boolean;
 }
 
 export interface PersistBatchQueueSnapshotResult {
@@ -65,9 +66,12 @@ export async function persistBatchQueueSnapshot(
   }
 
   const now = input.now ?? new Date().toISOString();
+  const manageTransaction = input.manageTransaction ?? true;
   try {
-    await client.query("begin");
-    await client.query("set local statement_timeout = '5s'");
+    if (manageTransaction) {
+      await client.query("begin");
+      await client.query("set local statement_timeout = '5s'");
+    }
 
     const projectResult = await client.query<ProjectRow>(
       `
@@ -209,7 +213,9 @@ export async function persistBatchQueueSnapshot(
     await client.query("commit");
     return { ok: true, batchPlanId };
   } catch (error) {
-    await client.query("rollback");
+    if (manageTransaction) {
+      await client.query("rollback");
+    }
     throw error;
   } finally {
     if (ownedClient) {
