@@ -14,6 +14,8 @@ import {
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const confluendoBootstrapSql = readFileSync("core/sql/control_bootstrap_confluendo.sql", "utf8");
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+const smokeProjectKey = "activation-smoke-vamo";
+const smokePlanKey = "activation-smoke-plan";
 
 describe("snapshot activation request control schema", () => {
   it("declares separate request lifecycle and grants app create/read only", () => {
@@ -44,21 +46,24 @@ describe("snapshot activation request control DB smoke", () => {
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
         await owner.query(
-          `insert into ingestion_platform.ingestion_projects (project_key, display_name) values ('vamo', 'Vamo')`
+          `insert into ingestion_platform.ingestion_projects (project_key, display_name) values ($1, 'Activation smoke Vamo')`,
+          [smokeProjectKey]
         );
         const project = await owner.query<{ id: string }>(
-          `select id::text as id from ingestion_platform.ingestion_projects where project_key = 'vamo'`
+          `select id::text as id from ingestion_platform.ingestion_projects where project_key = $1`,
+          [smokeProjectKey]
         );
         await owner.query(
           `
             insert into ingestion_platform.ingestion_batch_plans (
               project_id, plan_key, source_key, target_key, target_environment, safety_mode, spec, plan_summary, status
-            ) values ($1::bigint, 'vamo-eu-full-data-v1', 'fsq-os-places-snapshot', 'vamo-place-intelligence', 'staging', 'dry_run', '{}'::jsonb, '{}'::jsonb, 'active')
+            ) values ($1::bigint, $2, 'fsq-os-places-snapshot', 'vamo-place-intelligence', 'staging', 'dry_run', '{}'::jsonb, '{}'::jsonb, 'active')
           `,
-          [project.rows[0]!.id]
+          [project.rows[0]!.id, smokePlanKey]
         );
         const plan = await owner.query<{ id: string }>(
-          `select id::text as id from ingestion_platform.ingestion_batch_plans where plan_key = 'vamo-eu-full-data-v1'`
+          `select id::text as id from ingestion_platform.ingestion_batch_plans where plan_key = $1`,
+          [smokePlanKey]
         );
         await owner.query(
           `
@@ -93,8 +98,8 @@ describe("snapshot activation request control DB smoke", () => {
         try {
           const created = await createSnapshotActivationRequest({
             client: app,
-            projectKey: "vamo",
-            planKey: "vamo-eu-full-data-v1",
+            projectKey: smokeProjectKey,
+            planKey: smokePlanKey,
             commissionRequestId: commission.rows[0]!.id,
             releaseId: "fsq-release-1",
             actor: { type: "operator", id: "admin@example.com" },
@@ -103,11 +108,11 @@ describe("snapshot activation request control DB smoke", () => {
           assert.equal(created.status, "requested");
           assert.equal(created.releaseId, "fsq-release-1");
           assert.equal(
-            await hasActiveSnapshotActivationRequest({ client: app, projectKey: "vamo", planKey: "vamo-eu-full-data-v1" }),
+            await hasActiveSnapshotActivationRequest({ client: app, projectKey: smokeProjectKey, planKey: smokePlanKey }),
             true
           );
           assert.equal(
-            (await loadLatestSnapshotActivationRequest({ client: app, projectKey: "vamo", planKey: "vamo-eu-full-data-v1" }))?.status,
+            (await loadLatestSnapshotActivationRequest({ client: app, projectKey: smokeProjectKey, planKey: smokePlanKey }))?.status,
             "requested"
           );
           await assert.rejects(
