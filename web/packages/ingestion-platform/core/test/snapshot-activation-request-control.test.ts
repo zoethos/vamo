@@ -8,7 +8,8 @@ import {
   completeSnapshotActivationRequest,
   createSnapshotActivationRequest,
   hasActiveSnapshotActivationRequest,
-  loadLatestSnapshotActivationRequest
+  loadLatestSnapshotActivationRequest,
+  type SnapshotActivationRequestPgClientLike
 } from "../src/snapshot-activation-request-control.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
@@ -16,6 +17,33 @@ const confluendoBootstrapSql = readFileSync("core/sql/control_bootstrap_confluen
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 const smokeProjectKey = "activation-smoke-vamo";
 const smokePlanKey = "activation-smoke-plan";
+
+describe("snapshot activation request control adapter", () => {
+  it("does not reconnect a caller-provided client", async () => {
+    let connectCalls = 0;
+    const client = {
+      connect: async () => {
+        connectCalls += 1;
+      },
+      query: async () => ({
+        rows: [{ result: { requestId: "1", auditId: "2", releaseId: "fsq-release-1" } }]
+      })
+    };
+
+    const created = await createSnapshotActivationRequest({
+      client: client as unknown as SnapshotActivationRequestPgClientLike,
+      projectKey: smokeProjectKey,
+      planKey: smokePlanKey,
+      commissionRequestId: "1",
+      releaseId: "fsq-release-1",
+      actor: { type: "operator", id: "admin@example.com" },
+      auditReason: "Activate reviewed release."
+    });
+
+    assert.equal(created.requestId, "1");
+    assert.equal(connectCalls, 0);
+  });
+});
 
 describe("snapshot activation request control schema", () => {
   it("declares separate request lifecycle and grants app create/read only", () => {

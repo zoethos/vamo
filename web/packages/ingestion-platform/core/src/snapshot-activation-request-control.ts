@@ -290,16 +290,18 @@ async function withClient<T>(
   input: { connectionString?: string; client?: SnapshotActivationRequestPgClientLike },
   run: (client: SnapshotActivationRequestPgClientLike) => Promise<T>
 ): Promise<T> {
-  const client = input.client ?? (input.connectionString ? new Client({ connectionString: input.connectionString }) : null);
-  if (!client) {
+  if (input.client) {
+    return run(input.client);
+  }
+  if (!input.connectionString) {
     throw new Error("Control database connection is required for snapshot activation requests.");
   }
-  const owned = client instanceof Client;
+  const client = new Client({ connectionString: input.connectionString });
   try {
-    if (owned) await client.connect();
+    await client.connect();
     return await run(client);
   } finally {
-    if (owned) await client.end();
+    await client.end();
   }
 }
 
