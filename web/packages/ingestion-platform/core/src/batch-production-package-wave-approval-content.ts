@@ -20,6 +20,10 @@ export async function enrichProductionPackageWaveApprovalPlanWithStagedContentHa
   plan: BatchProductionPackageWaveApprovalPlan;
   queueItemsByUnitKey: Record<string, BatchQueueItem>;
   loadCandidates: ProductionPackageWaveCandidateLoader;
+  useRecordedStagingHashes?: boolean;
+  stagingEvidenceByUnitKey?: Readonly<
+    Record<string, { stagedContentHash?: string | null; status?: string }>
+  >;
 }): Promise<BatchProductionPackageWaveApprovalPlan> {
   const selectedUnits = [];
   for (const selected of input.plan.selectedUnits) {
@@ -30,6 +34,24 @@ export async function enrichProductionPackageWaveApprovalPlanWithStagedContentHa
         `Cannot compute staged content hash for unit "${selected.item.unitKey}" — queue scope is unavailable.`
       );
     }
+
+    if (input.useRecordedStagingHashes) {
+      const recorded = input.stagingEvidenceByUnitKey?.[selected.item.unitKey]?.stagedContentHash?.trim();
+      if (!recorded) {
+        throw new Error(
+          `Cannot approve unit "${selected.item.unitKey}" — staged content hash evidence is missing for the active snapshot release plan.`
+        );
+      }
+      selectedUnits.push({
+        ...selected,
+        stagingEvidence: {
+          ...selected.stagingEvidence,
+          stagedContentHash: recorded
+        }
+      });
+      continue;
+    }
+
     const candidates = await input.loadCandidates({ unit: queueItem, scope });
     if (candidates.length === 0) {
       throw new Error(

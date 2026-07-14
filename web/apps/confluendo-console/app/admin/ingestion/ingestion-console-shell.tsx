@@ -143,6 +143,13 @@ export interface IngestionConsoleShellProps {
   productionPackageStagingEvidenceByUnitKey: Record<string, { status?: string }>;
   productionPackageHasPriorDeliveredPackage: boolean;
   latestProductionPackageWave: ProductionPackageWavePresentation | null;
+  registeredSnapshotRelease?: {
+    releaseId: string;
+    sourceKey?: string;
+    status: "activation_ready" | "activated";
+    coverageSummary?: string;
+    validRowCount?: number;
+  } | null;
   attentionRows: BatchQueueItem[];
   operatorHealth: OperatorHealth;
   operatorNextAction: string;
@@ -202,6 +209,7 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
       productionPackageEligibleCount: props.productionPackageEligibleCount,
       attentionRows: props.attentionRows,
       operatorNextAction: props.operatorNextAction,
+      registeredSnapshotRelease: props.registeredSnapshotRelease ?? null,
       latestWaveScopeCount: props.latestProductionPackageWave?.items?.length,
       expectedDeliveryWrites: props.batchQueue.latestProductionPackageWave?.items?.reduce(
         (total, item) => total + item.plannedRowCount,

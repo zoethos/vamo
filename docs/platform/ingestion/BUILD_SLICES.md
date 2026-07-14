@@ -1702,8 +1702,52 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.11+** — activate a reviewed snapshot release into the
-bundled consumer contract and re-seed supply after a registered acquisition exists.
+Next product slice: **IP-18.8.12+** — hosted artifact-store access for scheduler-driven
+activation and delivery outside local trusted CLI paths.
+
+### IP-18.8.11 — implemented (snapshot release activation)
+
+**Status:** done — verified local snapshot release activation into
+`vamo-eu-full-data-v1` with plan-scoped bindings, supply reconciliation, and
+artifact-aware staging/approval/delivery. **Not** provider calls, **not** Vamo
+writes, **not** inbox delivery, **not** consumer apply during activation.
+
+Deliverables:
+
+- `ingestion_snapshot_release_plan_bindings` plus security-definer
+  `activate_snapshot_release(...)` — one active binding per batch plan; app role
+  may read bindings and execute activation but cannot directly update registry or
+  binding rows.
+- Pure helpers `reconcileActivatedSnapshotQueue` and
+  `verifySnapshotActivationArtifact` with thin control/artifact adapters.
+- `ip18:snapshot-activate` — preview is write-free; execute requires
+  `CONFIRM_CONFLUENDO_SNAPSHOT_RELEASE_ACTIVATION=YES`,
+  `INGESTION_CONTROL_DATABASE_URL`, `--release-id`, `--plan-key`,
+  `--artifact-store-dir`, and `--audit-reason`. Resolves `file://` artifacts only
+  beneath the trusted store root and verifies bundle identity before any DB
+  mutation.
+- Supply reconciliation preserves terminal/in-flight queue evidence; only
+  source-reconcilable rows refresh. Activation binding plus reconciliation commit
+  atomically.
+- Staging/production CLIs and production approval resolve the active binding,
+  verify artifacts under `INGESTION_ARTIFACT_STORE_DIR` / `--artifact-store-dir`,
+  record `stagedContentHash` evidence at staging execution, and fail closed on
+  active-release plans without bundled-fixture fallback.
+- Workflow Navigator Source Release stage shows safe binding metadata only (no
+  artifact URI/path in browser code).
+
+Local limitation: activation and artifact-aware delivery currently require a
+server/job-accessible artifact store directory on the trusted host. Hosted
+scheduler activation/delivery needs a separately commissioned object store in a
+later slice.
+
+Activation vs acquisition:
+
+- **Acquisition (IP-18.8.10)** — fetch/normalize provider export, store immutable
+  artifacts, register `activation_ready` metadata.
+- **Activation (IP-18.8.11)** — bind a registered release to a batch plan and
+  reconcile queue supply from the verified artifact. No provider calls, no Vamo
+  writes, no inbox delivery, no consumer apply.
 
 ### IP-18.8.10 — implemented (source acquisition and snapshot registry)
 

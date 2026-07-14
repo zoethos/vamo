@@ -28,7 +28,8 @@ export const CONTROL_TABLES = [
   "ingestion_autonomy_runs",
   "ingestion_batch_production_package_waves",
   "ingestion_batch_production_package_wave_items",
-  "ingestion_snapshot_releases"
+  "ingestion_snapshot_releases",
+  "ingestion_snapshot_release_plan_bindings"
 ] as const;
 
 export type AutonomyPolicyStatus = "active" | "paused" | "disabled" | "archived";

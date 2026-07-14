@@ -67,6 +67,10 @@
       "types": "./dist/core/src/scope-workflow-presenter.d.ts",
       "default": "./dist/core/src/scope-workflow-presenter.js"
     },
+    "./core/snapshot-release-plan-binding-read": {
+      "types": "./dist/core/src/snapshot-release-plan-binding-read.d.ts",
+      "default": "./dist/core/src/snapshot-release-plan-binding-read.js"
+    },
     "./staging-canary-control": {
       "types": "./dist/core/src/staging-canary-control.d.ts",
       "default": "./dist/core/src/staging-canary-control.js"
@@ -96,6 +100,7 @@
     "ip18:autonomy-scheduler": "npm run build && node scripts/run-ip18-autonomy-scheduler.mjs",
     "ip18:snapshot-intake": "npm run build && node scripts/run-ip18-snapshot-intake.mjs",
     "ip18:fsq-snapshot-acquire": "npm run build && node scripts/run-ip18-fsq-snapshot-acquire.mjs",
+    "ip18:snapshot-activate": "npm run build && node scripts/run-ip18-snapshot-activate.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

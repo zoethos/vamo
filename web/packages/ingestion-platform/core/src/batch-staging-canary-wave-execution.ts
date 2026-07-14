@@ -279,6 +279,13 @@ export async function executeBatchStagingCanaryWave(
         ? await input.deps.loadCandidates({ unit: queueItem, scope })
         : [];
 
+      const stagedContentHash =
+        candidates.length > 0
+          ? (
+              await import("./production-package-content-hash.js")
+            ).hashProductionPackageCandidateContent(candidates)
+          : null;
+
       const applyResult = input.deps?.applyUnit
         ? await input.deps.applyUnit({
             unitKey: unitPlan.unitKey,
@@ -334,6 +341,7 @@ export async function executeBatchStagingCanaryWave(
         items: applyResult.items.map(toLedgerItem),
         shipmentKey: unitPlan.shipmentKey,
         manageTransaction: false,
+        summaryExtras: stagedContentHash ? { stagedContentHash } : undefined,
         now
       });
 

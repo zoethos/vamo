@@ -864,6 +864,33 @@ export {
   type SnapshotReleaseRegistryPgClientLike
 } from "./snapshot-release-registry-control.js";
 export {
+  activateSnapshotRelease,
+  loadBatchPlanSpecForActivation,
+  loadSnapshotReleaseForActivation,
+  type ActivateSnapshotReleaseInput,
+  type ActivateSnapshotReleaseResult
+} from "./snapshot-release-activation-control.js";
+export {
+  loadActiveSnapshotReleasePlanBinding,
+  toRegisteredSnapshotReleaseSummary,
+  type ActiveSnapshotReleasePlanBindingSummary
+} from "./snapshot-release-plan-binding-read.js";
+export {
+  assertArtifactKeyUnderStore,
+  verifySnapshotActivationArtifact,
+  verifySnapshotActivationArtifactPlanMatch
+} from "./snapshot-release-activation-artifact.js";
+export {
+  isSourceReconcilableQueueItem,
+  reconcileActivatedSnapshotQueue
+} from "./snapshot-release-activation-reconcile.js";
+export {
+  SNAPSHOT_ACTIVATION_CONFIRMATION_ENV,
+  SNAPSHOT_ACTIVATION_CONFIRMATION_VALUE,
+  runSnapshotReleaseActivation
+} from "./snapshot-release-activation.js";
+export { resolveSnapshotCandidateLoader } from "./activated-snapshot-candidate-loader.js";
+export {
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
   FSQ_SNAPSHOT_DEFAULT_LICENSE,

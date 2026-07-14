@@ -66,7 +66,10 @@ export interface WorkflowDecisionHeaderPresentation {
 
 export interface RegisteredSnapshotReleaseSummary {
   releaseId: string;
+  sourceKey?: string;
   status: "activation_ready" | "activated";
+  coverageSummary?: string;
+  validRowCount?: number;
 }
 
 export interface WorkflowNavigatorPresenterInput {
@@ -170,15 +173,25 @@ function presentSourceReleaseStage(
 ): WorkflowNavigatorStagePresentation {
   const connected =
     release?.status === "activation_ready" || release?.status === "activated";
+  const summary = connected
+    ? release!.status === "activated"
+      ? release!.coverageSummary
+        ? `Active release ${release!.releaseId} (${release!.sourceKey ?? "snapshot"}) — ${release!.coverageSummary}.`
+        : `Active release ${release!.releaseId} is bound to this batch plan.`
+      : `Registered release ${release!.releaseId} is ready for downstream binding.`
+    : "Not connected — no registered snapshot release is available in this view yet.";
   return {
     key: "source_release",
     label: "Source release",
     tone: connected ? "good" : "neutral",
-    summary: connected
-      ? `Registered release ${release!.releaseId} is ready for downstream binding.`
-      : "Not connected — no registered snapshot release is available in this view yet.",
+    summary,
     metrics: connected
-      ? [{ label: "Registered", value: 1 }]
+      ? [
+          { label: release!.status === "activated" ? "Active" : "Registered", value: 1 },
+          ...(release!.validRowCount !== undefined
+            ? [{ label: "Valid rows", value: release!.validRowCount }]
+            : [])
+        ]
       : [{ label: "Connected", value: 0 }],
     navigation: { kind: "href", href: "/admin/providers" },
     actionNeeded: false

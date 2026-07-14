@@ -109,8 +109,8 @@ release registry. It is separate from activation and queue reseed:
   adapter/job only; normalize deterministically; reuse IP-18.8.9 intake;
   store immutable artifacts; optionally register `activation_ready` metadata in
   the Confluendo control plane.
-- **Activation** — later slice only: bind the registered release into the bundled
-  consumer contract and re-seed `vamo-eu-full-data-v1` supply.
+- **Activation** — IP-18.8.11: bind a registered release to a batch plan and
+  reconcile `vamo-eu-full-data-v1` supply from the verified artifact (see below).
 
 Boundary rules:
 
@@ -148,6 +148,60 @@ Artifact layout:
 
 This slice does **not** activate a release, reseed the queue, or write to any
 Vamo database.
+
+## Snapshot release activation (IP-18.8.11)
+
+IP-18.8.11 activates a verified `activation_ready` release into the
+`vamo-eu-full-data-v1` batch plan without provider calls, Vamo writes, inbox
+delivery, or consumer apply.
+
+Control-plane binding:
+
+- `ingestion_snapshot_release_plan_bindings` records one **active** binding per
+  batch plan (not a global release status flip).
+- `activate_snapshot_release(...)` is security-definer; `confluendo_app` may
+  `SELECT` bindings and `EXECUTE` activation but cannot directly `UPDATE`
+  registry or binding tables.
+
+Trusted CLI:
+
+```bash
+# Preview — write-free; prints release/plan identity and queue reconciliation
+npm --workspace @confluendo/ingestion-platform run ip18:snapshot-activate -- \
+  --release-id fsq_os_places-20260701-deadbeefcafe \
+  --plan-key vamo-eu-full-data-v1 \
+  --artifact-store-dir /secure/confluendo-snapshot-artifacts \
+  --audit-reason "Activate reviewed FSQ release for full-data queue."
+
+# Execute after review
+CONFIRM_CONFLUENDO_SNAPSHOT_RELEASE_ACTIVATION=YES \
+INGESTION_CONTROL_DATABASE_URL=... \
+npm --workspace @confluendo/ingestion-platform run ip18:snapshot-activate -- \
+  --execute \
+  --release-id fsq_os_places-20260701-deadbeefcafe \
+  --plan-key vamo-eu-full-data-v1 \
+  --artifact-store-dir /secure/confluendo-snapshot-artifacts \
+  --audit-reason "Activate reviewed FSQ release for full-data queue."
+```
+
+Safety rules:
+
+1. Artifacts resolve only beneath `--artifact-store-dir` / trusted store root;
+   bundle SHA-256 and `outputSha256` must match registry metadata before any DB
+   mutation.
+2. Active-release plans **never** silently fall back to the bundled Vamo fixture
+   for staging, approval, or production delivery candidate loading.
+3. Reconciliation refreshes only source-reconcilable rows (`planned`,
+   `ready_for_dry_run`, or `blocked` with `source_snapshot_empty` only). Terminal
+   and in-flight evidence (`consumer_applied`, staging/production waves, dry-run
+   reports) is preserved.
+4. Console/browser read paths expose binding metadata only — never artifact URI,
+   filesystem path, or control DSN.
+
+Local limitation: activation and artifact-aware staging/delivery currently require
+a job-accessible artifact store on the trusted host (`INGESTION_ARTIFACT_STORE_DIR`
+or `--artifact-store-dir`). Hosted scheduler activation/delivery needs a
+separately commissioned server-accessible object store in a later slice.
 
 ## Versioned snapshot intake (IP-18.8.9)
 

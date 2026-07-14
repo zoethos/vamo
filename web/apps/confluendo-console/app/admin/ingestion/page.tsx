@@ -55,7 +55,8 @@ export default async function IngestionDashboardPage() {
     snapshot: batchQueue,
     source: batchQueueSource,
     error: batchQueueError,
-    applyTelemetrySource
+    applyTelemetrySource,
+    registeredSnapshotRelease
   } = await loadIp18BatchQueue("vamo");
   const {
     view: autonomyView,
@@ -294,6 +295,7 @@ export default async function IngestionDashboardPage() {
       productionPackageStagingEvidenceByUnitKey={productionPackageStagingEvidenceByUnitKey}
       productionPackageHasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
       latestProductionPackageWave={latestProductionPackageWave}
+      registeredSnapshotRelease={registeredSnapshotRelease}
       attentionRows={attentionRows}
       operatorHealth={operatorHealth}
       operatorNextAction={operatorNextAction}

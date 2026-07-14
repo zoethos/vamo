@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { Client } from "pg";
+import { Client, type QueryResult } from "pg";
 
 import { parseBatchPlanSpec } from "../src/batch-plan-spec.js";
 import { sampleVamoEuPoiBatchYaml } from "../src/batch-plan-read-model.js";
@@ -15,6 +15,38 @@ const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
 
 describe("batch queue control persistence", () => {
+  it("does not commit a transaction owned by its caller", async () => {
+    const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) {
+      throw new Error("sample yaml failed to parse");
+    }
+
+    const statements: string[] = [];
+    const client = {
+      async query<T extends Record<string, unknown>>(sql: string): Promise<QueryResult<T>> {
+        statements.push(sql);
+        if (sql.includes("from ingestion_platform.ingestion_projects")) {
+          return { rows: [{ id: "1" }] } as unknown as QueryResult<T>;
+        }
+        if (sql.includes("insert into ingestion_platform.ingestion_batch_plans")) {
+          return { rows: [{ id: "2" }] } as unknown as QueryResult<T>;
+        }
+        return { rows: [] } as unknown as QueryResult<T>;
+      }
+    };
+
+    await persistBatchQueueSnapshot({
+      client,
+      projectKey: "vamo",
+      snapshot: sampleVamoEuPoiBatchQueueSnapshot(),
+      spec: parsed.spec,
+      manageTransaction: false
+    });
+
+    assert.equal(statements.some((sql) => /^\s*(begin|commit|rollback)\s*$/i.test(sql)), false);
+  });
+
   it("returns null when batch queue tables are absent", async () => {
     const client = {
       async query<T extends Record<string, unknown>>() {
@@ -47,7 +79,7 @@ describe("batch queue control persistence", () => {
             order by table_name
           `
         );
-        assert.equal(CONTROL_TABLES.length, 28);
+        assert.equal(CONTROL_TABLES.length, 29);
         assert.deepEqual(
           tables.rows.map((row) => row.table_name),
           [...CONTROL_TABLES].sort()

@@ -127,6 +127,7 @@ const baseInput = {
   connectionString: dsn,
   productionInboxConnectionString: process.env.VAMO_PRODUCTION_INBOX_DATABASE_URL?.trim(),
   productionInboxEnvironment: process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT?.trim(),
+  artifactStoreDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim(),
   projectKey,
   policyKey,
   targetKey,
