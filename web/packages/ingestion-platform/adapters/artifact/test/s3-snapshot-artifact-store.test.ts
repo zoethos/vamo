@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 
 import {
   computeSnapshotArtifactBundleSha256,
-  deriveSnapshotArtifactKey,
-  verifySnapshotArtifactBundleContents
+  deriveSnapshotArtifactKey
 } from "../../../core/src/snapshot-artifact-store.js";
+import { isSnapshotArtifactStorageError } from "../../../core/src/snapshot-artifact-storage-error.js";
 import {
   createS3SnapshotArtifactStore,
   type S3ObjectClientLike
@@ -57,7 +57,9 @@ class FakeS3Client implements S3ObjectClientLike {
   async getObject(input: { bucket: string; key: string }) {
     const value = this.objects.get(`${input.bucket}/${input.key}`);
     if (value === undefined) {
-      throw new Error("NoSuchKey");
+      const error = new Error("NoSuchKey");
+      error.name = "NoSuchKey";
+      throw error;
     }
     return { body: value };
   }
@@ -70,12 +72,35 @@ class FakeS3Client implements S3ObjectClientLike {
   }) {
     const objectId = `${input.bucket}/${input.key}`;
     if (input.ifNoneMatch === "*" && this.objects.has(objectId)) {
-      throw new Error("PreconditionFailed");
-    }
-    if (this.objects.has(objectId)) {
-      throw new Error("ObjectAlreadyExists");
+      const error = new Error("PreconditionFailed");
+      error.name = "PreconditionFailed";
+      throw error;
     }
     this.objects.set(objectId, input.body);
+  }
+}
+
+class PartialUploadFakeS3Client extends FakeS3Client {
+  private readonly failKey: string;
+  private failedOnce = false;
+
+  constructor(failKey: string) {
+    super();
+    this.failKey = failKey;
+  }
+
+  override async putObject(input: {
+    bucket: string;
+    key: string;
+    body: string;
+    ifNoneMatch?: string;
+  }) {
+    const objectId = `${input.bucket}/${input.key}`;
+    if (!this.failedOnce && objectId === this.failKey) {
+      this.failedOnce = true;
+      throw new Error("NetworkFailure");
+    }
+    return super.putObject(input);
   }
 }
 
@@ -108,7 +133,6 @@ describe("s3 snapshot artifact store", () => {
     assert.match(put.artifactUri, /^s3:\/\/confluendo-artifacts\//);
 
     const loaded = await store.readReleaseBundle({ artifactKey });
-    assert.equal(verifySnapshotArtifactBundleContents(loaded), true);
     assert.equal(
       await store.verifyReleaseBundle({
         artifactKey,
@@ -116,9 +140,10 @@ describe("s3 snapshot artifact store", () => {
       }),
       true
     );
+    assert.equal(loaded.sourceJsonl, artifacts.sourceJsonl);
   });
 
-  it("refuses overwrite of an existing release bundle", async () => {
+  it("accepts idempotent retries with identical bundle content", async () => {
     const sampleArtifacts = buildSampleArtifacts();
     const artifacts = {
       sourceJsonl: sampleArtifacts.sourceJsonl,
@@ -136,8 +161,50 @@ describe("s3 snapshot artifact store", () => {
       outputSha256: sampleArtifacts.outputSha256
     });
 
-    await store.putReleaseBundle({ artifactKey, artifacts });
-    await assert.rejects(() => store.putReleaseBundle({ artifactKey, artifacts }), /already_exists/);
+    const first = await store.putReleaseBundle({ artifactKey, artifacts });
+    const second = await store.putReleaseBundle({ artifactKey, artifacts });
+    assert.equal(second.bundleSha256, first.bundleSha256);
+  });
+
+  it("resumes partial uploads on exact retry and refuses mismatched content", async () => {
+    const sampleArtifacts = buildSampleArtifacts();
+    const artifacts = {
+      sourceJsonl: sampleArtifacts.sourceJsonl,
+      releaseJson: sampleArtifacts.releaseJson,
+      coverageReportJson: sampleArtifacts.coverageReportJson
+    };
+    const artifactKey = deriveSnapshotArtifactKey({
+      sourceKey: "fsq-os-places-snapshot",
+      releaseId: sampleArtifacts.releaseId,
+      outputSha256: sampleArtifacts.outputSha256
+    });
+    const failKey = `confluendo-artifacts/${artifactKey}/release.json`;
+    const client = new PartialUploadFakeS3Client(failKey);
+    const store = createS3SnapshotArtifactStore({
+      config: { kind: "s3", bucket: "confluendo-artifacts", region: "eu-west-1" },
+      client
+    });
+
+    await assert.rejects(() => store.putReleaseBundle({ artifactKey, artifacts }), /NetworkFailure/);
+    await assert.rejects(() => store.readReleaseBundle({ artifactKey }), (error: unknown) =>
+      isSnapshotArtifactStorageError(error) && error.code === "artifact_bundle_incomplete"
+    );
+
+    const resumed = await store.putReleaseBundle({ artifactKey, artifacts });
+    assert.equal(resumed.bundleSha256, computeSnapshotArtifactBundleSha256(artifacts));
+
+    await assert.rejects(
+      () =>
+        store.putReleaseBundle({
+          artifactKey,
+          artifacts: {
+            ...artifacts,
+            releaseJson: `${artifacts.releaseJson}changed`
+          }
+        }),
+      (error: unknown) =>
+        isSnapshotArtifactStorageError(error) && error.code === "artifact_bundle_conflict"
+    );
   });
 
   it("rejects unsafe artifact keys and detects bundle SHA drift", async () => {
@@ -158,7 +225,8 @@ describe("s3 snapshot artifact store", () => {
           artifactKey: "../escape/key/sha",
           artifacts
         }),
-      /artifact_key_unsafe/
+      (error: unknown) =>
+        isSnapshotArtifactStorageError(error) && error.code === "artifact_key_unsafe"
     );
 
     const artifactKey = deriveSnapshotArtifactKey({
@@ -173,6 +241,63 @@ describe("s3 snapshot artifact store", () => {
         expectedBundleSha256: "f".repeat(64)
       }),
       false
+    );
+  });
+
+  it("distinguishes missing bundles from access and network failures", async () => {
+    const client = new FakeS3Client();
+    const store = createS3SnapshotArtifactStore({
+      config: { kind: "s3", bucket: "confluendo-artifacts", region: "eu-west-1" },
+      client
+    });
+    const artifactKey = deriveSnapshotArtifactKey({
+      sourceKey: "fsq-os-places-snapshot",
+      releaseId: "fsq_os_places-20260701-abc123def456",
+      outputSha256: "abc123"
+    });
+
+    await assert.rejects(() => store.readReleaseBundle({ artifactKey }), (error: unknown) =>
+      isSnapshotArtifactStorageError(error) && error.code === "artifact_bundle_missing"
+    );
+
+    const deniedClient: S3ObjectClientLike = {
+      async headObject() {
+        return { exists: false };
+      },
+      async getObject() {
+        const error = new Error("AccessDenied");
+        error.name = "AccessDenied";
+        throw error;
+      },
+      async putObject() {
+        throw new Error("unexpected put");
+      }
+    };
+    const deniedStore = createS3SnapshotArtifactStore({
+      config: { kind: "s3", bucket: "confluendo-artifacts", region: "eu-west-1" },
+      client: deniedClient
+    });
+    await assert.rejects(() => deniedStore.readReleaseBundle({ artifactKey }), (error: unknown) =>
+      isSnapshotArtifactStorageError(error) && error.code === "artifact_storage_access_denied"
+    );
+
+    const unavailableClient: S3ObjectClientLike = {
+      async headObject() {
+        return { exists: false };
+      },
+      async getObject() {
+        throw new Error("NetworkingError");
+      },
+      async putObject() {
+        throw new Error("unexpected put");
+      }
+    };
+    const unavailableStore = createS3SnapshotArtifactStore({
+      config: { kind: "s3", bucket: "confluendo-artifacts", region: "eu-west-1" },
+      client: unavailableClient
+    });
+    await assert.rejects(() => unavailableStore.readReleaseBundle({ artifactKey }), (error: unknown) =>
+      isSnapshotArtifactStorageError(error) && error.code === "artifact_storage_unavailable"
     );
   });
 });

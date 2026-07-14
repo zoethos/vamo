@@ -12,7 +12,7 @@ import {
   type BatchProductionPackageWaveDeliveryDeps
 } from "./batch-production-package-wave-delivery.js";
 import { runFixturePipeline, runSourcePipeline } from "./pipeline-runner.js";
-import { materializeArtifactBundleToTempDir } from "./snapshot-artifact-materialize.js";
+import { materializeArtifactBundleToScopedDir } from "./snapshot-artifact-materialize.js";
 import {
   assertArtifactKeyUnderStore,
   resolveArtifactDirectoryUnderStore,
@@ -22,6 +22,8 @@ import { loadSnapshotReleaseForActivation } from "./snapshot-release-activation-
 import { loadActiveSnapshotReleasePlanBinding } from "./snapshot-release-plan-binding-read.js";
 import { resolveDefaultProductionPackagePipelineBundleDir } from "./batch-production-package-wave-candidate-loader.js";
 import { createLocalSnapshotArtifactStore, type SnapshotArtifactStore } from "./snapshot-artifact-store.js";
+
+export type SnapshotCandidateLoaderDispose = () => void | Promise<void>;
 
 export interface ResolveSnapshotCandidateLoaderInput {
   controlConnectionString?: string;
@@ -37,7 +39,10 @@ export interface ResolvedSnapshotCandidateLoader {
   usesActivatedRelease: boolean;
   loader: ProductionPackageWaveCandidateLoader;
   waveLoader: NonNullable<BatchProductionPackageWaveDeliveryDeps["loadCandidates"]>;
+  dispose: SnapshotCandidateLoaderDispose;
 }
+
+const noopDispose: SnapshotCandidateLoaderDispose = async () => {};
 
 export async function resolveSnapshotCandidateLoader(
   input: ResolveSnapshotCandidateLoaderInput
@@ -55,7 +60,7 @@ export async function resolveSnapshotCandidateLoader(
 
   if (!binding) {
     const loader = createBundledLoader(pipeline, bundleDir);
-    return { usesActivatedRelease: false, loader, waveLoader: loader };
+    return { usesActivatedRelease: false, loader, waveLoader: loader, dispose: noopDispose };
   }
 
   const store =
@@ -96,17 +101,18 @@ export async function resolveSnapshotCandidateLoader(
     );
   }
 
-  const artifactDir = await resolveArtifactDirectoryForPipeline({
+  const resolvedArtifactDir = await resolveArtifactDirectoryForPipeline({
     store,
     artifactKey: release.artifactKey,
     artifactStoreDir: input.artifactStoreDir
   });
 
-  const artifactLoader = createArtifactLoader(pipeline, artifactDir);
+  const artifactLoader = createArtifactLoader(pipeline, resolvedArtifactDir.artifactDir);
   return {
     usesActivatedRelease: true,
     loader: artifactLoader,
-    waveLoader: artifactLoader
+    waveLoader: artifactLoader,
+    dispose: resolvedArtifactDir.dispose
   };
 }
 
@@ -114,7 +120,7 @@ async function resolveArtifactDirectoryForPipeline(input: {
   store: SnapshotArtifactStore;
   artifactKey: string;
   artifactStoreDir?: string;
-}): Promise<string> {
+}): Promise<{ artifactDir: string; dispose: SnapshotCandidateLoaderDispose }> {
   if (
     input.artifactStoreDir?.trim() &&
     assertArtifactKeyUnderStore(input.artifactKey, input.artifactStoreDir)
@@ -124,14 +130,18 @@ async function resolveArtifactDirectoryForPipeline(input: {
       artifactKey: input.artifactKey
     });
     if (artifactDir) {
-      return artifactDir;
+      return { artifactDir, dispose: noopDispose };
     }
   }
 
-  return materializeArtifactBundleToTempDir({
+  const materialized = await materializeArtifactBundleToScopedDir({
     store: input.store,
     artifactKey: input.artifactKey
   });
+  return {
+    artifactDir: materialized.artifactDir,
+    dispose: materialized.dispose
+  };
 }
 
 function loadBundledPipeline(): { bundleDir: string; pipeline: PipelineSpec } {

@@ -198,33 +198,37 @@ const resolvedLoader = await resolveSnapshotCandidateLoader({
   pipeline
 });
 
-const result = await executeBatchStagingCanaryWave({
-  controlConnectionString: controlDsn,
-  stagingConnectionString: stagingDsn,
-  projectKey,
-  targetEnvironment,
-  waveKey,
-  approvalAuditId,
-  maxUnits: maxUnits ? Number(maxUnits) : undefined,
-  maxRows: maxRows ? Number(maxRows) : undefined,
-  actor: { type: "operator", id: actorId },
-  reason: auditReason,
-  target,
-  proveStaging: makeProveStaging(stagingDsn),
-  deps: {
-    loadCandidates: ({ unit, scope }) => resolvedLoader.waveLoader({ unit, scope })
-  }
-});
+try {
+  const result = await executeBatchStagingCanaryWave({
+    controlConnectionString: controlDsn,
+    stagingConnectionString: stagingDsn,
+    projectKey,
+    targetEnvironment,
+    waveKey,
+    approvalAuditId,
+    maxUnits: maxUnits ? Number(maxUnits) : undefined,
+    maxRows: maxRows ? Number(maxRows) : undefined,
+    actor: { type: "operator", id: actorId },
+    reason: auditReason,
+    target,
+    proveStaging: makeProveStaging(stagingDsn),
+    deps: {
+      loadCandidates: ({ unit, scope }) => resolvedLoader.waveLoader({ unit, scope })
+    }
+  });
 
-console.log("");
-console.log(`Wave status: ${result.waveStatus}`);
-console.log(`Execution audit: ${result.executionAuditId ?? "none"}`);
-console.log(`Idempotent replay: ${result.idempotentReplay}`);
-console.log(`Succeeded: ${result.succeededCount} · Blocked: ${result.blockedCount} · Skipped: ${result.skippedCount}`);
-for (const unit of result.unitResults) {
-  console.log(
-    `  - ${unit.unitKey}: ${unit.status}${unit.shipmentId ? ` · shipment ${unit.shipmentId}` : ""}${unit.shipmentKey ? ` · key ${unit.shipmentKey}` : ""}`
-  );
+  console.log("");
+  console.log(`Wave status: ${result.waveStatus}`);
+  console.log(`Execution audit: ${result.executionAuditId ?? "none"}`);
+  console.log(`Idempotent replay: ${result.idempotentReplay}`);
+  console.log(`Succeeded: ${result.succeededCount} · Blocked: ${result.blockedCount} · Skipped: ${result.skippedCount}`);
+  for (const unit of result.unitResults) {
+    console.log(
+      `  - ${unit.unitKey}: ${unit.status}${unit.shipmentId ? ` · shipment ${unit.shipmentId}` : ""}${unit.shipmentKey ? ` · key ${unit.shipmentKey}` : ""}`
+    );
+  }
+} finally {
+  await resolvedLoader.dispose();
 }
 
 function flowHeader() {

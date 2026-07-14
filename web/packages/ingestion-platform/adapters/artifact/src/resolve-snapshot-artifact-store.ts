@@ -3,13 +3,13 @@
  */
 
 import type { SnapshotArtifactStore } from "../../../core/src/snapshot-artifact-store.js";
-import { createSnapshotArtifactStore } from "./create-snapshot-artifact-store.js";
 import {
   parseSnapshotArtifactStoreConfig,
   type ParseSnapshotArtifactStoreConfigInput,
   type ParseSnapshotArtifactStoreConfigResult,
   type SnapshotArtifactStoreConfig
-} from "./snapshot-artifact-store-config.js";
+} from "../../../core/src/snapshot-artifact-store-config.js";
+import { createSnapshotArtifactStore } from "./create-snapshot-artifact-store.js";
 
 export type ResolveSnapshotArtifactStoreResult =
   | {

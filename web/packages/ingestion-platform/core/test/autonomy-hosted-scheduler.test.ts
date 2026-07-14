@@ -132,6 +132,11 @@ describe("authorizeHostedAutonomySchedulerRequest", () => {
 });
 
 describe("hosted autonomy scheduler route artifact", () => {
+  it("does not import artifact adapters from core modules", () => {
+    const schedulerSource = readFileSync(join(packageRoot, "core/src/autonomy-hosted-scheduler.ts"), "utf8");
+    assert.doesNotMatch(schedulerSource, /adapters\/artifact/);
+  });
+
   it("uses the bounded scheduler and server-side env gates", () => {
     const routeSource = readFileSync(schedulerRoute, "utf8");
     assert.match(routeSource, /runAutonomyScheduler/);

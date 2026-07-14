@@ -5,17 +5,26 @@
  */
 
 import {
-  computeSnapshotArtifactBundleSha256,
-  SNAPSHOT_ARTIFACT_BUNDLE_FILES,
-  type SnapshotArtifactStore,
-  type SnapshotArtifactStorePutResult
-} from "../../../core/src/snapshot-artifact-store.js";
+  readSnapshotArtifactField,
+  SNAPSHOT_ARTIFACT_BUNDLE_FILES
+} from "../../../core/src/snapshot-artifact-bundle.js";
+import { writeImmutableArtifactContent } from "../../../core/src/snapshot-artifact-immutable-write.js";
 import {
   assertArtifactKeySafe,
   objectKeyForArtifactBundleFile
 } from "../../../core/src/snapshot-artifact-key.js";
+import {
+  computeSnapshotArtifactBundleSha256,
+  type SnapshotArtifactStore,
+  type SnapshotArtifactStorePutResult
+} from "../../../core/src/snapshot-artifact-store.js";
+import {
+  classifyArtifactReadError,
+  isObjectNotFoundError,
+  SnapshotArtifactStorageError
+} from "../../../core/src/snapshot-artifact-storage-error.js";
 import type { SnapshotIntakeArtifacts } from "../../../core/src/versioned-snapshot-intake.js";
-import type { SnapshotArtifactStoreS3Config } from "./snapshot-artifact-store-config.js";
+import type { SnapshotArtifactStoreS3Config } from "../../../core/src/snapshot-artifact-store-config.js";
 
 export interface S3ObjectClientLike {
   headObject(input: { bucket: string; key: string }): Promise<{ exists: boolean }>;
@@ -37,33 +46,40 @@ export function createS3SnapshotArtifactStore(
   input: CreateS3SnapshotArtifactStoreInput
 ): SnapshotArtifactStore {
   const { config, client } = input;
-
-  return {
+  const store: SnapshotArtifactStore = {
     async putReleaseBundle({ artifactKey, artifacts }) {
       if (!assertArtifactKeySafe(artifactKey)) {
-        throw new Error("artifact_key_unsafe");
+        throw new SnapshotArtifactStorageError("artifact_key_unsafe", "Artifact key is unsafe.");
       }
+
+      const expectedBundleSha256 = computeSnapshotArtifactBundleSha256(artifacts);
 
       for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
         const key = resolveObjectKey(config, artifactKey, fileName);
-        const existing = await client.headObject({ bucket: config.bucket, key });
-        if (existing.exists) {
-          throw new Error("artifact_bundle_already_exists");
-        }
-      }
-
-      for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
-        const key = resolveObjectKey(config, artifactKey, fileName);
-        const body = readArtifactField(artifacts, fileName);
-        await client.putObject({
-          bucket: config.bucket,
-          key,
-          body,
-          ifNoneMatch: "*"
+        const expectedContent = readSnapshotArtifactField(artifacts, fileName);
+        await writeImmutableArtifactContent({
+          expectedContent,
+          readExisting: async () => readObjectBodyOrNull(client, config.bucket, key),
+          writeIfAbsent: async (content) => {
+            await client.putObject({
+              bucket: config.bucket,
+              key,
+              body: content,
+              ifNoneMatch: "*"
+            });
+          }
         });
       }
 
-      const bundleSha256 = computeSnapshotArtifactBundleSha256(artifacts);
+      const loaded = await store.readReleaseBundle({ artifactKey });
+      const bundleSha256 = computeSnapshotArtifactBundleSha256(loaded);
+      if (bundleSha256 !== expectedBundleSha256) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_conflict",
+          "Verified S3 bundle checksum does not match expected content."
+        );
+      }
+
       return {
         artifactKey,
         artifactUri: buildInternalArtifactUri(config, artifactKey),
@@ -73,25 +89,45 @@ export function createS3SnapshotArtifactStore(
 
     async readReleaseBundle({ artifactKey }) {
       if (!assertArtifactKeySafe(artifactKey)) {
-        throw new Error("artifact_key_unsafe");
+        throw new SnapshotArtifactStorageError("artifact_key_unsafe", "Artifact key is unsafe.");
       }
 
-      const sourceJsonl = await readObjectBody(client, config, artifactKey, "source.jsonl");
-      const releaseJson = await readObjectBody(client, config, artifactKey, "release.json");
-      const coverageReportJson = await readObjectBody(
-        client,
-        config,
-        artifactKey,
-        "coverage-report.json"
-      );
-      return { sourceJsonl, releaseJson, coverageReportJson };
+      const artifacts: Partial<SnapshotIntakeArtifacts> = {};
+      let foundCount = 0;
+
+      for (const fileName of SNAPSHOT_ARTIFACT_BUNDLE_FILES) {
+        const key = resolveObjectKey(config, artifactKey, fileName);
+        const body = await readObjectBodyOrNull(client, config.bucket, key);
+        if (body === null) {
+          continue;
+        }
+        artifacts[artifactFieldName(fileName)] = body;
+        foundCount += 1;
+      }
+
+      if (foundCount === 0) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_missing",
+          "Snapshot artifact bundle was not found."
+        );
+      }
+      if (foundCount !== SNAPSHOT_ARTIFACT_BUNDLE_FILES.length) {
+        throw new SnapshotArtifactStorageError(
+          "artifact_bundle_incomplete",
+          "Snapshot artifact bundle is incomplete."
+        );
+      }
+
+      return artifacts as SnapshotIntakeArtifacts;
     },
 
     async verifyReleaseBundle({ artifactKey, expectedBundleSha256 }) {
-      const artifacts = await this.readReleaseBundle({ artifactKey });
+      const artifacts = await store.readReleaseBundle({ artifactKey });
       return computeSnapshotArtifactBundleSha256(artifacts) === expectedBundleSha256;
     }
   };
+
+  return store;
 }
 
 export function buildInternalArtifactUri(
@@ -105,29 +141,36 @@ export function buildInternalArtifactUri(
 function resolveObjectKey(
   config: SnapshotArtifactStoreS3Config,
   artifactKey: string,
-  fileName: string
+  fileName: (typeof SNAPSHOT_ARTIFACT_BUNDLE_FILES)[number]
 ): string {
   const objectKey = objectKeyForArtifactBundleFile(artifactKey, fileName);
   return config.prefix ? `${config.prefix}/${objectKey}` : objectKey;
 }
 
-async function readObjectBody(
+async function readObjectBodyOrNull(
   client: S3ObjectClientLike,
-  config: SnapshotArtifactStoreS3Config,
-  artifactKey: string,
-  fileName: string
-): Promise<string> {
-  const key = resolveObjectKey(config, artifactKey, fileName);
+  bucket: string,
+  key: string
+): Promise<string | null> {
   try {
-    const response = await client.getObject({ bucket: config.bucket, key });
+    const response = await client.getObject({ bucket, key });
     return response.body;
-  } catch {
-    throw new Error("artifact_bundle_missing");
+  } catch (error) {
+    if (isObjectNotFoundError(error)) {
+      return null;
+    }
+    throw classifyArtifactReadError(error);
   }
 }
 
-function readArtifactField(artifacts: SnapshotIntakeArtifacts, fileName: string): string {
-  if (fileName === "source.jsonl") return artifacts.sourceJsonl;
-  if (fileName === "release.json") return artifacts.releaseJson;
-  return artifacts.coverageReportJson;
+function artifactFieldName(
+  fileName: (typeof SNAPSHOT_ARTIFACT_BUNDLE_FILES)[number]
+): keyof SnapshotIntakeArtifacts {
+  if (fileName === "source.jsonl") {
+    return "sourceJsonl";
+  }
+  if (fileName === "release.json") {
+    return "releaseJson";
+  }
+  return "coverageReportJson";
 }

@@ -3,11 +3,15 @@
  */
 
 import { createLocalSnapshotArtifactStore, type SnapshotArtifactStore } from "../../../core/src/snapshot-artifact-store.js";
+import type { SnapshotArtifactStoreConfig } from "../../../core/src/snapshot-artifact-store-config.js";
+import {
+  classifyArtifactReadError,
+  isObjectNotFoundError
+} from "../../../core/src/snapshot-artifact-storage-error.js";
 import {
   createS3SnapshotArtifactStore,
   type S3ObjectClientLike
 } from "./s3-snapshot-artifact-store.js";
-import type { SnapshotArtifactStoreConfig } from "./snapshot-artifact-store-config.js";
 
 export interface CreateSnapshotArtifactStoreDeps {
   s3Client?: S3ObjectClientLike;
@@ -46,27 +50,35 @@ async function createDefaultS3Client(
         await client.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }));
         return { exists: true };
       } catch (error) {
-        if (isNotFound(error)) {
+        if (isObjectNotFoundError(error)) {
           return { exists: false };
         }
-        throw error;
+        throw classifyArtifactReadError(error);
       }
     },
     async getObject(input) {
-      const response = await client.send(
-        new GetObjectCommand({ Bucket: input.bucket, Key: input.key })
-      );
-      return { body: await streamToString(response.Body) };
+      try {
+        const response = await client.send(
+          new GetObjectCommand({ Bucket: input.bucket, Key: input.key })
+        );
+        return { body: await streamToString(response.Body) };
+      } catch (error) {
+        throw classifyArtifactReadError(error);
+      }
     },
     async putObject(input) {
-      await client.send(
-        new PutObjectCommand({
-          Bucket: input.bucket,
-          Key: input.key,
-          Body: input.body,
-          IfNoneMatch: input.ifNoneMatch
-        })
-      );
+      try {
+        await client.send(
+          new PutObjectCommand({
+            Bucket: input.bucket,
+            Key: input.key,
+            Body: input.body,
+            IfNoneMatch: input.ifNoneMatch
+          })
+        );
+      } catch (error) {
+        throw classifyArtifactReadError(error);
+      }
     }
   };
 }
@@ -89,14 +101,4 @@ async function streamToString(body: unknown): Promise<string> {
     chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk));
   }
   return Buffer.concat(chunks).toString("utf8");
-}
-
-function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    ("name" in error
-      ? error.name === "NotFound" || error.name === "NoSuchKey"
-      : false)
-  );
 }

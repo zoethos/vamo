@@ -2,7 +2,10 @@
  * Pure snapshot artifact key validation (IP-18.8.12).
  */
 
-import { SNAPSHOT_ARTIFACT_BUNDLE_FILES } from "./snapshot-artifact-store.js";
+import {
+  SNAPSHOT_ARTIFACT_BUNDLE_FILES,
+  type SnapshotArtifactBundleFileName
+} from "./snapshot-artifact-bundle.js";
 
 export function assertArtifactKeySafe(artifactKey: string): boolean {
   const trimmed = artifactKey.trim();
@@ -18,9 +21,12 @@ export function assertArtifactKeySafe(artifactKey: string): boolean {
   );
 }
 
-export function objectKeyForArtifactBundleFile(artifactKey: string, fileName: string): string {
+export function objectKeyForArtifactBundleFile(
+  artifactKey: string,
+  fileName: SnapshotArtifactBundleFileName
+): string {
   const normalizedKey = artifactKey.replace(/\/+$/, "");
-  if (!SNAPSHOT_ARTIFACT_BUNDLE_FILES.includes(fileName as (typeof SNAPSHOT_ARTIFACT_BUNDLE_FILES)[number])) {
+  if (!SNAPSHOT_ARTIFACT_BUNDLE_FILES.includes(fileName)) {
     throw new Error(`Unsupported snapshot artifact file "${fileName}".`);
   }
   return `${normalizedKey}/${fileName}`;

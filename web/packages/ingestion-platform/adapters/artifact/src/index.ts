@@ -1,4 +1,9 @@
 export {
+  materializeArtifactBundleToScopedDir,
+  type MaterializedSnapshotArtifactBundle
+} from "../../../core/src/snapshot-artifact-materialize.js";
+export { resolveSnapshotArtifactStoreFromJobEnv } from "./resolve-snapshot-artifact-store.js";
+export {
   LEGACY_LOCAL_ARTIFACT_STORE_DIR_ENV,
   SNAPSHOT_ARTIFACT_S3_BUCKET_ENV,
   SNAPSHOT_ARTIFACT_S3_ENDPOINT_ENV,
@@ -25,5 +30,3 @@ export {
   createSnapshotArtifactStore,
   type CreateSnapshotArtifactStoreDeps
 } from "./create-snapshot-artifact-store.js";
-export { materializeArtifactBundleToTempDir } from "../../../core/src/snapshot-artifact-materialize.js";
-export { resolveSnapshotArtifactStoreFromJobEnv } from "./resolve-snapshot-artifact-store.js";

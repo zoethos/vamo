@@ -11,8 +11,8 @@ import {
   DEFAULT_AUTONOMY_SCHEDULER_MAX_CYCLES,
   MAX_AUTONOMY_SCHEDULER_CYCLES
 } from "./autonomy-scheduler.js";
-import type { SnapshotArtifactStoreS3Config } from "../../adapters/artifact/src/snapshot-artifact-store-config.js";
-import { parseSnapshotArtifactStoreConfig } from "../../adapters/artifact/src/snapshot-artifact-store-config.js";
+import type { SnapshotArtifactStoreS3Config } from "./snapshot-artifact-store-config.js";
+import { parseSnapshotArtifactStoreConfig } from "./snapshot-artifact-store-config.js";
 
 export const HOSTED_AUTONOMY_SCHEDULER_CONFIRMATION = "YES";
 export const HOSTED_AUTONOMY_PRODUCTION_DELIVERY_CONFIRMATION = "YES";

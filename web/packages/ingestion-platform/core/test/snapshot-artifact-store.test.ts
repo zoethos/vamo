@@ -9,9 +9,9 @@ import {
   computeSnapshotArtifactBundleSha256,
   createLocalSnapshotArtifactStore,
   deriveSnapshotArtifactKey,
-  SNAPSHOT_ARTIFACT_BUNDLE_FILES,
-  verifySnapshotArtifactBundleContents
+  SNAPSHOT_ARTIFACT_BUNDLE_FILES
 } from "../src/snapshot-artifact-store.js";
+import { isSnapshotArtifactStorageError } from "../src/snapshot-artifact-storage-error.js";
 
 function buildSampleArtifacts() {
   const sourceJsonl =
@@ -98,13 +98,35 @@ describe("snapshot artifact store", () => {
           artifacts[field]
         );
       }
-      assert.equal(verifySnapshotArtifactBundleContents(loaded), true);
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
     }
   });
 
-  it("refuses overwrite of an existing local release bundle", async () => {
+  it("accepts idempotent retries with identical bundle content", async () => {
+    const sampleArtifacts = buildSampleArtifacts();
+    const artifacts = {
+      sourceJsonl: sampleArtifacts.sourceJsonl,
+      releaseJson: sampleArtifacts.releaseJson,
+      coverageReportJson: sampleArtifacts.coverageReportJson
+    };
+    const baseDir = mkdtempSync(join(tmpdir(), "snapshot-artifact-store-"));
+    try {
+      const store = createLocalSnapshotArtifactStore(baseDir);
+      const artifactKey = deriveSnapshotArtifactKey({
+        sourceKey: "fsq-os-places-snapshot",
+        releaseId: sampleArtifacts.releaseId,
+        outputSha256: sampleArtifacts.outputSha256
+      });
+      const first = await store.putReleaseBundle({ artifactKey, artifacts });
+      const second = await store.putReleaseBundle({ artifactKey, artifacts });
+      assert.equal(second.bundleSha256, first.bundleSha256);
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses conflicting content under the same artifact key", async () => {
     const sampleArtifacts = buildSampleArtifacts();
     const artifacts = {
       sourceJsonl: sampleArtifacts.sourceJsonl,
@@ -120,7 +142,18 @@ describe("snapshot artifact store", () => {
         outputSha256: sampleArtifacts.outputSha256
       });
       await store.putReleaseBundle({ artifactKey, artifacts });
-      await assert.rejects(() => store.putReleaseBundle({ artifactKey, artifacts }), /already_exists/);
+      await assert.rejects(
+        () =>
+          store.putReleaseBundle({
+            artifactKey,
+            artifacts: {
+              ...artifacts,
+              sourceJsonl: `${artifacts.sourceJsonl}changed\n`
+            }
+          }),
+        (error: unknown) =>
+          isSnapshotArtifactStorageError(error) && error.code === "artifact_bundle_conflict"
+      );
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
     }
