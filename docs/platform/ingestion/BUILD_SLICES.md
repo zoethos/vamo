@@ -1736,11 +1736,23 @@ State model:
 `requested → running → release_registered → activation_pending`; failures move
 to `failed`. Release registration never activates automatically.
 
+Control-plane deployment checkpoint (2026-07-14):
+
+- The Confluendo control plane currently has one live database; it does not
+  yet have a distinct control-staging environment. The IP-18.8.13
+  `control_schema.sql` and `control_bootstrap_confluendo.sql` pair was applied
+  and structurally verified on that sole live database.
+- This is a single-environment exception, not a staging-to-production
+  promotion. Current control-plane drift is not measurable because there is
+  no separate staging control database.
+- **Blocked with owner:** Confluendo platform owner (Tiziano) must provision a
+  separate control-staging environment by **2026-07-21**, before the next
+  schema-affecting Confluendo release. That environment must use the same
+  staging-first verification path before production promotion.
+
 Human provisioning prerequisite:
 
-1. Apply control schema/bootstrap updates to staging, then production during
-   the release window.
-2. Schedule the trusted worker (`ip18:snapshot-commission-worker`) on a
+1. Schedule the trusted worker (`ip18:snapshot-commission-worker`) on a
    server/job host with owner `INGESTION_CONTROL_DATABASE_URL`, FSQ catalog
    token, artifact-store config, and
    `CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER=YES`.
