@@ -11,9 +11,16 @@ import {
   createSnapshotCommissionRequest,
   findSnapshotReleaseIdForCommissionRequest,
   hasActiveSnapshotCommissionRequest,
+  loadCommissionedSnapshotPlanContext,
   loadLatestSnapshotCommissionRequest,
   loadSnapshotCommissionPlanContext
 } from "../src/snapshot-commission-control.js";
+import { parseBatchPlanSpec } from "../src/batch-plan-spec.js";
+import { sampleVamoEuPoiBatchYaml } from "../src/batch-plan-read-model.js";
+import { persistBatchQueueSnapshot } from "../src/batch-queue-control.js";
+import { sampleVamoEuPoiBatchQueueSnapshot } from "../src/batch-queue-read-model.js";
+import { parseSnapshotCommissionRequestCreate } from "../src/snapshot-commission-request.js";
+import { snapshotCommissionOperatorErrorForCode } from "../src/snapshot-commission-errors.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const confluendoBootstrapSql = readFileSync(
@@ -82,6 +89,74 @@ async function seedProjectAndPlan(
     [project.rows[0]!.id, planKey, sourceKey, JSON.stringify(planSpec), status]
   );
   return { planKey };
+}
+
+async function seedAutonomyPolicyBatchPlan(client: Client, batchPlanKey: string): Promise<void> {
+  await client.query(
+    `
+      insert into ingestion_platform.ingestion_projects (project_key, display_name)
+      values ('vamo', 'Vamo')
+      on conflict do nothing
+    `
+  );
+  const project = await client.query<{ id: string }>(
+    `select id::text as id from ingestion_platform.ingestion_projects where project_key = 'vamo'`
+  );
+  await client.query(
+    `
+      insert into ingestion_platform.ingestion_autonomy_policies (
+        project_id, policy_key, source_key, target_key, target_environment, status,
+        allowed_tiers, allowed_geographies, allowed_categories, allowed_transitions,
+        max_units_per_cycle, max_rows_per_cycle, rolling_limits, policy_version, approved_by,
+        approved_audit_id, approval_reason, ramp_mode, summary
+      ) values (
+        $1::bigint,
+        'commission-smoke-policy',
+        'fsq-os-places-snapshot',
+        'vamo-place-intelligence',
+        'staging',
+        'active',
+        '[]'::jsonb,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        '["schedule_dry_run"]'::jsonb,
+        1,
+        100,
+        '{}'::jsonb,
+        1,
+        'owner@example.com',
+        'audit-1',
+        'commission smoke',
+        'bootstrap',
+        jsonb_build_object('batchPlanKey', $2::text)
+      )
+    `,
+    [project.rows[0]!.id, batchPlanKey]
+  );
+}
+
+async function seedQueueSnapshotForPlan(
+  client: Client,
+  planKey: string,
+  now: string
+): Promise<void> {
+  const parsed = parseBatchPlanSpec(sampleVamoEuPoiBatchYaml());
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) {
+    throw new Error("sample batch plan failed to parse");
+  }
+  const snapshot = sampleVamoEuPoiBatchQueueSnapshot();
+  await persistBatchQueueSnapshot({
+    client,
+    projectKey: "vamo",
+    snapshot: {
+      ...snapshot,
+      planId: planKey,
+      sourceKey: "fsq-os-places-snapshot"
+    },
+    spec: { ...parsed.spec, id: planKey, sourceKey: "fsq-os-places-snapshot" },
+    now
+  });
 }
 
 describe("snapshot commission control schema", () => {
@@ -165,11 +240,13 @@ describe("snapshot commission control DB smoke", () => {
           await app.end();
         }
 
+        const leaseSeconds = 120;
+        const claimStartedAt = Date.now();
         const claimed = await claimSnapshotCommissionRequest({
           client: owner,
           workerId: "commission-worker",
           workerRunKey: "run-smoke-1",
-          leaseSeconds: 60_000
+          leaseSeconds
         });
         assert.equal(claimed.ok, true);
         if (!claimed.ok) return;
@@ -177,6 +254,12 @@ describe("snapshot commission control DB smoke", () => {
         assert.equal(claimed.idempotentReplay, false);
         assert.ok(claimed.request.claimExpiresAt);
         assert.equal(claimed.request.attemptCount, 1);
+        const leaseDurationSeconds =
+          (Date.parse(claimed.request.claimExpiresAt!) - claimStartedAt) / 1000;
+        assert.ok(
+          leaseDurationSeconds >= leaseSeconds - 5 && leaseDurationSeconds <= leaseSeconds + 5,
+          `expected ~${leaseSeconds}s lease, observed ${leaseDurationSeconds}s`
+        );
       } finally {
         await owner.query("drop schema if exists ingestion_platform cascade");
         await owner.query("drop role if exists confluendo_app");
@@ -311,7 +394,7 @@ describe("snapshot commission control DB smoke", () => {
           client: owner,
           workerId: "worker-a",
           workerRunKey: "run-expired",
-          leaseSeconds: 60_000
+          leaseSeconds: 120
         });
         assert.equal(firstClaim.ok, true);
         if (!firstClaim.ok) return;
@@ -329,7 +412,7 @@ describe("snapshot commission control DB smoke", () => {
           client: owner,
           workerId: "worker-b",
           workerRunKey: "run-reclaim",
-          leaseSeconds: 60_000
+          leaseSeconds: 120
         });
         assert.equal(reclaimed.ok, true);
         if (!reclaimed.ok) return;
@@ -432,17 +515,114 @@ describe("snapshot commission control DB smoke", () => {
       }
     }
   );
+
+  it(
+    "derives the commissioned plan from policy and queue context instead of request hints",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const owner = new Client({ connectionString: databaseUrl });
+      await owner.connect();
+
+      try {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query(controlSchemaSql);
+        await seedProjectAndPlan(owner, { planKey: "forged-plan-key" });
+        await seedAutonomyPolicyBatchPlan(owner, "vamo-eu-poi-sample");
+        await seedQueueSnapshotForPlan(owner, "vamo-eu-poi-sample", "2026-07-02T12:00:00.000Z");
+
+        const commissioned = await loadCommissionedSnapshotPlanContext({
+          client: owner,
+          projectKey: "vamo"
+        });
+        assert.equal(commissioned.ok, true);
+        if (!commissioned.ok) return;
+        assert.equal(commissioned.context.planKey, "vamo-eu-poi-sample");
+        assert.equal(commissioned.planSource, "autonomy_policy");
+
+        const forgedBody = parseSnapshotCommissionRequestCreate({
+          projectKey: "vamo",
+          planKey: "forged-plan-key",
+          countries: ["italy"],
+          categories: ["poi"],
+          auditReason: "Forged plan hint must not change commissioning.",
+          confirmedState: "request_commission"
+        });
+        assert.equal(forgedBody.ok, true);
+        if (!forgedBody.ok) return;
+
+        const created = await createSnapshotCommissionRequest({
+          client: owner,
+          projectKey: commissioned.context.projectKey,
+          planKey: commissioned.context.planKey,
+          countries: ["italy"],
+          categories: ["poi"],
+          maxRowsPerScope: 250,
+          actor: { type: "operator", id: "dba@example.com" },
+          auditReason: forgedBody.request.auditReason
+        });
+        assert.equal(created.sourceKey, "fsq-os-places-snapshot");
+
+        const row = await owner.query<{ plan_key: string }>(
+          `
+            select bp.plan_key
+            from ingestion_platform.ingestion_snapshot_commission_requests r
+            join ingestion_platform.ingestion_batch_plans bp on bp.id = r.batch_plan_id
+            where r.id = $1::bigint
+          `,
+          [created.requestId]
+        );
+        assert.equal(row.rows[0]?.plan_key, "vamo-eu-poi-sample");
+        assert.notEqual(row.rows[0]?.plan_key, "forged-plan-key");
+      } finally {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.end();
+      }
+    }
+  );
+
+  it(
+    "fails closed when autonomy policy and queue workflow disagree on the commissioned plan",
+    { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },
+    async () => {
+      assert.ok(databaseUrl);
+      const owner = new Client({ connectionString: databaseUrl });
+      await owner.connect();
+
+      try {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.query(controlSchemaSql);
+        await seedAutonomyPolicyBatchPlan(owner, "policy-plan");
+        await seedQueueSnapshotForPlan(owner, "policy-plan", "2026-07-02T12:00:00.000Z");
+        await seedQueueSnapshotForPlan(owner, "queue-plan", "2026-07-02T13:00:00.000Z");
+
+        const commissioned = await loadCommissionedSnapshotPlanContext({
+          client: owner,
+          projectKey: "vamo"
+        });
+        assert.deepEqual(commissioned, { ok: false, code: "commission_plan_context_mismatch" });
+        assert.equal(
+          snapshotCommissionOperatorErrorForCode("commission_plan_context_mismatch"),
+          "The active autonomy policy and queue workflow disagree on the commissioned batch plan."
+        );
+      } finally {
+        await owner.query("drop schema if exists ingestion_platform cascade");
+        await owner.end();
+      }
+    }
+  );
 });
 
 describe("snapshot commission route artifact", () => {
   it("uses server-derived plan context and avoids provider, artifact, and consumer write paths", () => {
     const routeSource = readFileSync(commissionRoute, "utf8");
-    assert.match(routeSource, /loadSnapshotCommissionPlanContext/);
+    assert.match(routeSource, /loadCommissionedSnapshotPlanContext/);
     assert.match(routeSource, /validateSnapshotCommissionScopeAgainstPlan/);
     assert.match(routeSource, /createSnapshotCommissionRequest/);
     assert.match(routeSource, /evaluateSnapshotCommissionRequestCreate/);
     assert.match(routeSource, /parseSnapshotCommissionRequestCreate/);
     assert.match(routeSource, /INGESTION_CONTROL_DATABASE_URL/);
+    assert.doesNotMatch(routeSource, /parsed\.request\.planKey/);
     assert.doesNotMatch(routeSource, /runFsqSnapshotAcquire/);
     assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);
     assert.doesNotMatch(routeSource, /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET/);
@@ -462,6 +642,7 @@ describe("snapshot commission route artifact", () => {
     const postBodyBlock = controlSource.match(/body: JSON\.stringify\(\{[\s\S]*?\}\)/);
     assert.ok(postBodyBlock, "expected commissioning POST body");
     assert.doesNotMatch(postBodyBlock[0]!, /sourceKey/);
+    assert.doesNotMatch(postBodyBlock[0]!, /planKey/);
     assert.match(controlSource, /trusted worker/i);
   });
 

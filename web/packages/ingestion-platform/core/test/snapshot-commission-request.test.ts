@@ -11,10 +11,10 @@ import {
 const requestModule = readFileSync("core/src/snapshot-commission-request.ts", "utf8");
 
 describe("parseSnapshotCommissionRequestCreate", () => {
-  it("accepts a valid commissioning request without trusting sourceKey hints", () => {
+  it("accepts a valid commissioning request without trusting planKey or sourceKey hints", () => {
     const parsed = parseSnapshotCommissionRequestCreate({
       projectKey: "vamo",
-      planKey: "vamo-eu-poi-sample",
+      planKey: "forged-plan-key",
       sourceKey: "forged-source-key",
       countries: ["italy", "france"],
       categories: ["poi", "landmark"],
@@ -25,7 +25,7 @@ describe("parseSnapshotCommissionRequestCreate", () => {
 
     assert.equal(parsed.ok, true);
     if (!parsed.ok) return;
-    assert.equal(parsed.request.planKey, "vamo-eu-poi-sample");
+    assert.equal("planKey" in parsed.request, false);
     assert.equal("sourceKey" in parsed.request, false);
     assert.deepEqual(parsed.request.countries, ["italy", "france"]);
     assert.equal(parsed.request.maxRowsPerScope, 250);
@@ -34,7 +34,6 @@ describe("parseSnapshotCommissionRequestCreate", () => {
   it("rejects missing audit reason", () => {
     const parsed = parseSnapshotCommissionRequestCreate({
       projectKey: "vamo",
-      planKey: "vamo-eu-poi-sample",
       countries: ["italy"],
       categories: ["poi"],
       auditReason: "   ",
@@ -49,7 +48,6 @@ describe("parseSnapshotCommissionRequestCreate", () => {
   it("rejects confirmation state mismatch", () => {
     const parsed = parseSnapshotCommissionRequestCreate({
       projectKey: "vamo",
-      planKey: "vamo-eu-poi-sample",
       countries: ["italy"],
       categories: ["poi"],
       auditReason: "Commission snapshot.",

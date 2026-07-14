@@ -2,6 +2,14 @@
  * Control-plane snapshot commission request adapter (IP-18.8.13).
  */
 import { Client, type QueryResult } from "pg";
+import { loadAutonomyPolicy, type AutonomyControlReadPgClientLike } from "./autonomy-control-read.js";
+import { loadBatchQueueSnapshot, type BatchQueueControlReadPgClientLike } from "./batch-queue-control-read.js";
+import { resolveAutonomyDrainBatchPlanKey } from "./batch-plan-selection.js";
+import {
+  evaluateSnapshotCommissionPlanResolution,
+  type SnapshotCommissionPlanResolutionCode,
+  type SnapshotCommissionPlanResolutionSource
+} from "./snapshot-commission-plan-resolution.js";
 import {
   extractPlanCommissionBounds,
   isSnapshotCommissionSupportedSourceKey,
@@ -11,7 +19,7 @@ import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-er
 import {
   isSnapshotCommissionRequestStatus,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
-  SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS,
+  SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS,
   type SnapshotCommissionRequestRecord,
   type SnapshotCommissionRequestStatus
 } from "./snapshot-commission-request.js";
@@ -116,6 +124,72 @@ export async function loadSnapshotCommissionPlanContext(input: {
     }
   }
 }
+
+export type LoadCommissionedSnapshotPlanContextResult =
+  | {
+      ok: true;
+      context: SnapshotCommissionPlanContext;
+      planSource: SnapshotCommissionPlanResolutionSource;
+    }
+  | {
+      ok: false;
+      code: SnapshotCommissionPlanResolutionCode;
+    };
+
+export async function loadCommissionedSnapshotPlanContext(input: {
+  connectionString?: string;
+  client?: SnapshotCommissionPgClientLike;
+  projectKey: string;
+}): Promise<LoadCommissionedSnapshotPlanContextResult> {
+  const client = resolveClient(input);
+  const ownsClient = ownsConnection(input, client);
+
+  try {
+    const readClient = client as SnapshotCommissionPgClientLike &
+      AutonomyControlReadPgClientLike &
+      BatchQueueControlReadPgClientLike;
+
+    const policy = await loadAutonomyPolicy(readClient, {
+      projectKey: input.projectKey
+    });
+    const policyBatchPlanKey = policy
+      ? resolveAutonomyDrainBatchPlanKey({ policy, batchPlanKey: undefined })
+      : undefined;
+
+    const queueSnapshot = await loadBatchQueueSnapshot({
+      client: readClient,
+      projectKey: input.projectKey
+    });
+
+    const resolution = evaluateSnapshotCommissionPlanResolution({
+      policyBatchPlanKey,
+      queuePlanKey: queueSnapshot?.planId
+    });
+    if (!resolution.ok) {
+      return resolution;
+    }
+
+    const context = await loadSnapshotCommissionPlanContext({
+      client: readClient,
+      projectKey: input.projectKey,
+      planKey: resolution.planKey
+    });
+    if (!context) {
+      return { ok: false, code: "plan_not_found" };
+    }
+
+    return {
+      ok: true,
+      context,
+      planSource: resolution.source
+    };
+  } finally {
+    if (ownsClient) {
+      await (client as Client).end();
+    }
+  }
+}
+
 export async function findSnapshotReleaseIdForCommissionRequest(input: {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -195,7 +269,7 @@ export async function claimSnapshotCommissionRequest(
   const ownsClient = ownsConnection(input, client);
   const leaseSeconds = Math.max(
     1,
-    Math.floor((input.leaseSeconds ?? SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS) / 1000)
+    input.leaseSeconds ?? SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS
   );
   try {
     const response = await client.query<{ result: Record<string, unknown> }>(

@@ -16,7 +16,9 @@ export const SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES: Record<string, string>
   plan_not_active: "Commissioning requires an active batch plan.",
   unsupported_source_key: "This batch plan source is not supported for snapshot commissioning.",
   scope_out_of_bounds: "The requested scope is outside approved plan or FSQ bounds.",
-  source_plan_mismatch: "The batch plan source does not match the commissioned source contract."
+  source_plan_mismatch: "The batch plan source does not match the commissioned source contract.",
+  commission_plan_context_mismatch:
+    "The active autonomy policy and queue workflow disagree on the commissioned batch plan."
 };
 
 const UNSAFE_OPERATOR_FRAGMENT =

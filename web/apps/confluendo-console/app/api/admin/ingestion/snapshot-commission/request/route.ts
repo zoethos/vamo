@@ -4,7 +4,7 @@ import {
   createSnapshotCommissionRequest,
   evaluateSnapshotCommissionRequestCreate,
   hasActiveSnapshotCommissionRequest,
-  loadSnapshotCommissionPlanContext,
+  loadCommissionedSnapshotPlanContext,
   parseSnapshotCommissionRequestCreate,
   presentSnapshotCommissionCard,
   snapshotCommissionOperatorErrorForCode,
@@ -53,22 +53,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const planContext = await loadSnapshotCommissionPlanContext({
+  const commissionedPlan = await loadCommissionedSnapshotPlanContext({
     connectionString,
-    projectKey: parsed.request.projectKey,
-    planKey: parsed.request.planKey
+    projectKey: parsed.request.projectKey
   });
-  if (!planContext) {
+  if (!commissionedPlan.ok) {
     return NextResponse.json(
       {
         ok: false,
-        code: "plan_not_found",
-        error: snapshotCommissionOperatorErrorForCode("plan_not_found")
+        code: commissionedPlan.code,
+        error: snapshotCommissionOperatorErrorForCode(commissionedPlan.code)
       },
-      { status: 404 }
+      { status: commissionedPlan.code === "plan_not_found" ? 404 : 409 }
     );
   }
 
+  const planContext = commissionedPlan.context;
   const planEligibility = assertCommissionPlanIsCommissionable(planContext);
   if (!planEligibility.ok) {
     return NextResponse.json(

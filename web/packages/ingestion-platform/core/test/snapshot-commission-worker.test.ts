@@ -228,7 +228,7 @@ describe("runSnapshotCommissionWorker", () => {
           client: owner,
           workerId: "worker",
           workerRunKey: "run-reconcile",
-          leaseSeconds: 60_000
+          leaseSeconds: 120
         });
 
         await owner.query(

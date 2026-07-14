@@ -955,7 +955,7 @@ export {
   SNAPSHOT_COMMISSION_REQUEST_STATUSES,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
   SNAPSHOT_COMMISSION_TERMINAL_STATUSES,
-  SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS,
+  SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS,
   canTransitionSnapshotCommissionStatus,
   isSnapshotCommissionRequestStatus,
   parseSnapshotCommissionRequestCreate,
@@ -977,6 +977,12 @@ export {
   type SnapshotCommissionPlanContext
 } from "./snapshot-commission-plan-context.js";
 export {
+  evaluateSnapshotCommissionPlanResolution,
+  type SnapshotCommissionPlanResolutionCode,
+  type SnapshotCommissionPlanResolutionResult,
+  type SnapshotCommissionPlanResolutionSource
+} from "./snapshot-commission-plan-resolution.js";
+export {
   evaluateSnapshotCommissionRequestCreate,
   type EvaluateSnapshotCommissionRequestCreateInput,
   type EvaluateSnapshotCommissionRequestCreateResult,
@@ -994,11 +1000,13 @@ export {
   createSnapshotCommissionRequest,
   findSnapshotReleaseIdForCommissionRequest,
   hasActiveSnapshotCommissionRequest,
+  loadCommissionedSnapshotPlanContext,
   loadLatestSnapshotCommissionRequest,
   loadSnapshotCommissionPlanContext,
   type ClaimSnapshotCommissionRequestResult,
   type CompleteSnapshotCommissionRequestResult,
   type CreateSnapshotCommissionRequestResult,
+  type LoadCommissionedSnapshotPlanContextResult,
   type SnapshotCommissionPgClientLike
 } from "./snapshot-commission-control.js";
 export {

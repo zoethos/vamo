@@ -21,7 +21,7 @@ export const SNAPSHOT_COMMISSION_ACTIVE_STATUSES = [
   "running",
   "release_registered"
 ] as const satisfies readonly SnapshotCommissionRequestStatus[];
-export const SNAPSHOT_COMMISSION_DEFAULT_LEASE_MS = 30 * 60 * 1000;
+export const SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS = 30 * 60;
 export interface SnapshotCommissionRequestRecord {
   requestId: string;
   projectKey: string;
@@ -47,7 +47,6 @@ export interface SnapshotCommissionRequestRecord {
 }
 export interface SnapshotCommissionRequestCreateInput {
   projectKey: string;
-  planKey: string;
   countries: readonly string[];
   categories: readonly string[];
   maxRowsPerScope?: number;
@@ -87,7 +86,6 @@ export function parseSnapshotCommissionRequestCreate(
   }
   const value = body as Record<string, unknown>;
   const projectKey = readString(value.projectKey);
-  const planKey = readString(value.planKey);
   const auditReason = readString(value.auditReason);
   const confirmedState = readString(value.confirmedState);
   const countries = readStringArray(value.countries);
@@ -95,9 +93,6 @@ export function parseSnapshotCommissionRequestCreate(
   const maxRowsPerScope = readPositiveInteger(value.maxRowsPerScope);
   if (!projectKey) {
     return { ok: false, error: "projectKey is required.", code: "project_key_required" };
-  }
-  if (!planKey) {
-    return { ok: false, error: "planKey is required.", code: "plan_key_required" };
   }
   if (!auditReason) {
     return { ok: false, error: "auditReason is required.", code: "audit_reason_required" };
@@ -119,7 +114,6 @@ export function parseSnapshotCommissionRequestCreate(
     ok: true,
     request: {
       projectKey,
-      planKey,
       countries,
       categories,
       maxRowsPerScope: maxRowsPerScope ?? FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
