@@ -1902,19 +1902,24 @@ begin
 
   insert into ingestion_platform.ingestion_events (
     project_id,
+    event_type,
+    severity,
     signal,
-    target,
-    detail,
-    tone,
-    created_at
+    message,
+    payload
   )
   values (
     v_project_id,
     'snapshot.release.activated',
-    p_plan_key,
-    format('Activated snapshot release %s for batch plan %s.', p_release_id, p_plan_key),
     'info',
-    now()
+    'snapshot.release.activated',
+    format('Activated snapshot release %s for batch plan %s.', p_release_id, p_plan_key),
+    jsonb_build_object(
+      'releaseId', p_release_id,
+      'planKey', p_plan_key,
+      'bindingId', v_binding_id::text,
+      'auditId', v_audit_id::text
+    )
   );
 
   return jsonb_build_object(

@@ -102,6 +102,37 @@ describe("snapshot release activation control", () => {
         );
         assert.equal(activeBindings.rows[0]?.count, "1");
 
+        const activationEvents = await owner.query<{
+          eventType: string;
+          severity: string;
+          signal: string;
+          message: string;
+          releaseId: string;
+          planKey: string;
+        }>(
+          `
+            select
+              event_type as "eventType",
+              severity,
+              signal,
+              message,
+              payload ->> 'releaseId' as "releaseId",
+              payload ->> 'planKey' as "planKey"
+            from ingestion_platform.ingestion_events
+            where signal = 'snapshot.release.activated'
+            order by id desc
+            limit 1
+          `
+        );
+        assert.deepEqual(activationEvents.rows[0], {
+          eventType: "snapshot.release.activated",
+          severity: "info",
+          signal: "snapshot.release.activated",
+          message: `Activated snapshot release ${release.releaseId} for batch plan vamo-eu-full-data-v1.`,
+          releaseId: release.releaseId,
+          planKey: "vamo-eu-full-data-v1"
+        });
+
         const secondRelease = sampleRelease({
           releaseId: "fsq_os_places-20260701-secondrelease",
           outputSha256: "e".repeat(64),
