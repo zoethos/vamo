@@ -10,6 +10,10 @@
 //   CONFIRM_CONFLUENDO_AUTONOMY_SCHEDULER=YES INGESTION_CONTROL_DATABASE_URL=... npm --workspace @confluendo/ingestion-platform run ip18:autonomy-scheduler -- --execute --project-key vamo --policy-key vamo-eu-poi-staging-v1 --max-cycles 10
 
 import { runAutonomyScheduler } from "../dist/core/src/autonomy-scheduler.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 function npmConfigName(name) {
   return `npm_config_${name.replace(/^--/, "").replace(/-/g, "_")}`;
@@ -168,7 +172,29 @@ const result = await runAutonomyScheduler({
   agentId,
   reason,
   maxCycles,
-  intervalMs
+  intervalMs,
+  artifactStoreDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim(),
+  ...(await resolveOptionalArtifactStoreInput())
 });
 
 console.log(JSON.stringify(result, null, 2));
+
+async function resolveOptionalArtifactStoreInput() {
+  if (
+    !process.env.INGESTION_ARTIFACT_STORE_DIR?.trim() &&
+    process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() !== "s3"
+  ) {
+    return {};
+  }
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  return {
+    artifactStoreDir: artifactStoreResolved.artifactStoreDir,
+    artifactStore: artifactStoreResolved.store
+  };
+}

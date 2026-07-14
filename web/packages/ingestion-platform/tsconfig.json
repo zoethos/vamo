@@ -22,6 +22,8 @@
     "policy/test/**/*.ts",
     "adapters/source/src/**/*.ts",
     "adapters/source/test/**/*.ts",
+    "adapters/artifact/src/**/*.ts",
+    "adapters/artifact/test/**/*.ts",
     "adapters/target/src/**/*.ts",
     "adapters/target/test/**/*.ts"
   ],

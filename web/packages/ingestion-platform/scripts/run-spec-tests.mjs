@@ -9,9 +9,10 @@ const suiteDirectories = new Map([
   ["policy", ["dist/policy/test"]],
   ["source", ["dist/adapters/source/test"]],
   ["target", ["dist/adapters/target/test"]],
-  ["adapters", ["dist/adapters/source/test", "dist/adapters/target/test"]]
+  ["artifact", ["dist/adapters/artifact/test"]],
+  ["adapters", ["dist/adapters/source/test", "dist/adapters/target/test", "dist/adapters/artifact/test"]]
 ]);
-const suites = requestedSuites.length > 0 ? requestedSuites : ["spec", "core", "policy", "source", "target"];
+const suites = requestedSuites.length > 0 ? requestedSuites : ["spec", "core", "policy", "source", "target", "artifact"];
 
 const testFiles = suites.flatMap((suite) => {
   const directories = suiteDirectories.get(suite);

@@ -21,6 +21,10 @@ import {
   resolveSnapshotCandidateLoader
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec, parseTargetProjectSpec } from "../dist/spec/src/index.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
@@ -167,11 +171,30 @@ console.log("");
 
 const { pipeline, target } = loadSpecs();
 
+let artifactStoreDirResolved;
+let artifactStore;
+if (
+  artifactStoreDir?.trim() ||
+  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3" ||
+  process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
+) {
+  const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+    preferLocalDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined
+  });
+  if (!artifactStoreResolved.ok) {
+    printArtifactStoreResolutionFailure(artifactStoreResolved);
+    process.exit(1);
+  }
+  artifactStoreDirResolved = artifactStoreResolved.artifactStoreDir;
+  artifactStore = artifactStoreResolved.store;
+}
+
 const resolvedLoader = await resolveSnapshotCandidateLoader({
   controlConnectionString: controlDsn,
   projectKey,
   planKey: wave.planKey,
-  artifactStoreDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined,
+  artifactStoreDir: artifactStoreDirResolved,
+  artifactStore,
   pipeline
 });
 

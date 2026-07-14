@@ -1702,8 +1702,47 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
-Next product slice: **IP-18.8.12+** — hosted artifact-store access for scheduler-driven
-activation and delivery outside local trusted CLI paths.
+Next product slice: **IP-18.8.13+** — live release commissioning, acquisition,
+and activation under operator confirmation (not autonomous provider fetching).
+
+### IP-18.8.12 — implemented (hosted snapshot artifact store)
+
+**Status:** done — server/job-only S3-compatible snapshot artifact store for
+hosted scheduler staging/delivery reads of already-activated snapshots. **Not**
+automatic acquisition/activation/delivery, **not** Vamo writes, **not** inbox
+delivery, **not** consumer apply, **not** browser artifact access.
+
+Deliverables:
+
+- `adapters/artifact/` — S3-compatible `SnapshotArtifactStore` adapter with
+  injectable client seam; dynamic `@aws-sdk/client-s3` import keeps SDK out of
+  console/browser bundles.
+- `snapshot-artifact-store-config.ts` — pure env parser/factory for trusted job
+  contexts only (`CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3`, bucket, region,
+  optional endpoint/prefix). Credentials from server/job env only.
+- Immutable writes (no overwrite), unsafe-key refusal, bundle SHA-256
+  verification from artifact contents (never ETag), exactly
+  `source.jsonl` / `release.json` / `coverage-report.json`.
+- Wired into IP-18.8.10 acquisition execute, IP-18.8.11 activation CLI,
+  artifact-aware staging/production delivery, and hosted autonomy scheduler.
+  Local `--artifact-store-dir` / `INGESTION_ARTIFACT_STORE_DIR` unchanged.
+- Hosted scheduler fails closed without valid S3 artifact-store config.
+- Boundary audit: no artifact-store credentials, bucket names, or S3 SDK in
+  console runtime.
+
+Human provisioning prerequisite:
+
+1. Private Confluendo-owned S3-compatible bucket (AWS S3, R2, MinIO, etc.).
+2. Least-privilege job credential restricted to that bucket/prefix
+   (`GetObject`, `PutObject`, `HeadObject` on snapshot artifact keys only).
+3. Server/job-only environment configuration on the hosted scheduler and trusted
+   CLIs — never in console client components, API responses, or browser props.
+
+Vamo has no artifact-store credentials; artifacts are never browser-accessible.
+
+Local limitation: trusted CLIs may still use `--artifact-store-dir` on a trusted
+host. Hosted scheduler requires S3 config; pipeline execution materializes
+hosted bundles to a temp dir server-side before running the existing pipeline.
 
 ### IP-18.8.11 — implemented (snapshot release activation)
 
@@ -1735,11 +1774,6 @@ Deliverables:
   active-release plans without bundled-fixture fallback.
 - Workflow Navigator Source Release stage shows safe binding metadata only (no
   artifact URI/path in browser code).
-
-Local limitation: activation and artifact-aware delivery currently require a
-server/job-accessible artifact store directory on the trusted host. Hosted
-scheduler activation/delivery needs a separately commissioned object store in a
-later slice.
 
 Activation vs acquisition:
 

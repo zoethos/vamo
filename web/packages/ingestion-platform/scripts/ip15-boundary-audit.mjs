@@ -129,6 +129,7 @@ assert(
 const platformSrcRoots = [
   path.join(packageRoot, "core", "src"),
   path.join(packageRoot, "adapters", "source", "src"),
+  path.join(packageRoot, "adapters", "artifact", "src"),
   path.join(packageRoot, "adapters", "target", "src"),
   path.join(packageRoot, "policy", "src"),
   path.join(packageRoot, "spec", "src")
@@ -173,10 +174,19 @@ const fsqAcquisitionAdapter = path.join(
   "src",
   "fsq-os-places-catalog-acquire.ts"
 );
+const s3ArtifactStoreAdapters = [
+  path.join(packageRoot, "adapters", "artifact", "src", "s3-snapshot-artifact-store.ts"),
+  path.join(packageRoot, "adapters", "artifact", "src", "create-snapshot-artifact-store.ts")
+];
 const fsqAcquisitionSource = readFileSync(fsqAcquisitionAdapter, "utf8");
 const platformSrcFiles = platformSrcRoots
   .flatMap((root) => walk(root))
-  .filter((file) => /\.(js|mjs|ts)$/.test(file) && file !== fsqAcquisitionAdapter);
+  .filter(
+    (file) =>
+      /\.(js|mjs|ts)$/.test(file) &&
+      file !== fsqAcquisitionAdapter &&
+      !s3ArtifactStoreAdapters.includes(file)
+  );
 
 const providerFetchOutsideAdapter = platformSrcFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
@@ -200,6 +210,60 @@ assert(
   `console runtime must not reference FSQ_OS_PLACES_CATALOG_TOKEN:\n${consoleRuntimeWithFsqToken
     .map(toRepoRelative)
     .join("\n")}`
+);
+
+const consoleClientRuntimeFiles = consoleRuntimeFiles.filter((file) => {
+  const relative = toRepoRelative(file);
+  return !relative.includes("/app/api/");
+});
+
+const consoleRuntimeWithArtifactSecrets = consoleClientRuntimeFiles.filter((file) => {
+  const source = readFileSync(file, "utf8");
+  return (
+    /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET/.test(source) ||
+    /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT/.test(source) ||
+    /AWS_SECRET_ACCESS_KEY/.test(source) ||
+    /@aws-sdk\/client-s3/.test(source)
+  );
+});
+
+assert(
+  consoleRuntimeWithArtifactSecrets.length === 0,
+  `console client runtime must not reference hosted artifact-store credentials or SDK:\n${consoleRuntimeWithArtifactSecrets
+    .map(toRepoRelative)
+    .join("\n")}`
+);
+
+const hostedSchedulerRoute = path.join(
+  webRoot,
+  "apps",
+  "confluendo-console",
+  "app",
+  "api",
+  "admin",
+  "ingestion",
+  "autonomy",
+  "scheduler",
+  "route.ts"
+);
+const hostedSchedulerRouteSource = readFileSync(hostedSchedulerRoute, "utf8");
+const hostedSchedulerSuccessResponse =
+  hostedSchedulerRouteSource.match(/return NextResponse\.json\(\{\s*ok: true,[\s\S]*?\}\);/)?.[0] ??
+  "";
+assert(
+  hostedSchedulerRouteSource.includes("createSnapshotArtifactStore") &&
+    hostedSchedulerRouteSource.includes("@confluendo/ingestion-platform/adapters/artifact"),
+  "hosted scheduler route must resolve artifact store through the server-only adapter export"
+);
+assert(
+  !/@aws-sdk\/client-s3/.test(hostedSchedulerRouteSource),
+  "hosted scheduler route must not import @aws-sdk/client-s3 directly"
+);
+assert(
+  !hostedSchedulerSuccessResponse.includes("artifactStoreConfig") &&
+    !hostedSchedulerSuccessResponse.includes("bucket") &&
+    !hostedSchedulerSuccessResponse.includes("s3://"),
+  "hosted scheduler success response must not expose artifact-store config"
 );
 
 assert(

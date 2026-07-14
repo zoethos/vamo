@@ -82,6 +82,7 @@ export interface AutonomyCycleBaseInput {
   targetKey?: string;
   batchPlanKey?: string;
   artifactStoreDir?: string;
+  artifactStore?: import("./snapshot-artifact-store.js").SnapshotArtifactStore;
   agentId: string;
   reason?: string;
   now?: string;
@@ -702,7 +703,8 @@ async function applyAutonomyAction(
       controlConnectionString: input.connectionString,
       projectKey: input.projectKey,
       planKey: queueSnapshot.planId,
-      artifactStoreDir: input.artifactStoreDir
+      artifactStoreDir: input.artifactStoreDir,
+      artifactStore: input.artifactStore
     });
     const result = await executeBatchProductionPackageWave({
       controlClient: params.client,

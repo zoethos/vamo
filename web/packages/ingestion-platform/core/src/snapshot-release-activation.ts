@@ -23,13 +23,16 @@ export const SNAPSHOT_ACTIVATION_CONFIRMATION_ENV =
   "CONFIRM_CONFLUENDO_SNAPSHOT_RELEASE_ACTIVATION" as const;
 export const SNAPSHOT_ACTIVATION_CONFIRMATION_VALUE = "YES" as const;
 
+import type { SnapshotArtifactStore } from "./snapshot-artifact-store.js";
+
 export interface RunSnapshotReleaseActivationInput {
   preview: boolean;
   confirmation?: string;
   projectKey: string;
   planKey: string;
   releaseId: string;
-  artifactStoreDir: string;
+  artifactStoreDir?: string;
+  artifactStore?: SnapshotArtifactStore;
   connectionString: string;
   actor?: { type: string; id: string };
   auditReason?: string;
@@ -95,6 +98,10 @@ export async function runSnapshotReleaseActivation(
     return { ok: false, blocks: ["release_not_activation_ready"] };
   }
 
+  if (!input.artifactStore && !input.artifactStoreDir?.trim()) {
+    return { ok: false, blocks: ["artifact_store_unconfigured"] };
+  }
+
   const planSpecRecord = await loadBatchPlanSpecForActivation({
     connectionString: input.connectionString,
     projectKey: input.projectKey,
@@ -117,7 +124,8 @@ export async function runSnapshotReleaseActivation(
   const verified = await verifySnapshotActivationArtifact({
     release,
     plan: planSpec,
-    artifactStoreDir: input.artifactStoreDir
+    artifactStoreDir: input.artifactStoreDir,
+    artifactStore: input.artifactStore
   });
   if (!verified.ok) {
     return { ok: false, blocks: verified.blocks };

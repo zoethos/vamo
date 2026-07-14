@@ -3,8 +3,10 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+
+import { assertArtifactKeySafe } from "./snapshot-artifact-key.js";
 
 import type { SnapshotIntakeArtifacts } from "./versioned-snapshot-intake.js";
 import { sha256Hex } from "./versioned-snapshot-intake.js";
@@ -62,7 +64,13 @@ export function createLocalSnapshotArtifactStore(baseDir: string): SnapshotArtif
   const rootDir = resolve(baseDir);
   return {
     async putReleaseBundle(input) {
+      if (!assertArtifactKeySafe(input.artifactKey)) {
+        throw new Error("artifact_key_unsafe");
+      }
       const artifactDir = join(rootDir, ...input.artifactKey.split("/"));
+      if (existsSync(join(artifactDir, SNAPSHOT_ARTIFACT_BUNDLE_FILES[0]!))) {
+        throw new Error("artifact_bundle_already_exists");
+      }
       mkdirSync(artifactDir, { recursive: true });
       writeFileSync(join(artifactDir, "source.jsonl"), input.artifacts.sourceJsonl, "utf8");
       writeFileSync(join(artifactDir, "release.json"), input.artifacts.releaseJson, "utf8");
@@ -80,6 +88,9 @@ export function createLocalSnapshotArtifactStore(baseDir: string): SnapshotArtif
       };
     },
     async readReleaseBundle(input) {
+      if (!assertArtifactKeySafe(input.artifactKey)) {
+        throw new Error("artifact_key_unsafe");
+      }
       const artifactDir = join(rootDir, ...input.artifactKey.split("/"));
       return {
         sourceJsonl: readFileSync(join(artifactDir, "source.jsonl"), "utf8"),

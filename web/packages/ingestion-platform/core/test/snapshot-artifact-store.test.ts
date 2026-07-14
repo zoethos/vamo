@@ -103,4 +103,26 @@ describe("snapshot artifact store", () => {
       rmSync(baseDir, { recursive: true, force: true });
     }
   });
+
+  it("refuses overwrite of an existing local release bundle", async () => {
+    const sampleArtifacts = buildSampleArtifacts();
+    const artifacts = {
+      sourceJsonl: sampleArtifacts.sourceJsonl,
+      releaseJson: sampleArtifacts.releaseJson,
+      coverageReportJson: sampleArtifacts.coverageReportJson
+    };
+    const baseDir = mkdtempSync(join(tmpdir(), "snapshot-artifact-store-"));
+    try {
+      const store = createLocalSnapshotArtifactStore(baseDir);
+      const artifactKey = deriveSnapshotArtifactKey({
+        sourceKey: "fsq-os-places-snapshot",
+        releaseId: sampleArtifacts.releaseId,
+        outputSha256: sampleArtifacts.outputSha256
+      });
+      await store.putReleaseBundle({ artifactKey, artifacts });
+      await assert.rejects(() => store.putReleaseBundle({ artifactKey, artifacts }), /already_exists/);
+    } finally {
+      rmSync(baseDir, { recursive: true, force: true });
+    }
+  });
 });

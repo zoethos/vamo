@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./adapters/source": "./dist/adapters/source/src/index.js",
+    "./adapters/artifact": "./dist/adapters/artifact/src/index.js",
     "./adapters/target": "./dist/adapters/target/src/index.js",
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
     "./adapters/target/supabase": "./dist/adapters/target/src/supabase-postgres.js",
@@ -105,6 +106,7 @@
     "worker": "node dist/core/src/worker-main.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.888.0",
     "pg": "8.22.0",
     "yaml": "2.9.0"
   },

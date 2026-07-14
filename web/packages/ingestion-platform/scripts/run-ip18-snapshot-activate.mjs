@@ -27,6 +27,10 @@ import {
   SNAPSHOT_ACTIVATION_CONFIRMATION_VALUE,
   runSnapshotReleaseActivation
 } from "../dist/core/src/index.js";
+import {
+  printArtifactStoreResolutionFailure,
+  resolveCliSnapshotArtifactStore
+} from "./snapshot-artifact-store-cli.mjs";
 
 function readArg(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -61,13 +65,16 @@ if (!releaseId?.trim()) {
   process.exit(1);
 }
 
-if (!artifactStoreDir?.trim()) {
-  console.error("Missing required argument: --artifact-store-dir");
+if (!controlConnectionString) {
+  console.error("INGESTION_CONTROL_DATABASE_URL is required.");
   process.exit(1);
 }
 
-if (!controlConnectionString) {
-  console.error("INGESTION_CONTROL_DATABASE_URL is required.");
+const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+  preferLocalDir: artifactStoreDir ? resolve(artifactStoreDir) : undefined
+});
+if (!artifactStoreResolved.ok) {
+  printArtifactStoreResolutionFailure(artifactStoreResolved);
   process.exit(1);
 }
 
@@ -83,7 +90,8 @@ const result = await runSnapshotReleaseActivation({
   projectKey,
   planKey,
   releaseId,
-  artifactStoreDir: resolve(artifactStoreDir),
+  artifactStoreDir: artifactStoreResolved.artifactStoreDir,
+  artifactStore: artifactStoreResolved.store,
   connectionString: controlConnectionString,
   actor: { type: "operator", id: actorId },
   auditReason

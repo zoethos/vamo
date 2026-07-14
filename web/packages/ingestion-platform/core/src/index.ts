@@ -858,6 +858,13 @@ export {
   type SnapshotArtifactStorePutResult
 } from "./snapshot-artifact-store.js";
 export {
+  assertArtifactKeySafe,
+  objectKeyForArtifactBundleFile
+} from "./snapshot-artifact-key.js";
+export {
+  materializeArtifactBundleToTempDir
+} from "./snapshot-artifact-materialize.js";
+export {
   registerSnapshotRelease,
   type RegisterSnapshotReleaseInput,
   type RegisterSnapshotReleaseResult,
