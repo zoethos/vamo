@@ -124,7 +124,7 @@ function assertRuntimeRoleIsSafe(role) {
 
 async function rotateRuntimeRolePassword(client, password) {
   const statement = await client.query(
-    "select format('alter role %I login password %L', $1, $2) as sql",
+    "select format('alter role %I login password %L', $1::text, $2::text) as sql",
     [RUNTIME_ROLE_NAME, password]
   );
   await client.query(statement.rows[0].sql);
