@@ -116,6 +116,10 @@ export {
   type ProvisionVamoControlAdminResult
 } from "./control-admin-provisioning.js";
 export {
+  assertConfluendoControlRuntimeDatabaseUrl,
+  deriveConfluendoControlRuntimeDatabaseUrl
+} from "./control-runtime-database-role.js";
+export {
   type ShipmentCandidateRow,
   type ShipmentOperation,
   type ShipmentPlan,

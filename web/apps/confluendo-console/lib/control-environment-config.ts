@@ -2,6 +2,7 @@ import {
   parseControlEnvironment,
   type ControlEnvironment
 } from "./control-environment";
+import { assertConfluendoControlRuntimeDatabaseUrl } from "@confluendo/ingestion-platform/core/control-runtime-database-role";
 
 export type ControlEnvironmentConfig = {
   environment: ControlEnvironment;
@@ -39,6 +40,7 @@ export function getControlEnvironmentConfig(
   const controlDatabaseUrl = read(environment, `${prefix}_DATABASE_URL`);
 
   if (supabaseUrl && supabasePublishableKey && controlDatabaseUrl) {
+    assertConfluendoControlRuntimeDatabaseUrl(controlDatabaseUrl);
     return {
       environment: controlEnvironment,
       supabaseUrl,
@@ -65,6 +67,7 @@ export function getControlEnvironmentConfig(
   if (!legacySupabaseUrl || !legacySupabasePublishableKey || !legacyControlDatabaseUrl) {
     return null;
   }
+  assertConfluendoControlRuntimeDatabaseUrl(legacyControlDatabaseUrl);
 
   return {
     environment: "production",
