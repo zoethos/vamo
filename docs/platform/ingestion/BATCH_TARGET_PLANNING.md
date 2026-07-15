@@ -265,6 +265,39 @@ is the only runtime allowed to hold them. Vamo has no artifact-store
 credentials, and artifacts are never exposed via signed URLs, console props,
 or API responses.
 
+### Snapshot commission worker environment
+
+The commission worker is a separate trusted process. Keep its FSQ catalog token
+and owner control-DB DSN out of the artifact-store files and out of every
+console/Vamo environment. Use the environment-specific ignored worker files:
+
+- staging: copy
+  [`web/.env.snapshot-commission.staging.example`](../../../web/.env.snapshot-commission.staging.example)
+  to `Z:\vamo-ip17\web\.env.snapshot-commission.staging.local`;
+- production: copy
+  [`web/.env.snapshot-commission.production.example`](../../../web/.env.snapshot-commission.production.example)
+  to `Z:\vamo-ip17\web\.env.snapshot-commission.production.local`.
+
+Each file contains only `INGESTION_CONTROL_DATABASE_URL` (the owner-only DSN)
+and `FSQ_OS_PLACES_CATALOG_TOKEN` (the matching Confluendo service key). The
+worker wrapper reads only those names plus the matching artifact-store file; it
+does not evaluate or expose either secret.
+
+```powershell
+cd Z:\vamo-ip17\web
+
+# Validates both trusted files without calling FSQ or writing to the control DB.
+.\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 `
+  -ControlEnvironment Staging
+
+# After an admin has created a bounded Queue commission request, re-run with
+# explicit execution. The wrapper rechecks HeadBucket, then claims at most one
+# request and starts the trusted worker.
+.\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 `
+  -ControlEnvironment Staging `
+  -Execute
+```
+
 ## Versioned snapshot intake (IP-18.8.9)
 
 IP-18.8.9 adds a reviewed local intake path for approved FSQ OS Places exports.

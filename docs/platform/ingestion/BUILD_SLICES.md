@@ -1702,6 +1702,42 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
+### IP-18.8.16 — implemented (trusted snapshot commission worker launcher)
+
+**Status:** done — a PowerShell-only trusted-worker launcher makes local
+staging/production commissioning repeatable without exposing the FSQ catalog
+token, owner control-DB DSN, or artifact-store credentials to the console,
+Vamo, Git, or shell history.
+
+Deliverables:
+
+- `ConfluendoTrustedEnvironment.ps1` parses only allowlisted `NAME=value`
+  entries from ignored files; it never evaluates the file as PowerShell and
+  rejects duplicate trusted names.
+- `Invoke-Ip18SnapshotCommissionWorker.ps1` selects the matching
+  `.env.staging.local` / `.env.production.local` artifact profile and the
+  separate `.env.snapshot-commission.<environment>.local` worker profile.
+- Default mode validates the required trusted configuration and performs no
+  provider, control-DB, artifact, staging, production-inbox, or consumer-apply
+  action.
+- `-Execute` is explicit: it runs the `HeadBucket` preflight first, sets the
+  existing worker confirmation only for the child process, and then invokes the
+  existing IP-18.8.13 worker to claim at most one pending request.
+- Tracked examples contain placeholders only. The actual environment files are
+  ignored and separate from console configuration.
+
+No control schema, provider adapter, acquisition policy, console route, Vamo
+schema, staging write, production inbox delivery, or consumer apply changed in
+this slice. It does not schedule unattended acquisition.
+
+Operator order:
+
+1. An admin requests one bounded snapshot commission through Queue.
+2. A trusted host runs the launcher with `-Execute` against the matching
+   environment.
+3. The existing worker registers an `activation_pending` release; activation
+   remains separately confirmed through IP-18.8.14.
+
 ### IP-18.8.15 — implemented (Supabase Storage artifact profile)
 
 **Status:** done — the existing private `snapshot-artifacts` buckets in
