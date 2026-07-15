@@ -44,9 +44,12 @@ This architecture covers:
 - Secret boundaries between browser, host server, platform control DB, workers,
   and target projects.
 
-It does not cover customer billing, organization management, SSO, passkeys, or
-multi-tenant hosted-console packaging. Those can layer on the same adapter once
-the embedded admin path is stable.
+It does not cover customer billing, SSO, or passkeys. Organization management
+and multi-tenant hosted-console packaging are a documented **post-Vamo hard
+platform limitation**: see `POST_VAMO_PLATFORMIZATION.md`. The current
+principal `role` plus `scopes` model is acceptable only for the Vamo release;
+it must be replaced by project memberships before a second customer is
+onboarded.
 
 ## Current State
 

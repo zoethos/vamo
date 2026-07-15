@@ -1702,6 +1702,17 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
+## Post-Vamo Platformization Boundary
+
+The Vamo release proves the first consumer and first commissioned source path;
+it does not complete Confluendo's multi-customer or multi-source product
+boundary. Before a second customer is onboarded, implement project-scoped
+memberships with per-project roles and a project selector after environment
+selection/sign-in. Before a second durable source is commissioned, onboard it
+through the reusable release/policy path with its own rights, mapping, and
+canonicalization evidence. The authoritative plan is
+`POST_VAMO_PLATFORMIZATION.md`.
+
 ### IP-18.8.15 — implemented (Supabase Storage artifact profile)
 
 **Status:** done — the existing private `snapshot-artifacts` buckets in
