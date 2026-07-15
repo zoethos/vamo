@@ -15,68 +15,6 @@ const PRODUCTION_CONFIRMATION_ENV = "CONFLUENDO_CONTROL_ADMIN_PROVISION_CONFIRM_
 const USERS_PER_PAGE = 1_000;
 const MAX_USER_PAGES = 100;
 
-const args = parseArgs(process.argv.slice(2));
-
-if (!args.email || !args.auditReason || !args.controlEnvironment) {
-  printUsage();
-  process.exit(1);
-}
-
-if (args.controlEnvironment !== "staging" && args.controlEnvironment !== "production") {
-  fail("--control-environment must be staging or production.");
-}
-
-if (!args.execute) {
-  console.log("Confluendo Vamo console-admin provisioning preview");
-  console.log(`- control environment: ${args.controlEnvironment}`);
-  console.log("- project: vamo");
-  console.log("- role: admin (MFA required)");
-  console.log(`- requested email: ${normalizeEmail(args.email)}`);
-  console.log("- Auth and control-plane writes: none");
-  console.log(
-    "Execute requires --execute, CONFIRM_CONFLUENDO_CONTROL_ADMIN_PROVISION=YES, a Supabase Secret key, and an owner control-DB URL."
-  );
-  process.exit(0);
-}
-
-if (process.env[EXECUTE_CONFIRMATION_ENV] !== "YES") {
-  fail(`${EXECUTE_CONFIRMATION_ENV}=YES is required for provisioning.`);
-}
-if (
-  args.controlEnvironment === "production" &&
-  process.env[PRODUCTION_CONFIRMATION_ENV] !== "PRODUCTION"
-) {
-  fail(`${PRODUCTION_CONFIRMATION_ENV}=PRODUCTION is required for production provisioning.`);
-}
-
-const supabaseUrl = requireHttpsUrl(process.env[SUPABASE_URL_ENV], SUPABASE_URL_ENV);
-const supabaseSecretKey = requireValue(process.env[SUPABASE_SECRET_KEY_ENV], SUPABASE_SECRET_KEY_ENV);
-const controlDatabaseUrl = requireValue(process.env[CONTROL_DATABASE_ENV], CONTROL_DATABASE_ENV);
-
-const client = new Client({ connectionString: controlDatabaseUrl });
-try {
-  await client.connect();
-  const result = await provisionVamoControlAdmin({
-    authGateway: new SupabaseAuthAdminGateway({ url: supabaseUrl, secretKey: supabaseSecretKey }),
-    client,
-    email: args.email,
-    auditReason: args.auditReason,
-    controlEnvironment: args.controlEnvironment
-  });
-
-  console.log("Vamo console administrator provisioned");
-  console.log(`- control environment: ${args.controlEnvironment}`);
-  console.log(`- email: ${result.email}`);
-  console.log(`- Supabase Auth identity: ${result.authIdentity}`);
-  console.log(`- Vamo admin grant: ${result.grant}`);
-  console.log("- MFA is required before the administrator can use protected console controls.");
-} catch (error) {
-  console.error(`Control-admin provisioning failed: ${safeErrorMessage(error)}`);
-  process.exitCode = 1;
-} finally {
-  await client.end().catch(() => undefined);
-}
-
 class SupabaseAuthAdminGateway {
   constructor({ url, secretKey }) {
     this.url = url;
@@ -141,6 +79,68 @@ class SupabaseAuthAdminGateway {
     }
     return response.json();
   }
+}
+
+const args = parseArgs(process.argv.slice(2));
+
+if (!args.email || !args.auditReason || !args.controlEnvironment) {
+  printUsage();
+  process.exit(1);
+}
+
+if (args.controlEnvironment !== "staging" && args.controlEnvironment !== "production") {
+  fail("--control-environment must be staging or production.");
+}
+
+if (!args.execute) {
+  console.log("Confluendo Vamo console-admin provisioning preview");
+  console.log(`- control environment: ${args.controlEnvironment}`);
+  console.log("- project: vamo");
+  console.log("- role: admin (MFA required)");
+  console.log(`- requested email: ${normalizeEmail(args.email)}`);
+  console.log("- Auth and control-plane writes: none");
+  console.log(
+    "Execute requires --execute, CONFIRM_CONFLUENDO_CONTROL_ADMIN_PROVISION=YES, a Supabase Secret key, and an owner control-DB URL."
+  );
+  process.exit(0);
+}
+
+if (process.env[EXECUTE_CONFIRMATION_ENV] !== "YES") {
+  fail(`${EXECUTE_CONFIRMATION_ENV}=YES is required for provisioning.`);
+}
+if (
+  args.controlEnvironment === "production" &&
+  process.env[PRODUCTION_CONFIRMATION_ENV] !== "PRODUCTION"
+) {
+  fail(`${PRODUCTION_CONFIRMATION_ENV}=PRODUCTION is required for production provisioning.`);
+}
+
+const supabaseUrl = requireHttpsUrl(process.env[SUPABASE_URL_ENV], SUPABASE_URL_ENV);
+const supabaseSecretKey = requireValue(process.env[SUPABASE_SECRET_KEY_ENV], SUPABASE_SECRET_KEY_ENV);
+const controlDatabaseUrl = requireValue(process.env[CONTROL_DATABASE_ENV], CONTROL_DATABASE_ENV);
+
+const client = new Client({ connectionString: controlDatabaseUrl });
+try {
+  await client.connect();
+  const result = await provisionVamoControlAdmin({
+    authGateway: new SupabaseAuthAdminGateway({ url: supabaseUrl, secretKey: supabaseSecretKey }),
+    client,
+    email: args.email,
+    auditReason: args.auditReason,
+    controlEnvironment: args.controlEnvironment
+  });
+
+  console.log("Vamo console administrator provisioned");
+  console.log(`- control environment: ${args.controlEnvironment}`);
+  console.log(`- email: ${result.email}`);
+  console.log(`- Supabase Auth identity: ${result.authIdentity}`);
+  console.log(`- Vamo admin grant: ${result.grant}`);
+  console.log("- MFA is required before the administrator can use protected console controls.");
+} catch (error) {
+  console.error(`Control-admin provisioning failed: ${safeErrorMessage(error)}`);
+  process.exitCode = 1;
+} finally {
+  await client.end().catch(() => undefined);
 }
 
 function parseArgs(values) {
