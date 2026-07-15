@@ -68,6 +68,10 @@
       "types": "./dist/core/src/scope-workflow-presenter.d.ts",
       "default": "./dist/core/src/scope-workflow-presenter.js"
     },
+    "./core/control-runtime-database-role": {
+      "types": "./dist/core/src/control-runtime-database-role.d.ts",
+      "default": "./dist/core/src/control-runtime-database-role.js"
+    },
     "./core/snapshot-release-plan-binding-read": {
       "types": "./dist/core/src/snapshot-release-plan-binding-read.d.ts",
       "default": "./dist/core/src/snapshot-release-plan-binding-read.js"
@@ -106,6 +110,7 @@
     "ip18:snapshot-commission-worker": "npm run build && node scripts/run-ip18-snapshot-commission-worker.mjs",
     "ip18:snapshot-activation-worker": "npm run build && node scripts/run-ip18-snapshot-activation-worker.mjs",
     "control:provision-vamo-admin": "npm run build && node scripts/run-control-admin-provision.mjs",
+    "control:bootstrap-runtime-role": "npm run build && node scripts/run-control-runtime-role-bootstrap.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

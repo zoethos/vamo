@@ -26,11 +26,12 @@ the environment's artifact-store values.
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_STAGING_CONTROL_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging publishable key>
-INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging app or owner DB URL>
+# Console runtime only: confluendo_app.<project-ref> session-pooler URL.
+INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging confluendo_app URL>
 
-# Trusted provisioning command only; never mapped into the console process.
+# Trusted provisioning/bootstrap commands only; never mapped into the console process.
 CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY=<staging sb_secret key>
-INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Staging postgres owner URL>
+INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Staging postgres.<project-ref> owner session-pooler URL>
 ```
 
 `web/.env.production.local`:
@@ -38,11 +39,12 @@ INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Staging postgres owner 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PRODUCTION_CONTROL_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<production publishable key>
-INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Production DB URL>
+# Console runtime only: confluendo_app.<project-ref> session-pooler URL.
+INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Production confluendo_app URL>
 
-# Trusted provisioning command only; never mapped into the console process.
+# Trusted provisioning/bootstrap commands only; never mapped into the console process.
 CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY=<production sb_secret key>
-INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Production postgres owner URL>
+INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Production postgres.<project-ref> owner session-pooler URL>
 
 # Production-only server credentials, where that console capability is enabled.
 VAMO_PLACE_CACHE_DATABASE_URL=<Vamo production cache read URL>
@@ -62,14 +64,53 @@ cd Z:\vamo-ip17\web
 ```
 
 The script fails before starting if either profile is missing its Supabase URL,
-public key, or control DB URL. It prints no credential values and restores the
-PowerShell process environment when the dev server stops. It does not create,
-copy, or commit any environment file.
+public key, or control DB URL. The console rejects a `postgres` owner URL: its
+runtime DB setting must authenticate as `confluendo_app`. It prints no
+credential values and restores the PowerShell process environment when the dev
+server stops. It does not create, copy, or commit any environment file.
 
 Validate both profiles without starting Next.js:
 
 ```powershell
 .\scripts\Start-ConfluendoConsoleControlWorkspaces.ps1 -ValidateOnly
+```
+
+## Runtime DB role bootstrap
+
+The two profile URLs are intentionally not duplicates:
+
+- `INGESTION_CONTROL_DATABASE_URL` is the console's least-privilege
+  `confluendo_app.<project-ref>` session-pooler login.
+- `INGESTION_CONTROL_OWNER_DATABASE_URL` is the `postgres.<project-ref>` owner
+  session-pooler login, permitted only for trusted local bootstrap,
+  provisioning, and migration actions.
+
+After applying the control bootstrap grants to an environment, configure the
+runtime login with the trusted local command. It rotates a generated password,
+verifies the resulting `confluendo_app` access, and only then updates the
+ignored selected profile's runtime URL. It never prints the password or owner
+DSN.
+
+```powershell
+cd Z:\vamo-ip17\web
+
+# Preview: no credential, database, or profile write.
+.\scripts\Initialize-ConfluendoControlRuntimeRole.ps1 `
+  -ControlEnvironment Staging
+
+# Execute: updates only web/.env.staging.local's runtime URL.
+.\scripts\Initialize-ConfluendoControlRuntimeRole.ps1 `
+  -ControlEnvironment Staging `
+  -Execute
+```
+
+Production requires an explicit confirmation:
+
+```powershell
+.\scripts\Initialize-ConfluendoControlRuntimeRole.ps1 `
+  -ControlEnvironment Production `
+  -ProductionConfirmation PRODUCTION `
+  -Execute
 ```
 
 ## Hosted console configuration
@@ -80,10 +121,10 @@ Set these server environment variables on the Confluendo console deployment:
 CONFLUENDO_CONTROL_DEFAULT_ENVIRONMENT=production
 CONFLUENDO_CONTROL_STAGING_SUPABASE_URL=...
 CONFLUENDO_CONTROL_STAGING_SUPABASE_PUBLISHABLE_KEY=...
-CONFLUENDO_CONTROL_STAGING_DATABASE_URL=...
+CONFLUENDO_CONTROL_STAGING_DATABASE_URL=<confluendo_app staging URL only>
 CONFLUENDO_CONTROL_PRODUCTION_SUPABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_SUPABASE_PUBLISHABLE_KEY=...
-CONFLUENDO_CONTROL_PRODUCTION_DATABASE_URL=...
+CONFLUENDO_CONTROL_PRODUCTION_DATABASE_URL=<confluendo_app production URL only>
 CONFLUENDO_CONTROL_PRODUCTION_VAMO_PLACE_CACHE_DATABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL=...
@@ -101,6 +142,8 @@ for browser configuration only when the Supabase project has Row Level Security
 and appropriate policies. Existing `*_ANON_KEY` settings remain a temporary
 backward-compatible fallback, but new profiles and deployments must use the
 `*_PUBLISHABLE_KEY` names. Never use a Supabase Secret key in the console.
+Never place an `INGESTION_CONTROL_OWNER_DATABASE_URL` in a hosted-console
+environment.
 
 ## Provision Vamo Console Administrators
 
