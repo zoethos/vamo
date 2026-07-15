@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Client } from "pg";
+import { createBoundedPostgresReadClientConfig } from "@confluendo/ingestion-platform/core";
 
 // Vamo-specific cache-business metrics, read from the place-intelligence cache
 // (public.location_* in the Vamo Supabase project). This is the host/consumer
@@ -31,10 +32,9 @@ export async function loadVamoCacheMetrics(): Promise<VamoCacheMetrics | null> {
     return null;
   }
 
-  const client = new Client({ connectionString });
+  const client = new Client(createBoundedPostgresReadClientConfig(connectionString));
   try {
     await client.connect();
-    await client.query("set statement_timeout = '5s'");
     const result = await client.query<CacheMetricsRow>(`
       select
         (select count(*) from public.location_canonicals where promotion_state = 'promoted')::text as "canonicalsPromoted",

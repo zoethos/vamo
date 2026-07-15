@@ -16,6 +16,12 @@ export {
   type ShipmentItemIdentity
 } from "./control-models.js";
 export {
+  createBoundedPostgresReadClientConfig,
+  POSTGRES_READ_CONNECTION_TIMEOUT_MS,
+  POSTGRES_READ_QUERY_TIMEOUT_MS,
+  POSTGRES_READ_STATEMENT_TIMEOUT_MS
+} from "./postgres-read-timeouts.js";
+export {
   equivalentTargetKeys,
   isLegacyTargetKey,
   LEGACY_TARGET_ALIASES,

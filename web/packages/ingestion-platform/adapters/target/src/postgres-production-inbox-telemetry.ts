@@ -7,6 +7,7 @@
 
 import { Client } from "pg";
 
+import { createBoundedPostgresReadClientConfig } from "../../../core/src/postgres-read-timeouts.js";
 import type { PgClientLike } from "./postgres-dry-run.js";
 
 export type ProductionInboxTelemetryBlockCode =
@@ -58,8 +59,6 @@ interface ApplyLogRow extends Record<string, unknown> {
   detail: string | null;
 }
 
-const STATEMENT_TIMEOUT = "5s";
-
 export async function readPostgresProductionInboxApplyTelemetry(
   input: ReadProductionInboxApplyTelemetryInput
 ): Promise<ReadProductionInboxApplyTelemetryResult> {
@@ -72,7 +71,9 @@ export async function readPostgresProductionInboxApplyTelemetry(
     throw new Error("Production inbox telemetry requires a server-side connection string or client.");
   }
 
-  const ownedClient = input.client ? undefined : new Client({ connectionString: input.connectionString });
+  const ownedClient = input.client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(input.connectionString!));
   const client = input.client ?? ownedClient;
   if (!client) {
     throw new Error("Production inbox telemetry client could not be initialized.");
@@ -96,8 +97,6 @@ export async function readPostgresProductionInboxApplyTelemetry(
     if (!proof.ok) {
       return proof;
     }
-
-    await client.query(`set local statement_timeout = '${STATEMENT_TIMEOUT}'`);
 
     const shipments = await client.query<ShipmentTelemetryRow>(
       `

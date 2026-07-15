@@ -9,6 +9,7 @@ import {
 import { resolveAutonomyDrainBatchPlanKey } from "./batch-plan-selection.js";
 import { loadBatchQueueSnapshot, type BatchQueueControlReadPgClientLike } from "./batch-queue-control-read.js";
 import { loadProductionPackageWaveApprovalContext } from "./batch-production-package-wave-read.js";
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 
 /**
  * Live read of autonomy policy/run rows into `AutonomyDashboardView`.
@@ -87,7 +88,9 @@ export async function loadAutonomyDashboard(
     throw new Error("Autonomy control read requires a server-side connection string or client.");
   }
 
-  const ownedClient = input.client ? undefined : new Client({ connectionString: input.connectionString });
+  const ownedClient = input.client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(input.connectionString!));
   const client = input.client ?? ownedClient;
   if (!client) {
     throw new Error("Autonomy control read client could not be initialized.");
