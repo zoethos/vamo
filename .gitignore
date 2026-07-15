@@ -1,6 +1,9 @@
 # Secrets
 .env
 *.env.local
+# Environment-specific trusted worker configuration, for example
+# web/.env.production.local. Never commit credentials.
+.env.*.local
 # Local smoke runners hold service-role keys + project creds — NEVER commit.
 tool/rls-smoke.local*.ps1
 tool/rls_smokeTest.ps1

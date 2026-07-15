@@ -101,6 +101,7 @@
     "ip18:autonomy-scheduler": "npm run build && node scripts/run-ip18-autonomy-scheduler.mjs",
     "ip18:snapshot-intake": "npm run build && node scripts/run-ip18-snapshot-intake.mjs",
     "ip18:fsq-snapshot-acquire": "npm run build && node scripts/run-ip18-fsq-snapshot-acquire.mjs",
+    "ip18:artifact-store-preflight": "npm run build && node scripts/run-ip18-artifact-store-preflight.mjs",
     "ip18:snapshot-activate": "npm run build && node scripts/run-ip18-snapshot-activate.mjs",
     "ip18:snapshot-commission-worker": "npm run build && node scripts/run-ip18-snapshot-commission-worker.mjs",
     "ip18:snapshot-activation-worker": "npm run build && node scripts/run-ip18-snapshot-activation-worker.mjs",

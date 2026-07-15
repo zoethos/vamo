@@ -7,9 +7,22 @@ export const SNAPSHOT_ARTIFACT_S3_BUCKET_ENV = "CONFLUENDO_SNAPSHOT_ARTIFACT_S3_
 export const SNAPSHOT_ARTIFACT_S3_REGION_ENV = "CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION" as const;
 export const SNAPSHOT_ARTIFACT_S3_ENDPOINT_ENV = "CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT" as const;
 export const SNAPSHOT_ARTIFACT_S3_PREFIX_ENV = "CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_BUCKET_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_REGION_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_PREFIX_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PREFIX" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID" as const;
+export const SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY_ENV =
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY" as const;
 export const LEGACY_LOCAL_ARTIFACT_STORE_DIR_ENV = "INGESTION_ARTIFACT_STORE_DIR" as const;
 
 export type SnapshotArtifactStoreKind = "local" | "s3";
+export type SnapshotArtifactStoreProvider = "generic_s3" | "supabase_storage";
 
 export interface SnapshotArtifactStoreLocalConfig {
   kind: "local";
@@ -18,10 +31,17 @@ export interface SnapshotArtifactStoreLocalConfig {
 
 export interface SnapshotArtifactStoreS3Config {
   kind: "s3";
+  /** Explicit provider profile; omitted config literals retain generic S3 behavior. */
+  provider?: SnapshotArtifactStoreProvider;
   bucket: string;
   region: string;
   endpoint?: string;
   prefix?: string;
+  /** Server/job-only static credentials. Never expose this object to the browser. */
+  credentials?: {
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
 }
 
 export type SnapshotArtifactStoreConfig =
@@ -34,6 +54,12 @@ export interface SnapshotArtifactStoreJobEnv {
   [SNAPSHOT_ARTIFACT_S3_REGION_ENV]?: string;
   [SNAPSHOT_ARTIFACT_S3_ENDPOINT_ENV]?: string;
   [SNAPSHOT_ARTIFACT_S3_PREFIX_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_BUCKET_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_REGION_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_PREFIX_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID_ENV]?: string;
+  [SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY_ENV]?: string;
   [LEGACY_LOCAL_ARTIFACT_STORE_DIR_ENV]?: string;
 }
 
@@ -69,10 +95,13 @@ export function parseSnapshotArtifactStoreConfig(
   if (storeKind === "s3") {
     return parseS3Config(input.env);
   }
+  if (storeKind === "supabase") {
+    return parseSupabaseStorageConfig(input.env);
+  }
   if (storeKind && storeKind !== "local") {
     return blocked(
       "artifact_store_kind_invalid",
-      `${SNAPSHOT_ARTIFACT_STORE_KIND_ENV} must be "s3" or "local".`
+      `${SNAPSHOT_ARTIFACT_STORE_KIND_ENV} must be "s3", "supabase", or "local".`
     );
   }
 
@@ -81,7 +110,7 @@ export function parseSnapshotArtifactStoreConfig(
     if (input.requireHostedStore) {
       return blocked(
         "hosted_artifact_store_missing",
-        "Hosted jobs require S3-compatible snapshot artifact store configuration."
+        "Hosted jobs require S3-compatible or Supabase Storage snapshot artifact configuration."
       );
     }
     return { ok: true, config: { kind: "local", baseDir: legacyLocalDir } };
@@ -90,7 +119,7 @@ export function parseSnapshotArtifactStoreConfig(
   if (input.requireHostedStore) {
     return blocked(
       "hosted_artifact_store_missing",
-      "Hosted jobs require CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3 with bucket and region."
+      "Hosted jobs require CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3 or supabase with server-only credentials."
     );
   }
 
@@ -127,10 +156,78 @@ function parseS3Config(env: SnapshotArtifactStoreJobEnv): ParseSnapshotArtifactS
     ok: true,
     config: {
       kind: "s3",
+      provider: "generic_s3",
       bucket: bucket!,
       region: region!,
       endpoint,
       prefix
+    }
+  };
+}
+
+function parseSupabaseStorageConfig(
+  env: SnapshotArtifactStoreJobEnv
+): ParseSnapshotArtifactStoreConfigResult {
+  const blocks: SnapshotArtifactStoreConfigBlock[] = [];
+  const projectRef = readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF_ENV]);
+  const bucket = readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_BUCKET_ENV]);
+  const region = readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_REGION_ENV]);
+  const prefix = normalizePrefix(readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_PREFIX_ENV]));
+  const accessKeyId = readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID_ENV]);
+  const secretAccessKey = readTrimmed(env[SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY_ENV]);
+
+  if (!projectRef) {
+    blocks.push({
+      code: "artifact_supabase_project_ref_missing",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF_ENV} is required when ${SNAPSHOT_ARTIFACT_STORE_KIND_ENV}=supabase.`
+    });
+  } else if (!/^[a-z0-9]{20}$/.test(projectRef)) {
+    blocks.push({
+      code: "artifact_supabase_project_ref_invalid",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF_ENV} must be a 20-character lowercase Supabase project reference.`
+    });
+  }
+  if (!bucket) {
+    blocks.push({
+      code: "artifact_supabase_bucket_missing",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_BUCKET_ENV} is required when ${SNAPSHOT_ARTIFACT_STORE_KIND_ENV}=supabase.`
+    });
+  }
+  if (!region) {
+    blocks.push({
+      code: "artifact_supabase_region_missing",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_REGION_ENV} is required when ${SNAPSHOT_ARTIFACT_STORE_KIND_ENV}=supabase.`
+    });
+  }
+  if (!accessKeyId) {
+    blocks.push({
+      code: "artifact_supabase_access_key_missing",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID_ENV} is required in the trusted job environment.`
+    });
+  }
+  if (!secretAccessKey) {
+    blocks.push({
+      code: "artifact_supabase_secret_key_missing",
+      message: `${SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY_ENV} is required in the trusted job environment.`
+    });
+  }
+  if (blocks.length > 0) {
+    return { ok: false, blocks };
+  }
+
+  return {
+    ok: true,
+    config: {
+      kind: "s3",
+      provider: "supabase_storage",
+      bucket: bucket!,
+      region: region!,
+      endpoint: `https://${projectRef}.storage.supabase.co/storage/v1/s3`,
+      prefix,
+      credentials: {
+        accessKeyId: accessKeyId!,
+        secretAccessKey: secretAccessKey!
+      }
     }
   };
 }

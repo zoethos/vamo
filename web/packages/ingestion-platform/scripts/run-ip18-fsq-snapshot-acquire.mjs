@@ -30,6 +30,7 @@ import {
 } from "../dist/core/src/index.js";
 import { FSQ_OS_PLACES_CATALOG_TOKEN_ENV } from "../dist/adapters/source/src/index.js";
 import {
+  hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
   resolveCliSnapshotArtifactStore
 } from "./snapshot-artifact-store-cli.mjs";
@@ -87,8 +88,10 @@ if (countries.length === 0 || categories.length === 0) {
   process.exit(1);
 }
 
-if (execute && !artifactStoreDir && process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() !== "s3") {
-  console.error("Missing required argument for execute mode: --artifact-store-dir or hosted S3 artifact store env.");
+if (execute && !artifactStoreDir && !hasHostedSnapshotArtifactStoreProfile()) {
+  console.error(
+    "Missing required argument for execute mode: --artifact-store-dir or hosted S3-compatible artifact store env."
+  );
   process.exit(1);
 }
 

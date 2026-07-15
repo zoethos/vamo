@@ -54,6 +54,24 @@ describe("parseHostedAutonomySchedulerConfig", () => {
     assert.equal(parsed.config.batchPlanKey, "vamo-eu-full-data-v1");
   });
 
+  it("accepts the Supabase Storage profile as a hosted artifact store", () => {
+    const parsed = parseHostedAutonomySchedulerConfig({
+      INGESTION_CONTROL_DATABASE_URL: "postgresql://control.example/postgres",
+      CONFLUENDO_AUTONOMY_SCHEDULER_PROJECT_KEY: "vamo",
+      CONFLUENDO_AUTONOMY_SCHEDULER_POLICY_KEY: "vamo-eu-poi-staging-v1",
+      CONFIRM_CONFLUENDO_HOSTED_AUTONOMY_SCHEDULER: "YES",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_STORE: "supabase",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF: "leqlomnszaboypinjroc",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET: "snapshot-artifacts",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION: "eu-central-1",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID: "server-only-access-key",
+      CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY: "server-only-secret"
+    });
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.config.artifactStoreConfig.provider, "supabase_storage");
+  });
+
   it("requires an explicit hosted execution confirmation and policy identity", () => {
     const parsed = parseHostedAutonomySchedulerConfig({});
     assert.equal(parsed.ok, false);

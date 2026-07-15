@@ -26,25 +26,67 @@ export async function createSnapshotArtifactStore(
     return createLocalSnapshotArtifactStore(config.baseDir);
   }
 
-  const client =
-    deps.s3Client ??
-    (deps.createS3Client ? await deps.createS3Client(config) : await createDefaultS3Client(config));
+  const client = await resolveS3Client(config, deps);
   return createS3SnapshotArtifactStore({ config, client });
+}
+
+export interface VerifySnapshotArtifactStoreAccessResult {
+  provider: "generic_s3" | "supabase_storage";
+  bucket: string;
+  region: string;
+}
+
+/**
+ * Confirms trusted S3-compatible bucket access without reading or writing an artifact.
+ * This is deliberately adapter-only: browser code never receives storage configuration.
+ */
+export async function verifySnapshotArtifactStoreAccess(
+  config: SnapshotArtifactStoreConfig,
+  deps: CreateSnapshotArtifactStoreDeps = {}
+): Promise<VerifySnapshotArtifactStoreAccessResult> {
+  if (config.kind !== "s3") {
+    throw new Error("Artifact-store access verification requires a hosted S3-compatible store.");
+  }
+  const client = await resolveS3Client(config, deps);
+  await client.headBucket({ bucket: config.bucket });
+  return {
+    provider: config.provider ?? "generic_s3",
+    bucket: config.bucket,
+    region: config.region
+  };
+}
+
+async function resolveS3Client(
+  config: Extract<SnapshotArtifactStoreConfig, { kind: "s3" }>,
+  deps: CreateSnapshotArtifactStoreDeps
+): Promise<S3ObjectClientLike> {
+  return (
+    deps.s3Client ??
+    (deps.createS3Client ? await deps.createS3Client(config) : await createDefaultS3Client(config))
+  );
 }
 
 async function createDefaultS3Client(
   config: Extract<SnapshotArtifactStoreConfig, { kind: "s3" }>
 ): Promise<S3ObjectClientLike> {
-  const { S3Client, HeadObjectCommand, GetObjectCommand, PutObjectCommand } = await import(
+  const { S3Client, HeadBucketCommand, HeadObjectCommand, GetObjectCommand, PutObjectCommand } = await import(
     "@aws-sdk/client-s3"
   );
   const client = new S3Client({
     region: config.region,
     endpoint: config.endpoint,
-    forcePathStyle: Boolean(config.endpoint)
+    forcePathStyle: Boolean(config.endpoint),
+    credentials: config.credentials
   });
 
   return {
+    async headBucket(input) {
+      try {
+        await client.send(new HeadBucketCommand({ Bucket: input.bucket }));
+      } catch (error) {
+        throw classifyArtifactReadError(error);
+      }
+    },
     async headObject(input) {
       try {
         await client.send(new HeadObjectCommand({ Bucket: input.bucket, Key: input.key }));

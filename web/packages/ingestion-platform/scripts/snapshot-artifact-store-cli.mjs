@@ -2,6 +2,11 @@
 
 import { resolveSnapshotArtifactStoreFromJobEnv } from "../dist/adapters/artifact/src/index.js";
 
+export function hasHostedSnapshotArtifactStoreProfile(env = process.env) {
+  const profile = env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase();
+  return profile === "s3" || profile === "supabase";
+}
+
 export async function resolveCliSnapshotArtifactStore(input = {}) {
   const env = input.env ?? process.env;
   const preferLocalDir = input.preferLocalDir?.trim()

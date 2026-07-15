@@ -47,13 +47,31 @@ export function isAccessDeniedError(error: unknown): boolean {
   }
   const name = "name" in error ? String(error.name) : "";
   const code = "code" in error ? String(error.code) : "";
+  const httpStatusCode = readHttpStatusCode(error);
   return (
     name === "AccessDenied" ||
     name === "Forbidden" ||
+    name === "SignatureDoesNotMatch" ||
+    name === "InvalidAccessKeyId" ||
+    name === "AuthorizationHeaderMalformed" ||
     code === "EACCES" ||
     code === "AccessDenied" ||
-    code === "Forbidden"
+    code === "Forbidden" ||
+    code === "SignatureDoesNotMatch" ||
+    code === "InvalidAccessKeyId" ||
+    code === "AuthorizationHeaderMalformed" ||
+    code === "InvalidToken" ||
+    httpStatusCode === 401 ||
+    httpStatusCode === 403
   );
+}
+
+function readHttpStatusCode(error: object): number | undefined {
+  if (!("$metadata" in error) || typeof error.$metadata !== "object" || error.$metadata === null) {
+    return undefined;
+  }
+  const status = "httpStatusCode" in error.$metadata ? error.$metadata.httpStatusCode : undefined;
+  return typeof status === "number" ? status : undefined;
 }
 
 export function isPreconditionFailedError(error: unknown): boolean {

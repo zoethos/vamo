@@ -22,6 +22,7 @@ import {
 } from "../dist/core/src/index.js";
 import { parsePipelineSpec, parseTargetProjectSpec } from "../dist/spec/src/index.js";
 import {
+  hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
   resolveCliSnapshotArtifactStore
 } from "./snapshot-artifact-store-cli.mjs";
@@ -175,7 +176,7 @@ let artifactStoreDirResolved;
 let artifactStore;
 if (
   artifactStoreDir?.trim() ||
-  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3" ||
+  hasHostedSnapshotArtifactStoreProfile() ||
   process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()
 ) {
   const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
