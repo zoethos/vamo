@@ -147,6 +147,7 @@ describe("presentWorkflowDecisionHeader", () => {
     assert.doesNotMatch(header.nextAction, /staging_canary/i);
     assert.doesNotMatch(header.nextAction, /production_package/i);
     assert.match(header.purpose, /Live control plane/);
+    assert.equal(header.helpSection, "queue");
     assert.equal(header.helpSectionLabel, "Queue guide");
   });
 });
