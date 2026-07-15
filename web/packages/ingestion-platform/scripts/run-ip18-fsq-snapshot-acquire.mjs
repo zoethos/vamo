@@ -3,7 +3,7 @@
 // IP-18.8.10 FSQ snapshot acquisition.
 //
 // Preview by default (write-free, token-free). Execute requires --execute,
-// CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES, and FSQ_OS_PLACES_CATALOG_TOKEN
+// CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES, and FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY
 // from the server/job secret store only.
 //
 // Usage:
@@ -11,7 +11,7 @@
 //     --countries italy,france --categories poi,landmark
 //
 //   CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
-//   FSQ_OS_PLACES_CATALOG_TOKEN=... \
+//   FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY=... \
 //   npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
 //     --execute --countries italy --categories poi \
 //     --artifact-store-dir /tmp/confluendo-snapshot-artifacts
@@ -28,7 +28,10 @@ import {
   isOutputPathInsideRepo,
   runFsqSnapshotAcquire
 } from "../dist/core/src/index.js";
-import { FSQ_OS_PLACES_CATALOG_TOKEN_ENV } from "../dist/adapters/source/src/index.js";
+import {
+  FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV,
+  FSQ_OS_PLACES_CATALOG_TOKEN_ENV
+} from "../dist/adapters/source/src/index.js";
 import {
   hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
@@ -80,7 +83,9 @@ const actorId = readArg("--actor-id", "fsq-snapshot-acquire-cli");
 const auditReason =
   readArg("--audit-reason") ??
   "Register validated FSQ snapshot release after acquisition execute.";
-const catalogToken = process.env[FSQ_OS_PLACES_CATALOG_TOKEN_ENV];
+const serviceApiKey =
+  process.env[FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV] ??
+  process.env[FSQ_OS_PLACES_CATALOG_TOKEN_ENV];
 const controlConnectionString = process.env.INGESTION_CONTROL_DATABASE_URL;
 
 if (countries.length === 0 || categories.length === 0) {
@@ -121,7 +126,7 @@ const result = await runFsqSnapshotAcquire({
   maxRowsPerScope,
   preview: !execute,
   confirmation: process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV],
-  catalogToken,
+  serviceApiKey,
   artifactStoreBaseDir,
   artifactStore,
   projectKey,
@@ -133,7 +138,7 @@ const result = await runFsqSnapshotAcquire({
 const logPathParent = mkdtempSync(resolve(tmpdir(), "fsq-snapshot-acquire-log-"));
 const logPath = resolve(logPathParent, "acquire-result.json");
 try {
-  writeFileSync(logPath, formatFsqSnapshotAcquireLog(result, catalogToken), "utf8");
+  writeFileSync(logPath, formatFsqSnapshotAcquireLog(result, serviceApiKey), "utf8");
 } finally {
   rmSync(logPathParent, { recursive: true, force: true });
 }
@@ -184,8 +189,10 @@ if (process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV] !== FSQ_SNAPSHOT_ACQUIRE_
   process.exit(1);
 }
 
-if (!catalogToken?.trim()) {
-  console.error(`Refusing to execute. Set ${FSQ_OS_PLACES_CATALOG_TOKEN_ENV} from the server/job secret store.`);
+if (!serviceApiKey?.trim()) {
+  console.error(
+    `Refusing to execute. Set ${FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV} from the server/job secret store.`
+  );
   process.exit(1);
 }
 

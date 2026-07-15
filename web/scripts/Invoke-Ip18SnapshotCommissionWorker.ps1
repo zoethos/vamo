@@ -45,6 +45,7 @@ $artifactEnvironmentNames = @(
 )
 $workerEnvironmentNames = @(
   "INGESTION_CONTROL_DATABASE_URL",
+  "FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY",
   "FSQ_OS_PLACES_CATALOG_TOKEN"
 )
 $artifactValues = Read-ConfluendoTrustedEnvironmentFile -Path $ArtifactEnvironmentFile -AllowedNames $artifactEnvironmentNames
@@ -56,6 +57,15 @@ foreach ($name in $artifactEnvironmentNames) {
 }
 foreach ($name in $workerEnvironmentNames) {
   $requiredValues[$name] = $workerValues[$name]
+}
+if ([string]::IsNullOrWhiteSpace($requiredValues["FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY"])) {
+  $requiredValues["FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY"] = $requiredValues["FSQ_OS_PLACES_CATALOG_TOKEN"]
+}
+if (![string]::IsNullOrWhiteSpace($requiredValues["FSQ_OS_PLACES_CATALOG_TOKEN"])) {
+  Write-Warning "FSQ_OS_PLACES_CATALOG_TOKEN is deprecated; rename it to FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY."
+}
+if ($requiredValues.ContainsKey("FSQ_OS_PLACES_CATALOG_TOKEN")) {
+  $requiredValues.Remove("FSQ_OS_PLACES_CATALOG_TOKEN")
 }
 foreach ($name in $requiredValues.Keys) {
   if ([string]::IsNullOrWhiteSpace($requiredValues[$name])) {
@@ -79,7 +89,13 @@ if (!$Execute) {
   exit 0
 }
 
-$temporaryEnvironmentNames = @($artifactEnvironmentNames + $workerEnvironmentNames + "CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER")
+$temporaryEnvironmentNames = @(
+  $artifactEnvironmentNames +
+  "INGESTION_CONTROL_DATABASE_URL" +
+  "FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY" +
+  "FSQ_OS_PLACES_CATALOG_TOKEN" +
+  "CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER"
+)
 $originalEnvironment = @{}
 foreach ($name in $temporaryEnvironmentNames) {
   $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
@@ -89,9 +105,16 @@ try {
   foreach ($name in $artifactEnvironmentNames) {
     [Environment]::SetEnvironmentVariable($name, $artifactValues[$name], "Process")
   }
-  foreach ($name in $workerEnvironmentNames) {
-    [Environment]::SetEnvironmentVariable($name, $workerValues[$name], "Process")
-  }
+  [Environment]::SetEnvironmentVariable(
+    "INGESTION_CONTROL_DATABASE_URL",
+    $requiredValues["INGESTION_CONTROL_DATABASE_URL"],
+    "Process"
+  )
+  [Environment]::SetEnvironmentVariable(
+    "FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY",
+    $requiredValues["FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY"],
+    "Process"
+  )
   [Environment]::SetEnvironmentVariable("CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER", "YES", "Process")
 
   Push-Location -LiteralPath $webRoot

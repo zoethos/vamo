@@ -81,7 +81,7 @@ export async function runFsqSnapshotAcquire(input: {
   maxRowsPerScope?: number;
   preview: boolean;
   confirmation?: string;
-  catalogToken?: string;
+  serviceApiKey?: string;
   acquiredAt?: string;
   artifactStoreBaseDir?: string;
   artifactStore?: SnapshotArtifactStore;
@@ -98,8 +98,8 @@ export async function runFsqSnapshotAcquire(input: {
     if (input.confirmation !== FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE) {
       return { ok: false, blocks: ["confirmation_missing"] };
     }
-    if (!input.catalogToken?.trim()) {
-      return { ok: false, blocks: ["catalog_token_missing"] };
+    if (!input.serviceApiKey?.trim()) {
+      return { ok: false, blocks: ["service_api_key_missing"] };
     }
   }
 
@@ -108,7 +108,7 @@ export async function runFsqSnapshotAcquire(input: {
     categories: input.categories,
     maxRowsPerScope: input.maxRowsPerScope,
     preview: input.preview,
-    token: input.catalogToken,
+    serviceApiKey: input.serviceApiKey,
     fetchFn: input.fetchFn,
     fixtureRecords: input.fixtureRecords
   });
@@ -124,7 +124,7 @@ export async function runFsqSnapshotAcquire(input: {
         mode: "preview",
         plan: acquired.plan,
         nextAction:
-          "Review bounded country/category scopes, then execute with CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES and the catalog token from the server/job secret store."
+          "Review bounded country/category scopes, then execute with CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES and the Foursquare service API key from the server/job secret store."
       }
     };
   }
@@ -308,7 +308,7 @@ export function redactFsqSnapshotAcquireLogValue(value: string, token?: string):
   if (!token || token.length === 0) {
     return value;
   }
-  return value.split(token).join("[REDACTED_CATALOG_TOKEN]");
+  return value.split(token).join("[REDACTED_SERVICE_API_KEY]");
 }
 
 export function formatFsqSnapshotAcquireLog(result: FsqSnapshotAcquireResult, token?: string): string {

@@ -8,6 +8,10 @@ import {
   SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
   runSnapshotCommissionWorker
 } from "../dist/core/src/snapshot-commission-worker.js";
+import {
+  FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV,
+  FSQ_OS_PLACES_CATALOG_TOKEN_ENV
+} from "../dist/adapters/source/src/index.js";
 import { resolveCliSnapshotArtifactStore } from "./snapshot-artifact-store-cli.mjs";
 
 const workerId = readArg("--worker-id") ?? "snapshot-commission-worker";
@@ -37,7 +41,9 @@ const result = await runSnapshotCommissionWorker({
   workerId,
   workerRunKey,
   confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-  catalogToken: process.env.FSQ_OS_PLACES_CATALOG_TOKEN,
+  serviceApiKey:
+    process.env[FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV] ??
+    process.env[FSQ_OS_PLACES_CATALOG_TOKEN_ENV],
   artifactStore: artifactStoreResolved.store,
   artifactStoreBaseDir: artifactStoreResolved.artifactStoreDir
 });

@@ -44,7 +44,7 @@ const fixtureRecords: FsqCatalogPlaceRecord[] = [
 ];
 
 describe("runFsqSnapshotAcquire", () => {
-  it("preview mode is write-free and token-free", async () => {
+  it("preview mode is write-free and credential-free", async () => {
     const result = await runFsqSnapshotAcquire({
       countries: ["italy"],
       categories: ["poi"],
@@ -57,12 +57,12 @@ describe("runFsqSnapshotAcquire", () => {
     }
   });
 
-  it("execute mode rejects missing confirmation and token", async () => {
+  it("execute mode rejects missing confirmation and service API key", async () => {
     const missingConfirmation = await runFsqSnapshotAcquire({
       countries: ["italy"],
       categories: ["poi"],
       preview: false,
-      catalogToken: "secret-token-123"
+      serviceApiKey: "secret-service-api-key-123"
     });
     assert.deepEqual(missingConfirmation, { ok: false, blocks: ["confirmation_missing"] });
 
@@ -72,7 +72,7 @@ describe("runFsqSnapshotAcquire", () => {
       preview: false,
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE
     });
-    assert.deepEqual(missingToken, { ok: false, blocks: ["catalog_token_missing"] });
+    assert.deepEqual(missingToken, { ok: false, blocks: ["service_api_key_missing"] });
   });
 
   it("rejects out-of-bounds country and category scopes", async () => {
@@ -96,7 +96,7 @@ describe("runFsqSnapshotAcquire", () => {
         categories: ["poi", "landmark"],
         preview: false,
         confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
-        catalogToken: "super-secret-catalog-token",
+        serviceApiKey: "super-secret-service-api-key",
         fixtureRecords,
         artifactStoreBaseDir,
         acquiredAt: "2026-07-01T12:00:00.000Z",
@@ -120,20 +120,20 @@ describe("runFsqSnapshotAcquire", () => {
         );
       }
 
-      const log = formatFsqSnapshotAcquireLog(result, "super-secret-catalog-token");
-      assert.doesNotMatch(log, /super-secret-catalog-token/);
-      assert.doesNotMatch(log, /FSQ_OS_PLACES_CATALOG_TOKEN/);
+      const log = formatFsqSnapshotAcquireLog(result, "super-secret-service-api-key");
+      assert.doesNotMatch(log, /super-secret-service-api-key/);
+      assert.doesNotMatch(log, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
     } finally {
       rmSync(artifactStoreBaseDir, { recursive: true, force: true });
     }
   });
 
-  it("redacts catalog tokens from formatted logs", () => {
+  it("redacts service API keys from formatted logs", () => {
     const redacted = redactFsqSnapshotAcquireLogValue(
       "authorization Bearer secret-token-value",
       "secret-token-value"
     );
-    assert.equal(redacted, "authorization Bearer [REDACTED_CATALOG_TOKEN]");
+    assert.equal(redacted, "authorization Bearer [REDACTED_SERVICE_API_KEY]");
   });
 });
 
