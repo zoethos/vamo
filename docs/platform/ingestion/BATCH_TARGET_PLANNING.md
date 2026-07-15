@@ -114,9 +114,9 @@ release registry. It is separate from activation and queue reseed:
 
 Boundary rules:
 
-1. `FSQ_OS_PLACES_CATALOG_TOKEN` lives in server/job secrets only — never in
+1. `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` lives in server/job secrets only — never in
    console code, manifests, artifacts, logs, or tests.
-2. Preview is write-free and token-free.
+2. Preview is write-free and credential-free.
 3. Execute requires `--execute`, `CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES`,
    and `--artifact-store-dir` outside the git worktree.
 4. Console, scheduler, queue, dry-run, staging, delivery, and consumer apply
@@ -131,7 +131,7 @@ npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- 
 
 # Execute after review (server/job secret store only)
 CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
-FSQ_OS_PLACES_CATALOG_TOKEN=... \
+FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY=... \
 INGESTION_CONTROL_DATABASE_URL=... \
 npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
   --execute \

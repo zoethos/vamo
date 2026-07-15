@@ -24,7 +24,7 @@ export interface RunSnapshotCommissionWorkerInput {
   workerId: string;
   workerRunKey: string;
   confirmation?: string;
-  catalogToken?: string;
+  catalogServiceApiKey?: string;
   artifactStore?: SnapshotArtifactStore;
   artifactStoreBaseDir?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -65,8 +65,8 @@ export async function runSnapshotCommissionWorker(
   if (input.confirmation !== SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE) {
     return { ok: false, blocks: ["worker_confirmation_missing"] };
   }
-  if (!input.catalogToken?.trim()) {
-    return { ok: false, blocks: ["catalog_token_missing"] };
+  if (!input.catalogServiceApiKey?.trim()) {
+    return { ok: false, blocks: ["catalog_service_api_key_missing"] };
   }
 
   const claimed = await claimSnapshotCommissionRequest({
@@ -126,7 +126,7 @@ export async function runSnapshotCommissionWorker(
       maxRowsPerScope: request.maxRowsPerScope,
       preview: false,
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
-      catalogToken: input.catalogToken,
+      catalogServiceApiKey: input.catalogServiceApiKey,
       artifactStore: input.artifactStore,
       artifactStoreBaseDir: input.artifactStoreBaseDir,
       projectKey: request.projectKey,

@@ -136,7 +136,7 @@ describe("snapshot activation request lifecycle and boundary", () => {
   it("keeps the console route free of artifact stores and activation execution", () => {
     assert.doesNotMatch(routeSource, /runSnapshotReleaseActivation/);
     assert.doesNotMatch(routeSource, /snapshot-artifact-store/);
-    assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);
+    assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
     assert.match(workerSource, /runSnapshotReleaseActivation/);
   });
 

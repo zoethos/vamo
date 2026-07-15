@@ -1920,7 +1920,7 @@ Deliverables:
   statuses `acquired`, `validated`, `rejected`, `activation_ready`, `superseded`.
 - `fsq-os-places-catalog-acquire.ts` — sole FSQ HTTP boundary; bounded
   country/category scopes; preview is write-free; execute requires
-  `FSQ_OS_PLACES_CATALOG_TOKEN` from server/job secrets only.
+  `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` from server/job secrets only.
 - `snapshot-artifact-store.ts` — immutable artifact key
   `{sourceKey}/{releaseId}/{outputSha256}` with local test store and bundle
   checksum verification (`source.jsonl`, `release.json`, `coverage-report.json`).
