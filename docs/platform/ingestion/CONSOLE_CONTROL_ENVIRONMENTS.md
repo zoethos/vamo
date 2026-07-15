@@ -27,6 +27,10 @@ the environment's artifact-store values.
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_STAGING_CONTROL_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging publishable key>
 INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging app or owner DB URL>
+
+# Trusted provisioning command only; never mapped into the console process.
+CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY=<staging sb_secret key>
+INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Staging postgres owner URL>
 ```
 
 `web/.env.production.local`:
@@ -35,6 +39,10 @@ INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging app or owner DB URL>
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PRODUCTION_CONTROL_PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<production publishable key>
 INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Production DB URL>
+
+# Trusted provisioning command only; never mapped into the console process.
+CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY=<production sb_secret key>
+INGESTION_CONTROL_OWNER_DATABASE_URL=<Confluendo Control Production postgres owner URL>
 
 # Production-only server credentials, where that console capability is enabled.
 VAMO_PLACE_CACHE_DATABASE_URL=<Vamo production cache read URL>
@@ -93,6 +101,51 @@ for browser configuration only when the Supabase project has Row Level Security
 and appropriate policies. Existing `*_ANON_KEY` settings remain a temporary
 backward-compatible fallback, but new profiles and deployments must use the
 `*_PUBLISHABLE_KEY` names. Never use a Supabase Secret key in the console.
+
+## Provision Vamo Console Administrators
+
+Do not create an Auth user in the dashboard and then paste an allowlist query
+into the SQL Editor. The trusted provisioning command owns that paired action
+for the current Vamo-only authorization model:
+
+```powershell
+cd Z:\vamo-ip17\web
+
+# Preview only: validates the requested identity and profile shape. No writes.
+.\scripts\Provision-ConfluendoVamoConsoleAdmin.ps1 `
+  -ControlEnvironment Staging `
+  -Email "dba.confluendo@outlook.com" `
+  -AuditReason "Provision the first Vamo staging console administrator."
+
+# Creates or reuses a confirmed Supabase Auth identity, grants active Vamo
+# admin access with MFA required, and records an audit event.
+.\scripts\Provision-ConfluendoVamoConsoleAdmin.ps1 `
+  -ControlEnvironment Staging `
+  -Email "dba.confluendo@outlook.com" `
+  -AuditReason "Provision the first Vamo staging console administrator." `
+  -Execute
+```
+
+Production requires one additional deliberate confirmation:
+
+```powershell
+.\scripts\Provision-ConfluendoVamoConsoleAdmin.ps1 `
+  -ControlEnvironment Production `
+  -Email "dba.confluendo@outlook.com" `
+  -AuditReason "Provision the first Vamo production console administrator." `
+  -ProductionConfirmation PRODUCTION `
+  -Execute
+```
+
+The command reads only the selected ignored profile. It requires
+`CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY` and
+`INGESTION_CONTROL_OWNER_DATABASE_URL`, both of which are trusted local
+provisioning credentials. They are never copied to `NEXT_PUBLIC_*` variables,
+the console process, browser code, or hosted-console configuration. A repeated
+call is idempotent only when the existing grant is exactly active Vamo admin
+with MFA required; a conflicting grant fails closed rather than silently
+changing access. This is intentionally limited to Vamo until the post-Vamo
+project-membership model is implemented.
 
 ## Deliberate boundaries
 

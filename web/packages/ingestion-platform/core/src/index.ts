@@ -103,6 +103,19 @@ export {
   type ResolvePostgresAdminPrincipalInput
 } from "./admin-auth.js";
 export {
+  CONTROL_ADMIN_PROVISION_AUDIT_ACTION,
+  CONTROL_ADMIN_PROVISIONER_ACTOR_ID,
+  VAMO_CONTROL_PROJECT_KEY,
+  parseProvisionVamoControlAdminInput,
+  provisionVamoControlAdmin,
+  type ControlAdminAuthGateway,
+  type ControlAdminAuthUser,
+  type ControlAdminProvisionPgClientLike,
+  type ControlEnvironmentName,
+  type ProvisionVamoControlAdminInput,
+  type ProvisionVamoControlAdminResult
+} from "./control-admin-provisioning.js";
+export {
   type ShipmentCandidateRow,
   type ShipmentOperation,
   type ShipmentPlan,
