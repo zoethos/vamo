@@ -105,6 +105,12 @@ Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 IP-18.8.10 adds the provider-facing acquisition boundary and control-plane
 release registry. It is separate from activation and queue reseed:
 
+FSQ is the first implemented acquisition adapter, not the only intended source.
+The release registry, artifact layout, and activation boundary are reusable for
+each approved source. The post-Vamo source-portfolio plan, including structured
+Wikidata/Wikimedia coordinate releases, is recorded in
+`POST_VAMO_PLATFORMIZATION.md`.
+
 - **Acquisition** — bounded FSQ OS Places catalog fetch through the dedicated
   adapter/job only; normalize deterministically; reuse IP-18.8.9 intake;
   store immutable artifacts; optionally register `activation_ready` metadata in

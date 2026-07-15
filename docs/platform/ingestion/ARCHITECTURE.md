@@ -433,6 +433,13 @@ The system should support source adapters for:
 - Internal observation streams.
 - AI-assisted normalization or resolution.
 
+FSQ OS Places is the first commissioned source path, not a platform-wide source
+choice. GeoNames, Wikidata/Wikimedia geodata, approved official geographic
+releases, customer imports, and other provider adapters each need their own
+source profile, rights evidence, release validation, canonicalization rule, and
+consumer-contract approval before they can contribute durable facts. See
+`POST_VAMO_PLATFORMIZATION.md` for the post-Vamo source-portfolio plan.
+
 AI can help resolve ambiguity, map schemas, classify categories, and propose
 matches. AI output is not automatically a trusted source of durable facts unless
 the spec says the output is derivative-only or a human/policy gate approves it.
