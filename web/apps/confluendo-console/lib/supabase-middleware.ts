@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getSupabasePublicConfig } from "./supabase-config";
+import { CONTROL_ENVIRONMENT_COOKIE, parseControlEnvironment } from "./control-environment";
+import { getDefaultControlEnvironment } from "./control-environment-config";
+import { getSupabasePublicConfigForEnvironment } from "./supabase-config";
 
 const openAdminPaths = new Set([
   "/admin/sign-in",
@@ -24,7 +26,10 @@ export async function requireAdminSession(request: NextRequest): Promise<NextRes
   const signInUrl = new URL("/admin/sign-in", request.url);
   signInUrl.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
 
-  const config = getSupabasePublicConfig();
+  const environment =
+    parseControlEnvironment(request.cookies.get(CONTROL_ENVIRONMENT_COOKIE)?.value) ??
+    getDefaultControlEnvironment();
+  const config = getSupabasePublicConfigForEnvironment(environment);
   if (!config) {
     signInUrl.searchParams.set("reason", "auth_not_configured");
     return NextResponse.redirect(signInUrl);

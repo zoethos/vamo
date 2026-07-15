@@ -5442,6 +5442,106 @@ a:hover {
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
+.admin-ux-notice {
+  margin: 1rem 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  background: var(--surface-raised);
+}
+
+.admin-ux-notice h3 {
+  margin: 0.28rem 0 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.admin-ux-notice p:last-child {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.admin-ux-notice-watch {
+  border-left: 4px solid #c47a16;
+}
+
+.admin-control-environment {
+  display: inline-grid;
+  grid-template-columns: auto minmax(7rem, auto) auto;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.32rem 0.45rem 0.32rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.admin-control-environment label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-control-environment select {
+  min-width: 7.5rem;
+  min-height: 1.8rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.2rem 1.7rem 0.2rem 0.45rem;
+  background: var(--surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.admin-control-environment select:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.admin-control-environment-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.8rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-control-environment-staging {
+  border: 1px solid color-mix(in srgb, var(--success) 45%, var(--border));
+  background: color-mix(in srgb, var(--success) 14%, var(--surface));
+  color: var(--text-primary);
+}
+
+.admin-control-environment-production {
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border));
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  color: var(--text-primary);
+}
+
+.admin-control-environment-error {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.admin-sign-in-copy .admin-control-environment {
+  margin-bottom: 1rem;
+}
+
 .admin-help-placeholder {
   display: inline-flex;
   align-items: center;

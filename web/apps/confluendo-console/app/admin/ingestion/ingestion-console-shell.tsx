@@ -29,7 +29,9 @@ import type {
 import type { ProgressiveRunView } from "@confluendo/ingestion-platform/progressive-read-model";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
+import { ControlEnvironmentSwitcher } from "@/app/admin/control-environment-switcher";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
+import type { ControlEnvironment } from "@/lib/control-environment";
 import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { SnapshotCommissionControl } from "./snapshot-commission-control";
@@ -173,6 +175,8 @@ export interface IngestionConsoleShellProps {
   canaryTargetShipment?: ProgressiveRunView["rows"][number]["canaryShipment"];
   canaryTargetShipped?: boolean;
   canaryProductionInbox?: ProgressiveRunView["rows"][number]["productionInbox"];
+  controlEnvironment: ControlEnvironment;
+  availableControlEnvironments: ControlEnvironment[];
 }
 
 export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
@@ -300,6 +304,10 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
               Ingestion
             </Link>
           </div>
+          <ControlEnvironmentSwitcher
+            activeEnvironment={props.controlEnvironment}
+            availableEnvironments={props.availableControlEnvironments}
+          />
           <button
             className="admin-help-placeholder"
             disabled
@@ -454,6 +462,7 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           latestProductionPackageWave={props.latestProductionPackageWave}
           applyTelemetrySource={props.applyTelemetrySource}
           batchContext={batchContext}
+          controlEnvironment={props.controlEnvironment}
           onOpenScope={openScope}
           selectedUnitKey={selectedUnitKey}
         />
@@ -477,6 +486,7 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           progressiveSource={props.progressiveSource}
           canaryTarget={canaryTarget}
           progressiveContext={progressiveContext}
+          controlEnvironment={props.controlEnvironment}
           attentionRows={props.attentionRows}
           onOpenScope={openScope}
           selectedUnitKey={selectedUnitKey}
@@ -1004,6 +1014,7 @@ function DeliveryView({
   latestProductionPackageWave,
   applyTelemetrySource,
   batchContext,
+  controlEnvironment,
   onOpenScope,
   selectedUnitKey
 }: {
@@ -1016,9 +1027,11 @@ function DeliveryView({
   latestProductionPackageWave: ProductionPackageWavePresentation | null;
   applyTelemetrySource?: string;
   batchContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: DashboardSource };
+  controlEnvironment: ControlEnvironment;
   onOpenScope: (unitKey: string) => void;
   selectedUnitKey: string | null;
 }) {
+  const productionWorkspace = controlEnvironment === "production";
   return (
     <section className="admin-ux-section admin-ux-view-panel" aria-label="Consumer inbox delivery">
       <div className="admin-section-heading admin-section-heading-compact">
@@ -1046,20 +1059,24 @@ function DeliveryView({
         blockedCount={batchQueue.progress.productionPackage.blocked}
         hasLatestWave={Boolean(batchQueue.latestProductionPackageWave)}
       />
-      <ProductionPackageWaveApprovalControl
-        projectKey={batchQueue.projectKey}
-        targetKey={batchQueue.targetKey}
-        items={batchQueue.items}
-        eligibleCount={productionPackageEligibleCount}
-        occupiedUnitKeys={productionPackageOccupiedUnitKeys}
-        stagingEvidenceByUnitKey={productionPackageStagingEvidenceByUnitKey}
-        hasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
-        packageProgress={batchQueue.progress.productionPackage}
-        latestWave={latestProductionPackageWave}
-        context={batchContext}
-        onOpenScope={onOpenScope}
-        selectedUnitKey={selectedUnitKey}
-      />
+      {productionWorkspace ? (
+        <ProductionPackageWaveApprovalControl
+          projectKey={batchQueue.projectKey}
+          targetKey={batchQueue.targetKey}
+          items={batchQueue.items}
+          eligibleCount={productionPackageEligibleCount}
+          occupiedUnitKeys={productionPackageOccupiedUnitKeys}
+          stagingEvidenceByUnitKey={productionPackageStagingEvidenceByUnitKey}
+          hasPriorDeliveredPackage={productionPackageHasPriorDeliveredPackage}
+          packageProgress={batchQueue.progress.productionPackage}
+          latestWave={latestProductionPackageWave}
+          context={batchContext}
+          onOpenScope={onOpenScope}
+          selectedUnitKey={selectedUnitKey}
+        />
+      ) : (
+        <ProductionWorkspaceRequired action="approve a production package wave" />
+      )}
       {batchQueue.latestProductionPackageWave ? (
         <>
           <DeliveryCheckpointCard
@@ -1116,7 +1133,7 @@ function DeliveryView({
               </table>
             </div>
           ) : null}
-          {latestProductionPackageWave?.items && latestProductionPackageWave.items.length > 0 ? (
+          {productionWorkspace && latestProductionPackageWave?.items && latestProductionPackageWave.items.length > 0 ? (
             <ProductionPackageConsumerApplyBatchControl
               projectKey={batchQueue.projectKey}
               waveKey={batchQueue.latestProductionPackageWave!.waveKey}
@@ -1155,6 +1172,19 @@ function DeliveryView({
           <p>Needs consumer investigation</p>
         </article>
       </div>
+    </section>
+  );
+}
+
+function ProductionWorkspaceRequired({ action }: { action: string }) {
+  return (
+    <section className="admin-ux-notice admin-ux-notice-watch" role="status">
+      <p className="admin-kicker">Production workspace required</p>
+      <h3>This action is unavailable in the Staging workspace</h3>
+      <p>
+        Switch the workspace selector in the masthead to <strong>Production</strong> to {action}.
+        Staging never reads or writes Vamo&apos;s production inbox.
+      </p>
     </section>
   );
 }
@@ -1284,6 +1314,7 @@ function DiagnosticsView({
   progressiveSource,
   canaryTarget,
   progressiveContext,
+  controlEnvironment,
   attentionRows,
   onOpenScope,
   selectedUnitKey
@@ -1304,6 +1335,7 @@ function DiagnosticsView({
   progressiveSource: DashboardSource;
   canaryTarget?: ProgressiveRunView["rows"][number];
   progressiveContext: { role: AdminPrincipal["role"]; assuranceLevel: AdminPrincipal["assuranceLevel"]; source: "live" | "sample" };
+  controlEnvironment: ControlEnvironment;
   attentionRows: BatchQueueItem[];
   onOpenScope: (unitKey: string) => void;
   selectedUnitKey: string | null;
@@ -1648,13 +1680,17 @@ function DiagnosticsView({
               alreadyShipped={canaryTarget.canaryShipped}
               context={progressiveContext}
             />
-            <ProductionInboxControl
-              targetId={canaryTarget.targetId}
-              bounds={canaryTarget.canaryBounds}
-              canaryShipment={canaryTarget.canaryShipment}
-              productionInbox={canaryTarget.productionInbox}
-              context={progressiveContext}
-            />
+            {controlEnvironment === "production" ? (
+              <ProductionInboxControl
+                targetId={canaryTarget.targetId}
+                bounds={canaryTarget.canaryBounds}
+                canaryShipment={canaryTarget.canaryShipment}
+                productionInbox={canaryTarget.productionInbox}
+                context={progressiveContext}
+              />
+            ) : (
+              <ProductionWorkspaceRequired action="request a production-inbox handoff" />
+            )}
           </div>
         ) : null}
       </section>

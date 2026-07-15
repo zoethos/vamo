@@ -11,6 +11,12 @@ import { loadIp187Autonomy } from "@/lib/ip18-autonomy-data";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
 import { loadIngestionDashboard } from "@/lib/ingestion-dashboard-data";
 import { loadIp14ProgressiveBoard } from "@/lib/ip14-progressive-data";
+import { CONTROL_ENVIRONMENTS } from "@/lib/control-environment";
+import {
+  getControlEnvironmentConfig,
+  getDefaultControlEnvironment
+} from "@/lib/control-environment-config";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 import { IngestionConsoleShell } from "./ingestion-console-shell";
 import {
   isActionableWorkflowAttentionItem
@@ -33,6 +39,11 @@ export const dynamic = "force-dynamic";
 const CONSOLE_READ_DEADLINE_MS = 5_000;
 
 export default async function IngestionDashboardPage() {
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  const controlEnvironment = environmentConfig?.environment ?? getDefaultControlEnvironment();
+  const availableControlEnvironments = CONTROL_ENVIRONMENTS.filter((environment) =>
+    Boolean(getControlEnvironmentConfig(environment))
+  );
   const principal = await requireIngestionDashboardAccess({
     projectKey: "vamo",
     nextPath: "/admin/ingestion"
@@ -94,7 +105,7 @@ export default async function IngestionDashboardPage() {
   let productionPackageStagingEvidenceByUnitKey: Record<string, { status?: string }> = {};
   let productionPackageHasPriorDeliveredPackage = false;
   if (batchQueueSource === "live") {
-    const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+    const controlDb = environmentConfig?.controlDatabaseUrl;
     if (controlDb) {
       try {
         const packageContext = await withConsoleReadDeadline(
@@ -326,6 +337,8 @@ export default async function IngestionDashboardPage() {
       pipelineMetrics={pipelineMetrics}
       deliverySplit={deliverySplit}
       coverageRows={coverageRows}
+      controlEnvironment={controlEnvironment}
+      availableControlEnvironments={availableControlEnvironments}
     />
   );
 }

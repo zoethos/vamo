@@ -1,15 +1,24 @@
+import { getControlEnvironmentConfig } from "./control-environment-config";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
+import type { ControlEnvironment } from "./control-environment";
+
 export type SupabasePublicConfig = {
   url: string;
   anonKey: string;
 };
 
-export function getSupabasePublicConfig(): SupabasePublicConfig | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-  if (!url || !anonKey) {
+export async function getSupabasePublicConfig(): Promise<SupabasePublicConfig | null> {
+  const config = await getActiveControlEnvironmentConfig();
+  if (!config) {
     return null;
   }
 
-  return { url, anonKey };
+  return { url: config.supabaseUrl, anonKey: config.supabaseAnonKey };
+}
+
+export function getSupabasePublicConfigForEnvironment(
+  environment: ControlEnvironment
+): SupabasePublicConfig | null {
+  const config = getControlEnvironmentConfig(environment);
+  return config ? { url: config.supabaseUrl, anonKey: config.supabaseAnonKey } : null;
 }

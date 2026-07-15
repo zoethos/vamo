@@ -4,6 +4,7 @@ import {
   parseProductionPackageWaveApplyWaveRequest
 } from "@confluendo/ingestion-platform/core";
 import { authorizeStagingCanaryRequest } from "@/lib/ingestion-admin-auth";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 
 export const runtime = "nodejs";
 
@@ -32,8 +33,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(auth.body, { status: auth.status });
   }
 
-  const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
-  const applyDb = process.env.VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL?.trim();
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  if (environmentConfig?.environment !== "production") {
+    return NextResponse.json(
+      { ok: false, error: "Apply to Vamo is available only in the Production workspace." },
+      { status: 409 }
+    );
+  }
+  const controlDb = environmentConfig.controlDatabaseUrl;
+  const applyDb = environmentConfig.vamoProductionInboxApplyDatabaseUrl;
 
   if (!controlDb) {
     return NextResponse.json(
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
       { status: 503 }
     );
   }
-  if (process.env.VAMO_PRODUCTION_INBOX_WRITER_DATABASE_URL?.trim()) {
+  if (environmentConfig.vamoProductionInboxWriterDatabaseUrl) {
     return NextResponse.json(
       {
         ok: false,
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
       actor: auth.actor,
       controlConnectionString: controlDb,
       applyConnectionString: applyDb,
-      proveApply: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production"
+      proveApply: () => environmentConfig.vamoProductionInboxEnvironment === "production"
     });
 
     if (!result.ok) {

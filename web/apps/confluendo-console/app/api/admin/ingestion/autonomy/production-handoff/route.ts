@@ -9,6 +9,7 @@ import {
 import { loadAutonomyPolicy } from "@confluendo/ingestion-platform/autonomy-control-read";
 import { hasFreshAdminStepUp } from "@/lib/autonomy-ramp-step-up";
 import { authorizeStagingCanaryRequest } from "@/lib/ingestion-admin-auth";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 
 export const runtime = "nodejs";
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(auth.body, { status: auth.status });
   }
 
-  const connectionString = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const connectionString = (await getActiveControlEnvironmentConfig())?.controlDatabaseUrl;
   if (!connectionString) {
     return NextResponse.json(
       { ok: false, error: "Ingestion control database URL is not configured." },
