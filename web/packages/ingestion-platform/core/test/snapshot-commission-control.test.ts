@@ -631,7 +631,7 @@ describe("snapshot commission route artifact", () => {
     assert.match(routeSource, /INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /parsed\.request\.planKey/);
     assert.doesNotMatch(routeSource, /runFsqSnapshotAcquire/);
-    assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);
+    assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_(?:SERVICE_API_KEY|TOKEN)/);
     assert.doesNotMatch(routeSource, /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET/);
     assert.doesNotMatch(routeSource, /VAMO_STAGING_CANARY_APP_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
@@ -644,7 +644,7 @@ describe("snapshot commission route artifact", () => {
     const controlSource = readFileSync(commissionControl, "utf8");
     assert.match(controlSource, /snapshot-commission\/request/);
     assert.doesNotMatch(controlSource, /runFsqSnapshotAcquire/);
-    assert.doesNotMatch(controlSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);
+    assert.doesNotMatch(controlSource, /FSQ_OS_PLACES_CATALOG_(?:SERVICE_API_KEY|TOKEN)/);
     assert.doesNotMatch(controlSource, /Execute acquisition/i);
     const postBodyBlock = controlSource.match(/body: JSON\.stringify\(\{[\s\S]*?\}\)/);
     assert.ok(postBodyBlock, "expected commissioning POST body");

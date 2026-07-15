@@ -114,7 +114,7 @@ release registry. It is separate from activation and queue reseed:
 
 Boundary rules:
 
-1. `FSQ_OS_PLACES_CATALOG_TOKEN` lives in server/job secrets only — never in
+1. `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` lives in server/job secrets only — never in
    console code, manifests, artifacts, logs, or tests.
 2. Preview is write-free and token-free.
 3. Execute requires `--execute`, `CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES`,
@@ -125,13 +125,13 @@ Boundary rules:
 Operator commands:
 
 ```bash
-# Preview bounded scopes — writes nothing, token-free
+# Preview bounded scopes — writes nothing, credential-free
 npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
   --countries italy,france --categories poi,landmark
 
 # Execute after review (server/job secret store only)
 CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
-FSQ_OS_PLACES_CATALOG_TOKEN=... \
+FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY=... \
 INGESTION_CONTROL_DATABASE_URL=... \
 npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
   --execute \
@@ -264,6 +264,39 @@ Supabase S3 access keys are project-Storage credentials, so the trusted worker
 is the only runtime allowed to hold them. Vamo has no artifact-store
 credentials, and artifacts are never exposed via signed URLs, console props,
 or API responses.
+
+### Snapshot commission worker environment
+
+The commission worker is a separate trusted process. Keep its Foursquare service API key
+and owner control-DB DSN out of the artifact-store files and out of every
+console/Vamo environment. Use the environment-specific ignored worker files:
+
+- staging: copy
+  [`web/.env.snapshot-commission.staging.example`](../../../web/.env.snapshot-commission.staging.example)
+  to `Z:\vamo-ip17\web\.env.snapshot-commission.staging.local`;
+- production: copy
+  [`web/.env.snapshot-commission.production.example`](../../../web/.env.snapshot-commission.production.example)
+  to `Z:\vamo-ip17\web\.env.snapshot-commission.production.local`.
+
+Each file contains only `INGESTION_CONTROL_DATABASE_URL` (the owner-only DSN)
+and `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` (the matching Confluendo service API key). The
+worker wrapper reads only those names plus the matching artifact-store file; it
+does not evaluate or expose either secret.
+
+```powershell
+cd Z:\vamo-ip17\web
+
+# Validates both trusted files without calling FSQ or writing to the control DB.
+.\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 `
+  -ControlEnvironment Staging
+
+# After an admin has created a bounded Queue commission request, re-run with
+# explicit execution. The wrapper rechecks HeadBucket, then claims at most one
+# request and starts the trusted worker.
+.\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 `
+  -ControlEnvironment Staging `
+  -Execute
+```
 
 ## Versioned snapshot intake (IP-18.8.9)
 

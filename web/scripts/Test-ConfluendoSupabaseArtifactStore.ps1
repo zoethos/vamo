@@ -30,60 +30,20 @@ if (!(Test-Path -LiteralPath $platformPackage)) {
   throw "Missing ingestion-platform package: $platformPackage"
 }
 
-function Read-ArtifactStoreEnvironmentFile {
-  param([Parameter(Mandatory = $true)][string]$Path)
-
-  if (!(Test-Path -LiteralPath $Path -PathType Leaf)) {
-    throw "Missing trusted worker environment file: $Path"
-  }
-
-  $allowedNames = @{
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_STORE" = $true
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF" = $true
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET" = $true
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION" = $true
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID" = $true
-    "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY" = $true
-  }
-  $values = @{}
-
-  foreach ($line in Get-Content -LiteralPath $Path) {
-    $trimmed = $line.Trim()
-    if (!$trimmed -or $trimmed.StartsWith("#")) {
-      continue
-    }
-    if ($trimmed -notmatch "^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$") {
-      if ($trimmed.StartsWith("CONFLUENDO_SNAPSHOT_ARTIFACT_")) {
-        throw "Invalid artifact-store environment entry in $Path. Use NAME=value."
-      }
-      continue
-    }
-
-    $name = $Matches[1]
-    if (!$allowedNames.ContainsKey($name)) {
-      continue
-    }
-    if ($values.ContainsKey($name)) {
-      throw "Duplicate artifact-store environment entry for $name in $Path."
-    }
-
-    $value = $Matches[2].Trim()
-    if ($value.Length -ge 2 -and (
-      ($value.StartsWith('"') -and $value.EndsWith('"')) -or
-      ($value.StartsWith("'") -and $value.EndsWith("'"))
-    )) {
-      $value = $value.Substring(1, $value.Length - 2)
-    }
-    $values[$name] = $value
-  }
-
-  return $values
-}
+. (Join-Path $scriptDirectory "ConfluendoTrustedEnvironment.ps1")
 
 if ([string]::IsNullOrWhiteSpace($EnvironmentFile)) {
   $EnvironmentFile = $defaultEnvironmentFile
 }
-$environmentValues = Read-ArtifactStoreEnvironmentFile -Path $EnvironmentFile
+$environmentNames = @(
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_STORE",
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF",
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET",
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION",
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID",
+  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY"
+)
+$environmentValues = Read-ConfluendoTrustedEnvironmentFile -Path $EnvironmentFile -AllowedNames $environmentNames
 
 if ([string]::IsNullOrWhiteSpace($ProjectRef)) {
   $ProjectRef = $environmentValues["CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF"]
@@ -125,14 +85,6 @@ if ($null -eq $SecretAccessKey) {
   }
 }
 
-$environmentNames = @(
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_STORE",
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF",
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET",
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION",
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID",
-  "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY"
-)
 $originalEnvironment = @{}
 foreach ($name in $environmentNames) {
   $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
