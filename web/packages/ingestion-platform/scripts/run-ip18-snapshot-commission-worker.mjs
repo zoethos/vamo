@@ -37,7 +37,7 @@ const result = await runSnapshotCommissionWorker({
   workerId,
   workerRunKey,
   confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-  catalogToken: process.env.FSQ_OS_PLACES_CATALOG_TOKEN,
+  catalogServiceApiKey: process.env.FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY,
   artifactStore: artifactStoreResolved.store,
   artifactStoreBaseDir: artifactStoreResolved.artifactStoreDir
 });

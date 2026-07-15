@@ -76,22 +76,22 @@ describe("runSnapshotCommissionWorker", () => {
     assert.doesNotMatch(workerModule, /activateSnapshotRelease/);
   });
 
-  it("rejects missing worker confirmation and catalog token", async () => {
+  it("rejects missing worker confirmation and catalog service API key", async () => {
     const missingConfirmation = await runSnapshotCommissionWorker({
       connectionString: "postgres://example",
       workerId: "worker",
       workerRunKey: "run-1",
-      catalogToken: "token"
+      catalogServiceApiKey: "service-api-key"
     });
     assert.deepEqual(missingConfirmation, { ok: false, blocks: ["worker_confirmation_missing"] });
 
-    const missingToken = await runSnapshotCommissionWorker({
+    const missingServiceApiKey = await runSnapshotCommissionWorker({
       connectionString: "postgres://example",
       workerId: "worker",
       workerRunKey: "run-1",
       confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE
     });
-    assert.deepEqual(missingToken, { ok: false, blocks: ["catalog_token_missing"] });
+    assert.deepEqual(missingServiceApiKey, { ok: false, blocks: ["catalog_service_api_key_missing"] });
   });
 
   it(
@@ -145,7 +145,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-success",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogToken: "test-token",
+          catalogServiceApiKey: "test-service-api-key",
           runAcquire: successAcquire
         });
         assert.equal(completed.ok, true);
@@ -160,7 +160,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-success",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogToken: "test-token",
+          catalogServiceApiKey: "test-service-api-key",
           runAcquire: successAcquire
         });
         assert.equal(replay.ok, true);
@@ -192,7 +192,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-failure",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogToken: "test-token",
+          catalogServiceApiKey: "test-service-api-key",
           runAcquire: async () => ({ ok: false, blocks: ["provider_unavailable"] })
         });
         assert.equal(failed.ok, true);
@@ -282,7 +282,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "worker",
           workerRunKey: "run-reconcile-2",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogToken: "test-token",
+          catalogServiceApiKey: "test-service-api-key",
           runAcquire: async () => {
             acquireCalls += 1;
             throw new Error("provider should not be called during reconciliation");

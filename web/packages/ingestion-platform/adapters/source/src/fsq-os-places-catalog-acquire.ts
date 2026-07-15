@@ -2,7 +2,7 @@
  * FSQ OS Places catalog acquisition boundary (IP-18.8.10).
  *
  * The only module allowed to perform provider-facing HTTP for FSQ snapshot
- * acquisition. Tokens must come from server/job secrets at runtime only.
+ * acquisition. Service API keys must come from server/job secrets at runtime only.
  */
 
 import {
@@ -18,7 +18,8 @@ export {
   FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE
 } from "../../../core/src/fsq-acquisition-scope.js";
 
-export const FSQ_OS_PLACES_CATALOG_TOKEN_ENV = "FSQ_OS_PLACES_CATALOG_TOKEN" as const;
+export const FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV =
+  "FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY" as const;
 
 export const FSQ_OS_PLACES_DEFAULT_ATTRIBUTION = "FSQ Open Source Places" as const;
 export const FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL =
@@ -155,7 +156,7 @@ export async function acquireFsqOsPlacesCatalog(input: {
   categories: readonly string[];
   maxRowsPerScope?: number;
   preview?: boolean;
-  token?: string;
+  serviceApiKey?: string;
   catalogBaseUrl?: string;
   fetchFn?: FsqCatalogFetchFn;
   fixtureRecords?: readonly FsqCatalogPlaceRecord[];
@@ -175,9 +176,9 @@ export async function acquireFsqOsPlacesCatalog(input: {
     };
   }
 
-  const token = input.token?.trim();
-  if (!token) {
-    return { ok: false, blocks: ["catalog_token_missing"] };
+  const serviceApiKey = input.serviceApiKey?.trim();
+  if (!serviceApiKey) {
+    return { ok: false, blocks: ["catalog_service_api_key_missing"] };
   }
 
   const records: FsqCatalogPlaceRecord[] = [];
@@ -192,7 +193,7 @@ export async function acquireFsqOsPlacesCatalog(input: {
       const response = await fetchFn({
         url,
         headers: {
-          authorization: `Bearer ${token}`,
+          authorization: `Bearer ${serviceApiKey}`,
           accept: "application/json"
         }
       });

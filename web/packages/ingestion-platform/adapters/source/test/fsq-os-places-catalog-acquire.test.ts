@@ -82,7 +82,7 @@ describe("validateFsqAcquisitionBounds", () => {
 });
 
 describe("acquireFsqOsPlacesCatalog", () => {
-  it("preview mode is write-free and never requires a token", async () => {
+  it("preview mode is write-free and never requires a service API key", async () => {
     const result = await acquireFsqOsPlacesCatalog({
       countries: ["italy"],
       categories: ["poi"],
@@ -96,13 +96,13 @@ describe("acquireFsqOsPlacesCatalog", () => {
     }
   });
 
-  it("execute mode rejects missing token", async () => {
+  it("execute mode rejects a missing service API key", async () => {
     const result = await acquireFsqOsPlacesCatalog({
       countries: ["italy"],
       categories: ["poi"],
       preview: false
     });
-    assert.deepEqual(result, { ok: false, blocks: ["catalog_token_missing"] });
+    assert.deepEqual(result, { ok: false, blocks: ["catalog_service_api_key_missing"] });
   });
 
   it("normalizes fixture records deterministically without live HTTP", async () => {
@@ -110,14 +110,14 @@ describe("acquireFsqOsPlacesCatalog", () => {
       countries: ["italy", "france"],
       categories: ["poi", "landmark"],
       preview: false,
-      token: "fixture-token-not-used",
+      serviceApiKey: "fixture-service-api-key-not-used",
       fixtureRecords
     });
     const second = await acquireFsqOsPlacesCatalog({
       countries: ["france", "italy"],
       categories: ["landmark", "poi"],
       preview: false,
-      token: "fixture-token-not-used",
+      serviceApiKey: "fixture-service-api-key-not-used",
       fixtureRecords
     });
 
@@ -138,7 +138,7 @@ describe("acquireFsqOsPlacesCatalog", () => {
       countries: ["italy"],
       categories: ["poi"],
       preview: false,
-      token: "test-token",
+      serviceApiKey: "test-service-api-key",
       fetchFn: async () => {
         fetchCount += 1;
         return {

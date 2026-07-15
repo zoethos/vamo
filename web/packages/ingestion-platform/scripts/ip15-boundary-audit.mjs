@@ -200,14 +200,14 @@ assert(
     .join("\n")}`
 );
 
-const consoleRuntimeWithFsqToken = consoleRuntimeFiles.filter((file) => {
+const consoleRuntimeWithFsqServiceApiKey = consoleRuntimeFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
-  return /FSQ_OS_PLACES_CATALOG_TOKEN/.test(source);
+  return /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/.test(source);
 });
 
 assert(
-  consoleRuntimeWithFsqToken.length === 0,
-  `console runtime must not reference FSQ_OS_PLACES_CATALOG_TOKEN:\n${consoleRuntimeWithFsqToken
+  consoleRuntimeWithFsqServiceApiKey.length === 0,
+  `console runtime must not reference FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY:\n${consoleRuntimeWithFsqServiceApiKey
     .map(toRepoRelative)
     .join("\n")}`
 );
@@ -267,9 +267,9 @@ assert(
 );
 
 assert(
-  !/\bFSQ_OS_PLACES_CATALOG_TOKEN\b/.test(fsqAcquisitionSource) ||
-    fsqAcquisitionSource.includes('FSQ_OS_PLACES_CATALOG_TOKEN_ENV'),
-  "FSQ acquisition adapter must reference the token env name only, never embed token values"
+  !/\bFSQ_OS_PLACES_CATALOG_SERVICE_API_KEY\b/.test(fsqAcquisitionSource) ||
+    fsqAcquisitionSource.includes('FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV'),
+  "FSQ acquisition adapter must reference the service API key env name only, never embed credential values"
 );
 
 console.log("Confluendo boundary audit");
