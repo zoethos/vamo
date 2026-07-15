@@ -11,7 +11,9 @@ describe("control runtime-role bootstrap CLI", () => {
     );
 
     assert.match(source, /alter role %I login password %L', \$1::text, \$2::text/);
-    assert.match(source, /await runtimeClient\.connect\(\)/);
+    assert.match(source, /RUNTIME_AUTH_MAX_ATTEMPTS = 6/);
+    assert.match(source, /connectRuntimeClientWithRetry\(runtimeDatabaseUrl\)/);
+    assert.match(source, /isPasswordAuthenticationFailure/);
     assert.ok(
       source.indexOf("assertRuntimeVerification(verification)") <
         source.indexOf('replaceDotenvValue(profilePath, "INGESTION_CONTROL_DATABASE_URL", runtimeDatabaseUrl)'),
