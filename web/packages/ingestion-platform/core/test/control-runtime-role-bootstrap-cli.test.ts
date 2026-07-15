@@ -10,7 +10,7 @@ describe("control runtime-role bootstrap CLI", () => {
       "utf8"
     );
 
-    assert.match(source, /alter role %I login password %L/);
+    assert.match(source, /alter role %I login password %L', \$1::text, \$2::text/);
     assert.match(source, /await runtimeClient\.connect\(\)/);
     assert.ok(
       source.indexOf("assertRuntimeVerification(verification)") <
