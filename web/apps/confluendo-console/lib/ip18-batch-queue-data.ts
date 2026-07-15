@@ -71,7 +71,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
           controlConnectionString: controlDb,
           telemetryConnectionString: telemetryDb,
           proveTelemetry: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production",
-          syncControl: true
+          syncControl: false
         });
         snapshot = refreshed.snapshot;
         applyTelemetrySource = refreshed.telemetryAvailable ? "inbox" : "missing";

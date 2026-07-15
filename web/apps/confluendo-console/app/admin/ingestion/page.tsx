@@ -38,9 +38,17 @@ export default async function IngestionDashboardPage() {
   const serverNowMs = Date.now();
   const freshStepUpExpiresAt = freshStepUpExpiry(principal.stepUpSatisfiedAt);
 
-  const { view, source } = await loadIngestionDashboard("vamo");
-  const { view: progressiveView, source: progressiveSource } =
-    await loadIp14ProgressiveBoard("vamo");
+  const [
+    { view, source },
+    { view: progressiveView, source: progressiveSource },
+    batchQueueData,
+    autonomyData
+  ] = await Promise.all([
+    loadIngestionDashboard("vamo"),
+    loadIp14ProgressiveBoard("vamo"),
+    loadIp18BatchQueue("vamo"),
+    loadIp187Autonomy("vamo")
+  ]);
   const {
     signals: ingestionSignals,
     actions: ingestionActions,
@@ -62,7 +70,7 @@ export default async function IngestionDashboardPage() {
     snapshotCommissionDefaultCountries,
     snapshotCommissionDefaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope
-  } = await loadIp18BatchQueue("vamo");
+  } = batchQueueData;
   const {
     view: autonomyView,
     rampCard,
@@ -70,7 +78,7 @@ export default async function IngestionDashboardPage() {
     policyKey: autonomyPolicyKey,
     source: autonomySource,
     error: autonomyError
-  } = await loadIp187Autonomy("vamo");
+  } = autonomyData;
 
   const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
   const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
