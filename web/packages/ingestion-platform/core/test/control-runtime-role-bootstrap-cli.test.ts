@@ -20,4 +20,14 @@ describe("control runtime-role bootstrap CLI", () => {
     assert.match(source, /INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(source, /replaceDotenvValue\(profilePath, "INGESTION_CONTROL_OWNER_DATABASE_URL"/);
   });
+
+  it("keeps the PowerShell profile reader clear of the automatic Matches hashtable", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "..", "..", "scripts", "Initialize-ConfluendoControlRuntimeRole.ps1"),
+      "utf8"
+    );
+
+    assert.match(source, /\$profileValues = @\(\)/);
+    assert.doesNotMatch(source, /\$matches = @\(\)/i);
+  });
 });

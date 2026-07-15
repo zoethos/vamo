@@ -24,19 +24,19 @@ function Read-EnvironmentFileValue {
     [Parameter(Mandatory = $true)][string]$Name
   )
 
-  $matches = @()
+  $profileValues = @()
   foreach ($line in Get-Content -LiteralPath $Path) {
     $trimmed = $line.Trim()
     if (!$trimmed -or $trimmed.StartsWith("#")) { continue }
     if ($trimmed -match "^(?:export\s+)?$([regex]::Escape($Name))\s*=\s*(.*)$") {
-      $matches += $Matches[1].Trim()
+      $profileValues += $Matches[1].Trim()
     }
   }
-  if ($matches.Count -ne 1 -or [string]::IsNullOrWhiteSpace($matches[0])) {
+  if ($profileValues.Count -ne 1 -or [string]::IsNullOrWhiteSpace($profileValues[0])) {
     throw "Expected exactly one non-empty $Name entry in $Path."
   }
 
-  $value = $matches[0]
+  $value = $profileValues[0]
   if ($value.Length -ge 2 -and (
     ($value.StartsWith('"') -and $value.EndsWith('"')) -or
     ($value.StartsWith("'") -and $value.EndsWith("'"))
