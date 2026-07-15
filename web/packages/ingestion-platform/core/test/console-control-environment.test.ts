@@ -19,6 +19,7 @@ const shell = readFileSync(
   "utf8"
 );
 const providerPage = readFileSync(join(consoleRoot, "app", "admin", "providers", "page.tsx"), "utf8");
+const signInPage = readFileSync(join(consoleRoot, "app", "admin", "sign-in", "page.tsx"), "utf8");
 const productionRoutes = [
   "production-inbox/route.ts",
   "production-package-wave/approve/route.ts",
@@ -52,6 +53,14 @@ describe("console control environment boundaries", () => {
     assert.match(shell, /<ProductionWorkspaceRequired action="approve a production package wave"/);
     assert.match(shell, /<ProductionWorkspaceRequired action="request a production-inbox handoff"/);
     assert.match(providerPage, /<ControlEnvironmentSwitcher/);
+  });
+
+  it("makes the selected workspace explicit before the sign-in form", () => {
+    assert.match(signInPage, /<SignInWorkspaceContext/);
+    assert.match(signInPage, /Sign in to \{controlEnvironmentLabel\(activeEnvironment\)\}/);
+    assert.match(signInPage, /Active workspace/);
+    assert.match(signInPage, /Staging-provisioned administrator account/);
+    assert.match(signInPage, /showStatus=\{false\}/);
   });
 
   it("rejects production inbox and apply routes outside the production workspace", () => {
