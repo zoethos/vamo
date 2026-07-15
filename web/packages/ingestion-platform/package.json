@@ -105,6 +105,7 @@
     "ip18:snapshot-activate": "npm run build && node scripts/run-ip18-snapshot-activate.mjs",
     "ip18:snapshot-commission-worker": "npm run build && node scripts/run-ip18-snapshot-commission-worker.mjs",
     "ip18:snapshot-activation-worker": "npm run build && node scripts/run-ip18-snapshot-activation-worker.mjs",
+    "control:provision-vamo-admin": "npm run build && node scripts/run-control-admin-provision.mjs",
     "test": "npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },

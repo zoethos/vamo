@@ -183,38 +183,8 @@ grant usage, select on all sequences in schema ingestion_platform to confluendo_
 
 commit;
 
--- Optional first-admin seed.
---
--- After signing in once through /admin/sign-in, replace the email below with
--- your Supabase Auth email and run this block as the database owner.
---
--- insert into ingestion_platform.ingestion_admin_principals (
---   provider,
---   provider_user_id,
---   email,
---   role,
---   scopes,
---   mfa_required,
---   status,
---   created_by_provider,
---   created_by_provider_user_id
--- )
--- select
---   'supabase',
---   auth_user.id::text,
---   auth_user.email,
---   'admin',
---   array['vamo'],
---   true,
---   'active',
---   'bootstrap',
---   'bootstrap'
--- from auth.users auth_user
--- where lower(auth_user.email) = lower('YOUR_ADMIN_EMAIL@example.com')
--- on conflict (provider, provider_user_id) do update
--- set
---   email = excluded.email,
---   role = excluded.role,
---   scopes = excluded.scopes,
---   mfa_required = excluded.mfa_required,
---   status = excluded.status;
+-- First Vamo console-admin provisioning is deliberately automated rather than
+-- copied into the SQL Editor. Use the trusted local command documented in
+-- docs/platform/ingestion/CONSOLE_CONTROL_ENVIRONMENTS.md. It creates or
+-- reuses the Supabase Auth identity, grants only the current `vamo` scope,
+-- requires MFA, and writes an audit event with an operator-supplied reason.
