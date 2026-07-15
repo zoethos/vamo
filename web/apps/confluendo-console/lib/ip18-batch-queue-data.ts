@@ -34,6 +34,8 @@ export interface Ip18BatchQueueData {
   snapshotCommissionDefaultMaxRowsPerScope: number;
 }
 
+const CONSOLE_LIVE_READ_DEADLINE_MS = 5_000;
+
 /**
  * Resolves the IP-18 batch queue board for the admin console. Queue state comes
  * from persisted control-plane rows when available; otherwise the bundled Vamo
@@ -54,25 +56,30 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
   }
 
   try {
-    let snapshot = await loadBatchQueueSnapshot({
-      connectionString: controlDb,
-      projectKey
-    });
-    if (!snapshot || snapshot.items.length === 0) {
+    const loadedSnapshot = await withConsoleLiveReadDeadline("Batch queue", () =>
+      loadBatchQueueSnapshot({
+        connectionString: controlDb,
+        projectKey
+      })
+    );
+    if (!loadedSnapshot || loadedSnapshot.items.length === 0) {
       return sample();
     }
+    let snapshot: BatchQueueSnapshot = loadedSnapshot;
 
     const telemetryDb = process.env.VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL?.trim();
     let applyTelemetrySource: Ip18BatchQueueData["applyTelemetrySource"] = "missing";
     if (telemetryDb) {
       try {
-        const refreshed = await refreshProductionPackageApplyTelemetry({
-          snapshot,
-          controlConnectionString: controlDb,
-          telemetryConnectionString: telemetryDb,
-          proveTelemetry: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production",
-          syncControl: false
-        });
+        const refreshed = await withConsoleLiveReadDeadline("Consumer inbox telemetry", () =>
+          refreshProductionPackageApplyTelemetry({
+            snapshot,
+            controlConnectionString: controlDb,
+            telemetryConnectionString: telemetryDb,
+            proveTelemetry: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production",
+            syncControl: false
+          })
+        );
         snapshot = refreshed.snapshot;
         applyTelemetrySource = refreshed.telemetryAvailable ? "inbox" : "missing";
       } catch (error) {
@@ -84,11 +91,13 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     let snapshotCommissionCard;
     let snapshotActivationCard;
     try {
-      const binding = await loadActiveSnapshotReleasePlanBinding({
-        connectionString: controlDb,
-        projectKey,
-        planKey: snapshot.planId
-      });
+      const binding = await withConsoleLiveReadDeadline("Active source release", () =>
+        loadActiveSnapshotReleasePlanBinding({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        })
+      );
       registeredSnapshotRelease = binding ? toRegisteredSnapshotReleaseSummary(binding) : null;
     } catch (error) {
       console.error("Active snapshot release binding read failed", error);
@@ -99,28 +108,31 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     const defaultMaxRowsPerScope = 250;
 
     try {
-      const [latestRequest, hasActiveRequest, latestActivationRequest, hasActiveActivationRequest] = await Promise.all([
-        loadLatestSnapshotCommissionRequest({
-          connectionString: controlDb,
-          projectKey,
-          planKey: snapshot.planId
-        }),
-        hasActiveSnapshotCommissionRequest({
-          connectionString: controlDb,
-          projectKey,
-          planKey: snapshot.planId
-        }),
-        loadLatestSnapshotActivationRequest({
-          connectionString: controlDb,
-          projectKey,
-          planKey: snapshot.planId
-        }),
-        hasActiveSnapshotActivationRequest({
-          connectionString: controlDb,
-          projectKey,
-          planKey: snapshot.planId
-        })
-      ]);
+      const [latestRequest, hasActiveRequest, latestActivationRequest, hasActiveActivationRequest] =
+        await withConsoleLiveReadDeadline("Source release request state", () =>
+          Promise.all([
+            loadLatestSnapshotCommissionRequest({
+              connectionString: controlDb,
+              projectKey,
+              planKey: snapshot.planId
+            }),
+            hasActiveSnapshotCommissionRequest({
+              connectionString: controlDb,
+              projectKey,
+              planKey: snapshot.planId
+            }),
+            loadLatestSnapshotActivationRequest({
+              connectionString: controlDb,
+              projectKey,
+              planKey: snapshot.planId
+            }),
+            hasActiveSnapshotActivationRequest({
+              connectionString: controlDb,
+              projectKey,
+              planKey: snapshot.planId
+            })
+          ])
+        );
       snapshotCommissionCard = presentSnapshotCommissionCard({
         request: latestRequest,
         hasActiveRequest,
@@ -187,4 +199,23 @@ function sample(): Ip18BatchQueueData {
     snapshotCommissionDefaultCategories: defaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope
   };
+}
+
+async function withConsoleLiveReadDeadline<T>(label: string, read: () => Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      read(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`${label} did not respond within ${CONSOLE_LIVE_READ_DEADLINE_MS / 1000}s.`)),
+          CONSOLE_LIVE_READ_DEADLINE_MS
+        );
+      })
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
