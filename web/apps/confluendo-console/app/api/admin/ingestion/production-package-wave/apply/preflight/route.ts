@@ -5,6 +5,7 @@ import {
   parseProductionPackageWaveApplyPreflightQuery
 } from "@confluendo/ingestion-platform/core";
 import { authorizeIngestionReadRequest } from "@/lib/ingestion-admin-auth";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 
 export const runtime = "nodejs";
 
@@ -29,7 +30,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(auth.body, { status: auth.status });
   }
 
-  const applyDb = process.env.VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL?.trim();
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  if (environmentConfig?.environment !== "production") {
+    return NextResponse.json(
+      { ok: false, error: "Apply-to-Vamo preflight is available only in the Production workspace." },
+      { status: 409 }
+    );
+  }
+  const applyDb = environmentConfig.vamoProductionInboxApplyDatabaseUrl;
   if (!applyDb) {
     return NextResponse.json(
       { ok: false, error: "VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL is not configured." },
@@ -41,7 +49,7 @@ export async function GET(request: NextRequest) {
     const loaded = await loadProductionPackageConsumerApplyPreflight({
       packageId: parsed.packageId,
       applyConnectionString: applyDb,
-      proveApply: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production"
+      proveApply: () => environmentConfig.vamoProductionInboxEnvironment === "production"
     });
     if (!loaded.ok) {
       return NextResponse.json(

@@ -14,6 +14,7 @@ import {
 import type { IngestionCommandKind } from "@confluendo/ingestion-platform/control-api";
 
 import { createSupabaseServerClient } from "./supabase-server";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 
 export type IngestionAdminFailureCode =
   | AdminAuthFailureCode
@@ -60,7 +61,8 @@ export async function getIngestionAdminPrincipal(
     return { ok: false, code: "not_authenticated" };
   }
 
-  const connectionString = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  const connectionString = environmentConfig?.controlDatabaseUrl;
   if (!connectionString) {
     return { ok: false, code: "allowlist_not_configured" };
   }
@@ -272,7 +274,7 @@ export function readableAdminAccessFailure(code: string): string {
   }
 }
 
-function requireSameOriginJsonMutation(
+export function requireSameOriginJsonMutation(
   request: NextRequest
 ):
   | { ok: true }

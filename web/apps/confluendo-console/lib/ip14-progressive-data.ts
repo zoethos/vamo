@@ -6,6 +6,7 @@ import {
   sampleProgressiveRunSnapshot,
   type ProgressiveRunView
 } from "@confluendo/ingestion-platform/progressive-read-model";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 
 export type Ip14ProgressiveSource = "live" | "sample" | "error";
 
@@ -28,7 +29,7 @@ export interface Ip14ProgressiveData {
 export async function loadIp14ProgressiveBoard(
   projectKey = "vamo"
 ): Promise<Ip14ProgressiveData> {
-  const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const controlDb = (await getActiveControlEnvironmentConfig())?.controlDatabaseUrl;
   if (!controlDb) {
     return sample();
   }

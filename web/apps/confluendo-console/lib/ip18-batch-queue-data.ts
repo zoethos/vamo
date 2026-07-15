@@ -18,6 +18,7 @@ import {
   loadActiveSnapshotReleasePlanBinding,
   toRegisteredSnapshotReleaseSummary
 } from "@confluendo/ingestion-platform/core/snapshot-release-plan-binding-read";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 
 export type Ip18BatchQueueSource = "live" | "sample" | "error";
 
@@ -50,7 +51,8 @@ const CONSOLE_LIVE_READ_DEADLINE_MS = 5_000;
  * Read-path only: never schedules delivery, executes apply, or mutates inbox rows.
  */
 export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18BatchQueueData> {
-  const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  const controlDb = environmentConfig?.controlDatabaseUrl;
   if (!controlDb) {
     return sample();
   }
@@ -67,7 +69,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     }
     let snapshot: BatchQueueSnapshot = loadedSnapshot;
 
-    const telemetryDb = process.env.VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL?.trim();
+    const telemetryDb = environmentConfig?.vamoProductionInboxTelemetryDatabaseUrl;
     let applyTelemetrySource: Ip18BatchQueueData["applyTelemetrySource"] = "missing";
     if (telemetryDb) {
       try {
@@ -76,7 +78,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
             snapshot,
             controlConnectionString: controlDb,
             telemetryConnectionString: telemetryDb,
-            proveTelemetry: () => process.env.VAMO_PRODUCTION_INBOX_ENVIRONMENT === "production",
+            proveTelemetry: () => environmentConfig?.vamoProductionInboxEnvironment === "production",
             syncControl: false
           })
         );

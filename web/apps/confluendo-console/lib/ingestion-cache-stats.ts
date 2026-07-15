@@ -2,6 +2,7 @@ import "server-only";
 
 import { Client } from "pg";
 import { createBoundedPostgresReadClientConfig } from "@confluendo/ingestion-platform/core";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 
 // Vamo-specific cache-business metrics, read from the place-intelligence cache
 // (public.location_* in the Vamo Supabase project). This is the host/consumer
@@ -27,7 +28,7 @@ interface CacheMetricsRow {
  * merges) are not table counts and are deferred to a usage-ledger source.
  */
 export async function loadVamoCacheMetrics(): Promise<VamoCacheMetrics | null> {
-  const connectionString = process.env.VAMO_PLACE_CACHE_DATABASE_URL?.trim();
+  const connectionString = (await getActiveControlEnvironmentConfig())?.vamoPlaceCacheDatabaseUrl;
   if (!connectionString) {
     return null;
   }

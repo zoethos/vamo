@@ -137,7 +137,8 @@ describe("autonomy ramp route artifact", () => {
     assert.match(routeSource, /promoteAutonomyRamp/);
     assert.match(routeSource, /evaluateAutonomyRampPromotion/);
     assert.match(routeSource, /parseAutonomyRampPromoteRequest/);
-    assert.match(routeSource, /INGESTION_CONTROL_DATABASE_URL/);
+    assert.match(routeSource, /getActiveControlEnvironmentConfig/);
+    assert.doesNotMatch(routeSource, /process\.env\.INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_STAGING_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /update ingestion_platform\.ingestion_autonomy_policies/i);

@@ -169,7 +169,8 @@ describe("production handoff route artifact", () => {
     assert.match(routeSource, /setAutonomyProductionHandoff/);
     assert.match(routeSource, /evaluateAutonomyProductionHandoffChange/);
     assert.match(routeSource, /parseAutonomyProductionHandoffRequest/);
-    assert.match(routeSource, /INGESTION_CONTROL_DATABASE_URL/);
+    assert.match(routeSource, /getActiveControlEnvironmentConfig/);
+    assert.doesNotMatch(routeSource, /process\.env\.INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_STAGING_CANARY_APP_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_APPLY_DATABASE_URL/);

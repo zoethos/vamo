@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
+import { ControlEnvironmentSwitcher } from "@/app/admin/control-environment-switcher";
+import { CONTROL_ENVIRONMENTS } from "@/lib/control-environment";
+import { getControlEnvironmentConfig } from "@/lib/control-environment-config";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 import { getSupabasePublicConfig } from "@/lib/supabase-config";
 import { SignInRequestForm } from "./sign-in-request-form";
 
@@ -28,7 +32,11 @@ export default async function AdminSignInPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const isConfigured = Boolean(getSupabasePublicConfig());
+  const isConfigured = Boolean(await getSupabasePublicConfig());
+  const activeEnvironment = (await getActiveControlEnvironmentConfig())?.environment ?? "production";
+  const availableControlEnvironments = CONTROL_ENVIRONMENTS.filter((environment) =>
+    Boolean(getControlEnvironmentConfig(environment))
+  );
   const next = normalizeNextPath(params.next);
   const sentEmail = params.email?.trim();
   const hasSentEmail = params.sent === "1" && Boolean(sentEmail);
@@ -86,6 +94,11 @@ export default async function AdminSignInPage({
           </p>
 
           <div className="admin-sign-in-copy">
+            <ControlEnvironmentSwitcher
+              activeEnvironment={activeEnvironment}
+              availableEnvironments={availableControlEnvironments}
+              nextPath="/admin/sign-in"
+            />
             <h1 id="admin-sign-in-title">Sign in to continue</h1>
             <p>
               Use an existing admin account. This console never creates accounts

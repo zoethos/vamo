@@ -628,7 +628,8 @@ describe("snapshot commission route artifact", () => {
     assert.match(routeSource, /createSnapshotCommissionRequest/);
     assert.match(routeSource, /evaluateSnapshotCommissionRequestCreate/);
     assert.match(routeSource, /parseSnapshotCommissionRequestCreate/);
-    assert.match(routeSource, /INGESTION_CONTROL_DATABASE_URL/);
+    assert.match(routeSource, /getActiveControlEnvironmentConfig/);
+    assert.doesNotMatch(routeSource, /process\.env\.INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /parsed\.request\.planKey/);
     assert.doesNotMatch(routeSource, /runFsqSnapshotAcquire/);
     assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_TOKEN/);

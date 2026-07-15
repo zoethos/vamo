@@ -6,6 +6,7 @@ import {
   sampleControlPlaneSnapshot,
   type IngestionDashboardView
 } from "@confluendo/ingestion-platform/read-model";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 
 import { loadVamoCacheMetrics } from "./ingestion-cache-stats";
 
@@ -26,7 +27,7 @@ export interface IngestionDashboardData {
 export async function loadIngestionDashboard(
   projectKey = "vamo"
 ): Promise<IngestionDashboardData> {
-  const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const controlDb = (await getActiveControlEnvironmentConfig())?.controlDatabaseUrl;
   if (!controlDb) {
     return sample();
   }

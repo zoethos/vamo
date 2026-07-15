@@ -3,6 +3,7 @@ import Link from "next/link";
 import { STAGING_CANARY_FRESH_STEP_UP_WINDOW_MS } from "@confluendo/ingestion-platform/core";
 import { AdminSessionActions } from "@/app/admin/admin-session-actions";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
+import { ControlEnvironmentSwitcher } from "@/app/admin/control-environment-switcher";
 import { DashboardThemeToggle } from "@/app/admin/dashboard-theme-toggle";
 import {
   providerDashboardGuardrails,
@@ -10,6 +11,12 @@ import {
   providerDashboardSignals,
 } from "@/content/provider-dashboard";
 import { requireIngestionDashboardAccess } from "@/lib/ingestion-admin-auth";
+import { CONTROL_ENVIRONMENTS } from "@/lib/control-environment";
+import {
+  getControlEnvironmentConfig,
+  getDefaultControlEnvironment
+} from "@/lib/control-environment-config";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 
 export const metadata: Metadata = {
   title: "Provider control · Confluendo",
@@ -28,6 +35,11 @@ const statusLabels = {
 };
 
 export default async function ProviderDashboardPage() {
+  const environmentConfig = await getActiveControlEnvironmentConfig();
+  const controlEnvironment = environmentConfig?.environment ?? getDefaultControlEnvironment();
+  const availableControlEnvironments = CONTROL_ENVIRONMENTS.filter((environment) =>
+    Boolean(getControlEnvironmentConfig(environment))
+  );
   const principal = await requireIngestionDashboardAccess({
     projectKey: "vamo",
     nextPath: "/admin/providers",
@@ -58,6 +70,11 @@ export default async function ProviderDashboardPage() {
               Ingestion
             </Link>
           </div>
+          <ControlEnvironmentSwitcher
+            activeEnvironment={controlEnvironment}
+            availableEnvironments={availableControlEnvironments}
+            nextPath="/admin/providers"
+          />
           <AdminSessionActions
             principal={principal}
             freshStepUpExpiresAt={freshStepUpExpiresAt}

@@ -8,6 +8,7 @@ import {
 } from "@confluendo/ingestion-platform/control-api";
 import { authorizeMachineCommand } from "@confluendo/ingestion-platform/admin-auth";
 import { authorizeIngestionCommandRequest } from "@/lib/ingestion-admin-auth";
+import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(auth.body, { status: auth.status });
   }
 
-  const connectionString = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const connectionString = (await getActiveControlEnvironmentConfig())?.controlDatabaseUrl;
   if (!connectionString) {
     return NextResponse.json(
       { ok: false, error: "Ingestion control database URL is not configured." },
@@ -143,7 +144,7 @@ async function resolveCommandAuth(
 > {
   const authorization = request.headers.get("authorization");
   if (authorization) {
-    const adminToken = process.env.INGESTION_ADMIN_API_TOKEN?.trim();
+    const adminToken = (await getActiveControlEnvironmentConfig())?.ingestionAdminApiToken;
     if (!adminToken) {
       return {
         ok: false,

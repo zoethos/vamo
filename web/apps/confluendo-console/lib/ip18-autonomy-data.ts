@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Client } from "pg";
+import { getActiveControlEnvironmentConfig } from "./control-environment-server";
 import { loadAutonomyDashboard, loadAutonomyPolicy } from "@confluendo/ingestion-platform/autonomy-control-read";
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
 import {
@@ -33,7 +34,7 @@ export interface Ip187AutonomyData {
  * Read-path only: never executes cycles or mutates control-plane state.
  */
 export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187AutonomyData> {
-  const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+  const controlDb = (await getActiveControlEnvironmentConfig())?.controlDatabaseUrl;
   if (!controlDb) {
     return sample();
   }
