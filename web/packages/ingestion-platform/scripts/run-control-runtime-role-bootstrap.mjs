@@ -20,6 +20,8 @@ const PROFILE_PATH_ENV = "CONFLUENDO_CONTROL_RUNTIME_BOOTSTRAP_PROFILE_PATH";
 const EXECUTE_CONFIRMATION_ENV = "CONFIRM_CONFLUENDO_CONTROL_RUNTIME_BOOTSTRAP";
 const PRODUCTION_CONFIRMATION_ENV = "CONFLUENDO_CONTROL_RUNTIME_BOOTSTRAP_CONFIRM_PRODUCTION";
 const RUNTIME_ROLE_NAME = "confluendo_app";
+const RUNTIME_AUTH_MAX_ATTEMPTS = 6;
+const RUNTIME_AUTH_RETRY_DELAY_MS = 1_000;
 
 const args = parseArgs(process.argv.slice(2));
 if (args.controlEnvironment !== "staging" && args.controlEnvironment !== "production") {
@@ -56,7 +58,7 @@ const runtimeDatabaseUrl = deriveConfluendoControlRuntimeDatabaseUrl(ownerDataba
 assertConfluendoControlRuntimeDatabaseUrl(runtimeDatabaseUrl);
 
 const ownerClient = new Client({ connectionString: ownerDatabaseUrl });
-const runtimeClient = new Client({ connectionString: runtimeDatabaseUrl });
+let runtimeClient;
 
 try {
   await ownerClient.connect();
@@ -64,7 +66,7 @@ try {
   assertRuntimeRoleIsSafe(role);
   await rotateRuntimeRolePassword(ownerClient, generatedPassword);
 
-  await runtimeClient.connect();
+  runtimeClient = await connectRuntimeClientWithRetry(runtimeDatabaseUrl);
   const verification = await verifyRuntimeRole(runtimeClient);
   assertRuntimeVerification(verification);
   await replaceDotenvValue(profilePath, "INGESTION_CONTROL_DATABASE_URL", runtimeDatabaseUrl);
@@ -79,7 +81,9 @@ try {
   console.error(`Control runtime-role bootstrap failed: ${safeErrorMessage(error)}`);
   process.exitCode = 1;
 } finally {
-  await runtimeClient.end().catch(() => undefined);
+  if (runtimeClient) {
+    await runtimeClient.end().catch(() => undefined);
+  }
   await ownerClient.end().catch(() => undefined);
 }
 
@@ -128,6 +132,32 @@ async function rotateRuntimeRolePassword(client, password) {
     [RUNTIME_ROLE_NAME, password]
   );
   await client.query(statement.rows[0].sql);
+}
+
+async function connectRuntimeClientWithRetry(connectionString) {
+  for (let attempt = 1; attempt <= RUNTIME_AUTH_MAX_ATTEMPTS; attempt += 1) {
+    const client = new Client({ connectionString });
+    try {
+      await client.connect();
+      return client;
+    } catch (error) {
+      await client.end().catch(() => undefined);
+      if (!isPasswordAuthenticationFailure(error) || attempt === RUNTIME_AUTH_MAX_ATTEMPTS) {
+        throw error;
+      }
+      await delay(attempt * RUNTIME_AUTH_RETRY_DELAY_MS);
+    }
+  }
+
+  throw new Error("Runtime credential verification exhausted its authentication retry budget.");
+}
+
+function isPasswordAuthenticationFailure(error) {
+  return error instanceof Error && /password authentication failed/i.test(error.message);
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function verifyRuntimeRole(client) {
