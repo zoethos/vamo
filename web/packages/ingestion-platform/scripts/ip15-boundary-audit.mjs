@@ -220,8 +220,8 @@ const consoleClientRuntimeFiles = consoleRuntimeFiles.filter((file) => {
 const consoleRuntimeWithArtifactSecrets = consoleClientRuntimeFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
   return (
-    /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET/.test(source) ||
-    /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT/.test(source) ||
+    /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_/.test(source) ||
+    /CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_/.test(source) ||
     /AWS_SECRET_ACCESS_KEY/.test(source) ||
     /@aws-sdk\/client-s3/.test(source)
   );

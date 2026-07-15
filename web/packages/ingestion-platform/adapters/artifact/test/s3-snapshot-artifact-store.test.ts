@@ -50,6 +50,8 @@ function buildSampleArtifacts() {
 class FakeS3Client implements S3ObjectClientLike {
   readonly objects = new Map<string, string>();
 
+  async headBucket() {}
+
   async headObject(input: { bucket: string; key: string }) {
     return { exists: this.objects.has(`${input.bucket}/${input.key}`) };
   }
@@ -261,6 +263,7 @@ describe("s3 snapshot artifact store", () => {
     );
 
     const deniedClient: S3ObjectClientLike = {
+      async headBucket() {},
       async headObject() {
         return { exists: false };
       },
@@ -282,6 +285,7 @@ describe("s3 snapshot artifact store", () => {
     );
 
     const unavailableClient: S3ObjectClientLike = {
+      async headBucket() {},
       async headObject() {
         return { exists: false };
       },

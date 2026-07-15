@@ -40,6 +40,12 @@ export interface HostedAutonomySchedulerEnv {
   CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION?: string;
   CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT?: string;
   CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PREFIX?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID?: string;
+  CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY?: string;
 }
 
 export interface HostedAutonomySchedulerConfig {
@@ -177,7 +183,8 @@ export function parseHostedAutonomySchedulerConfig(
       blocks: [
         {
           code: "hosted_artifact_store_required",
-          message: "Hosted autonomy requires CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3."
+          message:
+            "Hosted autonomy requires a configured S3-compatible or Supabase Storage artifact store."
         }
       ]
     };

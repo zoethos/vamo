@@ -27,6 +27,7 @@ import type { SnapshotIntakeArtifacts } from "../../../core/src/versioned-snapsh
 import type { SnapshotArtifactStoreS3Config } from "../../../core/src/snapshot-artifact-store-config.js";
 
 export interface S3ObjectClientLike {
+  headBucket(input: { bucket: string }): Promise<void>;
   headObject(input: { bucket: string; key: string }): Promise<{ exists: boolean }>;
   getObject(input: { bucket: string; key: string }): Promise<{ body: string }>;
   putObject(input: {

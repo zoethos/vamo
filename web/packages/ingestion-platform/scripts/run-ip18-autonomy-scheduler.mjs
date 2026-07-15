@@ -11,6 +11,7 @@
 
 import { runAutonomyScheduler } from "../dist/core/src/autonomy-scheduler.js";
 import {
+  hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
   resolveCliSnapshotArtifactStore
 } from "./snapshot-artifact-store-cli.mjs";
@@ -182,7 +183,7 @@ console.log(JSON.stringify(result, null, 2));
 async function resolveOptionalArtifactStoreInput() {
   if (
     !process.env.INGESTION_ARTIFACT_STORE_DIR?.trim() &&
-    process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() !== "s3"
+    !hasHostedSnapshotArtifactStoreProfile()
   ) {
     return {};
   }

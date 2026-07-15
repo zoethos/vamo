@@ -14,6 +14,7 @@ import {
   previewAutonomyCycle
 } from "../dist/core/src/autonomy-executor.js";
 import {
+  hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
   resolveCliSnapshotArtifactStore
 } from "./snapshot-artifact-store-cli.mjs";
@@ -131,7 +132,7 @@ let artifactStoreDir;
 let artifactStore;
 if (
   process.env.INGESTION_ARTIFACT_STORE_DIR?.trim() ||
-  process.env.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE?.trim()?.toLowerCase() === "s3"
+  hasHostedSnapshotArtifactStoreProfile()
 ) {
   const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
     preferLocalDir: process.env.INGESTION_ARTIFACT_STORE_DIR?.trim()

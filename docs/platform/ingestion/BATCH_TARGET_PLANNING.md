@@ -224,26 +224,46 @@ activation path, and records `activated` or `failed`. It never acquires from a
 provider. A failed request does not change the active binding; correct the
 safe precondition and submit a new operator request.
 
-Hosted artifact store (IP-18.8.12) — human provisioning prerequisite:
+Hosted artifact store (IP-18.8.15) — Supabase Storage operator setup:
 
-1. Provision a private Confluendo-owned S3-compatible bucket outside Vamo.
-2. Create a least-privilege job credential restricted to that bucket (and
-   optional prefix) for snapshot artifact keys only.
-3. Configure server/job environment only (hosted scheduler, acquisition execute,
-   activation execute, staging/production delivery jobs):
+The private `snapshot-artifacts` bucket already created in each Confluendo
+Control Supabase project is the artifact store. It holds the verified
+`source.jsonl`, `release.json`, and `coverage-report.json` bundle; the control
+database stores only identity, checksum, and activation-binding metadata.
 
-```bash
-CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=s3
-CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET=<private-bucket>
-CONFLUENDO_SNAPSHOT_ARTIFACT_S3_REGION=<region>
-# Optional for R2/MinIO:
-# CONFLUENDO_SNAPSHOT_ARTIFACT_S3_ENDPOINT=https://...
-# CONFLUENDO_SNAPSHOT_ARTIFACT_S3_PREFIX=confluendo/snapshots
-# Standard AWS credential env vars — server/job only, never in the browser.
+1. In **Storage → Configuration → S3** for each Confluendo Control project,
+   enable S3 access and generate a distinct access-key pair. Save each secret
+   at generation time; it cannot be shown again. Copy the exact S3 **region**
+   displayed on that page; do not infer it from a project or bucket name.
+2. Keep the environments in separate ignored files:
+   - staging: copy [`web/.env.artifact-store.example`](../../../web/.env.artifact-store.example)
+     into `Z:\vamo-ip17\web\.env.staging.local`;
+   - production: copy [`web/.env.production.artifact-store.example`](../../../web/.env.production.artifact-store.example)
+     into `Z:\vamo-ip17\web\.env.production.local`.
+   Replace only the two placeholder key values in each file. They are separate
+   from the Next app environment under `apps\confluendo-console`. Do not use a
+   Supabase publishable key, service-role key, browser variable, Vamo
+   environment, or a Git-tracked `.env` file.
+3. Run the committed PowerShell wrapper below. It chooses the matching file,
+   invokes the write-free preflight, then restores the shell's prior process
+   environment.
+
+```powershell
+cd Z:\vamo-ip17\web
+.\scripts\Test-ConfluendoSupabaseArtifactStore.ps1 `
+  -ControlEnvironment Staging
+
+# After the distinct production key exists:
+.\scripts\Test-ConfluendoSupabaseArtifactStore.ps1 `
+  -ControlEnvironment Production
 ```
 
-Vamo has no artifact-store credentials. Artifacts are never exposed via signed
-URLs, API responses, console props, or dashboard routes.
+The preflight uses `HeadBucket` only: it does not read or write a release. The
+wrapper does not write keys to the user/machine environment.
+Supabase S3 access keys are project-Storage credentials, so the trusted worker
+is the only runtime allowed to hold them. Vamo has no artifact-store
+credentials, and artifacts are never exposed via signed URLs, console props,
+or API responses.
 
 ## Versioned snapshot intake (IP-18.8.9)
 

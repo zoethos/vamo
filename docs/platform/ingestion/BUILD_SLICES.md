@@ -1702,9 +1702,46 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
+### IP-18.8.15 — implemented (Supabase Storage artifact profile)
+
+**Status:** done — the existing private `snapshot-artifacts` buckets in
+Confluendo Control staging and production are first-class trusted-worker
+artifact stores. The `supabase` profile derives the only accepted S3 endpoint
+from the project reference and reuses the existing S3-compatible adapter; it
+does not create an AWS dependency or a second storage path.
+
+Deliverables:
+
+- Pure configuration profile:
+  `CONFLUENDO_SNAPSHOT_ARTIFACT_STORE=supabase` plus project reference, bucket,
+  region, optional prefix, and generated Supabase S3 access credentials.
+- The credentials are passed only into the trusted worker's S3-compatible
+  client. They never reach the console/browser, Vamo, API responses, logs, or
+  control-plane records.
+- `ip18:artifact-store-preflight` calls `HeadBucket` only. It proves the
+  worker can access the configured private bucket without reading or writing a
+  snapshot artifact.
+- Existing immutable release keys and final bundle SHA-256 verification remain
+  the content-integrity authority. The commissioning/activation request lease
+  remains the single-worker concurrency authority; Supabase Storage object
+  versioning is not assumed.
+
+No control schema, Vamo schema, provider call, staging write, production inbox
+delivery, consumer apply, or console route changed in this slice.
+
+Worker provisioning checkpoint:
+
+1. In each Confluendo Control project, enable Supabase Storage S3 access and
+   create a generated S3 access-key pair for the trusted worker environment.
+2. Store the pair only in the respective staging or production job-secret
+   store. Supabase S3 access keys have project Storage scope, so they must not
+   be placed in Vercel browser variables, local commits, or Vamo configuration.
+3. Run `ip18:artifact-store-preflight` in staging before configuring the same
+   profile in production.
+
 ### IP-18.8.14 — implemented (operator-confirmed snapshot activation)
 
-**Status:** implemented locally — a separately confirmed activation request is
+**Status:** done — a separately confirmed activation request is
 now required before a trusted worker can bind a registered source release and
 reconcile its queue supply. **Not** automatic activation, **not** browser
 artifact access, **not** provider acquisition, **not** Vamo writes, **not**
@@ -1736,15 +1773,14 @@ request reaching `activation_pending` is the required input. The operator
 request and worker execution are distinct; no queue binding occurs when the
 browser submits the request.
 
-Control-plane promotion checkpoint:
+Control-plane promotion evidence (2026-07-15):
 
-1. Apply `control_schema.sql` and `control_bootstrap_confluendo.sql` to
-   **Confluendo control staging** and verify app-role create/read-only access
-   plus worker-only claim/complete behavior.
-2. Promote the identical pair to control production in the same release window
-   after staging is green.
-3. Do not point `INGESTION_TEST_DATABASE_URL` at either control environment;
-   destructive DB smokes require a disposable database.
+- The reviewed `control_schema.sql` and `control_bootstrap_confluendo.sql` pair
+  was applied to **Confluendo Control Staging**, then promoted unchanged to
+  **Confluendo Control production** in the same release window.
+- Both environments verified app-role create/read-only access and worker-only
+  claim/complete behavior. `INGESTION_TEST_DATABASE_URL` remains reserved for
+  disposable database smokes, never either control environment.
 
 ### IP-18.8.13 — implemented (operator-confirmed snapshot release commissioning)
 
