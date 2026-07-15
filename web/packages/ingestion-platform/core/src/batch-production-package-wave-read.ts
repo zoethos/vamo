@@ -15,6 +15,7 @@ import {
 import type { ProductionPackageStagingEvidence } from "./batch-production-package-wave-policy.js";
 import { collectOccupiedProductionPackageUnitKeys } from "./batch-production-package-wave-policy.js";
 import type { BatchQueueItemStatus } from "./batch-queue-read-model.js";
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 
 export interface ProductionPackageWaveReadPgClientLike {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
@@ -246,7 +247,9 @@ async function openClient(
   if (!client && !connectionString) {
     throw new Error("Production package-wave read requires a server-side connection string or client.");
   }
-  const ownedClient = client ? undefined : new Client({ connectionString });
+  const ownedClient = client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(connectionString!));
   const resolved = client ?? ownedClient;
   if (!resolved) {
     throw new Error("Production package-wave read client could not be initialized.");

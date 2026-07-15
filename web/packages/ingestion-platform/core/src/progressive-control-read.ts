@@ -1,5 +1,6 @@
 import { Client, type QueryResult } from "pg";
 
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 import type { ProgressiveRunReport } from "./progressive-run.js";
 import type {
   CanaryShipmentState,
@@ -94,7 +95,9 @@ export async function loadProgressiveRunSnapshot(
     throw new Error("Progressive control read requires a server-side connection string or client.");
   }
 
-  const ownedClient = input.client ? undefined : new Client({ connectionString: input.connectionString });
+  const ownedClient = input.client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(input.connectionString!));
   const client = input.client ?? ownedClient;
   if (!client) {
     throw new Error("Progressive control read client could not be initialized.");

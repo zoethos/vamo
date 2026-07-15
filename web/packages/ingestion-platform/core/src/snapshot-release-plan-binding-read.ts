@@ -6,6 +6,8 @@
 
 import { Client, type QueryResult } from "pg";
 
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
+
 export interface ActiveSnapshotReleasePlanBindingSummary {
   releaseId: string;
   sourceKey: string;
@@ -123,7 +125,7 @@ async function openClient(
   if (!connectionString?.trim()) {
     throw new Error("Control database connection is required to read snapshot release bindings.");
   }
-  const ownedClient = new Client({ connectionString });
+  const ownedClient = new Client(createBoundedPostgresReadClientConfig(connectionString));
   await ownedClient.connect();
   return { client: ownedClient, ownedClient };
 }

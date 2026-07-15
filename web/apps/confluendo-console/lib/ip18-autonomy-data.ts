@@ -5,6 +5,7 @@ import { loadAutonomyDashboard, loadAutonomyPolicy } from "@confluendo/ingestion
 import { loadBatchQueueSnapshot } from "@confluendo/ingestion-platform/batch-queue-control-read";
 import {
   loadAutonomyRampReadiness,
+  createBoundedPostgresReadClientConfig,
   presentAutonomyProductionHandoffCard,
   presentAutonomyRampCard,
   sampleVamoAutonomyDashboardView,
@@ -37,7 +38,7 @@ export async function loadIp187Autonomy(projectKey = "vamo"): Promise<Ip187Auton
     return sample();
   }
 
-  const client = new Client({ connectionString: controlDb });
+  const client = new Client(createBoundedPostgresReadClientConfig(controlDb));
   try {
     await client.connect();
     const view = await loadAutonomyDashboard({

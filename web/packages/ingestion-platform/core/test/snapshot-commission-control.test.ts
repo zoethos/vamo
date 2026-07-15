@@ -224,6 +224,13 @@ describe("snapshot commission control DB smoke", () => {
           assert.equal(latest?.status, "requested");
           assert.equal(latest?.sourceKey, "fsq-os-places-snapshot");
 
+          const ownedConnectionLatest = await loadLatestSnapshotCommissionRequest({
+            connectionString: databaseUrl,
+            projectKey: "vamo",
+            planKey: "vamo-eu-poi-sample"
+          });
+          assert.equal(ownedConnectionLatest?.status, "requested");
+
           await assert.rejects(
             () =>
               app.query(
