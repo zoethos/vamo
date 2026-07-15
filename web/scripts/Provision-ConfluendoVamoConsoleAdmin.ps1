@@ -20,20 +20,9 @@ $ErrorActionPreference = "Stop"
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $webRoot = (Resolve-Path (Join-Path $scriptDirectory "..")).Path
 $platformPackage = Join-Path $webRoot "packages\ingestion-platform"
-$defaultEnvironmentFile = if ($ControlEnvironment -eq "Production") {
-  Join-Path $webRoot ".env.production.local"
-} else {
-  Join-Path $webRoot ".env.staging.local"
-}
 
 if (!(Test-Path -LiteralPath $platformPackage)) {
   throw "Missing ingestion-platform package: $platformPackage"
-}
-if ([string]::IsNullOrWhiteSpace($EnvironmentFile)) {
-  $EnvironmentFile = $defaultEnvironmentFile
-}
-if (!(Test-Path -LiteralPath $EnvironmentFile -PathType Leaf)) {
-  throw "Missing trusted provisioning environment file: $EnvironmentFile"
 }
 if ($Execute -and $ControlEnvironment -eq "Production" -and $ProductionConfirmation -cne "PRODUCTION") {
   throw "Production provisioning requires -ProductionConfirmation PRODUCTION."
@@ -83,11 +72,6 @@ function Require-Value {
   return $Values[$Name]
 }
 
-$values = Read-EnvironmentFile -Path $EnvironmentFile
-$supabaseUrl = Require-Value -Values $values -Name "NEXT_PUBLIC_SUPABASE_URL" -Path $EnvironmentFile
-$supabaseSecretKey = Require-Value -Values $values -Name "CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY" -Path $EnvironmentFile
-$ownerDatabaseUrl = Require-Value -Values $values -Name "INGESTION_CONTROL_OWNER_DATABASE_URL" -Path $EnvironmentFile
-
 $environmentNames = @(
   "CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_URL",
   "CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_SECRET_KEY",
@@ -101,10 +85,27 @@ foreach ($name in $environmentNames) {
 }
 
 try {
-  [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_URL", $supabaseUrl, "Process")
-  [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_SECRET_KEY", $supabaseSecretKey, "Process")
-  [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_DATABASE_URL", $ownerDatabaseUrl, "Process")
   if ($Execute) {
+    $defaultEnvironmentFile = if ($ControlEnvironment -eq "Production") {
+      Join-Path $webRoot ".env.production.local"
+    } else {
+      Join-Path $webRoot ".env.staging.local"
+    }
+    if ([string]::IsNullOrWhiteSpace($EnvironmentFile)) {
+      $EnvironmentFile = $defaultEnvironmentFile
+    }
+    if (!(Test-Path -LiteralPath $EnvironmentFile -PathType Leaf)) {
+      throw "Missing trusted provisioning environment file: $EnvironmentFile"
+    }
+
+    $values = Read-EnvironmentFile -Path $EnvironmentFile
+    $supabaseUrl = Require-Value -Values $values -Name "NEXT_PUBLIC_SUPABASE_URL" -Path $EnvironmentFile
+    $supabaseSecretKey = Require-Value -Values $values -Name "CONFLUENDO_CONTROL_SUPABASE_SECRET_KEY" -Path $EnvironmentFile
+    $ownerDatabaseUrl = Require-Value -Values $values -Name "INGESTION_CONTROL_OWNER_DATABASE_URL" -Path $EnvironmentFile
+
+    [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_URL", $supabaseUrl, "Process")
+    [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_SUPABASE_SECRET_KEY", $supabaseSecretKey, "Process")
+    [Environment]::SetEnvironmentVariable("CONFLUENDO_CONTROL_ADMIN_PROVISION_DATABASE_URL", $ownerDatabaseUrl, "Process")
     [Environment]::SetEnvironmentVariable("CONFIRM_CONFLUENDO_CONTROL_ADMIN_PROVISION", "YES", "Process")
   }
   if ($ControlEnvironment -eq "Production") {
