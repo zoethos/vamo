@@ -1,5 +1,6 @@
 import { Client, type QueryResult } from "pg";
 
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 import type { IngestionTaskStatus } from "./control-models.js";
 import type {
   ControlEventRow,
@@ -85,7 +86,9 @@ export async function loadControlPlaneSnapshot(
     throw new Error("Control-plane read requires a server-side connection string or client.");
   }
 
-  const ownedClient = input.client ? undefined : new Client({ connectionString: input.connectionString });
+  const ownedClient = input.client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(input.connectionString!));
   const client = input.client ?? ownedClient;
   if (!client) {
     throw new Error("Control-plane read client could not be initialized.");

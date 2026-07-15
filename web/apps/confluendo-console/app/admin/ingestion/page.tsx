@@ -30,6 +30,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const CONSOLE_READ_DEADLINE_MS = 5_000;
+
 export default async function IngestionDashboardPage() {
   const principal = await requireIngestionDashboardAccess({
     projectKey: "vamo",
@@ -38,9 +40,17 @@ export default async function IngestionDashboardPage() {
   const serverNowMs = Date.now();
   const freshStepUpExpiresAt = freshStepUpExpiry(principal.stepUpSatisfiedAt);
 
-  const { view, source } = await loadIngestionDashboard("vamo");
-  const { view: progressiveView, source: progressiveSource } =
-    await loadIp14ProgressiveBoard("vamo");
+  const [
+    { view, source },
+    { view: progressiveView, source: progressiveSource },
+    batchQueueData,
+    autonomyData
+  ] = await Promise.all([
+    loadIngestionDashboard("vamo"),
+    loadIp14ProgressiveBoard("vamo"),
+    loadIp18BatchQueue("vamo"),
+    loadIp187Autonomy("vamo")
+  ]);
   const {
     signals: ingestionSignals,
     actions: ingestionActions,
@@ -62,7 +72,7 @@ export default async function IngestionDashboardPage() {
     snapshotCommissionDefaultCountries,
     snapshotCommissionDefaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope
-  } = await loadIp18BatchQueue("vamo");
+  } = batchQueueData;
   const {
     view: autonomyView,
     rampCard,
@@ -70,7 +80,7 @@ export default async function IngestionDashboardPage() {
     policyKey: autonomyPolicyKey,
     source: autonomySource,
     error: autonomyError
-  } = await loadIp187Autonomy("vamo");
+  } = autonomyData;
 
   const batchCategories = Object.keys(batchQueue.coverage.perCategory).sort();
   const batchCountries = Object.keys(batchQueue.coverage.perCountry).sort();
@@ -87,11 +97,15 @@ export default async function IngestionDashboardPage() {
     const controlDb = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
     if (controlDb) {
       try {
-        const packageContext = await loadProductionPackageWaveApprovalContext({
-          connectionString: controlDb,
-          projectKey: batchQueue.projectKey,
-          targetKey: batchQueue.targetKey
-        });
+        const packageContext = await withConsoleReadDeadline(
+          "Production package context",
+          () =>
+            loadProductionPackageWaveApprovalContext({
+              connectionString: controlDb,
+              projectKey: batchQueue.projectKey,
+              targetKey: batchQueue.targetKey
+            })
+        );
         productionPackageEligibleCount = countStagingProvenPackageEligibleUnits(
           batchQueue,
           batchQueue.targetKey,
@@ -314,6 +328,25 @@ export default async function IngestionDashboardPage() {
       coverageRows={coverageRows}
     />
   );
+}
+
+async function withConsoleReadDeadline<T>(label: string, read: () => Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      read(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error(`${label} did not respond within ${CONSOLE_READ_DEADLINE_MS / 1000}s.`)),
+          CONSOLE_READ_DEADLINE_MS
+        );
+      })
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
 }
 
 function freshStepUpExpiry(stepUpSatisfiedAt: string | undefined): string | undefined {

@@ -17,6 +17,7 @@ import type {
 import { formatBatchQueueBlockers } from "./batch-queue-read-model.js";
 import type { ProductionPackageStagingEvidence } from "./batch-production-package-wave-policy.js";
 import { describeProductionPackageContentEquivalence } from "./production-package-wave-dashboard.js";
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 
 /**
  * Live read of persisted batch queue state into `BatchQueueSnapshot`.
@@ -143,7 +144,9 @@ export async function loadBatchQueueSnapshot(
     throw new Error("Batch queue control read requires a server-side connection string or client.");
   }
 
-  const ownedClient = input.client ? undefined : new Client({ connectionString: input.connectionString });
+  const ownedClient = input.client
+    ? undefined
+    : new Client(createBoundedPostgresReadClientConfig(input.connectionString!));
   const client = input.client ?? ownedClient;
   if (!client) {
     throw new Error("Batch queue control read client could not be initialized.");

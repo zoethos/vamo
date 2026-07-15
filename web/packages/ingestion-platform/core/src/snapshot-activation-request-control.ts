@@ -6,6 +6,7 @@
  */
 import { Client, type QueryResult } from "pg";
 
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 import {
   isSnapshotActivationRequestStatus,
   SNAPSHOT_ACTIVATION_REQUEST_ACTIVE_STATUSES,
@@ -47,7 +48,7 @@ export type ClaimSnapshotActivationRequestResult =
 export async function createSnapshotActivationRequest(
   input: CreateSnapshotActivationRequestInput
 ): Promise<CreateSnapshotActivationRequestResult> {
-  return withClient(input, async (client) => {
+  return withClient(input, "write", async (client) => {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
         select ingestion_platform.create_snapshot_activation_request(
@@ -82,7 +83,7 @@ export async function claimSnapshotActivationRequest(input: {
   workerRunKey: string;
   leaseSeconds?: number;
 }): Promise<ClaimSnapshotActivationRequestResult> {
-  return withClient(input, async (client) => {
+  return withClient(input, "write", async (client) => {
     const leaseSeconds = Math.max(1, input.leaseSeconds ?? SNAPSHOT_ACTIVATION_REQUEST_DEFAULT_LEASE_SECONDS);
     const response = await client.query<{ result: Record<string, unknown> }>(
       `select ingestion_platform.claim_snapshot_activation_request($1, $2, $3) as result`,
@@ -112,7 +113,7 @@ export async function completeSnapshotActivationRequest(input: {
   errorCode?: string;
   errorMessage?: string;
 }): Promise<{ ok: true; idempotentReplay: boolean; requestId: string; status: SnapshotActivationRequestStatus; auditId?: string }> {
-  return withClient(input, async (client) => {
+  return withClient(input, "write", async (client) => {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
         select ingestion_platform.complete_snapshot_activation_request(
@@ -146,7 +147,7 @@ export async function loadLatestSnapshotActivationRequest(input: {
   projectKey: string;
   planKey: string;
 }): Promise<SnapshotActivationRequestRecord | null> {
-  return withClient(input, async (client) => {
+  return withClient(input, "read", async (client) => {
     const response = await client.query<ActivationRow>(
       `
         select
@@ -189,7 +190,7 @@ export async function hasActiveSnapshotActivationRequest(input: {
   projectKey: string;
   planKey: string;
 }): Promise<boolean> {
-  return withClient(input, async (client) => {
+  return withClient(input, "read", async (client) => {
     const response = await client.query<{ exists: boolean }>(
       `
         select exists (
@@ -288,6 +289,7 @@ function mapClaimResult(result: Record<string, unknown>): SnapshotActivationRequ
 
 async function withClient<T>(
   input: { connectionString?: string; client?: SnapshotActivationRequestPgClientLike },
+  mode: "read" | "write",
   run: (client: SnapshotActivationRequestPgClientLike) => Promise<T>
 ): Promise<T> {
   if (input.client) {
@@ -296,7 +298,11 @@ async function withClient<T>(
   if (!input.connectionString) {
     throw new Error("Control database connection is required for snapshot activation requests.");
   }
-  const client = new Client({ connectionString: input.connectionString });
+  const client = new Client(
+    mode === "read"
+      ? createBoundedPostgresReadClientConfig(input.connectionString)
+      : { connectionString: input.connectionString }
+  );
   try {
     await client.connect();
     return await run(client);

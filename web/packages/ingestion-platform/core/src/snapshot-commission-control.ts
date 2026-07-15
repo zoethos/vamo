@@ -16,6 +16,7 @@ import {
   type SnapshotCommissionPlanContext
 } from "./snapshot-commission-plan-context.js";
 import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
+import { createBoundedPostgresReadClientConfig } from "./postgres-read-timeouts.js";
 import {
   isSnapshotCommissionRequestStatus,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
@@ -86,8 +87,7 @@ export async function loadSnapshotCommissionPlanContext(input: {
   projectKey: string;
   planKey: string;
 }): Promise<SnapshotCommissionPlanContext | null> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "read");
   try {
     const response = await client.query<PlanContextRow>(
       `
@@ -119,9 +119,7 @@ export async function loadSnapshotCommissionPlanContext(input: {
       maxRowsPerScopeLimit: bounds.maxRowsPerScopeLimit
     };
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 
@@ -141,8 +139,7 @@ export async function loadCommissionedSnapshotPlanContext(input: {
   client?: SnapshotCommissionPgClientLike;
   projectKey: string;
 }): Promise<LoadCommissionedSnapshotPlanContextResult> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "read");
 
   try {
     const readClient = client as SnapshotCommissionPgClientLike &
@@ -184,9 +181,7 @@ export async function loadCommissionedSnapshotPlanContext(input: {
       planSource: resolution.source
     };
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 
@@ -196,8 +191,7 @@ export async function findSnapshotReleaseIdForCommissionRequest(input: {
   projectKey: string;
   requestId: string;
 }): Promise<string | null> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "read");
   try {
     const response = await client.query<{ release_id: string }>(
       `
@@ -213,16 +207,13 @@ export async function findSnapshotReleaseIdForCommissionRequest(input: {
     );
     return response.rows[0]?.release_id ?? null;
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export async function createSnapshotCommissionRequest(
   input: CreateSnapshotCommissionRequestInput
 ): Promise<CreateSnapshotCommissionRequestResult> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "write");
   try {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
@@ -257,16 +248,13 @@ export async function createSnapshotCommissionRequest(
       sourceKey: String(result.sourceKey)
     };
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export async function claimSnapshotCommissionRequest(
   input: ClaimSnapshotCommissionRequestInput
 ): Promise<ClaimSnapshotCommissionRequestResult> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "write");
   const leaseSeconds = Math.max(
     1,
     input.leaseSeconds ?? SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS
@@ -289,16 +277,13 @@ export async function claimSnapshotCommissionRequest(
       request: mapClaimResult(result)
     };
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export async function completeSnapshotCommissionRequest(
   input: CompleteSnapshotCommissionRequestInput
 ): Promise<CompleteSnapshotCommissionRequestResult> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "write");
   const safeErrorMessage =
     input.status === "failed" && input.errorCode
       ? snapshotCommissionOperatorErrorForCode(input.errorCode)
@@ -335,9 +320,7 @@ export async function completeSnapshotCommissionRequest(
       auditId: typeof result.auditId === "string" ? result.auditId : undefined
     };
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export async function loadLatestSnapshotCommissionRequest(input: {
@@ -346,8 +329,7 @@ export async function loadLatestSnapshotCommissionRequest(input: {
   projectKey: string;
   planKey: string;
 }): Promise<SnapshotCommissionRequestRecord | null> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "read");
   try {
     const response = await client.query<CommissionRow>(
       `
@@ -385,9 +367,7 @@ export async function loadLatestSnapshotCommissionRequest(input: {
     const row = response.rows[0];
     return row ? mapCommissionRow(row) : null;
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export async function hasActiveSnapshotCommissionRequest(input: {
@@ -396,8 +376,7 @@ export async function hasActiveSnapshotCommissionRequest(input: {
   projectKey: string;
   planKey: string;
 }): Promise<boolean> {
-  const client = resolveClient(input);
-  const ownsClient = ownsConnection(input, client);
+  const { client, ownedClient } = await openClient(input, "read");
   try {
     const response = await client.query<{ exists: boolean }>(
       `
@@ -415,9 +394,7 @@ export async function hasActiveSnapshotCommissionRequest(input: {
     );
     return response.rows[0]?.exists === true;
   } finally {
-    if (ownsClient) {
-      await (client as Client).end();
-    }
+    await closeClient(ownedClient);
   }
 }
 export function assertCommissionPlanIsCommissionable(
@@ -525,23 +502,32 @@ function mapClaimResult(result: Record<string, unknown>): SnapshotCommissionRequ
         : undefined
   };
 }
-function resolveClient(input: {
+async function openClient(
+  input: {
   connectionString?: string;
   client?: SnapshotCommissionPgClientLike;
-}): SnapshotCommissionPgClientLike {
-  const client =
-    input.client ??
-    (input.connectionString ? new Client({ connectionString: input.connectionString }) : null);
-  if (!client) {
+  },
+  mode: "read" | "write"
+): Promise<{ client: SnapshotCommissionPgClientLike; ownedClient?: Client }> {
+  if (input.client) {
+    return { client: input.client };
+  }
+  if (!input.connectionString) {
     throw new Error("Control database connection is required.");
   }
-  return client;
+  const ownedClient = new Client(
+    mode === "read"
+      ? createBoundedPostgresReadClientConfig(input.connectionString)
+      : { connectionString: input.connectionString }
+  );
+  await ownedClient.connect();
+  return { client: ownedClient, ownedClient };
 }
-function ownsConnection(
-  input: { connectionString?: string; client?: SnapshotCommissionPgClientLike },
-  client: SnapshotCommissionPgClientLike
-): boolean {
-  return Boolean(input.connectionString && !input.client && client instanceof Client);
+
+async function closeClient(ownedClient?: Client): Promise<void> {
+  if (ownedClient) {
+    await ownedClient.end();
+  }
 }
 function toIsoString(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
