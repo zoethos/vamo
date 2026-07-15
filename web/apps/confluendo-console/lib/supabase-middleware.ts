@@ -39,7 +39,7 @@ export async function requireAdminSession(request: NextRequest): Promise<NextRes
     request,
   });
 
-  const supabase = createServerClient(config.url, config.anonKey, {
+  const supabase = createServerClient(config.url, config.publishableKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();

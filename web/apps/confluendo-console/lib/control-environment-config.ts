@@ -6,7 +6,7 @@ import {
 export type ControlEnvironmentConfig = {
   environment: ControlEnvironment;
   supabaseUrl: string;
-  supabaseAnonKey: string;
+  supabasePublishableKey: string;
   controlDatabaseUrl: string;
   vamoPlaceCacheDatabaseUrl?: string;
   vamoProductionInboxTelemetryDatabaseUrl?: string;
@@ -32,14 +32,17 @@ export function getControlEnvironmentConfig(
 ): ControlEnvironmentConfig | null {
   const prefix = `CONFLUENDO_CONTROL_${controlEnvironment.toUpperCase()}`;
   const supabaseUrl = read(environment, `${prefix}_SUPABASE_URL`);
-  const supabaseAnonKey = read(environment, `${prefix}_SUPABASE_ANON_KEY`);
+  const supabasePublishableKey = readFirst(environment, [
+    `${prefix}_SUPABASE_PUBLISHABLE_KEY`,
+    `${prefix}_SUPABASE_ANON_KEY`
+  ]);
   const controlDatabaseUrl = read(environment, `${prefix}_DATABASE_URL`);
 
-  if (supabaseUrl && supabaseAnonKey && controlDatabaseUrl) {
+  if (supabaseUrl && supabasePublishableKey && controlDatabaseUrl) {
     return {
       environment: controlEnvironment,
       supabaseUrl,
-      supabaseAnonKey,
+      supabasePublishableKey,
       controlDatabaseUrl,
       ...(controlEnvironment === "production"
         ? productionVamoConfig(environment, prefix)
@@ -54,16 +57,19 @@ export function getControlEnvironmentConfig(
   }
 
   const legacySupabaseUrl = read(environment, "NEXT_PUBLIC_SUPABASE_URL");
-  const legacySupabaseAnonKey = read(environment, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const legacySupabasePublishableKey = readFirst(environment, [
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  ]);
   const legacyControlDatabaseUrl = read(environment, "INGESTION_CONTROL_DATABASE_URL");
-  if (!legacySupabaseUrl || !legacySupabaseAnonKey || !legacyControlDatabaseUrl) {
+  if (!legacySupabaseUrl || !legacySupabasePublishableKey || !legacyControlDatabaseUrl) {
     return null;
   }
 
   return {
     environment: "production",
     supabaseUrl: legacySupabaseUrl,
-    supabaseAnonKey: legacySupabaseAnonKey,
+    supabasePublishableKey: legacySupabasePublishableKey,
     controlDatabaseUrl: legacyControlDatabaseUrl,
     vamoPlaceCacheDatabaseUrl: read(environment, "VAMO_PLACE_CACHE_DATABASE_URL"),
     vamoProductionInboxTelemetryDatabaseUrl: read(
@@ -109,4 +115,14 @@ function productionVamoConfig(environment: Environment, prefix: string) {
 function read(environment: Environment, key: string): string | undefined {
   const value = environment[key]?.trim();
   return value || undefined;
+}
+
+function readFirst(environment: Environment, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = read(environment, key);
+    if (value) {
+      return value;
+    }
+  }
+  return undefined;
 }

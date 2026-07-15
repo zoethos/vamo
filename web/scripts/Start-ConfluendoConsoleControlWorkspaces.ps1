@@ -97,11 +97,11 @@ function Load-ControlWorkspaceProfile {
   $values = Read-EnvironmentFile -Path $Path
   $prefix = "CONFLUENDO_CONTROL_$($EnvironmentName.ToUpperInvariant())"
   $supabaseUrl = Require-EnvironmentValue -Values $values -Names @("NEXT_PUBLIC_SUPABASE_URL") -ProfileName $EnvironmentName -Path $Path
-  $supabaseAnonKey = Require-EnvironmentValue -Values $values -Names @("NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") -ProfileName $EnvironmentName -Path $Path
+  $supabasePublishableKey = Require-EnvironmentValue -Values $values -Names @("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY") -ProfileName $EnvironmentName -Path $Path
   $controlDatabaseUrl = Require-EnvironmentValue -Values $values -Names @("INGESTION_CONTROL_DATABASE_URL") -ProfileName $EnvironmentName -Path $Path
 
   Set-ProcessEnvironmentValue -Name "${prefix}_SUPABASE_URL" -Value $supabaseUrl -OriginalValues $OriginalValues
-  Set-ProcessEnvironmentValue -Name "${prefix}_SUPABASE_ANON_KEY" -Value $supabaseAnonKey -OriginalValues $OriginalValues
+  Set-ProcessEnvironmentValue -Name "${prefix}_SUPABASE_PUBLISHABLE_KEY" -Value $supabasePublishableKey -OriginalValues $OriginalValues
   Set-ProcessEnvironmentValue -Name "${prefix}_DATABASE_URL" -Value $controlDatabaseUrl -OriginalValues $OriginalValues
 
   if ($EnvironmentName -eq "Production") {

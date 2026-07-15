@@ -4,7 +4,7 @@ import type { ControlEnvironment } from "./control-environment";
 
 export type SupabasePublicConfig = {
   url: string;
-  anonKey: string;
+  publishableKey: string;
 };
 
 export async function getSupabasePublicConfig(): Promise<SupabasePublicConfig | null> {
@@ -13,12 +13,12 @@ export async function getSupabasePublicConfig(): Promise<SupabasePublicConfig | 
     return null;
   }
 
-  return { url: config.supabaseUrl, anonKey: config.supabaseAnonKey };
+  return { url: config.supabaseUrl, publishableKey: config.supabasePublishableKey };
 }
 
 export function getSupabasePublicConfigForEnvironment(
   environment: ControlEnvironment
 ): SupabasePublicConfig | null {
   const config = getControlEnvironmentConfig(environment);
-  return config ? { url: config.supabaseUrl, anonKey: config.supabaseAnonKey } : null;
+  return config ? { url: config.supabaseUrl, publishableKey: config.supabasePublishableKey } : null;
 }

@@ -25,7 +25,7 @@ the environment's artifact-store values.
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_STAGING_CONTROL_PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<staging anon or publishable key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging publishable key>
 INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging app or owner DB URL>
 ```
 
@@ -33,7 +33,7 @@ INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Staging app or owner DB URL>
 
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PRODUCTION_CONTROL_PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<production anon or publishable key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<production publishable key>
 INGESTION_CONTROL_DATABASE_URL=<Confluendo Control Production DB URL>
 
 # Production-only server credentials, where that console capability is enabled.
@@ -71,10 +71,10 @@ Set these server environment variables on the Confluendo console deployment:
 ```dotenv
 CONFLUENDO_CONTROL_DEFAULT_ENVIRONMENT=production
 CONFLUENDO_CONTROL_STAGING_SUPABASE_URL=...
-CONFLUENDO_CONTROL_STAGING_SUPABASE_ANON_KEY=...
+CONFLUENDO_CONTROL_STAGING_SUPABASE_PUBLISHABLE_KEY=...
 CONFLUENDO_CONTROL_STAGING_DATABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_SUPABASE_URL=...
-CONFLUENDO_CONTROL_PRODUCTION_SUPABASE_ANON_KEY=...
+CONFLUENDO_CONTROL_PRODUCTION_SUPABASE_PUBLISHABLE_KEY=...
 CONFLUENDO_CONTROL_PRODUCTION_DATABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_VAMO_PLACE_CACHE_DATABASE_URL=...
 CONFLUENDO_CONTROL_PRODUCTION_VAMO_PRODUCTION_INBOX_TELEMETRY_DATABASE_URL=...
@@ -87,6 +87,12 @@ CONFLUENDO_CONTROL_PRODUCTION_INGESTION_ADMIN_API_TOKEN=...
 The `STAGING_*` profile must not receive Vamo production credentials. A staging
 route returns an explicit unavailable response if an operator attempts a
 production delivery or consumer-apply action.
+
+Use the modern **Publishable key** from Supabase's API Keys screen. It is safe
+for browser configuration only when the Supabase project has Row Level Security
+and appropriate policies. Existing `*_ANON_KEY` settings remain a temporary
+backward-compatible fallback, but new profiles and deployments must use the
+`*_PUBLISHABLE_KEY` names. Never use a Supabase Secret key in the console.
 
 ## Deliberate boundaries
 

@@ -43,6 +43,7 @@ describe("console control environment boundaries", () => {
     assert.match(environmentConfig, /CONFLUENDO_CONTROL_\$\{controlEnvironment\.toUpperCase\(\)\}/);
     assert.match(environmentConfig, /if \(controlEnvironment !== "production"\)/);
     assert.match(environmentConfig, /NEXT_PUBLIC_SUPABASE_URL/);
+    assert.match(environmentConfig, /SUPABASE_PUBLISHABLE_KEY/);
     assert.match(environmentConfig, /INGESTION_CONTROL_DATABASE_URL/);
   });
 
