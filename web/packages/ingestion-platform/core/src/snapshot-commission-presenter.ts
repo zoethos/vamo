@@ -32,26 +32,30 @@ export function presentSnapshotCommissionCard(input: {
   defaultCountries: string[];
   defaultCategories: string[];
   defaultMaxRowsPerScope: number;
+  sourceTaxonomyReady?: boolean;
 }): SnapshotCommissionCardPresentation {
   const request = input.request ?? null;
   if (!request) {
+    const sourceTaxonomyReady = input.sourceTaxonomyReady !== false;
     return {
       hasRequest: false,
       status: "none",
       statusLabel: "No request",
       tone: "neutral",
       title: "Source release commissioning",
-      description:
-        "Request a bounded FSQ snapshot acquisition for a trusted worker. The console never calls the provider directly.",
+      description: sourceTaxonomyReady
+        ? "Request a bounded FSQ snapshot acquisition for a trusted worker. The console never calls the provider directly."
+        : "The active plan needs its published source mapping before bounded FSQ acquisition can be requested.",
       scopeSummary: formatScopeSummary({
         sourceKey: input.defaultSourceKey,
         countries: input.defaultCountries,
         categories: input.defaultCategories,
         maxRowsPerScope: input.defaultMaxRowsPerScope
       }),
-      nextHumanAction:
-        "Submit a commissioning request with audit reason and fresh MFA step-up. A trusted worker executes acquisition later.",
-      canCreateRequest: !input.hasActiveRequest,
+      nextHumanAction: sourceTaxonomyReady
+        ? "Submit a commissioning request with audit reason and fresh MFA step-up. A trusted worker executes acquisition later."
+        : "Refresh the published plan contract first. This preserves all existing queue and delivery evidence.",
+      canCreateRequest: !input.hasActiveRequest && sourceTaxonomyReady,
       confirmationState: "request_commission"
     };
   }

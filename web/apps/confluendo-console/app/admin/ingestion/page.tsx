@@ -80,6 +80,7 @@ export default async function IngestionDashboardPage() {
     registeredSnapshotRelease,
     snapshotCommissionCard,
     snapshotActivationCard,
+    planContractRefreshCard,
     snapshotCommissionDefaultCountries,
     snapshotCommissionDefaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope
@@ -328,6 +329,7 @@ export default async function IngestionDashboardPage() {
       registeredSnapshotRelease={registeredSnapshotRelease}
       snapshotCommissionCard={snapshotCommissionCard}
       snapshotActivationCard={snapshotActivationCard}
+      planContractRefreshCard={planContractRefreshCard}
       snapshotCommissionDefaultCountries={snapshotCommissionDefaultCountries}
       snapshotCommissionDefaultCategories={snapshotCommissionDefaultCategories}
       snapshotCommissionDefaultMaxRowsPerScope={snapshotCommissionDefaultMaxRowsPerScope}
