@@ -21,6 +21,14 @@ describe("resolveDisposableTestDatabaseUrl", () => {
       () => resolveDisposableTestDatabaseUrl("postgresql://postgres:password@localhost:5432/ingestion_test"),
       /INGESTION_TEST_DATABASE_URL is refused/
     );
+
+    assert.equal(
+      resolveDisposableTestDatabaseUrl("postgresql://postgres:password@localhost:5432/ingestion_test", {
+        CONFIRM_DISPOSABLE_TEST_DB: "YES",
+        INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "localhost"
+      }),
+      "postgresql://postgres:password@localhost:5432/ingestion_test"
+    );
   });
 
   it("refuses a remote database without both explicit safeguards", () => {

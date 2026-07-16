@@ -39,6 +39,8 @@ jobs:
         working-directory: web
         env:
           INGESTION_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ingestion_test
+          INGESTION_TEST_DATABASE_HOST_ALLOWLIST: localhost
+          CONFIRM_DISPOSABLE_TEST_DB: "YES"
         run: npm --workspace @confluendo/ingestion-platform test
 
       - name: Build Confluendo console
