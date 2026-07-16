@@ -24,7 +24,13 @@ const confluendoBootstrapSql = readFileSync(
   "core/sql/control_bootstrap_confluendo.sql",
   "utf8"
 );
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  deleteDisposableTestRow,
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 const NOW = "2026-07-07T10:00:00.000Z";
 
 describe("batch production package-wave approval control", () => {
@@ -37,7 +43,7 @@ describe("batch production package-wave approval control", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
         assert.equal(CONTROL_TABLES.length, 31);
 
@@ -163,7 +169,7 @@ describe("batch production package-wave approval control", () => {
         const approvedUnit = after.items.find((item) => item.unitKey === first.unitKeys[0]);
         assert.equal(approvedUnit?.status, "production_package_approved");
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }
@@ -178,8 +184,8 @@ describe("batch production package-wave approval control", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
-        await client.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(client, databaseUrl!, { roles: ["confluendo_app"] });
         await client.query(controlSchemaSql);
         await client.query("create role confluendo_app login password 'test'");
         await client.query(confluendoBootstrapSql);
@@ -227,17 +233,20 @@ describe("batch production package-wave approval control", () => {
 
         await assert.rejects(
           () =>
-            app.query(
-              `delete from ingestion_platform.ingestion_batch_production_package_waves where wave_key = 'wave-smoke'`
-            ),
+            deleteDisposableTestRow(app, databaseUrl!, {
+              schema: "ingestion_platform",
+              table: "ingestion_batch_production_package_waves",
+              column: "wave_key",
+              value: "wave-smoke"
+            }),
           /permission denied/i
         );
 
         await app.end();
       } finally {
-        await client.query("drop owned by confluendo_app");
-        await client.query("drop role if exists confluendo_app");
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { ownedRoles: ["confluendo_app"] });
+        await resetDisposableTestDatabase(client, databaseUrl!, { roles: ["confluendo_app"] });
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

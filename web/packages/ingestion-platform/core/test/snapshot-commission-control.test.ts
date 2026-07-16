@@ -27,7 +27,12 @@ const confluendoBootstrapSql = readFileSync(
   "core/sql/control_bootstrap_confluendo.sql",
   "utf8"
 );
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(testDir, "..", "..", "..");
@@ -207,8 +212,8 @@ describe("snapshot commission control DB smoke", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
@@ -286,8 +291,8 @@ describe("snapshot commission control DB smoke", () => {
           `expected ~${leaseSeconds}s lease, observed ${leaseDurationSeconds}s`
         );
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.end();
       }
     }
@@ -302,8 +307,8 @@ describe("snapshot commission control DB smoke", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
@@ -384,8 +389,8 @@ describe("snapshot commission control DB smoke", () => {
         );
         assert.equal(activeCount.rows[0]?.count, "1");
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.end();
       }
     }
@@ -400,7 +405,7 @@ describe("snapshot commission control DB smoke", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         await seedProjectAndPlan(owner);
 
@@ -507,7 +512,7 @@ describe("snapshot commission control DB smoke", () => {
         );
         assert.equal(activationBindings.rows[0]?.count, "0");
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }
@@ -521,7 +526,7 @@ describe("snapshot commission control DB smoke", () => {
       const owner = new Client({ connectionString: databaseUrl });
       await owner.connect();
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         await seedProjectAndPlan(owner);
 
@@ -535,7 +540,7 @@ describe("snapshot commission control DB smoke", () => {
         assert.deepEqual(context?.allowedCountries, ["france", "italy"]);
         assert.deepEqual(context?.allowedCategories, ["landmark", "poi"]);
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }
@@ -550,7 +555,7 @@ describe("snapshot commission control DB smoke", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         await seedProjectAndPlan(owner, { planKey: "forged-plan-key" });
         await seedAutonomyPolicyBatchPlan(owner, "vamo-eu-poi-sample");
@@ -600,7 +605,7 @@ describe("snapshot commission control DB smoke", () => {
         assert.equal(row.rows[0]?.plan_key, "vamo-eu-poi-sample");
         assert.notEqual(row.rows[0]?.plan_key, "forged-plan-key");
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }
@@ -615,7 +620,7 @@ describe("snapshot commission control DB smoke", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         await seedAutonomyPolicyBatchPlan(owner, "policy-plan");
         await seedQueueSnapshotForPlan(owner, "policy-plan", "2026-07-02T12:00:00.000Z");
@@ -631,7 +636,7 @@ describe("snapshot commission control DB smoke", () => {
           "The active autonomy policy and queue workflow disagree on the commissioned batch plan."
         );
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }

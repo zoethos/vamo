@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const EMPTY_ENVIRONMENT: NodeJS.ProcessEnv = {};
+
+describe("resolveDisposableTestDatabaseUrl", () => {
+  it("allows local disposable Postgres without remote confirmation", () => {
+    assert.equal(
+      resolveDisposableTestDatabaseUrl("postgresql://postgres:password@127.0.0.1:55433/ingestion_test"),
+      "postgresql://postgres:password@127.0.0.1:55433/ingestion_test"
+    );
+  });
+
+  it("requires confirmation and allowlisting when localhost uses another port", () => {
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl(
+          "postgresql://postgres:password@localhost:5432/ingestion_test",
+          EMPTY_ENVIRONMENT
+        ),
+      /INGESTION_TEST_DATABASE_URL is refused/
+    );
+
+    assert.equal(
+      resolveDisposableTestDatabaseUrl("postgresql://postgres:password@localhost:5432/ingestion_test", {
+        CONFIRM_DISPOSABLE_TEST_DB: "YES",
+        INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "localhost"
+      }),
+      "postgresql://postgres:password@localhost:5432/ingestion_test"
+    );
+  });
+
+  it("refuses a remote database without both explicit safeguards", () => {
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl(
+          "postgresql://postgres:password@db.example.test:5432/postgres",
+          EMPTY_ENVIRONMENT
+        ),
+      /INGESTION_TEST_DATABASE_URL is refused/
+    );
+
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl(
+          "postgresql://postgres:password@db.example.test:5432/postgres",
+          { CONFIRM_DISPOSABLE_TEST_DB: "YES" }
+        ),
+      /INGESTION_TEST_DATABASE_URL is refused/
+    );
+  });
+
+  it("allows an explicitly confirmed remote disposable host", () => {
+    const url = "postgresql://postgres:password@db.ingestion-test.example:5432/postgres";
+    assert.equal(
+      resolveDisposableTestDatabaseUrl(url, {
+        CONFIRM_DISPOSABLE_TEST_DB: "YES",
+        INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "db.ingestion-test.example"
+      }),
+      url
+    );
+  });
+
+  it("refuses a test URL that matches any configured live database", () => {
+    const url = "postgresql://postgres:password@db.control.example:5432/postgres";
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl(url, {
+          CONFIRM_DISPOSABLE_TEST_DB: "YES",
+          INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "db.control.example",
+          INGESTION_CONTROL_OWNER_DATABASE_URL: url
+        }),
+      /matches or shares a host with a configured live control or Vamo database URL/
+    );
+  });
+
+  it("refuses a different database on a configured live host", () => {
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl("postgresql://postgres:password@db.control.example:5432/ingestion_test", {
+          CONFIRM_DISPOSABLE_TEST_DB: "YES",
+          INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "db.control.example",
+          INGESTION_CONTROL_OWNER_DATABASE_URL:
+            "postgresql://postgres:password@db.control.example:5432/postgres"
+        }),
+      /matches or shares a host with a configured live control or Vamo database URL/
+    );
+  });
+
+  it("normalizes an IPv6 loopback allowlist entry", () => {
+    assert.equal(
+      resolveDisposableTestDatabaseUrl("postgresql://postgres:password@[::1]:5432/ingestion_test", {
+        CONFIRM_DISPOSABLE_TEST_DB: "YES",
+        INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "::1"
+      }),
+      "postgresql://postgres:password@[::1]:5432/ingestion_test"
+    );
+  });
+
+  it("refuses malformed and non-Postgres connection strings", () => {
+    assert.throws(
+      () => resolveDisposableTestDatabaseUrl("https://db.example.test"),
+      /valid PostgreSQL connection string/
+    );
+  });
+
+  it("runs destructive reset SQL only after the URL guard passes", async () => {
+    const queries: string[] = [];
+    await resetDisposableTestDatabase(
+      { query: async (sql) => void queries.push(sql) },
+      "postgresql://postgres:password@localhost:55433/ingestion_test",
+      {
+        schemas: ["ingestion_platform"],
+        roles: ["confluendo_app"],
+        ownedRoles: ["confluendo_app"],
+        tables: [{ schema: "public", name: "location_canonicals" }],
+        functions: [{ schema: "public", name: "promote_location_aliases", arguments: "integer" }]
+      }
+    );
+
+    assert.equal(queries.length, 5);
+    assert.match(queries[0]!, /drop schema if exists "ingestion_platform" cascade/);
+    assert.match(queries[1]!, /drop function if exists "public"\."promote_location_aliases"\(integer\) cascade/);
+    assert.match(queries[2]!, /drop table if exists "public"\."location_canonicals" cascade/);
+    assert.match(queries[3]!, /drop owned by "confluendo_app"/);
+    assert.match(queries[4]!, /drop role if exists "confluendo_app"/);
+  });
+
+  it("keeps destructive setup SQL inside the guarded reset helper", () => {
+    const rawDestructiveSql =
+      /\b(?:drop\s+(?:database|schema|role|owned|table|function|index|view)|truncate|delete\s+from)\b/i;
+    const sourceFiles = listTypeScriptFiles(".").filter(
+      (file) =>
+        isTestSourceFile(file) &&
+        !file.endsWith("disposable-test-database.ts") &&
+        !file.endsWith("disposable-test-database.test.ts")
+    );
+
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/artifact/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/source/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/target/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("core/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("policy/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("spec/test")));
+
+    for (const file of sourceFiles) {
+      assert.doesNotMatch(readFileSync(file, "utf8"), rawDestructiveSql, file);
+    }
+  });
+});
+
+function listTypeScriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return ["dist", "node_modules"].includes(entry.name) ? [] : listTypeScriptFiles(path);
+    }
+    return entry.name.endsWith(".ts") ? [path] : [];
+  });
+}
+
+function isTestSourceFile(file: string): boolean {
+  return file.split(/[\\/]/).includes("test");
+}
+
+function normalizePath(file: string): string {
+  return file.replaceAll("\\", "/");
+}

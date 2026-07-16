@@ -8,7 +8,12 @@ import {
   recordProductionInboxDelivery
 } from "../src/production-inbox-control.js";
 
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 const schemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 
 describe(
@@ -24,12 +29,12 @@ describe(
     });
 
     after(async () => {
-      await client.query("drop schema if exists ingestion_platform cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
       await client.end();
     });
 
     beforeEach(async () => {
-      await client.query("drop schema if exists ingestion_platform cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
       await client.query(schemaSql);
       await client.query(
         `insert into ingestion_platform.ingestion_projects (project_key, display_name)

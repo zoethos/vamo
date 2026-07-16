@@ -20,7 +20,12 @@ import type { AdminPrincipal } from "../src/admin-auth.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 const NOW = "2026-07-02T14:00:00.000Z";
 
@@ -34,7 +39,7 @@ describe("batch staging-canary wave approval control", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
         assert.equal(CONTROL_TABLES.length, 31);
 
@@ -242,7 +247,7 @@ describe("batch staging-canary wave approval control", () => {
         }
         assert.ok(blockedDecision.blocks.some((block) => block.code === "no_eligible_items"));
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

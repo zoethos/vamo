@@ -22,7 +22,12 @@ import { runAutonomyScheduler } from "../src/autonomy-scheduler.js";
 import { evaluateAutonomyCycle } from "../src/autonomy-policy.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 const agentId = "autonomy-executor-smoke";
 
 describe("autonomy executor", () => {
@@ -200,7 +205,9 @@ describe("autonomy executor", () => {
     const client = await setupDb();
     try {
       await seedPolicyAndQueue(client, { dryRunReady: 1 });
-      await client.query("drop table ingestion_platform.ingestion_batch_dry_run_executions");
+      await resetDisposableTestDatabase(client, databaseUrl!, {
+        tables: [{ schema: "ingestion_platform", name: "ingestion_batch_dry_run_executions" }]
+      });
 
       await assert.rejects(
         () =>
@@ -735,13 +742,13 @@ async function setupDb(): Promise<Client> {
   assert.ok(databaseUrl);
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
-  await client.query("drop schema if exists ingestion_platform cascade");
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
   await client.query(controlSchemaSql);
   return client;
 }
 
 async function teardownDb(client: Client): Promise<void> {
-  await client.query("drop schema if exists ingestion_platform cascade");
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
   await client.end();
 }
 

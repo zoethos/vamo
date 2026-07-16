@@ -28,7 +28,12 @@ import type { PipelineRunResult, StagedCandidate } from "../src/pipeline-runner.
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 const NOW = "2026-07-02T14:00:00.000Z";
 const WAVE_KEY = "batch-staging-canary:vamo-eu-poi-sample:audit:wave-exec-smoke";
@@ -537,9 +542,9 @@ async function seedApprovedWave(client: Client): Promise<{ waveId: string; waveK
 }
 
 async function resetSchemas(client: Client): Promise<void> {
-  await client.query("drop schema if exists ingestion_platform cascade");
-  await client.query("drop schema if exists canary_target cascade");
-  await client.query("drop schema if exists confluendo_guard cascade");
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["canary_target"] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["confluendo_guard"] });
   await client.query(controlSchemaSql);
         assert.equal(CONTROL_TABLES.length, 31);
 }

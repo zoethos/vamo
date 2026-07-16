@@ -17,7 +17,12 @@ import type { FsqSnapshotAcquireResult } from "../src/fsq-snapshot-acquire.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const workerModule = readFileSync("core/src/snapshot-commission-worker.ts", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 const planSpec = {
   kind: "ingestion.batch_plan",
@@ -128,7 +133,7 @@ describe("runSnapshotCommissionWorker", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         await seedCommissionRequest(owner);
 
@@ -230,7 +235,7 @@ describe("runSnapshotCommissionWorker", () => {
           snapshotCommissionOperatorErrorForCode("acquisition_blocked")
         );
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }
@@ -245,7 +250,7 @@ describe("runSnapshotCommissionWorker", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.query(controlSchemaSql);
         const requestId = await seedCommissionRequest(owner);
 
@@ -326,7 +331,7 @@ describe("runSnapshotCommissionWorker", () => {
         assert.equal(row.rows[0]?.status, "activation_pending");
         assert.equal(row.rows[0]?.registered_release_id, "fsq_os_places-20260701-cafebabef00d");
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }
