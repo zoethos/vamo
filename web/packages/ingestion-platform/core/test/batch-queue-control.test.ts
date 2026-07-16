@@ -12,7 +12,12 @@ import { scheduleBatchDryRun } from "../src/batch-queue-mutations.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("batch queue control persistence", () => {
   it("does not commit a transaction owned by its caller", async () => {
@@ -68,7 +73,7 @@ describe("batch queue control persistence", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
 
         const tables = await client.query<{ table_name: string }>(
@@ -168,7 +173,7 @@ describe("batch queue control persistence", () => {
         assert.equal(loaded.coverage.matrix.italy?.poi, 3);
         assert.equal(loaded.items[0]?.status, "dry_run_ready");
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }
@@ -183,7 +188,7 @@ describe("batch queue control persistence", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
         await client.query(
           `
@@ -271,7 +276,7 @@ describe("batch queue control persistence", () => {
         assert.equal(loaded.items.every((item) => item.status === "dry_run_ready"), true);
         assert.equal(loaded.nextAction, "36 unit(s) scheduled for dry-run execution.");
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }
@@ -286,7 +291,7 @@ describe("batch queue control persistence", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
         await client.query(
           `
@@ -403,7 +408,7 @@ describe("batch queue control persistence", () => {
         assert.equal(explicitSample.planId, "vamo-eu-poi-sample");
         assert.equal(explicitSample.progress.total, 36);
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

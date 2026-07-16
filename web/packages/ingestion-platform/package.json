@@ -112,7 +112,7 @@
     "ip18:snapshot-activation-worker": "npm run build && node scripts/run-ip18-snapshot-activation-worker.mjs",
     "control:provision-vamo-admin": "npm run build && node scripts/run-control-admin-provision.mjs",
     "control:bootstrap-runtime-role": "npm run build && node scripts/run-control-runtime-role-bootstrap.mjs",
-    "test": "npm run build && node scripts/run-spec-tests.mjs",
+    "test": "npm run clean && npm run build && node scripts/run-spec-tests.mjs",
     "worker": "node dist/core/src/worker-main.js"
   },
   "dependencies": {

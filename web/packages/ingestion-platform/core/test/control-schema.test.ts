@@ -15,7 +15,12 @@ const confluendoBootstrapSql = readFileSync(
   "core/sql/control_bootstrap_confluendo.sql",
   "utf8"
 );
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("ingestion control schema", () => {
   it("declares only platform-owned ingestion tables", () => {
@@ -165,7 +170,7 @@ describe("ingestion control schema", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
 
         const tables = await client.query<{ table_name: string }>(
@@ -603,7 +608,7 @@ describe("ingestion control schema", () => {
           [projectId, String(policyId)]
         );
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

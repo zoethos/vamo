@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { after, before, beforeEach, describe, it } from "node:test";
 import { Client } from "pg";
 
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 const placeIntelligenceSql = readFileSync(
   "../../../supabase/migrations/20260625155733_place_intelligence_cache.sql",
   "utf8"
@@ -266,17 +271,17 @@ describe(
 
 async function cleanup(client: Client): Promise<void> {
   await client.query("reset role");
-  await client.query("drop schema if exists confluendo_inbox cascade");
-  await client.query("drop function if exists public.promote_location_aliases(integer) cascade");
-  await client.query("drop table if exists public.location_observations cascade");
-  await client.query("drop table if exists public.location_visual_cache cascade");
-  await client.query("drop table if exists public.location_resolution_cache cascade");
-  await client.query("drop table if exists public.location_aliases cascade");
-  await client.query("drop table if exists public.location_source_refs cascade");
-  await client.query("drop table if exists public.location_canonicals cascade");
-  await client.query("drop table if exists public.location_provider_policies cascade");
-  await client.query("drop table if exists public.trips cascade");
-  await client.query("drop schema if exists auth cascade");
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["confluendo_inbox"] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { functions: [{ schema: "public", name: "promote_location_aliases", arguments: "integer" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_observations" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_visual_cache" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_resolution_cache" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_aliases" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_source_refs" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_canonicals" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "location_provider_policies" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { tables: [{ schema: "public", name: "trips" }] });
+  await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["auth"] });
   // `confluendo_inbox_writer` is cluster-level. The disposable Postgres
   // container is removed after DB smokes, and the migration reasserts the role
   // flags idempotently before every test.

@@ -14,7 +14,12 @@ import {
 } from "../src/progressive-read-model.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 // Rows as the control DB would return them: scorecard/proposal/run_report are the
 // exact JSONB the platform core produced, round-tripped back as parsed objects.
@@ -305,7 +310,7 @@ describe("progressive control read", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
 
         const projectResult = await client.query<{ id: string }>(
@@ -411,7 +416,7 @@ describe("progressive control read", () => {
         const missing = await loadProgressiveRunSnapshot({ client, projectKey: "nope" });
         assert.equal(missing, null);
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

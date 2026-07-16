@@ -2,6 +2,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+if (process.env.INGESTION_TEST_DATABASE_URL) {
+  const { resolveDisposableTestDatabaseUrl } = await import(
+    "../dist/core/test/disposable-test-database.js"
+  );
+  resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
+}
+
 const requestedSuites = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
 const suiteDirectories = new Map([
   ["spec", ["dist/spec/test"]],

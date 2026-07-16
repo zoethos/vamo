@@ -21,7 +21,12 @@ import { scheduleBatchDryRun } from "../src/batch-queue-mutations.js";
 import { CONTROL_TABLES } from "../src/control-models.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("batch dry-run execution control", () => {
   it("uses provided fixture candidate and target-row counts instead of hash-derived counts", () => {
@@ -106,7 +111,7 @@ describe("batch dry-run execution control", () => {
       await client.connect();
 
       try {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.query(controlSchemaSql);
         assert.equal(CONTROL_TABLES.length, 31);
 
@@ -207,7 +212,7 @@ describe("batch dry-run execution control", () => {
         assert.equal(succeeded[0]?.dryRunReport?.wroteToTarget, false);
         assert.equal(succeeded[0]?.targetKey, "vamo-place-intelligence");
       } finally {
-        await client.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["ingestion_platform"] });
         await client.end();
       }
     }

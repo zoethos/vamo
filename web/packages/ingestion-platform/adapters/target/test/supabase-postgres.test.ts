@@ -10,7 +10,12 @@ import {
   inspectSupabaseTargetSecurity
 } from "../src/supabase-security-checks.js";
 
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "../../../core/test/disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("supabase target spec security", () => {
   it("blocks unsafe service-role and approved-write posture before any database connection", () => {
@@ -57,12 +62,12 @@ describe(
     });
 
     after(async () => {
-      await client.query("drop schema if exists supabase_target cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["supabase_target"] });
       await client.end();
     });
 
     beforeEach(async () => {
-      await client.query("drop schema if exists supabase_target cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["supabase_target"] });
       await client.query("create schema supabase_target");
       await client.query(`
         create table supabase_target.generic_places (

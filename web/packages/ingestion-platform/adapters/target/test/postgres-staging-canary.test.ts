@@ -10,7 +10,12 @@ import type { PgClientLike } from "../src/postgres-dry-run.js";
 import type { StagedCandidate } from "../../../core/src/index.js";
 import type { TargetProjectSpec } from "../../../spec/src/index.js";
 
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "../../../core/test/disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 // Runs in CI without a database: the staging guard must block before any
 // planning or write SQL is issued.
@@ -97,13 +102,13 @@ describe(
     });
 
     after(async () => {
-      await client.query("drop schema if exists canary_target cascade");
-      await client.query("drop schema if exists confluendo_guard cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["canary_target"] });
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["confluendo_guard"] });
       await client.end();
     });
 
     beforeEach(async () => {
-      await client.query("drop schema if exists canary_target cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["canary_target"] });
       // DBA-provisioned staging sentinel row (replaces the rejected ALTER DATABASE
       // ... SET current_setting approach).
       await client.query("create schema if not exists confluendo_guard");

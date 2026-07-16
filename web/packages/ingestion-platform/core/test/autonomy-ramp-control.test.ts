@@ -10,7 +10,12 @@ const confluendoBootstrapSql = readFileSync(
   "core/sql/control_bootstrap_confluendo.sql",
   "utf8"
 );
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("autonomy ramp control", () => {
   it(
@@ -22,8 +27,8 @@ describe("autonomy ramp control", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
@@ -142,9 +147,9 @@ describe("autonomy ramp control", () => {
         assert.equal(evidence.rows[0]?.auditAction, "promote_autonomy_ramp");
         assert.equal(evidence.rows[0]?.eventType, "autonomy.ramp.promoted");
       } finally {
-        await owner.query("drop owned by confluendo_app").catch(() => undefined);
-        await owner.query("drop role if exists confluendo_app");
-        await owner.query("drop schema if exists ingestion_platform cascade");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { ownedRoles: ["confluendo_app"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
       }
     }

@@ -6,7 +6,12 @@ import { planPostgresDryRun } from "../src/postgres-dry-run.js";
 import type { StagedCandidate } from "../../../core/src/index.js";
 import type { TargetProjectSpec } from "../../../spec/src/index.js";
 
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "../../../core/test/disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe(
   "postgres dry-run target adapter",
@@ -21,12 +26,12 @@ describe(
     });
 
     after(async () => {
-      await client.query("drop schema if exists dry_run_target cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["dry_run_target"] });
       await client.end();
     });
 
     beforeEach(async () => {
-      await client.query("drop schema if exists dry_run_target cascade");
+      await resetDisposableTestDatabase(client, databaseUrl!, { schemas: ["dry_run_target"] });
       await client.query("create schema dry_run_target");
       await client.query(`
         create table dry_run_target.generic_places (

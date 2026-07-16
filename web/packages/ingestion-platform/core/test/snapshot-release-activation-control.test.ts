@@ -17,7 +17,12 @@ const confluendoBootstrapSql = readFileSync(
   "utf8"
 );
 const fullDataYaml = readFileSync("fixtures/platform/ip18/vamo-eu-full-data-batch.yaml", "utf8");
-const databaseUrl = process.env.INGESTION_TEST_DATABASE_URL;
+import {
+  resetDisposableTestDatabase,
+  resolveDisposableTestDatabaseUrl
+} from "./disposable-test-database.js";
+
+const databaseUrl = resolveDisposableTestDatabaseUrl(process.env.INGESTION_TEST_DATABASE_URL);
 
 describe("snapshot release activation control", () => {
   it("declares plan binding table and owner-controlled activation function", () => {
@@ -48,8 +53,8 @@ describe("snapshot release activation control", () => {
       await owner.connect();
 
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
@@ -201,8 +206,8 @@ describe("snapshot release activation control", () => {
           await app.end();
         }
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.end();
       }
     }
