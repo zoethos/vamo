@@ -79,6 +79,7 @@ describe("canTransitionSnapshotCommissionStatus", () => {
 describe("snapshot commission request module boundary", () => {
   it("does not import provider adapter modules", () => {
     assert.doesNotMatch(requestModule, /adapters\/source/);
-    assert.doesNotMatch(requestModule, /fsq-os-places-catalog-acquire/);
+    assert.doesNotMatch(requestModule, /fsq-os-places-portal-iceberg-acquire/);
+    assert.doesNotMatch(requestModule, /@duckdb\/node-api/);
   });
 });

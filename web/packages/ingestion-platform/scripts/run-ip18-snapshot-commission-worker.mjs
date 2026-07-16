@@ -8,6 +8,7 @@ import {
   SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
   runSnapshotCommissionWorker
 } from "../dist/core/src/snapshot-commission-worker.js";
+import { createDefaultFsqPortalIcebergDuckDbRunner } from "../dist/adapters/source/src/fsq-os-places-portal-iceberg-duckdb.js";
 import { resolveCliSnapshotArtifactStore } from "./snapshot-artifact-store-cli.mjs";
 
 const workerId = readArg("--worker-id") ?? "snapshot-commission-worker";
@@ -37,7 +38,9 @@ const result = await runSnapshotCommissionWorker({
   workerId,
   workerRunKey,
   confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-  catalogServiceApiKey: process.env.FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY,
+  portalAccessToken: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN,
+  portalAccessTokenExpiresAt: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT,
+  duckDbRunner: createDefaultFsqPortalIcebergDuckDbRunner(),
   artifactStore: artifactStoreResolved.store,
   artifactStoreBaseDir: artifactStoreResolved.artifactStoreDir
 });

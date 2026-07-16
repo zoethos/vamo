@@ -1012,6 +1012,17 @@ export {
   type FsqAcquisitionScopePlan
 } from "./fsq-acquisition-scope.js";
 export {
+  FSQ_SOURCE_TAXONOMY_PROVIDER,
+  classifyFsqPlaceConsumerCategory,
+  extractFsqSourceTaxonomyFromPlan,
+  parseFsqSourceTaxonomy,
+  type FsqClassifyPlaceCategoryResult,
+  type FsqSourceTaxonomyMapping,
+  type FsqSourceTaxonomyMappingRule,
+  type FsqSourceTaxonomyParseResult
+} from "./fsq-source-taxonomy.js";
+export { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
+export {
   SNAPSHOT_COMMISSION_CONFIRMATION_STATE,
   SNAPSHOT_COMMISSION_REQUEST_STATUSES,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
@@ -1032,6 +1043,7 @@ export {
 } from "./snapshot-commission-errors.js";
 export {
   SNAPSHOT_COMMISSION_SUPPORTED_SOURCE_KEYS,
+  assertCommissionPlanHasSourceTaxonomy,
   extractPlanCommissionBounds,
   isSnapshotCommissionSupportedSourceKey,
   validateSnapshotCommissionScopeAgainstPlan,

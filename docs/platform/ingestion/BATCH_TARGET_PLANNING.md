@@ -100,13 +100,16 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
-## Source acquisition and snapshot registry (IP-18.8.10)
+## Source acquisition and snapshot registry (IP-18.8.10 / IP-18.8.16)
 
-IP-18.8.10 adds the provider-facing acquisition boundary and control-plane
-release registry. It is separate from activation and queue reseed:
+IP-18.8.10 added the provider-facing acquisition boundary and control-plane
+release registry. IP-18.8.16 replaces the fictitious catalog HTTP path with
+Places Portal Iceberg acquisition via DuckDB. It is separate from activation
+and queue reseed:
 
-- **Acquisition** — bounded FSQ OS Places catalog fetch through the dedicated
-  adapter/job only; normalize deterministically; reuse IP-18.8.9 intake;
+- **Acquisition** — bounded FSQ OS Places Portal/Iceberg fetch through the
+  dedicated adapter/job only; classify provider categories via plan
+  `sourceTaxonomy`; normalize deterministically by FSQ place id; reuse IP-18.8.9 intake;
   store immutable artifacts; optionally register `activation_ready` metadata in
   the Confluendo control plane.
 - **Activation** — IP-18.8.11: bind a registered release to a batch plan and
@@ -114,13 +117,23 @@ release registry. It is separate from activation and queue reseed:
 
 Boundary rules:
 
-1. `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` lives in server/job secrets only — never in
+1. `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` lives in server/job secrets only — never in
    console code, manifests, artifacts, logs, or tests.
 2. Preview is write-free and credential-free.
 3. Execute requires `--execute`, `CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES`,
-   and `--artifact-store-dir` outside the git worktree.
+   plan `sourceTaxonomy`, and `--artifact-store-dir` outside the git worktree.
 4. Console, scheduler, queue, dry-run, staging, delivery, and consumer apply
-   paths must not call FSQ directly.
+   paths must not call FSQ or import DuckDB.
+5. On Windows runners set `NODE_USE_SYSTEM_CA=1` (documented job setup). Never
+   set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+6. Provider-category mapping happens after the bounded country scan. The output
+   limit caps accepted rows per consumer scope, but does not guarantee that a
+   sparse category will fill from a single scan. Review the release coverage
+   report by country and category before activation.
+7. A plan with queue, staging, delivery, or consumer-apply history must not be
+   reseeded only to add `sourceTaxonomy`: the seed path rewrites queue rows.
+   Use the audited metadata-only plan refresh control from IP-18.8.17; before it
+   exists, this refresh is permitted only for a fresh plan with no such history.
 
 Operator commands:
 
@@ -131,7 +144,7 @@ npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- 
 
 # Execute after review (server/job secret store only)
 CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
-FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY=... \
+FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN=... \
 INGESTION_CONTROL_DATABASE_URL=... \
 npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
   --execute \

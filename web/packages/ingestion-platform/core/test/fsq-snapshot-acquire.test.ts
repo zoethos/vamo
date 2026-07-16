@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import type { FsqCatalogPlaceRecord } from "../../adapters/source/src/fsq-os-places-catalog-acquire.js";
+import type { FsqPortalPlaceRecord } from "../../adapters/source/src/fsq-os-places-portal-iceberg-acquire.js";
 import {
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
@@ -20,11 +20,11 @@ const packageRoot = join(testDir, "..", "..", "..");
 const acquireModulePath = join(packageRoot, "core/src/fsq-snapshot-acquire.ts");
 const adapterModulePath = join(
   packageRoot,
-  "adapters/source/src/fsq-os-places-catalog-acquire.ts"
+  "adapters/source/src/fsq-os-places-portal-iceberg-acquire.ts"
 );
 const acquireScriptPath = join(packageRoot, "scripts/run-ip18-fsq-snapshot-acquire.mjs");
 
-const fixtureRecords: FsqCatalogPlaceRecord[] = [
+const fixtureRecords: FsqPortalPlaceRecord[] = [
   {
     fsqPlaceId: "rome_colosseum",
     name: "Colosseum",
@@ -57,22 +57,22 @@ describe("runFsqSnapshotAcquire", () => {
     }
   });
 
-  it("execute mode rejects missing confirmation and service API key", async () => {
+  it("execute mode rejects missing confirmation and portal access token", async () => {
     const missingConfirmation = await runFsqSnapshotAcquire({
       countries: ["italy"],
       categories: ["poi"],
       preview: false,
-      catalogServiceApiKey: "secret-service-api-key-123"
+      portalAccessToken: "secret-portal-token-123"
     });
     assert.deepEqual(missingConfirmation, { ok: false, blocks: ["confirmation_missing"] });
 
-    const missingServiceApiKey = await runFsqSnapshotAcquire({
+    const missingPortalToken = await runFsqSnapshotAcquire({
       countries: ["italy"],
       categories: ["poi"],
       preview: false,
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE
     });
-    assert.deepEqual(missingServiceApiKey, { ok: false, blocks: ["catalog_service_api_key_missing"] });
+    assert.deepEqual(missingPortalToken, { ok: false, blocks: ["portal_access_token_missing"] });
   });
 
   it("rejects out-of-bounds country and category scopes", async () => {
@@ -88,7 +88,7 @@ describe("runFsqSnapshotAcquire", () => {
     }
   });
 
-  it("stores immutable checksum-verified artifacts on execute without live HTTP", async () => {
+  it("stores immutable checksum-verified artifacts on execute without live provider calls", async () => {
     const artifactStoreBaseDir = mkdtempSync(join(tmpdir(), "fsq-acquire-artifacts-"));
     try {
       const result = await runFsqSnapshotAcquire({
@@ -96,7 +96,7 @@ describe("runFsqSnapshotAcquire", () => {
         categories: ["poi", "landmark"],
         preview: false,
         confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
-        catalogServiceApiKey: "super-secret-service-api-key",
+        portalAccessToken: "super-secret-portal-token",
         fixtureRecords,
         artifactStoreBaseDir,
         acquiredAt: "2026-07-01T12:00:00.000Z",
@@ -120,31 +120,32 @@ describe("runFsqSnapshotAcquire", () => {
         );
       }
 
-      const log = formatFsqSnapshotAcquireLog(result, "super-secret-service-api-key");
-      assert.doesNotMatch(log, /super-secret-service-api-key/);
-      assert.doesNotMatch(log, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
+      const log = formatFsqSnapshotAcquireLog(result, "super-secret-portal-token");
+      assert.doesNotMatch(log, /super-secret-portal-token/);
+      assert.doesNotMatch(log, /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/);
     } finally {
       rmSync(artifactStoreBaseDir, { recursive: true, force: true });
     }
   });
 
-  it("redacts catalog service API keys from formatted logs", () => {
+  it("redacts portal access tokens from formatted logs", () => {
     const redacted = redactFsqSnapshotAcquireLogValue(
-      "authorization Bearer secret-service-api-key",
-      "secret-service-api-key"
+      "authorization Bearer secret-portal-token",
+      "secret-portal-token"
     );
-    assert.equal(redacted, "authorization Bearer [REDACTED_CATALOG_SERVICE_API_KEY]");
+    assert.equal(redacted, "authorization Bearer [REDACTED_PORTAL_ACCESS_TOKEN]");
   });
 });
 
 describe("fsq snapshot acquisition artifact", () => {
-  it("keeps provider networking only in the dedicated acquisition adapter", () => {
+  it("keeps provider access only in the dedicated Portal/Iceberg adapter", () => {
     const acquireSource = readFileSync(acquireModulePath, "utf8");
     const scriptSource = readFileSync(acquireScriptPath, "utf8");
     const combined = `${acquireSource}\n${scriptSource}`;
 
     assert.doesNotMatch(combined, /\bfetch\s*\(/);
     assert.doesNotMatch(combined, /catalog\.foursquare\.com/);
+    assert.doesNotMatch(combined, /@duckdb\/node-api/);
   });
 
   it("requires explicit execute confirmation in the CLI", () => {
@@ -152,6 +153,7 @@ describe("fsq snapshot acquisition artifact", () => {
     assert.match(scriptSource, /CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE/);
     assert.match(scriptSource, /Preview plan/);
     assert.match(scriptSource, /--artifact-store-dir/);
+    assert.match(scriptSource, /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/);
   });
 
   it("does not expose activation or queue reseed paths in acquisition modules", () => {

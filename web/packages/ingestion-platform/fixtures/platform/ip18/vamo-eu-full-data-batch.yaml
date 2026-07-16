@@ -16,6 +16,51 @@ source:
   adapter: snapshot
   connection:
     snapshotPath: fixtures/imported/vamo-place-intelligence/fixtures/source.jsonl
+sourceTaxonomy:
+  provider: fsq_os_places
+  fallbackConsumerCategory: poi
+  mappings:
+    - providerCategoryIds:
+        - "4d4b7105d754a06374d81259"
+      providerCategoryLabels:
+        - "Restaurant"
+        - "Food"
+        - "Café"
+        - "Cafe"
+      consumerCategory: restaurant
+      precedence: 100
+    - providerCategoryIds:
+        - "4bf58dd8d48988d12d941735"
+        - "4bf58dd8d48988d181941735"
+        - "4deefb944765f83613cdba6e"
+      providerCategoryLabels:
+        - "Monument / Landmark"
+        - "Museum"
+        - "Historic Site"
+        - "Landmark"
+      consumerCategory: landmark
+      precedence: 90
+    - providerCategoryIds:
+        - "4d4b7105d754a06379d81259"
+        - "4bf58dd8d48988d1fe931735"
+        - "4bf58dd8d48988d1f6931735"
+      providerCategoryLabels:
+        - "Travel and Transportation"
+        - "Bus Station"
+        - "Train Station"
+        - "Metro Station"
+        - "Airport"
+      consumerCategory: transport
+      precedence: 80
+    - providerCategoryIds:
+        - "4d4b7104d754a06370d81259"
+      providerCategoryLabels:
+        - "Arts and Entertainment"
+        - "Nightlife Spot"
+        - "Shop & Service"
+        - "Outdoors & Recreation"
+      consumerCategory: poi
+      precedence: 10
 geographies:
   countries:
     - key: italy

@@ -11,6 +11,10 @@ import { parse } from "yaml";
 import { findLocalSnapshotConnectionViolations } from "../../spec/src/source-connection-policy.js";
 import type { SafetyMode } from "./schedule-proposal.js";
 import { isLegacyTargetKey } from "./target-identity.js";
+import {
+  parseFsqSourceTaxonomy,
+  type FsqSourceTaxonomyMapping
+} from "./fsq-source-taxonomy.js";
 
 export const BATCH_PLAN_KIND = "ingestion.batch_plan" as const;
 
@@ -139,6 +143,11 @@ export interface BatchPlanSpec {
   source?: BatchSourceSpec;
   volumeProjection?: BatchVolumeProjectionSpec;
   dryRunProposalFacts?: BatchDryRunProposalFactsSpec;
+  /**
+   * Declarative provider→consumer category mapping (outside source.connection).
+   * Required for FSQ Portal acquisition / commissioning of fsq-os-places-snapshot.
+   */
+  sourceTaxonomy?: FsqSourceTaxonomyMapping;
   notes?: string;
 }
 
@@ -149,7 +158,8 @@ export type BatchPlanSpecErrorCode =
   | "unsafe_safety_mode"
   | "unsafe_source_connection"
   | "legacy_target_key"
-  | "empty_scope";
+  | "empty_scope"
+  | "invalid_source_taxonomy";
 
 export interface BatchPlanSpecError {
   code: BatchPlanSpecErrorCode;
@@ -263,6 +273,7 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
   const source = parseSource(document.source, errors);
   const volumeProjection = parseVolumeProjection(document.volumeProjection, errors);
   const dryRunProposalFacts = parseDryRunProposalFacts(document.dryRunProposalFacts, errors);
+  const sourceTaxonomy = parseOptionalSourceTaxonomy(document.sourceTaxonomy, errors);
 
   if (errors.length > 0) {
     return fail(errors);
@@ -289,6 +300,7 @@ export function parseBatchPlanSpec(input: string | unknown): ParseBatchPlanSpecR
       source,
       volumeProjection,
       dryRunProposalFacts,
+      sourceTaxonomy,
       notes: readString(document, "notes")
     }
   };
@@ -483,6 +495,27 @@ function parseSource(value: unknown, errors: BatchPlanSpecError[]): BatchSourceS
   }
   const connection = isRecord(value.connection) ? value.connection : undefined;
   return { adapter, connection };
+}
+
+function parseOptionalSourceTaxonomy(
+  value: unknown,
+  errors: BatchPlanSpecError[]
+): FsqSourceTaxonomyMapping | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = parseFsqSourceTaxonomy(value);
+  if (!parsed.ok) {
+    for (const block of parsed.blocks) {
+      errors.push({
+        code: "invalid_source_taxonomy",
+        path: "sourceTaxonomy",
+        message: `Invalid sourceTaxonomy: ${block}.`
+      });
+    }
+    return undefined;
+  }
+  return parsed.mapping;
 }
 
 function parseDryRunProposalFacts(

@@ -31,7 +31,19 @@ const planSpec = {
   safetyMode: "dry_run",
   geographies: { countries: [{ key: "italy" }] },
   categories: ["poi"],
-  bounds: { sampleRowLimitPerUnit: 250 }
+  bounds: { sampleRowLimitPerUnit: 250 },
+  sourceTaxonomy: {
+    provider: "fsq_os_places",
+    fallbackConsumerCategory: "poi",
+    mappings: [
+      {
+        providerCategoryIds: ["4d4b7104d754a06370d81259"],
+        providerCategoryLabels: ["Arts and Entertainment"],
+        consumerCategory: "poi",
+        precedence: 10
+      }
+    ]
+  }
 };
 
 async function seedCommissionRequest(client: Client): Promise<string> {
@@ -76,22 +88,35 @@ describe("runSnapshotCommissionWorker", () => {
     assert.doesNotMatch(workerModule, /activateSnapshotRelease/);
   });
 
-  it("rejects missing worker confirmation and catalog service API key", async () => {
+  it("rejects missing worker confirmation and portal access token", async () => {
     const missingConfirmation = await runSnapshotCommissionWorker({
       connectionString: "postgres://example",
       workerId: "worker",
       workerRunKey: "run-1",
-      catalogServiceApiKey: "service-api-key"
+      portalAccessToken: "portal-access-token"
     });
     assert.deepEqual(missingConfirmation, { ok: false, blocks: ["worker_confirmation_missing"] });
 
-    const missingServiceApiKey = await runSnapshotCommissionWorker({
+    const missingPortalToken = await runSnapshotCommissionWorker({
       connectionString: "postgres://example",
       workerId: "worker",
       workerRunKey: "run-1",
       confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE
     });
-    assert.deepEqual(missingServiceApiKey, { ok: false, blocks: ["catalog_service_api_key_missing"] });
+    assert.deepEqual(missingPortalToken, { ok: false, blocks: ["portal_access_token_missing"] });
+  });
+
+  it("refuses an expired Portal token before it claims a commissioning request", async () => {
+    const result = await runSnapshotCommissionWorker({
+      connectionString: "postgres://example",
+      workerId: "worker",
+      workerRunKey: "run-expired-token",
+      confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
+      portalAccessToken: "portal-access-token",
+      portalAccessTokenExpiresAt: "2026-07-01T00:00:00.000Z",
+      now: "2026-07-01T00:00:00.000Z"
+    });
+    assert.deepEqual(result, { ok: false, blocks: ["portal_access_token_expired"] });
   });
 
   it(
@@ -145,7 +170,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-success",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogServiceApiKey: "test-service-api-key",
+          portalAccessToken: "test-portal-access-token",
           runAcquire: successAcquire
         });
         assert.equal(completed.ok, true);
@@ -160,7 +185,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-success",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogServiceApiKey: "test-service-api-key",
+          portalAccessToken: "test-portal-access-token",
           runAcquire: successAcquire
         });
         assert.equal(replay.ok, true);
@@ -192,7 +217,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "commission-worker",
           workerRunKey: "worker-run-failure",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogServiceApiKey: "test-service-api-key",
+          portalAccessToken: "test-portal-access-token",
           runAcquire: async () => ({ ok: false, blocks: ["provider_unavailable"] })
         });
         assert.equal(failed.ok, true);
@@ -282,7 +307,7 @@ describe("runSnapshotCommissionWorker", () => {
           workerId: "worker",
           workerRunKey: "run-reconcile-2",
           confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
-          catalogServiceApiKey: "test-service-api-key",
+          portalAccessToken: "test-portal-access-token",
           runAcquire: async () => {
             acquireCalls += 1;
             throw new Error("provider should not be called during reconciliation");

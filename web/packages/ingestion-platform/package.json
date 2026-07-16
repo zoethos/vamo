@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./adapters/source": "./dist/adapters/source/src/index.js",
+    "./adapters/source/portal-duckdb": "./dist/adapters/source/src/fsq-os-places-portal-iceberg-duckdb.js",
     "./adapters/artifact": "./dist/adapters/artifact/src/index.js",
     "./adapters/target": "./dist/adapters/target/src/index.js",
     "./adapters/target/postgres": "./dist/adapters/target/src/postgres-dry-run.js",
@@ -116,6 +117,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1081.0",
+    "@duckdb/node-api": "^1.5.4-r.1",
     "pg": "8.22.0",
     "yaml": "2.9.0"
   },

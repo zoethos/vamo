@@ -1,22 +1,24 @@
 #!/usr/bin/env node
 
-// IP-18.8.10 FSQ snapshot acquisition.
+// IP-18.8.16 FSQ Places Portal / Iceberg snapshot acquisition.
 //
 // Preview by default (write-free, credential-free). Execute requires --execute,
 // CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES, and
-// FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY from the server/job secret store only.
+// FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN from the server/job secret store only.
+// On Windows runners, set NODE_USE_SYSTEM_CA=1 in the job environment
+// (documented setup; never set NODE_TLS_REJECT_UNAUTHORIZED=0).
 //
 // Usage:
 //   npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
 //     --countries italy,france --categories poi,landmark
 //
 //   CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES \
-//   FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY=... \
+//   FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN=... \
 //   npm --workspace @confluendo/ingestion-platform run ip18:fsq-snapshot-acquire -- \
 //     --execute --countries italy --categories poi \
 //     --artifact-store-dir /tmp/confluendo-snapshot-artifacts
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,11 +26,15 @@ import { fileURLToPath } from "node:url";
 import {
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
+  VAMO_EU_FULL_DATA_BATCH_SPEC_PATH,
+  extractFsqSourceTaxonomyFromPlan,
   formatFsqSnapshotAcquireLog,
   isOutputPathInsideRepo,
+  parseBatchPlanSpec,
   runFsqSnapshotAcquire
 } from "../dist/core/src/index.js";
-import { FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV } from "../dist/adapters/source/src/index.js";
+import { FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV } from "../dist/adapters/source/src/index.js";
+import { createDefaultFsqPortalIcebergDuckDbRunner } from "../dist/adapters/source/src/fsq-os-places-portal-iceberg-duckdb.js";
 import {
   hasHostedSnapshotArtifactStoreProfile,
   printArtifactStoreResolutionFailure,
@@ -70,6 +76,15 @@ function parseCsv(value) {
     .filter((entry) => entry.length > 0);
 }
 
+function loadSourceTaxonomyFromPlanFile(planPath) {
+  const raw = readFileSync(planPath, "utf8");
+  const parsed = parseBatchPlanSpec(raw);
+  if (!parsed.ok) {
+    return { ok: false, blocks: parsed.errors.map((error) => error.message) };
+  }
+  return extractFsqSourceTaxonomyFromPlan(parsed.spec);
+}
+
 const execute = hasFlag("--execute");
 const countries = parseCsv(readArg("--countries"));
 const categories = parseCsv(readArg("--categories"));
@@ -77,10 +92,12 @@ const maxRowsPerScope = Number(readArg("--max-rows-per-scope", "250"));
 const artifactStoreDir = readArg("--artifact-store-dir");
 const projectKey = readArg("--project-key", "vamo");
 const actorId = readArg("--actor-id", "fsq-snapshot-acquire-cli");
+const planFile =
+  readArg("--plan-file") ?? resolve(packageRoot, VAMO_EU_FULL_DATA_BATCH_SPEC_PATH);
 const auditReason =
   readArg("--audit-reason") ??
-  "Register validated FSQ snapshot release after acquisition execute.";
-const catalogServiceApiKey = process.env[FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV];
+  "Register validated FSQ snapshot release after Portal/Iceberg acquisition execute.";
+const portalAccessToken = process.env[FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV];
 const controlConnectionString = process.env.INGESTION_CONTROL_DATABASE_URL;
 
 if (countries.length === 0 || categories.length === 0) {
@@ -93,6 +110,19 @@ if (execute && !artifactStoreDir && !hasHostedSnapshotArtifactStoreProfile()) {
     "Missing required argument for execute mode: --artifact-store-dir or hosted S3-compatible artifact store env."
   );
   process.exit(1);
+}
+
+let sourceTaxonomy;
+if (execute) {
+  const taxonomy = loadSourceTaxonomyFromPlanFile(planFile);
+  if (!taxonomy.ok) {
+    console.error("Source mapping requires plan refresh:");
+    for (const block of taxonomy.blocks) {
+      console.error(`  - ${block}`);
+    }
+    process.exit(1);
+  }
+  sourceTaxonomy = taxonomy.mapping;
 }
 
 let artifactStore;
@@ -109,11 +139,14 @@ if (execute) {
   artifactStoreBaseDir = artifactStoreResolved.artifactStoreDir;
 }
 
-console.log("IP-18.8.10 FSQ snapshot acquisition");
+console.log("IP-18.8.16 FSQ Places Portal / Iceberg snapshot acquisition");
 console.log(`- mode: ${execute ? "execute" : "preview"}`);
 console.log(`- countries: ${countries.join(", ")}`);
 console.log(`- categories: ${categories.join(", ")}`);
 console.log(`- max rows per scope: ${maxRowsPerScope}`);
+if (execute) {
+  console.log(`- plan file: ${planFile}`);
+}
 
 const result = await runFsqSnapshotAcquire({
   countries,
@@ -121,7 +154,10 @@ const result = await runFsqSnapshotAcquire({
   maxRowsPerScope,
   preview: !execute,
   confirmation: process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV],
-  catalogServiceApiKey,
+  portalAccessToken,
+  portalAccessTokenExpiresAt: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT,
+  sourceTaxonomy,
+  duckDbRunner: execute ? createDefaultFsqPortalIcebergDuckDbRunner() : undefined,
   artifactStoreBaseDir,
   artifactStore,
   projectKey,
@@ -133,7 +169,7 @@ const result = await runFsqSnapshotAcquire({
 const logPathParent = mkdtempSync(resolve(tmpdir(), "fsq-snapshot-acquire-log-"));
 const logPath = resolve(logPathParent, "acquire-result.json");
 try {
-  writeFileSync(logPath, formatFsqSnapshotAcquireLog(result, catalogServiceApiKey), "utf8");
+  writeFileSync(logPath, formatFsqSnapshotAcquireLog(result, portalAccessToken), "utf8");
 } finally {
   rmSync(logPathParent, { recursive: true, force: true });
 }
@@ -184,9 +220,9 @@ if (process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV] !== FSQ_SNAPSHOT_ACQUIRE_
   process.exit(1);
 }
 
-if (!catalogServiceApiKey?.trim()) {
+if (!portalAccessToken?.trim()) {
   console.error(
-    `Refusing to execute. Set ${FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV} from the server/job secret store.`
+    `Refusing to execute. Set ${FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV} from the server/job secret store.`
   );
   process.exit(1);
 }

@@ -56,7 +56,25 @@ const planSpec = {
     countries: [{ key: "italy" }, { key: "france" }]
   },
   categories: ["poi", "landmark"],
-  bounds: { sampleRowLimitPerUnit: 250 }
+  bounds: { sampleRowLimitPerUnit: 250 },
+  sourceTaxonomy: {
+    provider: "fsq_os_places",
+    fallbackConsumerCategory: "poi",
+    mappings: [
+      {
+        providerCategoryIds: ["4d4b7104d754a06370d81259"],
+        providerCategoryLabels: ["Arts and Entertainment"],
+        consumerCategory: "poi",
+        precedence: 10
+      },
+      {
+        providerCategoryIds: ["4bf58dd8d48988d181941735"],
+        providerCategoryLabels: ["Museum"],
+        consumerCategory: "landmark",
+        precedence: 90
+      }
+    ]
+  }
 };
 
 async function seedProjectAndPlan(
@@ -632,7 +650,9 @@ describe("snapshot commission route artifact", () => {
     assert.doesNotMatch(routeSource, /process\.env\.INGESTION_CONTROL_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /parsed\.request\.planKey/);
     assert.doesNotMatch(routeSource, /runFsqSnapshotAcquire/);
+    assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/);
     assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
+    assert.doesNotMatch(routeSource, /@duckdb\/node-api/);
     assert.doesNotMatch(routeSource, /CONFLUENDO_SNAPSHOT_ARTIFACT_S3_BUCKET/);
     assert.doesNotMatch(routeSource, /VAMO_STAGING_CANARY_APP_DATABASE_URL/);
     assert.doesNotMatch(routeSource, /VAMO_PRODUCTION_INBOX_DATABASE_URL/);
@@ -645,7 +665,9 @@ describe("snapshot commission route artifact", () => {
     const controlSource = readFileSync(commissionControl, "utf8");
     assert.match(controlSource, /snapshot-commission\/request/);
     assert.doesNotMatch(controlSource, /runFsqSnapshotAcquire/);
+    assert.doesNotMatch(controlSource, /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/);
     assert.doesNotMatch(controlSource, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
+    assert.doesNotMatch(controlSource, /@duckdb\/node-api/);
     assert.doesNotMatch(controlSource, /Execute acquisition/i);
     const postBodyBlock = controlSource.match(/body: JSON\.stringify\(\{[\s\S]*?\}\)/);
     assert.ok(postBodyBlock, "expected commissioning POST body");

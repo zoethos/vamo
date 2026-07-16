@@ -1,16 +1,21 @@
 /**
- * FSQ snapshot acquisition orchestration (IP-18.8.10).
+ * FSQ snapshot acquisition orchestration (IP-18.8.10 / IP-18.8.16).
  *
- * Composes the provider adapter, intake validation, artifact store, and optional
- * control-plane registry registration. No consumer activation writes in this slice.
+ * Composes the Portal/Iceberg provider adapter, intake validation, artifact
+ * store, and optional control-plane registry registration. No consumer
+ * activation writes in this slice.
  */
 
-import type { FsqCatalogAcquireResult } from "../../adapters/source/src/fsq-os-places-catalog-acquire.js";
+import type { FsqPortalAcquireResult } from "../../adapters/source/src/fsq-os-places-portal-iceberg-acquire.js";
 import {
-  acquireFsqOsPlacesCatalog,
+  acquireFsqOsPlacesPortalIceberg,
   FSQ_OS_PLACES_DEFAULT_ATTRIBUTION,
-  FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL
-} from "../../adapters/source/src/fsq-os-places-catalog-acquire.js";
+  FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL,
+  type FsqPortalIcebergDuckDbRunner,
+  type FsqPortalPlaceRecord
+} from "../../adapters/source/src/fsq-os-places-portal-iceberg-acquire.js";
+import type { FsqSourceTaxonomyMapping } from "./fsq-source-taxonomy.js";
+import { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 import type { SnapshotReleaseManifest } from "./snapshot-release-manifest.js";
 import {
   buildSourceAcquisitionReleaseId,
@@ -42,7 +47,7 @@ export const FSQ_SNAPSHOT_DEFAULT_RETENTION =
 
 export type FsqSnapshotAcquirePreviewResult = {
   mode: "preview";
-  plan: Extract<FsqCatalogAcquireResult, { ok: true; preview: true }>["plan"];
+  plan: Extract<FsqPortalAcquireResult, { ok: true; preview: true }>["plan"];
   nextAction: string;
 };
 
@@ -81,7 +86,9 @@ export async function runFsqSnapshotAcquire(input: {
   maxRowsPerScope?: number;
   preview: boolean;
   confirmation?: string;
-  catalogServiceApiKey?: string;
+  portalAccessToken?: string;
+  portalAccessTokenExpiresAt?: string;
+  sourceTaxonomy?: FsqSourceTaxonomyMapping;
   acquiredAt?: string;
   artifactStoreBaseDir?: string;
   artifactStore?: SnapshotArtifactStore;
@@ -90,27 +97,44 @@ export async function runFsqSnapshotAcquire(input: {
   actor?: { type: string; id: string };
   auditReason?: string;
   commissionRequestId?: string;
-  fetchFn?: Parameters<typeof acquireFsqOsPlacesCatalog>[0]["fetchFn"];
-  fixtureRecords?: Parameters<typeof acquireFsqOsPlacesCatalog>[0]["fixtureRecords"];
+  duckDbRunner?: FsqPortalIcebergDuckDbRunner;
+  fixtureRecords?: readonly FsqPortalPlaceRecord[];
+  queryTimeoutMs?: number;
   now?: string;
 }): Promise<FsqSnapshotAcquireResult> {
   if (!input.preview) {
     if (input.confirmation !== FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE) {
       return { ok: false, blocks: ["confirmation_missing"] };
     }
-    if (!input.catalogServiceApiKey?.trim()) {
-      return { ok: false, blocks: ["catalog_service_api_key_missing"] };
+    if (!input.portalAccessToken?.trim() && !input.fixtureRecords) {
+      return { ok: false, blocks: ["portal_access_token_missing"] };
+    }
+    if (!input.fixtureRecords) {
+      const expiry = validateFsqPortalAccessTokenExpiry({
+        expiresAt: input.portalAccessTokenExpiresAt,
+        now: input.now
+      });
+      if (!expiry.ok) {
+        return { ok: false, blocks: [expiry.block] };
+      }
+    }
+    if (!input.sourceTaxonomy && !input.fixtureRecords) {
+      return { ok: false, blocks: ["source_mapping_requires_plan_refresh"] };
     }
   }
 
-  const acquired = await acquireFsqOsPlacesCatalog({
+  const acquired = await acquireFsqOsPlacesPortalIceberg({
     countries: input.countries,
     categories: input.categories,
     maxRowsPerScope: input.maxRowsPerScope,
     preview: input.preview,
-    serviceApiKey: input.catalogServiceApiKey,
-    fetchFn: input.fetchFn,
-    fixtureRecords: input.fixtureRecords
+    portalAccessToken: input.portalAccessToken,
+    portalAccessTokenExpiresAt: input.portalAccessTokenExpiresAt,
+    sourceTaxonomy: input.sourceTaxonomy,
+    duckDbRunner: input.duckDbRunner,
+    fixtureRecords: input.fixtureRecords,
+    queryTimeoutMs: input.queryTimeoutMs,
+    now: input.now
   });
 
   if (!acquired.ok) {
@@ -124,7 +148,7 @@ export async function runFsqSnapshotAcquire(input: {
         mode: "preview",
         plan: acquired.plan,
         nextAction:
-          "Review bounded country/category scopes, then execute with CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES and the FSQ service API key from the server/job secret store."
+          "Review bounded country/category scopes, then execute with CONFIRM_CONFLUENDO_FSQ_SNAPSHOT_ACQUIRE=YES and FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN from the server/job secret store."
       }
     };
   }
@@ -304,19 +328,19 @@ function buildRegistryReleaseRecord(input: {
   };
 }
 
-export function redactFsqSnapshotAcquireLogValue(value: string, serviceApiKey?: string): string {
-  if (!serviceApiKey || serviceApiKey.length === 0) {
+export function redactFsqSnapshotAcquireLogValue(value: string, portalAccessToken?: string): string {
+  if (!portalAccessToken || portalAccessToken.length === 0) {
     return value;
   }
-  return value.split(serviceApiKey).join("[REDACTED_CATALOG_SERVICE_API_KEY]");
+  return value.split(portalAccessToken).join("[REDACTED_PORTAL_ACCESS_TOKEN]");
 }
 
 export function formatFsqSnapshotAcquireLog(
   result: FsqSnapshotAcquireResult,
-  serviceApiKey?: string
+  portalAccessToken?: string
 ): string {
   const payload = JSON.stringify(result, null, 2);
-  return redactFsqSnapshotAcquireLogValue(payload, serviceApiKey);
+  return redactFsqSnapshotAcquireLogValue(payload, portalAccessToken);
 }
 
 export { computeSnapshotArtifactBundleSha256 };
