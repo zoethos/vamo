@@ -368,4 +368,4 @@ function stageMatchesView(stageKey: WorkflowNavigatorStageKey, activeView: Conso
       return false;
   }
 }
-
+

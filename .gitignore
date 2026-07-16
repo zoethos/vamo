@@ -90,3 +90,21 @@ docs/brand/support.js
 docs/brand/*.html
 docs/brand/*.dc.html
 docs/brand/rebrand-screenshots/
+
+# Local Confluendo operating artifacts. These are generated output, handoff
+# scratchpads, or one-off runbooks tied to a local approval/audit record; they
+# are not portable platform source.
+/console-build.txt
+/console-dev-*.log
+/test-*.log
+/test-out*.txt
+/docs/platform/ingestion/IP_18_8_*_PROMPT.md
+/docs/platform/ingestion/bootstrap/sql/ip18_vamo_full_data_batch_queue_seed.sql
+/web/executeStep.ps1
+/web/scripts/Execute-Ip18ProductionPackageWave.ps1
+/web/scripts/Invoke-Ip18AutonomyCycle.ps1
+/web/scripts/Invoke-Ip18AutonomyDryRunDrain.ps1
+/web/scripts/Preview-Ip18ProductionPackageWave.ps1
+/web/scripts/autonomy_cycle_preview.ps1
+/web/scripts/execute-ip18-5-wave-23.ps1
+/web/scripts/run-ip18-4-dry-run-paris-barcelona.ps1
