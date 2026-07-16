@@ -7,10 +7,13 @@ import {
   type BatchQueueSnapshot,
   hasActiveSnapshotCommissionRequest,
   hasActiveSnapshotActivationRequest,
+  loadBatchPlanSourceTaxonomyState,
   loadLatestSnapshotActivationRequest,
   loadLatestSnapshotCommissionRequest,
+  presentBatchPlanContractRefreshCard,
   presentSnapshotActivationCard,
   presentSnapshotCommissionCard,
+  type BatchPlanContractRefreshCardPresentation,
   type SnapshotActivationCardPresentation,
   type SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
@@ -30,6 +33,7 @@ export interface Ip18BatchQueueData {
   registeredSnapshotRelease?: ReturnType<typeof toRegisteredSnapshotReleaseSummary> | null;
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
   snapshotActivationCard: SnapshotActivationCardPresentation;
+  planContractRefreshCard: BatchPlanContractRefreshCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -92,6 +96,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     let registeredSnapshotRelease = null;
     let snapshotCommissionCard;
     let snapshotActivationCard;
+    let planContractRefreshCard: BatchPlanContractRefreshCardPresentation;
     try {
       const binding = await withConsoleLiveReadDeadline("Active source release", () =>
         loadActiveSnapshotReleasePlanBinding({
@@ -108,6 +113,31 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
     const defaultCountries = Object.keys(snapshot.coverage.perCountry).sort();
     const defaultCategories = Object.keys(snapshot.coverage.perCategory).sort();
     const defaultMaxRowsPerScope = 250;
+
+    try {
+      const planContract = await withConsoleLiveReadDeadline("Plan source mapping", () =>
+        loadBatchPlanSourceTaxonomyState({
+          connectionString: controlDb,
+          projectKey,
+          planKey: snapshot.planId
+        })
+      );
+      planContractRefreshCard = presentBatchPlanContractRefreshCard({
+        projectKey: planContract?.projectKey ?? snapshot.projectKey,
+        planKey: planContract?.planKey ?? snapshot.planId,
+        sourceKey: planContract?.sourceKey ?? snapshot.sourceKey,
+        currentSourceTaxonomy: planContract?.sourceTaxonomy,
+        liveControlPlane: Boolean(planContract)
+      });
+    } catch (error) {
+      console.error("Plan source mapping read failed", error);
+      planContractRefreshCard = presentBatchPlanContractRefreshCard({
+        projectKey: snapshot.projectKey,
+        planKey: snapshot.planId,
+        sourceKey: snapshot.sourceKey,
+        liveControlPlane: false
+      });
+    }
 
     try {
       const [latestRequest, hasActiveRequest, latestActivationRequest, hasActiveActivationRequest] =
@@ -141,7 +171,8 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
         defaultSourceKey: snapshot.sourceKey,
         defaultCountries,
         defaultCategories,
-        defaultMaxRowsPerScope
+        defaultMaxRowsPerScope,
+        sourceTaxonomyReady: planContractRefreshCard.statusLabel === "Configured"
       });
       snapshotActivationCard = presentSnapshotActivationCard({
         commissionRequest: latestRequest,
@@ -155,7 +186,8 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
         defaultSourceKey: snapshot.sourceKey,
         defaultCountries,
         defaultCategories,
-        defaultMaxRowsPerScope
+        defaultMaxRowsPerScope,
+        sourceTaxonomyReady: planContractRefreshCard.statusLabel === "Configured"
       });
       snapshotActivationCard = presentSnapshotActivationCard({ hasActiveRequest: false });
     }
@@ -167,6 +199,7 @@ export async function loadIp18BatchQueue(projectKey = "vamo"): Promise<Ip18Batch
       registeredSnapshotRelease,
       snapshotCommissionCard,
       snapshotActivationCard,
+      planContractRefreshCard,
       snapshotCommissionDefaultCountries: defaultCountries,
       snapshotCommissionDefaultCategories: defaultCategories,
       snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope
@@ -197,6 +230,12 @@ function sample(): Ip18BatchQueueData {
       defaultMaxRowsPerScope
     }),
     snapshotActivationCard: presentSnapshotActivationCard({ hasActiveRequest: false }),
+    planContractRefreshCard: presentBatchPlanContractRefreshCard({
+      projectKey: snapshot.projectKey,
+      planKey: snapshot.planId,
+      sourceKey: snapshot.sourceKey,
+      liveControlPlane: false
+    }),
     snapshotCommissionDefaultCountries: defaultCountries,
     snapshotCommissionDefaultCategories: defaultCategories,
     snapshotCommissionDefaultMaxRowsPerScope: defaultMaxRowsPerScope

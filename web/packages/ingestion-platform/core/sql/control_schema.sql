@@ -1452,6 +1452,136 @@ revoke all on function ingestion_platform.set_autonomy_production_handoff(
   text
 ) from public;
 
+-- IP-18.8.17 metadata-only batch-plan contract refresh. This fills a missing
+-- source taxonomy without reseeding or updating queue rows/evidence.
+create or replace function ingestion_platform.refresh_batch_plan_source_taxonomy(
+  p_project_key text,
+  p_plan_key text,
+  p_source_key text,
+  p_source_taxonomy jsonb,
+  p_actor_type text,
+  p_actor_id text,
+  p_audit_reason text
+) returns jsonb
+language plpgsql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+declare
+  v_project_id bigint;
+  v_plan_id bigint;
+  v_plan_status text;
+  v_plan_source_key text;
+  v_existing_source_taxonomy jsonb;
+  v_audit_id bigint;
+begin
+  p_project_key := nullif(btrim(p_project_key), '');
+  p_plan_key := nullif(btrim(p_plan_key), '');
+  p_source_key := nullif(btrim(p_source_key), '');
+  p_actor_type := nullif(btrim(p_actor_type), '');
+  p_actor_id := nullif(btrim(p_actor_id), '');
+  p_audit_reason := nullif(btrim(p_audit_reason), '');
+
+  if p_project_key is null or p_plan_key is null or p_source_key is null then
+    raise exception 'missing_plan_identity';
+  end if;
+  if p_actor_type is null or p_actor_id is null then
+    raise exception 'missing_actor_identity';
+  end if;
+  if p_audit_reason is null then
+    raise exception 'missing_audit_reason';
+  end if;
+  if p_source_taxonomy is null or jsonb_typeof(p_source_taxonomy) <> 'object' then
+    raise exception 'invalid_source_taxonomy';
+  end if;
+
+  select p.id, bp.id, bp.status, bp.source_key, bp.spec->'sourceTaxonomy'
+  into v_project_id, v_plan_id, v_plan_status, v_plan_source_key, v_existing_source_taxonomy
+  from ingestion_platform.ingestion_batch_plans bp
+  join ingestion_platform.ingestion_projects p on p.id = bp.project_id
+  where p.project_key = p_project_key and bp.plan_key = p_plan_key
+  for update of bp;
+
+  if v_plan_id is null then
+    raise exception 'plan_not_found';
+  end if;
+  if v_plan_status <> 'active' then
+    raise exception 'plan_not_active';
+  end if;
+  if v_plan_source_key <> p_source_key then
+    raise exception 'plan_source_mismatch';
+  end if;
+
+  if v_existing_source_taxonomy is not null and jsonb_typeof(v_existing_source_taxonomy) <> 'null' then
+    if v_existing_source_taxonomy <> p_source_taxonomy then
+      raise exception 'source_taxonomy_already_present';
+    end if;
+    return jsonb_build_object(
+      'ok', true,
+      'changed', false,
+      'planId', v_plan_id::text,
+      'planKey', p_plan_key,
+      'sourceKey', v_plan_source_key,
+      'sourceTaxonomy', v_existing_source_taxonomy
+    );
+  end if;
+
+  update ingestion_platform.ingestion_batch_plans
+  set spec = jsonb_set(spec, '{sourceTaxonomy}', p_source_taxonomy, true),
+      updated_at = now()
+  where id = v_plan_id;
+
+  insert into ingestion_platform.ingestion_audit_log (
+    project_id, actor_type, actor_id, action, target_type, target_id, reason, payload
+  ) values (
+    v_project_id,
+    p_actor_type,
+    p_actor_id,
+    'refresh_batch_plan_source_taxonomy',
+    'batch_plan',
+    v_plan_id::text,
+    p_audit_reason,
+    jsonb_build_object(
+      'planKey', p_plan_key,
+      'sourceKey', v_plan_source_key,
+      'beforeSourceTaxonomy', v_existing_source_taxonomy,
+      'afterSourceTaxonomy', p_source_taxonomy,
+      'metadataOnly', true
+    )
+  ) returning id into v_audit_id;
+
+  insert into ingestion_platform.ingestion_events (
+    project_id, event_type, severity, signal, message, payload
+  ) values (
+    v_project_id,
+    'batch_plan.source_taxonomy_refreshed',
+    'info',
+    'batch_plan_contract',
+    format('Published source taxonomy added to batch plan %s', p_plan_key),
+    jsonb_build_object(
+      'planKey', p_plan_key,
+      'sourceKey', v_plan_source_key,
+      'auditId', v_audit_id::text,
+      'metadataOnly', true
+    )
+  );
+
+  return jsonb_build_object(
+    'ok', true,
+    'changed', true,
+    'planId', v_plan_id::text,
+    'planKey', p_plan_key,
+    'sourceKey', v_plan_source_key,
+    'auditId', v_audit_id::text,
+    'sourceTaxonomy', p_source_taxonomy
+  );
+end;
+$$;
+
+revoke all on function ingestion_platform.refresh_batch_plan_source_taxonomy(
+  text, text, text, jsonb, text, text, text
+) from public;
+
 create table if not exists ingestion_platform.ingestion_snapshot_releases (
   id bigint generated always as identity primary key,
   project_id bigint not null references ingestion_platform.ingestion_projects(id) on delete cascade,

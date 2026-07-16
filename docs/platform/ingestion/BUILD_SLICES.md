@@ -1747,11 +1747,49 @@ Manual live preflight (operator machine / job runner):
    bounded scan before consumer-category filtering, so sparse categories can
    legitimately produce fewer rows.
 4. Do not run `ip18:batch-queue-seed` merely to add `sourceTaxonomy` to a plan
-   with queue history: it rewrites queue state. Until IP-18.8.17 provides the
-   audited metadata-only refresh control, only a fresh plan with no queue/wave
-   evidence may be reseeded for this purpose.
+   with queue history: it rewrites queue state. Use the IP-18.8.17 audited,
+   metadata-only refresh control instead.
 5. Execute a narrow country/category scope with confirmation and an artifact
    store outside the git worktree.
+
+### IP-18.8.17 — implemented (safe plan contract refresh)
+
+**Status:** done — add a missing published `sourceTaxonomy` to an active plan
+without reseeding the queue or changing operational evidence. **Not** a generic
+plan editor, **not** an automatic mapping overwrite, **not** a provider call,
+and **not** a Vamo write.
+
+Deliverables:
+
+- `refresh_batch_plan_source_taxonomy(...)` is security-definer and updates only
+  `ingestion_batch_plans.spec.sourceTaxonomy` plus the plan timestamp. It leaves
+  queue rows, dry-run reports, staging/production waves, delivery, consumer
+  apply, and active release bindings untouched.
+- The browser submits only project identity, audit reason, and confirmation.
+  The server resolves the active commissioned plan and a server-pinned published
+  Vamo contract; taxonomy JSON is never accepted from the browser.
+- Existing taxonomy values, including malformed ones, are protected from
+  replacement. Equal retries are idempotent; a different existing mapping must
+  be investigated as a separate plan-governance change.
+- The Queue tab presents this prerequisite before commissioning. A missing
+  mapping explains why commissioning is unavailable instead of failing after
+  the operator completes the form.
+- `confluendo_app` receives `EXECUTE` only; it has no direct `UPDATE` grant on
+  `ingestion_batch_plans`. Every mutation writes a control-plane audit row and
+  event.
+
+Operator path:
+
+1. In **Queue**, review **Plan source mapping** for the active plan.
+2. When status is **Mapping required**, complete fresh MFA, provide an audit
+   reason, choose **Refresh published contract**, and submit.
+3. Confirm the card becomes **Configured**, then create the bounded snapshot
+   commissioning request. Do not reseed the historical plan.
+
+Migration promotion: apply the same `control_schema.sql` and
+`control_bootstrap_confluendo.sql` batch to Confluendo Control Staging, verify
+the app role has `EXECUTE` but no direct plan update, then promote the identical
+pair to Control Production in the same release window.
 
 ### IP-18.8.15 — implemented (Supabase Storage artifact profile)
 

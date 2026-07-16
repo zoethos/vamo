@@ -132,8 +132,28 @@ Boundary rules:
    report by country and category before activation.
 7. A plan with queue, staging, delivery, or consumer-apply history must not be
    reseeded only to add `sourceTaxonomy`: the seed path rewrites queue rows.
-   Use the audited metadata-only plan refresh control from IP-18.8.17; before it
-   exists, this refresh is permitted only for a fresh plan with no such history.
+   Use the IP-18.8.17 audited metadata-only plan refresh control. It fills only
+   a missing server-pinned published mapping, records audit/event evidence, and
+   never replaces a mapping that already exists.
+
+### Safe Plan Contract Refresh (IP-18.8.17)
+
+The Queue-tab **Plan source mapping** card is the sole operator path for the
+Vamo full-data plan catch-up. It is deliberately narrower than a plan editor:
+
+- the server resolves the active policy/queue plan and supplies the published
+  FSQ-to-Vamo taxonomy;
+- the operator supplies only an audit reason and explicit confirmation under a
+  fresh admin MFA step-up;
+- the control-plane function changes only `spec.sourceTaxonomy`; it does not
+  reseed units, alter their statuses/proposals/reports, or touch waves,
+  deliveries, applied consumer data, or source-release bindings;
+- a present or malformed mapping is treated as protected state and requires a
+  separate governance change, not an automatic overwrite.
+
+Apply the matching control schema and bootstrap grants to Control Staging,
+verify the function-only app role path, then apply the identical pair to Control
+Production in the same release window before using the action there.
 
 Operator commands:
 

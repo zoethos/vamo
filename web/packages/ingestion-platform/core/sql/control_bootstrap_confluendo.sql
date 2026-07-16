@@ -114,6 +114,18 @@ grant execute on function ingestion_platform.set_autonomy_production_handoff(
   text
 ) to confluendo_app;
 
+-- IP-18.8.17 metadata-only plan contract refresh. The app has no direct
+-- UPDATE privilege on ingestion_batch_plans; this function is the only path.
+grant execute on function ingestion_platform.refresh_batch_plan_source_taxonomy(
+  text,
+  text,
+  text,
+  jsonb,
+  text,
+  text,
+  text
+) to confluendo_app;
+
 -- IP-18.8.10 snapshot release registry: read-only for dashboard; registration
 -- remains owner-run via register_snapshot_release (no app UPDATE on releases).
 grant select on ingestion_platform.ingestion_snapshot_releases to confluendo_app;

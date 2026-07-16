@@ -10,6 +10,7 @@ import type {
   BatchQueueItem,
   BatchQueueItemStatus,
   BatchQueueSnapshot,
+  BatchPlanContractRefreshCardPresentation,
   SnapshotActivationCardPresentation,
   SnapshotCommissionCardPresentation
 } from "@confluendo/ingestion-platform/core";
@@ -36,6 +37,7 @@ import { AgentView } from "./agent-view";
 import { BatchQueueScheduleControl } from "./batch-queue-schedule-control";
 import { SnapshotCommissionControl } from "./snapshot-commission-control";
 import { SnapshotActivationControl } from "./snapshot-activation-control";
+import { BatchPlanContractRefreshControl } from "./batch-plan-contract-refresh-control";
 import { BatchCanaryWaveApprovalControl } from "./batch-canary-wave-approval-control";
 import { ProductionPackageWaveApprovalControl } from "./production-package-wave-approval-control";
 import { ProductionPackageConsumerApplyBatchControl } from "./production-package-consumer-apply-batch-control";
@@ -158,6 +160,7 @@ export interface IngestionConsoleShellProps {
   } | null;
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
   snapshotActivationCard: SnapshotActivationCardPresentation;
+  planContractRefreshCard: BatchPlanContractRefreshCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -414,6 +417,7 @@ export function IngestionConsoleShell(props: IngestionConsoleShellProps) {
           batchCategories={props.batchCategories}
           snapshotCommissionCard={props.snapshotCommissionCard}
           snapshotActivationCard={props.snapshotActivationCard}
+          planContractRefreshCard={props.planContractRefreshCard}
           snapshotCommissionDefaultCountries={props.snapshotCommissionDefaultCountries}
           snapshotCommissionDefaultCategories={props.snapshotCommissionDefaultCategories}
           snapshotCommissionDefaultMaxRowsPerScope={props.snapshotCommissionDefaultMaxRowsPerScope}
@@ -729,6 +733,7 @@ function QueueView({
   batchCategories,
   snapshotCommissionCard,
   snapshotActivationCard,
+  planContractRefreshCard,
   snapshotCommissionDefaultCountries,
   snapshotCommissionDefaultCategories,
   snapshotCommissionDefaultMaxRowsPerScope,
@@ -746,6 +751,7 @@ function QueueView({
   batchCategories: string[];
   snapshotCommissionCard: SnapshotCommissionCardPresentation;
   snapshotActivationCard: SnapshotActivationCardPresentation;
+  planContractRefreshCard: BatchPlanContractRefreshCardPresentation;
   snapshotCommissionDefaultCountries: string[];
   snapshotCommissionDefaultCategories: string[];
   snapshotCommissionDefaultMaxRowsPerScope: number;
@@ -767,6 +773,13 @@ function QueueView({
         </div>
         <span className="admin-readonly-pill">{batchQueueSourceLabel(batchQueueSource)}</span>
       </div>
+      <BatchPlanContractRefreshControl
+        projectKey={batchQueue.projectKey}
+        card={planContractRefreshCard}
+        context={batchContext}
+        freshStepUpExpiresAt={freshStepUpExpiresAt}
+        serverNowMs={serverNowMs}
+      />
       <SnapshotCommissionControl
         projectKey={batchQueue.projectKey}
         planKey={batchQueue.planId}

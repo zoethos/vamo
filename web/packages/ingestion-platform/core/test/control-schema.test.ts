@@ -79,6 +79,27 @@ describe("ingestion control schema", () => {
     assert.match(controlSchemaSql, /revoke all on function ingestion_platform\.register_snapshot_release/);
   });
 
+  it("declares a metadata-only source taxonomy refresh function", () => {
+    assert.match(
+      controlSchemaSql,
+      /create or replace function ingestion_platform\.refresh_batch_plan_source_taxonomy/
+    );
+    assert.match(
+      controlSchemaSql,
+      /revoke all on function ingestion_platform\.refresh_batch_plan_source_taxonomy/
+    );
+    assert.match(controlSchemaSql, /'refresh_batch_plan_source_taxonomy'/);
+    assert.match(controlSchemaSql, /'batch_plan\.source_taxonomy_refreshed'/);
+    assert.match(
+      confluendoBootstrapSql,
+      /grant execute on function ingestion_platform\.refresh_batch_plan_source_taxonomy/i
+    );
+    assert.doesNotMatch(
+      confluendoBootstrapSql,
+      /grant update on ingestion_platform\.ingestion_batch_plans/i
+    );
+  });
+
   it("grants snapshot release registry read/execute in bootstrap SQL", () => {
     assert.match(
       confluendoBootstrapSql,
