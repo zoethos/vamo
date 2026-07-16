@@ -1742,15 +1742,44 @@ Manual live preflight (operator machine / job runner):
    `NODE_TLS_REJECT_UNAUTHORIZED=0`).
 2. Export `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from the Places Portal.
 3. Validate the real Portal schema with one narrow run: inspect accepted row
-   count and category distribution before treating a release as usable. The
-   per-scope value bounds the accepted output; the current country query is a
-   bounded scan before consumer-category filtering, so sparse categories can
-   legitimately produce fewer rows.
+   count and country × POI-type coverage before treating a release as usable.
+   IP-18.8.18 issues one bounded query per requested country/type so a busy
+   category cannot consume another type’s sampling budget. Sparse scopes may
+   still return zero valid rows and must stay parked pending review or a later
+   release — acquisition does not claim full EU coverage.
 4. Do not run `ip18:batch-queue-seed` merely to add `sourceTaxonomy` to a plan
    with queue history: it rewrites queue state. Use the IP-18.8.17 audited,
    metadata-only refresh control instead.
 5. Execute a narrow country/category scope with confirmation and an artifact
    store outside the git worktree.
+
+### IP-18.8.18 — implemented (FSQ category-aware coverage)
+
+**Status:** done — close category starvation during Portal/Iceberg acquisition by
+issuing one bounded provider query per requested country × Vamo POI type.
+**Not** automatic activation, **not** queue reseed, **not** a claim of full EU
+coverage, **not** Console/DuckDB exposure.
+
+Deliverables:
+
+- Pure `fsq-category-coverage-plan.ts` derives provider-ID query predicates from
+  `sourceTaxonomy` and assesses requested country/type coverage from the
+  valid-row matrix. Labels-only mappings and the fallback category are not
+  query coverage evidence; missing IDs fail closed with
+  `source_category_query_ids_required:<category>` before any provider call.
+- Portal adapter queries each `{country, consumerCategory}` scope with bound
+  country ISO + provider category IDs, deterministic `ORDER BY fsq_place_id`,
+  and `LIMIT maxRowsPerScope`. Post-query taxonomy classification still
+  applies; cross-scope misclassifications are discarded; ambiguous mappings
+  remain fail-closed; place IDs dedupe deterministically.
+- `SnapshotCoverageReport.byCountryAndPoiType` is populated from valid intake
+  rows only (no invented zero cells). CLI prints requested/covered/missing
+  scopes and the valid-row matrix without activating sparse scopes.
+- Sparse requested scopes may remain empty and stay parked pending review or a
+  later release.
+
+Architecture: pure helper for query/coverage planning; adapter/gateway remains
+the sole DuckDB/Iceberg boundary.
 
 ### IP-18.8.17 — implemented (safe plan contract refresh)
 

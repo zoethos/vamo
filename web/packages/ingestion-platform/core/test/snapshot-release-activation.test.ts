@@ -276,7 +276,8 @@ async function writeVerifiedArtifactBundle(storeDir: string) {
     duplicateRowCount: 0,
     outOfScopeRowCount: 0,
     byCountry: {},
-    byPoiType: {}
+    byPoiType: {},
+    byCountryAndPoiType: {}
   });
   const store = createLocalSnapshotArtifactStore(storeDir);
   const stored = await store.putReleaseBundle({
@@ -292,7 +293,8 @@ async function writeVerifiedArtifactBundle(storeDir: string) {
     duplicateRowCount: 0,
     outOfScopeRowCount: 0,
     byCountry: {},
-    byPoiType: {}
+    byPoiType: {},
+    byCountryAndPoiType: {}
   };
   return {
     artifactKey,

@@ -87,6 +87,10 @@ describe("intakeVersionedSnapshot", () => {
     assert.equal(first.coverage.invalidRowCount, 0);
     assert.deepEqual(first.coverage.byCountry, { france: 1, italy: 1 });
     assert.deepEqual(first.coverage.byPoiType, { landmark: 1, poi: 1 });
+    assert.deepEqual(first.coverage.byCountryAndPoiType, {
+      france: { poi: 1 },
+      italy: { landmark: 1 }
+    });
     assert.match(first.normalizedJsonl, /"source_row_id":1/);
     assert.match(first.normalizedJsonl, /rome-italy/);
     assert.ok(first.normalizedJsonl.indexOf("paris-france") < first.normalizedJsonl.indexOf("rome-italy"));

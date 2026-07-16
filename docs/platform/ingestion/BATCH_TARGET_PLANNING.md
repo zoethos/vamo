@@ -100,18 +100,21 @@ Operator path:
 Opt-in override: `--include-empty-units` on queue seed skips empty-unit blocking
 (for planning review only; still control-plane only).
 
-## Source acquisition and snapshot registry (IP-18.8.10 / IP-18.8.16)
+## Source acquisition and snapshot registry (IP-18.8.10 / IP-18.8.16 / IP-18.8.18)
 
 IP-18.8.10 added the provider-facing acquisition boundary and control-plane
 release registry. IP-18.8.16 replaces the fictitious catalog HTTP path with
-Places Portal Iceberg acquisition via DuckDB. It is separate from activation
-and queue reseed:
+Places Portal Iceberg acquisition via DuckDB. IP-18.8.18 makes that acquisition
+category-aware so each requested country × Vamo POI type gets its own bounded
+provider query. It is separate from activation and queue reseed:
 
 - **Acquisition** — bounded FSQ OS Places Portal/Iceberg fetch through the
-  dedicated adapter/job only; classify provider categories via plan
-  `sourceTaxonomy`; normalize deterministically by FSQ place id; reuse IP-18.8.9 intake;
-  store immutable artifacts; optionally register `activation_ready` metadata in
-  the Confluendo control plane.
+  dedicated adapter/job only; one query per requested country/type using
+  explicit `sourceTaxonomy` provider IDs (fallback is not query evidence);
+  classify after fetch; normalize deterministically by FSQ place id; reuse
+  IP-18.8.9 intake; store immutable artifacts with
+  `byCountryAndPoiType` from valid rows only; optionally register
+  `activation_ready` metadata in the Confluendo control plane.
 - **Activation** — IP-18.8.11: bind a registered release to a batch plan and
   reconcile `vamo-eu-full-data-v1` supply from the verified artifact (see below).
 
@@ -126,10 +129,10 @@ Boundary rules:
    paths must not call FSQ or import DuckDB.
 5. On Windows runners set `NODE_USE_SYSTEM_CA=1` (documented job setup). Never
    set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-6. Provider-category mapping happens after the bounded country scan. The output
-   limit caps accepted rows per consumer scope, but does not guarantee that a
-   sparse category will fill from a single scan. Review the release coverage
-   report by country and category before activation.
+6. IP-18.8.18 closes category starvation during acquisition, but sparse scopes
+   may still return zero valid rows. Missing country/POI-type scopes are
+   reported for operators and stay parked pending review or a later release —
+   acquisition does not activate, reseed, or claim full EU coverage.
 7. A plan with queue, staging, delivery, or consumer-apply history must not be
    reseeded only to add `sourceTaxonomy`: the seed path rewrites queue rows.
    Use the IP-18.8.17 audited metadata-only plan refresh control. It fills only

@@ -1,5 +1,5 @@
 /**
- * Server/job-only DuckDB runner for FSQ Places Portal Iceberg (IP-18.8.16).
+ * Server/job-only DuckDB runner for FSQ Places Portal Iceberg (IP-18.8.16 / IP-18.8.18).
  *
  * Must not be imported by Console runtime. Trusted CLI/worker scripts inject this
  * runner into acquisition; the acquire adapter itself stays DuckDB-free.
@@ -14,7 +14,7 @@ import {
 
 export function createDefaultFsqPortalIcebergDuckDbRunner(): FsqPortalIcebergDuckDbRunner {
   return {
-    async queryCountryPlaces(input) {
+    async queryCountryCategoryPlaces(input) {
       let connection: { interrupt(): void; closeSync(): void } | undefined;
       try {
         const { DuckDBInstance } = await import("@duckdb/node-api");
@@ -35,13 +35,11 @@ export function createDefaultFsqPortalIcebergDuckDbRunner(): FsqPortalIcebergDuc
         const select = buildFsqPortalIcebergSelectSql({
           table: input.table,
           countryIso: input.countryIso,
+          providerCategoryIds: input.providerCategoryIds,
           limit: input.limit
         });
 
-        const queryPromise = duckConnection.runAndReadAll(select.sql, {
-          countryIso: select.params.countryIso,
-          limit: select.params.limit
-        });
+        const queryPromise = duckConnection.runAndReadAll(select.sql, select.params);
 
         const reader = await withTimeout(queryPromise, input.timeoutMs, () => {
           duckConnection.interrupt();
