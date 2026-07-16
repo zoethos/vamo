@@ -106,6 +106,19 @@ describe("runSnapshotCommissionWorker", () => {
     assert.deepEqual(missingPortalToken, { ok: false, blocks: ["portal_access_token_missing"] });
   });
 
+  it("refuses an expired Portal token before it claims a commissioning request", async () => {
+    const result = await runSnapshotCommissionWorker({
+      connectionString: "postgres://example",
+      workerId: "worker",
+      workerRunKey: "run-expired-token",
+      confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
+      portalAccessToken: "portal-access-token",
+      portalAccessTokenExpiresAt: "2026-07-01T00:00:00.000Z",
+      now: "2026-07-01T00:00:00.000Z"
+    });
+    assert.deepEqual(result, { ok: false, blocks: ["portal_access_token_expired"] });
+  });
+
   it(
     "claims once, replays safely, completes to activation_pending, and preserves retryable completion failures",
     { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL for DB smoke." },

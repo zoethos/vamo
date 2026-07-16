@@ -23,6 +23,10 @@ export const SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES: Record<string, string>
     "Source mapping requires plan refresh. Re-import the active batch plan with sourceTaxonomy before commissioning.",
   portal_access_token_missing:
     "FSQ Places Portal access token is missing from the server/job secret store.",
+  portal_access_token_expiry_invalid:
+    "FSQ Places Portal token expiry metadata is invalid. Correct the server/job configuration before retrying.",
+  portal_access_token_expired:
+    "FSQ Places Portal access token has expired. Refresh the server/job secret and retry.",
   portal_access_token_rejected:
     "FSQ Places Portal access token was rejected or has expired. Refresh the server/job secret and retry.",
   portal_query_timeout: "FSQ Places Portal Iceberg query timed out. Retry with a narrower scope."

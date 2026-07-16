@@ -11,7 +11,14 @@ export const FSQ_SOURCE_TAXONOMY_PROVIDER = "fsq_os_places" as const;
 export interface FsqSourceTaxonomyMappingRule {
   /** Provider category IDs that match this rule (any match). */
   providerCategoryIds: string[];
-  /** Provider category labels that match this rule (case-insensitive, any match). */
+  /**
+   * Provider category labels that match this rule (case-insensitive).
+   *
+   * Foursquare can return a hierarchical label such as
+   * "Dining and Drinking > Restaurant". A configured label matches either the
+   * whole provider label or one exact hierarchy segment; arbitrary substrings
+   * never match.
+   */
   providerCategoryLabels: string[];
   /** Vamo / consumer category key. */
   consumerCategory: string;
@@ -130,7 +137,6 @@ export function classifyFsqPlaceConsumerCategory(input: {
   mapping: FsqSourceTaxonomyMapping;
   providerCategoryIds?: readonly string[];
   providerCategoryLabels?: readonly string[];
-  allowedConsumerCategories?: ReadonlySet<string> | readonly string[];
 }): FsqClassifyPlaceCategoryResult {
   const ids = new Set(
     (input.providerCategoryIds ?? [])
@@ -146,18 +152,20 @@ export function classifyFsqPlaceConsumerCategory(input: {
   const matches: FsqSourceTaxonomyMappingRule[] = [];
   for (const rule of input.mapping.mappings) {
     const idHit = rule.providerCategoryIds.some((id) => ids.has(id));
-    const labelHit = rule.providerCategoryLabels.some((label) => labels.has(label));
+    const labelHit = rule.providerCategoryLabels.some((label) =>
+      [...labels].some((providerLabel) => providerLabelMatchesRule(providerLabel, label))
+    );
     if (idHit || labelHit) {
       matches.push(rule);
     }
   }
 
   if (matches.length === 0) {
-    const fallback = input.mapping.fallbackConsumerCategory;
-    if (!isAllowedConsumerCategory(fallback, input.allowedConsumerCategories)) {
-      return { ok: false, block: `source_category_mapping_missing:${fallback}` };
-    }
-    return { ok: true, consumerCategory: fallback, matchedBy: "fallback" };
+    return {
+      ok: true,
+      consumerCategory: input.mapping.fallbackConsumerCategory,
+      matchedBy: "fallback"
+    };
   }
 
   const maxPrecedence = Math.max(...matches.map((rule) => rule.precedence));
@@ -170,25 +178,18 @@ export function classifyFsqPlaceConsumerCategory(input: {
     };
   }
 
-  const consumerCategory = consumerCategories[0]!;
-  if (!isAllowedConsumerCategory(consumerCategory, input.allowedConsumerCategories)) {
-    return { ok: false, block: `source_category_mapping_out_of_scope:${consumerCategory}` };
-  }
-
-  return { ok: true, consumerCategory, matchedBy: "mapping" };
+  return { ok: true, consumerCategory: consumerCategories[0]!, matchedBy: "mapping" };
 }
 
-function isAllowedConsumerCategory(
-  category: string,
-  allowed: ReadonlySet<string> | readonly string[] | undefined
-): boolean {
-  if (!allowed) {
+function providerLabelMatchesRule(providerLabel: string, configuredLabel: string): boolean {
+  const normalizedConfiguredLabel = configuredLabel.trim().toLowerCase();
+  if (providerLabel === normalizedConfiguredLabel) {
     return true;
   }
-  if (allowed instanceof Set) {
-    return allowed.has(category);
-  }
-  return (allowed as readonly string[]).includes(category);
+  return providerLabel
+    .split(">")
+    .map((segment) => segment.trim())
+    .some((segment) => segment === normalizedConfiguredLabel);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

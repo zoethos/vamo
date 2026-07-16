@@ -39,6 +39,7 @@ const result = await runSnapshotCommissionWorker({
   workerRunKey,
   confirmation: SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE,
   portalAccessToken: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN,
+  portalAccessTokenExpiresAt: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT,
   duckDbRunner: createDefaultFsqPortalIcebergDuckDbRunner(),
   artifactStore: artifactStoreResolved.store,
   artifactStoreBaseDir: artifactStoreResolved.artifactStoreDir

@@ -1021,6 +1021,7 @@ export {
   type FsqSourceTaxonomyMappingRule,
   type FsqSourceTaxonomyParseResult
 } from "./fsq-source-taxonomy.js";
+export { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 export {
   SNAPSHOT_COMMISSION_CONFIRMATION_STATE,
   SNAPSHOT_COMMISSION_REQUEST_STATUSES,

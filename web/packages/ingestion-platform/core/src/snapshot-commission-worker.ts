@@ -14,6 +14,7 @@ import {
   type SnapshotCommissionPgClientLike
 } from "./snapshot-commission-control.js";
 import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
+import { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 import { runFsqSnapshotAcquire, FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE } from "./fsq-snapshot-acquire.js";
 
 export const SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_ENV =
@@ -26,6 +27,7 @@ export interface RunSnapshotCommissionWorkerInput {
   workerRunKey: string;
   confirmation?: string;
   portalAccessToken?: string;
+  portalAccessTokenExpiresAt?: string;
   artifactStore?: SnapshotArtifactStore;
   artifactStoreBaseDir?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -69,6 +71,13 @@ export async function runSnapshotCommissionWorker(
   }
   if (!input.portalAccessToken?.trim()) {
     return { ok: false, blocks: ["portal_access_token_missing"] };
+  }
+  const expiry = validateFsqPortalAccessTokenExpiry({
+    expiresAt: input.portalAccessTokenExpiresAt,
+    now: input.now
+  });
+  if (!expiry.ok) {
+    return { ok: false, blocks: [expiry.block] };
   }
 
   const claimed = await claimSnapshotCommissionRequest({
@@ -140,6 +149,7 @@ export async function runSnapshotCommissionWorker(
       preview: false,
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
       portalAccessToken: input.portalAccessToken,
+      portalAccessTokenExpiresAt: input.portalAccessTokenExpiresAt,
       sourceTaxonomy: planContext.sourceTaxonomy,
       duckDbRunner: input.duckDbRunner,
       artifactStore: input.artifactStore,

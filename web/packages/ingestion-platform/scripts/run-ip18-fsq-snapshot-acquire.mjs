@@ -155,6 +155,7 @@ const result = await runFsqSnapshotAcquire({
   preview: !execute,
   confirmation: process.env[FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV],
   portalAccessToken,
+  portalAccessTokenExpiresAt: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT,
   sourceTaxonomy,
   duckDbRunner: execute ? createDefaultFsqPortalIcebergDuckDbRunner() : undefined,
   artifactStoreBaseDir,

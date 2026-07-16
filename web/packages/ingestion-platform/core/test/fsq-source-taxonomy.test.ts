@@ -24,6 +24,12 @@ const mapping = {
       precedence: 90
     },
     {
+      providerCategoryIds: ["transport-id"],
+      providerCategoryLabels: ["travel and transportation"],
+      consumerCategory: "transport",
+      precedence: 80
+    },
+    {
       providerCategoryIds: ["also-museum-id"],
       providerCategoryLabels: ["gallery"],
       consumerCategory: "landmark",
@@ -38,7 +44,7 @@ describe("fsq source taxonomy", () => {
     assert.equal(parsed.ok, true);
     if (parsed.ok) {
       assert.equal(parsed.mapping.fallbackConsumerCategory, "poi");
-      assert.equal(parsed.mapping.mappings.length, 3);
+      assert.equal(parsed.mapping.mappings.length, 4);
     }
   });
 
@@ -46,8 +52,7 @@ describe("fsq source taxonomy", () => {
     const result = classifyFsqPlaceConsumerCategory({
       mapping,
       providerCategoryIds: ["restaurant-id", "museum-id"],
-      providerCategoryLabels: ["Restaurant", "Museum"],
-      allowedConsumerCategories: ["poi", "landmark", "restaurant"]
+      providerCategoryLabels: ["Restaurant", "Museum"]
     });
     assert.deepEqual(result, {
       ok: true,
@@ -60,8 +65,7 @@ describe("fsq source taxonomy", () => {
     const result = classifyFsqPlaceConsumerCategory({
       mapping,
       providerCategoryIds: ["unknown"],
-      providerCategoryLabels: ["Unknown Spot"],
-      allowedConsumerCategories: ["poi", "landmark", "restaurant"]
+      providerCategoryLabels: ["Unknown Spot"]
     });
     assert.deepEqual(result, {
       ok: true,
@@ -90,13 +94,54 @@ describe("fsq source taxonomy", () => {
     };
     const result = classifyFsqPlaceConsumerCategory({
       mapping: ambiguous,
-      providerCategoryIds: ["shared"],
-      allowedConsumerCategories: ["landmark", "restaurant"]
+      providerCategoryIds: ["shared"]
     });
     assert.equal(result.ok, false);
     if (!result.ok) {
       assert.equal(result.block, "source_category_mapping_ambiguous:landmark,restaurant");
     }
+  });
+
+  it("matches exact Foursquare hierarchy segments without substring matching", () => {
+    const restaurant = classifyFsqPlaceConsumerCategory({
+      mapping,
+      providerCategoryLabels: ["Dining and Drinking > Restaurant"]
+    });
+    assert.deepEqual(restaurant, {
+      ok: true,
+      consumerCategory: "restaurant",
+      matchedBy: "mapping"
+    });
+
+    const transport = classifyFsqPlaceConsumerCategory({
+      mapping,
+      providerCategoryLabels: ["Travel and Transportation > Train Station"]
+    });
+    assert.deepEqual(transport, {
+      ok: true,
+      consumerCategory: "transport",
+      matchedBy: "mapping"
+    });
+
+    const landmark = classifyFsqPlaceConsumerCategory({
+      mapping,
+      providerCategoryLabels: ["Arts and Entertainment > Museum"]
+    });
+    assert.deepEqual(landmark, {
+      ok: true,
+      consumerCategory: "landmark",
+      matchedBy: "mapping"
+    });
+
+    const unrelated = classifyFsqPlaceConsumerCategory({
+      mapping,
+      providerCategoryLabels: ["Restaurant Supply Store"]
+    });
+    assert.deepEqual(unrelated, {
+      ok: true,
+      consumerCategory: "poi",
+      matchedBy: "fallback"
+    });
   });
 
   it("fails closed when the active plan lacks sourceTaxonomy", () => {

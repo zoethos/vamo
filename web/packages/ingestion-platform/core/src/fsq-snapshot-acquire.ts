@@ -15,6 +15,7 @@ import {
   type FsqPortalPlaceRecord
 } from "../../adapters/source/src/fsq-os-places-portal-iceberg-acquire.js";
 import type { FsqSourceTaxonomyMapping } from "./fsq-source-taxonomy.js";
+import { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 import type { SnapshotReleaseManifest } from "./snapshot-release-manifest.js";
 import {
   buildSourceAcquisitionReleaseId,
@@ -86,6 +87,7 @@ export async function runFsqSnapshotAcquire(input: {
   preview: boolean;
   confirmation?: string;
   portalAccessToken?: string;
+  portalAccessTokenExpiresAt?: string;
   sourceTaxonomy?: FsqSourceTaxonomyMapping;
   acquiredAt?: string;
   artifactStoreBaseDir?: string;
@@ -107,6 +109,15 @@ export async function runFsqSnapshotAcquire(input: {
     if (!input.portalAccessToken?.trim() && !input.fixtureRecords) {
       return { ok: false, blocks: ["portal_access_token_missing"] };
     }
+    if (!input.fixtureRecords) {
+      const expiry = validateFsqPortalAccessTokenExpiry({
+        expiresAt: input.portalAccessTokenExpiresAt,
+        now: input.now
+      });
+      if (!expiry.ok) {
+        return { ok: false, blocks: [expiry.block] };
+      }
+    }
     if (!input.sourceTaxonomy && !input.fixtureRecords) {
       return { ok: false, blocks: ["source_mapping_requires_plan_refresh"] };
     }
@@ -118,10 +129,12 @@ export async function runFsqSnapshotAcquire(input: {
     maxRowsPerScope: input.maxRowsPerScope,
     preview: input.preview,
     portalAccessToken: input.portalAccessToken,
+    portalAccessTokenExpiresAt: input.portalAccessTokenExpiresAt,
     sourceTaxonomy: input.sourceTaxonomy,
     duckDbRunner: input.duckDbRunner,
     fixtureRecords: input.fixtureRecords,
-    queryTimeoutMs: input.queryTimeoutMs
+    queryTimeoutMs: input.queryTimeoutMs,
+    now: input.now
   });
 
   if (!acquired.ok) {

@@ -16,6 +16,7 @@ import {
   classifyFsqPlaceConsumerCategory,
   type FsqSourceTaxonomyMapping
 } from "../../../core/src/fsq-source-taxonomy.js";
+import { validateFsqPortalAccessTokenExpiry } from "../../../core/src/fsq-portal-access-token.js";
 
 export {
   FSQ_ACQUISITION_ALLOWED_CATEGORIES,
@@ -216,6 +217,7 @@ SELECT
   fsq_category_labels
 FROM ${table}
 WHERE country = $countryIso
+ORDER BY fsq_place_id ASC
 LIMIT $limit
 `.trim(),
     params: {
@@ -231,10 +233,12 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
   maxRowsPerScope?: number;
   preview?: boolean;
   portalAccessToken?: string;
+  portalAccessTokenExpiresAt?: string;
   sourceTaxonomy?: FsqSourceTaxonomyMapping;
   endpoint?: string;
   table?: string;
   queryTimeoutMs?: number;
+  now?: string;
   duckDbRunner?: FsqPortalIcebergDuckDbRunner;
   fixtureRecords?: readonly FsqPortalPlaceRecord[];
 }): Promise<FsqPortalAcquireResult> {
@@ -257,6 +261,15 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
   if (!portalAccessToken && !input.fixtureRecords) {
     return { ok: false, blocks: ["portal_access_token_missing"] };
   }
+  if (!input.fixtureRecords) {
+    const expiry = validateFsqPortalAccessTokenExpiry({
+      expiresAt: input.portalAccessTokenExpiresAt,
+      now: input.now
+    });
+    if (!expiry.ok) {
+      return { ok: false, blocks: [expiry.block] };
+    }
+  }
 
   const allowedCategories = new Set(bounds.plan.categories);
   const records: FsqPortalPlaceRecord[] = [];
@@ -265,11 +278,13 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
     const classifiedFixtures: FsqPortalPlaceRecord[] = [];
     for (const record of input.fixtureRecords) {
       if (input.sourceTaxonomy) {
-        const classified = classifyProviderRecord(record, input.sourceTaxonomy, allowedCategories);
+        const classified = classifyProviderRecord(record, input.sourceTaxonomy);
         if (!classified.ok) {
           return { ok: false, blocks: [classified.block] };
         }
-        classifiedFixtures.push(classified.record);
+        if (allowedCategories.has(classified.record.category)) {
+          classifiedFixtures.push(classified.record);
+        }
       } else if (allowedCategories.has(record.category)) {
         classifiedFixtures.push(record);
       }
@@ -312,8 +327,7 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
         const classification = classifyFsqPlaceConsumerCategory({
           mapping: input.sourceTaxonomy,
           providerCategoryIds: row.providerCategoryIds,
-          providerCategoryLabels: row.providerCategoryLabels,
-          allowedConsumerCategories: allowedCategories
+          providerCategoryLabels: row.providerCategoryLabels
         });
         if (!classification.ok) {
           return { ok: false, blocks: [classification.block] };
@@ -358,25 +372,20 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
 
 function classifyProviderRecord(
   record: FsqPortalPlaceRecord,
-  mapping: FsqSourceTaxonomyMapping,
-  allowedCategories: ReadonlySet<string>
+  mapping: FsqSourceTaxonomyMapping
 ): { ok: true; record: FsqPortalPlaceRecord } | { ok: false; block: string } {
   if (
     (!record.providerCategoryIds || record.providerCategoryIds.length === 0) &&
     (!record.providerCategoryLabels || record.providerCategoryLabels.length === 0)
   ) {
     // Fixture rows may already carry consumer categories.
-    if (allowedCategories.has(record.category)) {
-      return { ok: true, record };
-    }
-    return { ok: false, block: `source_category_mapping_missing:${record.category}` };
+    return { ok: true, record };
   }
 
   const classification = classifyFsqPlaceConsumerCategory({
     mapping,
     providerCategoryIds: record.providerCategoryIds,
-    providerCategoryLabels: record.providerCategoryLabels,
-    allowedConsumerCategories: allowedCategories
+    providerCategoryLabels: record.providerCategoryLabels
   });
   if (!classification.ok) {
     return classification;
