@@ -17,6 +17,7 @@ import type { FsqSnapshotAcquireResult } from "../src/fsq-snapshot-acquire.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const workerModule = readFileSync("core/src/snapshot-commission-worker.ts", "utf8");
+const workerScript = readFileSync("scripts/run-ip18-snapshot-commission-worker.mjs", "utf8");
 import {
   resetDisposableTestDatabase,
   resolveDisposableTestDatabaseUrl
@@ -91,6 +92,12 @@ describe("runSnapshotCommissionWorker", () => {
   it("never imports activation paths", () => {
     assert.doesNotMatch(workerModule, /runSnapshotReleaseActivation/);
     assert.doesNotMatch(workerModule, /activateSnapshotRelease/);
+  });
+
+  it("makes failed and retryable worker outcomes visible to job runners", () => {
+    assert.match(workerScript, /result\.outcome === "failed"/);
+    assert.match(workerScript, /result\.outcome === "pending_retry"/);
+    assert.match(workerScript, /process\.exitCode = 1/);
   });
 
   it("rejects missing worker confirmation and portal access token", async () => {

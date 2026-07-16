@@ -13,7 +13,10 @@ import {
   loadSnapshotCommissionPlanContext,
   type SnapshotCommissionPgClientLike
 } from "./snapshot-commission-control.js";
-import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
+import {
+  snapshotCommissionFailureCodeForAcquisitionBlocks,
+  snapshotCommissionOperatorErrorForCode
+} from "./snapshot-commission-errors.js";
 import { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 import { runFsqSnapshotAcquire, FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE } from "./fsq-snapshot-acquire.js";
 
@@ -163,8 +166,9 @@ export async function runSnapshotCommissionWorker(
     });
 
     if (!acquired.ok) {
-      await failRequest(input, request.requestId, "acquisition_blocked");
-      return failedResult(request.requestId, "acquisition_blocked");
+      const errorCode = snapshotCommissionFailureCodeForAcquisitionBlocks(acquired.blocks);
+      await failRequest(input, request.requestId, errorCode);
+      return failedResult(request.requestId, errorCode);
     }
 
     const result = acquired.result;

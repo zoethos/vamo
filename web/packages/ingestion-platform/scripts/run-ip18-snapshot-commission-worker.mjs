@@ -62,6 +62,11 @@ console.log(`Request: ${result.requestId}`);
 if (result.outcome === "failed") {
   console.log(`Error code: ${result.errorCode}`);
   console.log(`Error message: ${result.errorMessage}`);
+  process.exitCode = 1;
+} else if (result.outcome === "pending_retry") {
+  console.log(`Error code: ${result.errorCode}`);
+  console.log(`Error message: ${result.errorMessage}`);
+  process.exitCode = 1;
 } else {
   console.log(`Registered release: ${result.registeredReleaseId}`);
   console.log("Activation remains a separately confirmed operator action.");

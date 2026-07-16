@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   presentSnapshotCommissionOperatorError,
   sanitizeSnapshotCommissionOperatorMessage,
+  snapshotCommissionFailureCodeForAcquisitionBlocks,
   snapshotCommissionOperatorErrorForCode
 } from "../src/snapshot-commission-errors.js";
 import {
@@ -124,6 +125,20 @@ describe("snapshot commission operator errors", () => {
         "postgres://owner:secret@db/internal"
       ),
       snapshotCommissionOperatorErrorForCode("worker_execution_failed")
+    );
+  });
+
+  it("preserves only allowlisted acquisition failure categories", () => {
+    assert.equal(
+      snapshotCommissionFailureCodeForAcquisitionBlocks([
+        "unexpected_provider_detail",
+        "artifact_store_write_failed"
+      ]),
+      "artifact_store_write_failed"
+    );
+    assert.equal(
+      snapshotCommissionFailureCodeForAcquisitionBlocks(["unexpected_provider_detail"]),
+      "acquisition_blocked"
     );
   });
 });

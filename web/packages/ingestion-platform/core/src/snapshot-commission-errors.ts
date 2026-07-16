@@ -7,6 +7,16 @@
 export const SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES: Record<string, string> = {
   acquisition_blocked: "Acquisition was blocked by policy or bounds checks.",
   acquisition_rejected: "Acquisition completed without an accepted release.",
+  portal_query_failed:
+    "FSQ Places Portal query failed before snapshot intake. Check trusted worker TLS and network configuration, then retry.",
+  artifact_store_write_failed:
+    "Snapshot artifact storage could not write the release bundle. Check the worker credential and bucket access, then retry.",
+  artifact_store_verify_failed:
+    "Snapshot artifact storage could not verify the release bundle. Check bucket access and retry.",
+  artifact_bundle_checksum_mismatch:
+    "Snapshot artifact storage returned a bundle that did not match the expected checksum. Retry only after investigating storage integrity.",
+  release_registration_failed:
+    "Release registration failed in the Confluendo control plane. Check the trusted worker owner connection and registry schema, then retry.",
   worker_execution_failed: "Trusted worker execution failed before release registration completed.",
   completion_update_failed:
     "The release was registered, but commissioning could not finalize. Rerun the trusted worker to continue.",
@@ -31,6 +41,34 @@ export const SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES: Record<string, string>
     "FSQ Places Portal access token was rejected or has expired. Refresh the server/job secret and retry.",
   portal_query_timeout: "FSQ Places Portal Iceberg query timed out. Retry with a narrower scope."
 };
+
+const SNAPSHOT_COMMISSION_ACQUISITION_BLOCK_CODES = new Set([
+  "portal_access_token_missing",
+  "portal_access_token_expiry_invalid",
+  "portal_access_token_expired",
+  "portal_access_token_rejected",
+  "portal_query_timeout",
+  "portal_query_failed",
+  "source_mapping_requires_plan_refresh",
+  "artifact_store_write_failed",
+  "artifact_store_verify_failed",
+  "artifact_bundle_checksum_mismatch",
+  "release_registration_failed"
+]);
+
+/**
+ * Carries only an allowlisted, safe failure category from acquisition into the
+ * operator-visible commissioning record. Provider and storage error details
+ * remain in the trusted worker output.
+ */
+export function snapshotCommissionFailureCodeForAcquisitionBlocks(
+  blocks: readonly string[]
+): string {
+  return (
+    blocks.find((block) => SNAPSHOT_COMMISSION_ACQUISITION_BLOCK_CODES.has(block)) ??
+    "acquisition_blocked"
+  );
+}
 
 const UNSAFE_OPERATOR_FRAGMENT =
   /(?:s3:\/\/|postgres(?:ql)?:\/\/|artifact[_-]?key|fsq[_-]?token|catalog[_-]?token|aws[_-]?|secret|password|Bearer\s+\S+)/i;

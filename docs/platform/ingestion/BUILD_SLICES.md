@@ -1917,6 +1917,16 @@ Human provisioning prerequisite:
    server/job host with owner `INGESTION_CONTROL_DATABASE_URL`, FSQ catalog
    token, artifact-store config, and
    `CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER=YES`.
+2. For trusted Windows operator runs, use
+   `web/scripts/Invoke-Ip18SnapshotCommissionWorker.ps1` instead of manually
+   exporting secrets. It loads the selected artifact and commissioning profiles,
+   enables `NODE_USE_SYSTEM_CA=1`, runs the non-writing storage preflight, and
+   claims only a console-recorded request when `-Execute` is explicit:
+
+   ```powershell
+   .\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 -ControlEnvironment Staging -PreflightOnly
+   .\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 -ControlEnvironment Staging -Execute
+   ```
 
 ### IP-18.8.12 — implemented (hosted snapshot artifact store)
 
