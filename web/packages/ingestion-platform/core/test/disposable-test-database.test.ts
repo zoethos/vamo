@@ -8,6 +8,8 @@ import {
   resolveDisposableTestDatabaseUrl
 } from "./disposable-test-database.js";
 
+const EMPTY_ENVIRONMENT: NodeJS.ProcessEnv = {};
+
 describe("resolveDisposableTestDatabaseUrl", () => {
   it("allows local disposable Postgres without remote confirmation", () => {
     assert.equal(
@@ -18,7 +20,11 @@ describe("resolveDisposableTestDatabaseUrl", () => {
 
   it("requires confirmation and allowlisting when localhost uses another port", () => {
     assert.throws(
-      () => resolveDisposableTestDatabaseUrl("postgresql://postgres:password@localhost:5432/ingestion_test"),
+      () =>
+        resolveDisposableTestDatabaseUrl(
+          "postgresql://postgres:password@localhost:5432/ingestion_test",
+          EMPTY_ENVIRONMENT
+        ),
       /INGESTION_TEST_DATABASE_URL is refused/
     );
 
@@ -34,7 +40,10 @@ describe("resolveDisposableTestDatabaseUrl", () => {
   it("refuses a remote database without both explicit safeguards", () => {
     assert.throws(
       () =>
-        resolveDisposableTestDatabaseUrl("postgresql://postgres:password@db.example.test:5432/postgres"),
+        resolveDisposableTestDatabaseUrl(
+          "postgresql://postgres:password@db.example.test:5432/postgres",
+          EMPTY_ENVIRONMENT
+        ),
       /INGESTION_TEST_DATABASE_URL is refused/
     );
 
