@@ -10,6 +10,7 @@ import {
   claimSnapshotCommissionRequest,
   completeSnapshotCommissionRequest,
   findSnapshotReleaseIdForCommissionRequest,
+  loadSnapshotCommissionPlanContext,
   type SnapshotCommissionPgClientLike
 } from "./snapshot-commission-control.js";
 import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
@@ -24,11 +25,12 @@ export interface RunSnapshotCommissionWorkerInput {
   workerId: string;
   workerRunKey: string;
   confirmation?: string;
-  catalogServiceApiKey?: string;
+  portalAccessToken?: string;
   artifactStore?: SnapshotArtifactStore;
   artifactStoreBaseDir?: string;
   client?: SnapshotCommissionPgClientLike;
   now?: string;
+  duckDbRunner?: import("../../adapters/source/src/fsq-os-places-portal-iceberg-acquire.js").FsqPortalIcebergDuckDbRunner;
   /** Test seam: override acquisition execution. */
   runAcquire?: typeof runFsqSnapshotAcquire;
 }
@@ -65,8 +67,8 @@ export async function runSnapshotCommissionWorker(
   if (input.confirmation !== SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_VALUE) {
     return { ok: false, blocks: ["worker_confirmation_missing"] };
   }
-  if (!input.catalogServiceApiKey?.trim()) {
-    return { ok: false, blocks: ["catalog_service_api_key_missing"] };
+  if (!input.portalAccessToken?.trim()) {
+    return { ok: false, blocks: ["portal_access_token_missing"] };
   }
 
   const claimed = await claimSnapshotCommissionRequest({
@@ -117,6 +119,17 @@ export async function runSnapshotCommissionWorker(
     };
   }
 
+  const planContext = await loadSnapshotCommissionPlanContext({
+    connectionString: input.connectionString,
+    client: input.client,
+    projectKey: request.projectKey,
+    planKey: request.planKey
+  });
+  if (!planContext?.sourceTaxonomy) {
+    await failRequest(input, request.requestId, "source_mapping_requires_plan_refresh");
+    return failedResult(request.requestId, "source_mapping_requires_plan_refresh");
+  }
+
   const runAcquire = input.runAcquire ?? runFsqSnapshotAcquire;
 
   try {
@@ -126,7 +139,9 @@ export async function runSnapshotCommissionWorker(
       maxRowsPerScope: request.maxRowsPerScope,
       preview: false,
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
-      catalogServiceApiKey: input.catalogServiceApiKey,
+      portalAccessToken: input.portalAccessToken,
+      sourceTaxonomy: planContext.sourceTaxonomy,
+      duckDbRunner: input.duckDbRunner,
       artifactStore: input.artifactStore,
       artifactStoreBaseDir: input.artifactStoreBaseDir,
       projectKey: request.projectKey,

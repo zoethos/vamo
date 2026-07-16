@@ -7,6 +7,11 @@ import {
   FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
   validateFsqAcquisitionBounds
 } from "./fsq-acquisition-scope.js";
+import {
+  extractFsqSourceTaxonomyFromPlan,
+  type FsqSourceTaxonomyMapping
+} from "./fsq-source-taxonomy.js";
+import { snapshotCommissionOperatorErrorForCode } from "./snapshot-commission-errors.js";
 
 export const SNAPSHOT_COMMISSION_SUPPORTED_SOURCE_KEYS = ["fsq-os-places-snapshot"] as const;
 
@@ -18,19 +23,22 @@ export interface SnapshotCommissionPlanContext {
   allowedCountries: string[];
   allowedCategories: string[];
   maxRowsPerScopeLimit: number;
+  sourceTaxonomy: FsqSourceTaxonomyMapping | null;
 }
 
 export function extractPlanCommissionBounds(specInput: Record<string, unknown>): {
   allowedCountries: string[];
   allowedCategories: string[];
   maxRowsPerScopeLimit: number;
+  sourceTaxonomy: FsqSourceTaxonomyMapping | null;
 } {
   const parsed = parseBatchPlanSpec(specInput);
   if (!parsed.ok) {
     return {
       allowedCountries: [],
       allowedCategories: [],
-      maxRowsPerScopeLimit: FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE
+      maxRowsPerScopeLimit: FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
+      sourceTaxonomy: null
     };
   }
 
@@ -54,11 +62,13 @@ export function extractPlanCommissionBounds(specInput: Record<string, unknown>):
   const categories = [...new Set(parsed.spec.categories.map((entry) => entry.trim().toLowerCase()))].sort();
   const maxRowsPerScopeLimit =
     parsed.spec.bounds?.sampleRowLimitPerUnit ?? FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE;
+  const taxonomy = extractFsqSourceTaxonomyFromPlan(specInput);
 
   return {
     allowedCountries: [...countries].sort(),
     allowedCategories: categories,
-    maxRowsPerScopeLimit
+    maxRowsPerScopeLimit,
+    sourceTaxonomy: taxonomy.ok ? taxonomy.mapping : null
   };
 }
 
@@ -115,4 +125,17 @@ export function validateSnapshotCommissionScopeAgainstPlan(input: {
 
 export function isSnapshotCommissionSupportedSourceKey(sourceKey: string): boolean {
   return (SNAPSHOT_COMMISSION_SUPPORTED_SOURCE_KEYS as readonly string[]).includes(sourceKey);
+}
+
+export function assertCommissionPlanHasSourceTaxonomy(
+  plan: SnapshotCommissionPlanContext
+): { ok: true } | { ok: false; code: string; error: string } {
+  if (!plan.sourceTaxonomy) {
+    return {
+      ok: false,
+      code: "source_mapping_requires_plan_refresh",
+      error: snapshotCommissionOperatorErrorForCode("source_mapping_requires_plan_refresh")
+    };
+  }
+  return { ok: true };
 }

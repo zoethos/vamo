@@ -20,15 +20,25 @@ export {
   FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
   FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV,
   FSQ_OS_PLACES_DEFAULT_ATTRIBUTION,
-  FSQ_OS_PLACES_DEFAULT_CATALOG_BASE_URL,
   FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL,
-  acquireFsqOsPlacesCatalog,
-  normalizeFsqCatalogPlaceRecord,
-  parseFsqCatalogResponseBody,
-  serializeNormalizedFsqCatalogRecords,
+  FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV,
+  FSQ_OS_PLACES_PORTAL_DEFAULT_QUERY_TIMEOUT_MS,
+  FSQ_OS_PLACES_PORTAL_ICEBERG_CATALOG_ALIAS,
+  FSQ_OS_PLACES_PORTAL_ICEBERG_ENDPOINT,
+  FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE,
+  FSQ_OS_PLACES_COUNTRY_ISO,
+  acquireFsqOsPlacesPortalIceberg,
+  buildFsqPortalIcebergSelectSql,
+  buildFsqPortalIcebergSetupSql,
+  escapeSqlLiteral,
+  normalizeFsqPortalPlaceRecord,
+  serializeNormalizedFsqPortalRecords,
   validateFsqAcquisitionBounds,
-  type FsqCatalogAcquirePlan,
-  type FsqCatalogAcquireResult,
-  type FsqCatalogFetchFn,
-  type FsqCatalogPlaceRecord
-} from "./fsq-os-places-catalog-acquire.js";
+  type FsqPortalAcquirePlan,
+  type FsqPortalAcquireResult,
+  type FsqPortalIcebergDuckDbRunner,
+  type FsqPortalIcebergQueryRow,
+  type FsqPortalPlaceRecord
+} from "./fsq-os-places-portal-iceberg-acquire.js";
+// DuckDB runner is intentionally NOT re-exported from this barrel so Console
+// cannot pull the node-api DuckDB package through adapters/source.

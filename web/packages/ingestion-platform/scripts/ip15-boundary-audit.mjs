@@ -172,42 +172,77 @@ const fsqAcquisitionAdapter = path.join(
   "adapters",
   "source",
   "src",
-  "fsq-os-places-catalog-acquire.ts"
+  "fsq-os-places-portal-iceberg-acquire.ts"
+);
+const fsqPortalDuckDbRunner = path.join(
+  packageRoot,
+  "adapters",
+  "source",
+  "src",
+  "fsq-os-places-portal-iceberg-duckdb.ts"
 );
 const s3ArtifactStoreAdapters = [
   path.join(packageRoot, "adapters", "artifact", "src", "s3-snapshot-artifact-store.ts"),
   path.join(packageRoot, "adapters", "artifact", "src", "create-snapshot-artifact-store.ts")
 ];
 const fsqAcquisitionSource = readFileSync(fsqAcquisitionAdapter, "utf8");
+const fsqDuckDbSource = readFileSync(fsqPortalDuckDbRunner, "utf8");
 const platformSrcFiles = platformSrcRoots
   .flatMap((root) => walk(root))
   .filter(
     (file) =>
       /\.(js|mjs|ts)$/.test(file) &&
       file !== fsqAcquisitionAdapter &&
+      file !== fsqPortalDuckDbRunner &&
       !s3ArtifactStoreAdapters.includes(file)
   );
 
-const providerFetchOutsideAdapter = platformSrcFiles.filter((file) => {
+const providerAccessOutsideAdapter = platformSrcFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
-  return /\bfetch\s*\(/.test(source) || /catalog\.foursquare\.com/.test(source);
+  return (
+    /\bfetch\s*\(/.test(source) ||
+    /catalog\.foursquare\.com/.test(source) ||
+    /catalog\.h3-hub\.foursquare\.com/.test(source) ||
+    /@duckdb\/node-api/.test(source)
+  );
 });
 
 assert(
-  providerFetchOutsideAdapter.length === 0,
-  `provider networking must exist only in fsq-os-places-catalog-acquire.ts:\n${providerFetchOutsideAdapter
+  providerAccessOutsideAdapter.length === 0,
+  `provider access must exist only in portal acquire/duckdb runner adapters:\n${providerAccessOutsideAdapter
     .map(toRepoRelative)
     .join("\n")}`
 );
 
-const consoleRuntimeWithFsqServiceApiKey = consoleRuntimeFiles.filter((file) => {
+assert(
+  !/catalog\.foursquare\.com/.test(fsqAcquisitionSource) &&
+    !/catalog\.foursquare\.com/.test(fsqDuckDbSource),
+  "FSQ acquisition adapter must not use the retired catalog.foursquare.com HTTP path"
+);
+
+assert(
+  /catalog\.h3-hub\.foursquare\.com\/iceberg/.test(fsqAcquisitionSource) &&
+    /places\.datasets\.places_os/.test(fsqAcquisitionSource),
+  "FSQ acquisition adapter must target the Places Portal Iceberg endpoint and table"
+);
+
+assert(
+  /@duckdb\/node-api/.test(fsqDuckDbSource) && !/@duckdb\/node-api/.test(fsqAcquisitionSource),
+  "DuckDB import must live only in fsq-os-places-portal-iceberg-duckdb.ts"
+);
+
+const consoleRuntimeWithPortalSecrets = consoleRuntimeFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
-  return /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/.test(source);
+  return (
+    /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/.test(source) ||
+    /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/.test(source) ||
+    /@duckdb\/node-api/.test(source)
+  );
 });
 
 assert(
-  consoleRuntimeWithFsqServiceApiKey.length === 0,
-  `console runtime must not reference FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY:\n${consoleRuntimeWithFsqServiceApiKey
+  consoleRuntimeWithPortalSecrets.length === 0,
+  `console runtime must not reference FSQ Portal token, catalog service API key, or DuckDB:\n${consoleRuntimeWithPortalSecrets
     .map(toRepoRelative)
     .join("\n")}`
 );
@@ -267,9 +302,14 @@ assert(
 );
 
 assert(
-  !/\bFSQ_OS_PLACES_CATALOG_SERVICE_API_KEY\b/.test(fsqAcquisitionSource) ||
-    fsqAcquisitionSource.includes('FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY_ENV'),
-  "FSQ acquisition adapter must reference the service API key env name only, never embed credential values"
+  /\bFSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV\b/.test(fsqAcquisitionSource) &&
+    !/TOKEN\s*=\s*['"][^'"]+['"]/.test(fsqAcquisitionSource),
+  "FSQ acquisition adapter must reference the Portal token env name only, never embed credential values"
+);
+
+assert(
+  !/NODE_TLS_REJECT_UNAUTHORIZED/.test(fsqAcquisitionSource),
+  "FSQ acquisition adapter must never disable TLS verification"
 );
 
 console.log("Confluendo boundary audit");

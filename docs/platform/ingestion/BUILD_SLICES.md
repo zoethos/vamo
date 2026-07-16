@@ -1702,6 +1702,43 @@ Landed:
 - The route refuses `VAMO_STAGING_CANARY_APP_DATABASE_URL` and does not call
   live staging execution or Consumer Apply Control.
 
+### IP-18.8.16 — implemented (FSQ Places Portal / Iceberg acquisition)
+
+**Status:** done — replace the fictitious catalog HTTP acquire path with
+server-only DuckDB access to the FSQ Places Portal Iceberg catalog. **Not**
+automatic activation, **not** Console provider credentials, **not** live FSQ
+calls from automated tests, **not** Vamo writes.
+
+Deliverables:
+
+- `fsq-os-places-portal-iceberg-acquire.ts` — sole FSQ Portal/Iceberg boundary
+  via `@duckdb/node-api`; fixed endpoint
+  `https://catalog.h3-hub.foursquare.com/iceberg` and table
+  `places.datasets.places_os`; bind validated country ISO + limit only;
+  bounded query timeout with connection interrupt; injectable DuckDB runner
+  seam for tests.
+- Credential: `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from server/job secrets only.
+  `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` is retained for potential future live
+  Places API use but is not required for snapshot commissioning.
+- Declarative `sourceTaxonomy` on the Vamo full-data batch plan (outside
+  `source.connection`) maps provider category IDs/labels → consumer categories
+  with precedence + one fallback; ambiguous/missing mappings fail closed.
+- Commissioning loads/validates taxonomy from the active persisted plan; missing
+  mapping returns `source_mapping_requires_plan_refresh` (do not invent one).
+- CLI/worker inputs renamed to `portalAccessToken`; preview remains token-free
+  and write-free.
+
+Architecture: adapter/gateway for DuckDB/Iceberg; pure helper for taxonomy
+classification; thin existing worker wiring.
+
+Manual live preflight (operator machine / job runner):
+
+1. Set `NODE_USE_SYSTEM_CA=1` on Windows runners (documented setup — never
+   `NODE_TLS_REJECT_UNAUTHORIZED=0`).
+2. Export `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from the Places Portal.
+3. Preview, then execute a narrow country/category scope with confirmation +
+   artifact store outside the git worktree.
+
 ### IP-18.8.15 — implemented (Supabase Storage artifact profile)
 
 **Status:** done — the existing private `snapshot-artifacts` buckets in
@@ -1918,9 +1955,9 @@ Deliverables:
 
 - `source-acquisition-contract.ts` — provider-neutral release record with
   statuses `acquired`, `validated`, `rejected`, `activation_ready`, `superseded`.
-- `fsq-os-places-catalog-acquire.ts` — sole FSQ HTTP boundary; bounded
-  country/category scopes; preview is write-free; execute requires
-  `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` from server/job secrets only.
+- `fsq-os-places-portal-iceberg-acquire.ts` — sole FSQ Portal/Iceberg boundary
+  (IP-18.8.16); bounded country scopes; preview is write-free; execute requires
+  `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from server/job secrets only.
 - `snapshot-artifact-store.ts` — immutable artifact key
   `{sourceKey}/{releaseId}/{outputSha256}` with local test store and bundle
   checksum verification (`source.jsonl`, `release.json`, `coverage-report.json`).

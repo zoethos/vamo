@@ -29,6 +29,38 @@ describe("extractPlanCommissionBounds", () => {
     assert.deepEqual(bounds.allowedCountries, ["france", "italy"]);
     assert.deepEqual(bounds.allowedCategories, ["landmark", "poi"]);
     assert.equal(bounds.maxRowsPerScopeLimit, 100);
+    assert.equal(bounds.sourceTaxonomy, null);
+  });
+
+  it("loads sourceTaxonomy when present on the plan contract", () => {
+    const bounds = extractPlanCommissionBounds({
+      kind: "ingestion.batch_plan",
+      version: 1,
+      id: "vamo-eu-full-data-v1",
+      projectKey: "vamo",
+      sourceKey: "fsq-os-places-snapshot",
+      targetProfileKey: "place-intelligence",
+      targetKey: "vamo-place-intelligence",
+      targetEnvironment: "staging",
+      safetyMode: "dry_run",
+      geographies: { countries: [{ key: "italy" }] },
+      categories: ["poi"],
+      bounds: { sampleRowLimitPerUnit: 100 },
+      sourceTaxonomy: {
+        provider: "fsq_os_places",
+        fallbackConsumerCategory: "poi",
+        mappings: [
+          {
+            providerCategoryIds: ["museum-id"],
+            providerCategoryLabels: ["Museum"],
+            consumerCategory: "landmark",
+            precedence: 10
+          }
+        ]
+      }
+    });
+    assert.ok(bounds.sourceTaxonomy);
+    assert.equal(bounds.sourceTaxonomy?.fallbackConsumerCategory, "poi");
   });
 });
 
@@ -40,7 +72,8 @@ describe("validateSnapshotCommissionScopeAgainstPlan", () => {
     planStatus: "active",
     allowedCountries: ["italy", "france"],
     allowedCategories: ["poi", "landmark"],
-    maxRowsPerScopeLimit: 100
+    maxRowsPerScopeLimit: 100,
+    sourceTaxonomy: null
   };
 
   it("accepts scope inside plan and FSQ bounds", () => {

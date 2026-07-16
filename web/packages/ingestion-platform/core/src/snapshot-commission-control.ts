@@ -11,6 +11,7 @@ import {
   type SnapshotCommissionPlanResolutionSource
 } from "./snapshot-commission-plan-resolution.js";
 import {
+  assertCommissionPlanHasSourceTaxonomy,
   extractPlanCommissionBounds,
   isSnapshotCommissionSupportedSourceKey,
   type SnapshotCommissionPlanContext
@@ -116,7 +117,8 @@ export async function loadSnapshotCommissionPlanContext(input: {
       planStatus: row.plan_status,
       allowedCountries: bounds.allowedCountries,
       allowedCategories: bounds.allowedCategories,
-      maxRowsPerScopeLimit: bounds.maxRowsPerScopeLimit
+      maxRowsPerScopeLimit: bounds.maxRowsPerScopeLimit,
+      sourceTaxonomy: bounds.sourceTaxonomy
     };
   } finally {
     await closeClient(ownedClient);
@@ -414,7 +416,7 @@ export function assertCommissionPlanIsCommissionable(
       error: snapshotCommissionOperatorErrorForCode("unsupported_source_key")
     };
   }
-  return { ok: true };
+  return assertCommissionPlanHasSourceTaxonomy(plan);
 }
 interface PlanContextRow extends Record<string, unknown> {
   project_key: string;

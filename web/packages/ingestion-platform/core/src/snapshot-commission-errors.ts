@@ -18,7 +18,14 @@ export const SNAPSHOT_COMMISSION_OPERATOR_ERROR_MESSAGES: Record<string, string>
   scope_out_of_bounds: "The requested scope is outside approved plan or FSQ bounds.",
   source_plan_mismatch: "The batch plan source does not match the commissioned source contract.",
   commission_plan_context_mismatch:
-    "The active autonomy policy and queue workflow disagree on the commissioned batch plan."
+    "The active autonomy policy and queue workflow disagree on the commissioned batch plan.",
+  source_mapping_requires_plan_refresh:
+    "Source mapping requires plan refresh. Re-import the active batch plan with sourceTaxonomy before commissioning.",
+  portal_access_token_missing:
+    "FSQ Places Portal access token is missing from the server/job secret store.",
+  portal_access_token_rejected:
+    "FSQ Places Portal access token was rejected or has expired. Refresh the server/job secret and retry.",
+  portal_query_timeout: "FSQ Places Portal Iceberg query timed out. Retry with a narrower scope."
 };
 
 const UNSAFE_OPERATOR_FRAGMENT =
