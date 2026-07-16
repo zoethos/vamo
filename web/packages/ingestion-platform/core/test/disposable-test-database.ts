@@ -23,11 +23,11 @@ export function resolveDisposableTestDatabaseUrl(
   }
 
   const databaseUrl = parsePostgresUrl(connectionString);
-  const hostname = databaseUrl.hostname.toLowerCase();
+  const hostname = normalizeHostname(databaseUrl.hostname);
 
   if (matchesConfiguredLiveDatabase(connectionString, environment)) {
     throw new Error(
-      "INGESTION_TEST_DATABASE_URL matches a configured live control or Vamo database URL and is refused."
+      "INGESTION_TEST_DATABASE_URL matches or shares a host with a configured live control or Vamo database URL and is refused."
     );
   }
 
@@ -141,7 +141,7 @@ function parsePostgresUrl(connectionString: string): URL {
 }
 
 function isLocalhost(hostname: string): boolean {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
 function quoteIdentifier(identifier: string): string {
@@ -155,7 +155,7 @@ function parseHostAllowlist(value: string | undefined): Set<string> {
   return new Set(
     (value ?? "")
       .split(",")
-      .map((entry) => entry.trim().toLowerCase())
+      .map((entry) => normalizeHostname(entry.trim()))
       .filter(Boolean)
   );
 }
@@ -164,11 +164,24 @@ function matchesConfiguredLiveDatabase(
   testConnectionString: string,
   environment: NodeJS.ProcessEnv
 ): boolean {
+  const parsedTestUrl = parsePostgresUrl(testConnectionString);
   const normalizedTestUrl = normalizeConnectionString(testConnectionString);
   return LIVE_DATABASE_ENVIRONMENT_KEYS.some((key) => {
     const configuredUrl = environment[key];
-    return configuredUrl ? normalizeConnectionString(configuredUrl) === normalizedTestUrl : false;
+    if (!configuredUrl) {
+      return false;
+    }
+
+    const parsedConfiguredUrl = parsePostgresUrl(configuredUrl);
+    return (
+      normalizeHostname(parsedConfiguredUrl.hostname) === normalizeHostname(parsedTestUrl.hostname) ||
+      normalizeConnectionString(configuredUrl) === normalizedTestUrl
+    );
   });
+}
+
+function normalizeHostname(value: string): string {
+  return value.toLowerCase().replace(/^\[|\]$/g, "");
 }
 
 function normalizeConnectionString(connectionString: string): string {

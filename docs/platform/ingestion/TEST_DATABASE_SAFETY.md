@@ -11,10 +11,10 @@ destructive smoke-suite entry point:
   port `55433`.
 - Any other host requires both `CONFIRM_DISPOSABLE_TEST_DB=YES` and an exact
   host entry in `INGESTION_TEST_DATABASE_HOST_ALLOWLIST`.
-- A test URL matching a configured Confluendo Control or Vamo database URL is
-  always refused.
-- Raw `DROP`, `TRUNCATE`, and `DELETE FROM` setup SQL is prohibited in smoke
-  tests outside `core/test/disposable-test-database.ts`.
+- A test URL matching or sharing a host with a configured Confluendo Control or
+  Vamo database URL is always refused.
+- Raw `DROP`, `TRUNCATE`, and `DELETE FROM` setup SQL is prohibited in every
+  package smoke-test directory outside `core/test/disposable-test-database.ts`.
 - The package test command removes compiled test output before discovery, so a
   branch switch cannot run stale smoke files from `dist`.
 

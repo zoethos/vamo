@@ -77,7 +77,30 @@ describe("resolveDisposableTestDatabaseUrl", () => {
           INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "db.control.example",
           INGESTION_CONTROL_OWNER_DATABASE_URL: url
         }),
-      /matches a configured live control or Vamo database URL/
+      /matches or shares a host with a configured live control or Vamo database URL/
+    );
+  });
+
+  it("refuses a different database on a configured live host", () => {
+    assert.throws(
+      () =>
+        resolveDisposableTestDatabaseUrl("postgresql://postgres:password@db.control.example:5432/ingestion_test", {
+          CONFIRM_DISPOSABLE_TEST_DB: "YES",
+          INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "db.control.example",
+          INGESTION_CONTROL_OWNER_DATABASE_URL:
+            "postgresql://postgres:password@db.control.example:5432/postgres"
+        }),
+      /matches or shares a host with a configured live control or Vamo database URL/
+    );
+  });
+
+  it("normalizes an IPv6 loopback allowlist entry", () => {
+    assert.equal(
+      resolveDisposableTestDatabaseUrl("postgresql://postgres:password@[::1]:5432/ingestion_test", {
+        CONFIRM_DISPOSABLE_TEST_DB: "YES",
+        INGESTION_TEST_DATABASE_HOST_ALLOWLIST: "::1"
+      }),
+      "postgresql://postgres:password@[::1]:5432/ingestion_test"
     );
   });
 
@@ -111,15 +134,21 @@ describe("resolveDisposableTestDatabaseUrl", () => {
   });
 
   it("keeps destructive setup SQL inside the guarded reset helper", () => {
-    const rawDestructiveSql = /\b(?:drop\s+(?:schema|role|owned|table|function)|truncate|delete\s+from)\b/i;
-    const sourceFiles = [
-      ...listTypeScriptFiles("core/test"),
-      ...listTypeScriptFiles("adapters/target/test")
-    ].filter(
+    const rawDestructiveSql =
+      /\b(?:drop\s+(?:database|schema|role|owned|table|function|index|view)|truncate|delete\s+from)\b/i;
+    const sourceFiles = listTypeScriptFiles(".").filter(
       (file) =>
+        isTestSourceFile(file) &&
         !file.endsWith("disposable-test-database.ts") &&
         !file.endsWith("disposable-test-database.test.ts")
     );
+
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/artifact/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/source/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("adapters/target/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("core/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("policy/test")));
+    assert.ok(sourceFiles.some((file) => normalizePath(file).includes("spec/test")));
 
     for (const file of sourceFiles) {
       assert.doesNotMatch(readFileSync(file, "utf8"), rawDestructiveSql, file);
@@ -130,7 +159,17 @@ describe("resolveDisposableTestDatabaseUrl", () => {
 function listTypeScriptFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) return listTypeScriptFiles(path);
+    if (entry.isDirectory()) {
+      return ["dist", "node_modules"].includes(entry.name) ? [] : listTypeScriptFiles(path);
+    }
     return entry.name.endsWith(".ts") ? [path] : [];
   });
+}
+
+function isTestSourceFile(file: string): boolean {
+  return file.split(/[\\/]/).includes("test");
+}
+
+function normalizePath(file: string): string {
+  return file.replaceAll("\\", "/");
 }
