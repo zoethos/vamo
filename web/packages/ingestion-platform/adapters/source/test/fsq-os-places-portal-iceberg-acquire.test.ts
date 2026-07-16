@@ -161,6 +161,11 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
       assert.equal(first.providerRecordCount, 2);
       assert.match(first.normalizedJsonl, /fsq_rome_colosseum/);
       assert.match(first.normalizedJsonl, /fsq_paris_louvre/);
+      assert.ok(
+        first.normalizedJsonl.indexOf("fsq_paris_louvre") <
+          first.normalizedJsonl.indexOf("fsq_rome_colosseum"),
+        "normalized output is ordered by FSQ place id"
+      );
       assert.doesNotMatch(first.normalizedJsonl, /fixture-portal-token-not-used/);
     }
   });

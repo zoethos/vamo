@@ -356,9 +356,9 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
   }
 
   const capped = capRecordsPerScope(records, bounds.plan);
-  const normalized = capped
-    .map((record) => normalizeFsqPortalPlaceRecord(record))
-    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const normalized = [...capped]
+    .sort((left, right) => left.fsqPlaceId.localeCompare(right.fsqPlaceId))
+    .map((record) => normalizeFsqPortalPlaceRecord(record));
   const normalizedJsonl = serializeNormalizedFsqPortalRecords(normalized);
 
   return {

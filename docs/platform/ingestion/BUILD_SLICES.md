@@ -1714,15 +1714,20 @@ Deliverables:
 - `fsq-os-places-portal-iceberg-acquire.ts` — sole FSQ Portal/Iceberg boundary
   via `@duckdb/node-api`; fixed endpoint
   `https://catalog.h3-hub.foursquare.com/iceberg` and table
-  `places.datasets.places_os`; bind validated country ISO + limit only;
-  bounded query timeout with connection interrupt; injectable DuckDB runner
-  seam for tests.
+  `places.datasets.places_os`; bind validated country ISO + limit only; stable
+  `fsq_place_id` ordering before the bounded scan; bounded query timeout with
+  connection interrupt; injectable DuckDB runner seam for tests.
 - Credential: `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from server/job secrets only.
+  Configure `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT` when the Portal
+  provides an expiry; expired or malformed metadata blocks before a worker
+  claims a commissioning request.
   `FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY` is retained for potential future live
   Places API use but is not required for snapshot commissioning.
 - Declarative `sourceTaxonomy` on the Vamo full-data batch plan (outside
   `source.connection`) maps provider category IDs/labels → consumer categories
-  with precedence + one fallback; ambiguous/missing mappings fail closed.
+  with precedence + one fallback; provider IDs and exact label hierarchy
+  segments match; ambiguous mappings fail closed. Rows that classify cleanly to
+  a category outside the requested scope are skipped, not treated as an error.
 - Commissioning loads/validates taxonomy from the active persisted plan; missing
   mapping returns `source_mapping_requires_plan_refresh` (do not invent one).
 - CLI/worker inputs renamed to `portalAccessToken`; preview remains token-free
@@ -1736,8 +1741,17 @@ Manual live preflight (operator machine / job runner):
 1. Set `NODE_USE_SYSTEM_CA=1` on Windows runners (documented setup — never
    `NODE_TLS_REJECT_UNAUTHORIZED=0`).
 2. Export `FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN` from the Places Portal.
-3. Preview, then execute a narrow country/category scope with confirmation +
-   artifact store outside the git worktree.
+3. Validate the real Portal schema with one narrow run: inspect accepted row
+   count and category distribution before treating a release as usable. The
+   per-scope value bounds the accepted output; the current country query is a
+   bounded scan before consumer-category filtering, so sparse categories can
+   legitimately produce fewer rows.
+4. Do not run `ip18:batch-queue-seed` merely to add `sourceTaxonomy` to a plan
+   with queue history: it rewrites queue state. Until IP-18.8.17 provides the
+   audited metadata-only refresh control, only a fresh plan with no queue/wave
+   evidence may be reseeded for this purpose.
+5. Execute a narrow country/category scope with confirmation and an artifact
+   store outside the git worktree.
 
 ### IP-18.8.15 — implemented (Supabase Storage artifact profile)
 

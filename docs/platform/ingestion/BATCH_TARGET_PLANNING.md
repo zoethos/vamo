@@ -109,7 +109,7 @@ and queue reseed:
 
 - **Acquisition** — bounded FSQ OS Places Portal/Iceberg fetch through the
   dedicated adapter/job only; classify provider categories via plan
-  `sourceTaxonomy`; normalize deterministically; reuse IP-18.8.9 intake;
+  `sourceTaxonomy`; normalize deterministically by FSQ place id; reuse IP-18.8.9 intake;
   store immutable artifacts; optionally register `activation_ready` metadata in
   the Confluendo control plane.
 - **Activation** — IP-18.8.11: bind a registered release to a batch plan and
@@ -126,6 +126,14 @@ Boundary rules:
    paths must not call FSQ or import DuckDB.
 5. On Windows runners set `NODE_USE_SYSTEM_CA=1` (documented job setup). Never
    set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+6. Provider-category mapping happens after the bounded country scan. The output
+   limit caps accepted rows per consumer scope, but does not guarantee that a
+   sparse category will fill from a single scan. Review the release coverage
+   report by country and category before activation.
+7. A plan with queue, staging, delivery, or consumer-apply history must not be
+   reseeded only to add `sourceTaxonomy`: the seed path rewrites queue rows.
+   Use the audited metadata-only plan refresh control from IP-18.8.17; before it
+   exists, this refresh is permitted only for a fresh plan with no such history.
 
 Operator commands:
 
