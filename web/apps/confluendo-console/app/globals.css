@@ -1339,6 +1339,7 @@ a:hover {
 .admin-agent-uex-evidence-list dd {
   margin: 0;
   color: rgba(12, 14, 22, 0.82);
+  overflow-wrap: anywhere;
 }
 
 .admin-agent-uex-guardrails {

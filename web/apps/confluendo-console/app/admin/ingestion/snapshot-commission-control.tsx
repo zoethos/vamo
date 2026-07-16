@@ -224,6 +224,35 @@ export function SnapshotCommissionControl({
         </div>
       ) : null}
 
+      {commissionCard.failureTelemetry ? (
+        <dl className="admin-agent-uex-meta" aria-label="Failure telemetry">
+          <div>
+            <dt>Failure trace</dt>
+            <dd>{commissionCard.failureTelemetry.traceId}</dd>
+          </div>
+          <div>
+            <dt>Failure stage</dt>
+            <dd>{commissionCard.failureTelemetry.stageLabel}</dd>
+          </div>
+          <div>
+            <dt>Classification</dt>
+            <dd>{commissionCard.failureTelemetry.classificationLabel}</dd>
+          </div>
+          {commissionCard.failureTelemetry.sourceErrorCode ? (
+            <div>
+              <dt>Source code</dt>
+              <dd>{commissionCard.failureTelemetry.sourceErrorCode}</dd>
+            </div>
+          ) : null}
+          {commissionCard.failureTelemetry.errorFingerprint ? (
+            <div>
+              <dt>Error fingerprint</dt>
+              <dd>{commissionCard.failureTelemetry.errorFingerprint}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+
       {commissionCard.recoveryHint ? (
         <p className="admin-agent-uex-runbook-note">{commissionCard.recoveryHint}</p>
       ) : null}

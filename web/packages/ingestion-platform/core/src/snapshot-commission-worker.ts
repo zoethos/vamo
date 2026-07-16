@@ -17,6 +17,11 @@ import {
   snapshotCommissionFailureCodeForAcquisitionBlocks,
   snapshotCommissionOperatorErrorForCode
 } from "./snapshot-commission-errors.js";
+import {
+  describeSnapshotCommissionAcquisitionFailure,
+  describeUnexpectedSnapshotCommissionFailure
+} from "./snapshot-commission-failure-telemetry.js";
+import type { SnapshotCommissionFailureTelemetry } from "./snapshot-commission-request.js";
 import { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 import { runFsqSnapshotAcquire, FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE } from "./fsq-snapshot-acquire.js";
 
@@ -138,7 +143,13 @@ export async function runSnapshotCommissionWorker(
     planKey: request.planKey
   });
   if (!planContext?.sourceTaxonomy) {
-    await failRequest(input, request.requestId, "source_mapping_requires_plan_refresh");
+    const errorCode = "source_mapping_requires_plan_refresh";
+    await failRequest(
+      input,
+      request.requestId,
+      errorCode,
+      describeSnapshotCommissionAcquisitionFailure({ errorCode })
+    );
     return failedResult(request.requestId, "source_mapping_requires_plan_refresh");
   }
 
@@ -167,14 +178,28 @@ export async function runSnapshotCommissionWorker(
 
     if (!acquired.ok) {
       const errorCode = snapshotCommissionFailureCodeForAcquisitionBlocks(acquired.blocks);
-      await failRequest(input, request.requestId, errorCode);
+      await failRequest(
+        input,
+        request.requestId,
+        errorCode,
+        describeSnapshotCommissionAcquisitionFailure({
+          errorCode,
+          blocks: acquired.blocks
+        })
+      );
       return failedResult(request.requestId, errorCode);
     }
 
     const result = acquired.result;
     if (result.mode !== "execute" || !result.accepted) {
-      await failRequest(input, request.requestId, "acquisition_rejected");
-      return failedResult(request.requestId, "acquisition_rejected");
+      const errorCode = "acquisition_rejected";
+      await failRequest(
+        input,
+        request.requestId,
+        errorCode,
+        describeSnapshotCommissionAcquisitionFailure({ errorCode })
+      );
+      return failedResult(request.requestId, errorCode);
     }
 
     const finalized = await finalizeCommissionRequest(input, request.requestId, result.releaseId, {
@@ -196,8 +221,14 @@ export async function runSnapshotCommissionWorker(
       releaseStatus: "activation_pending"
     };
   } catch (error) {
-    console.error("Snapshot commission worker acquisition failed", error);
-    await failRequest(input, request.requestId, "worker_execution_failed");
+    const failureTelemetry = describeUnexpectedSnapshotCommissionFailure(error);
+    await failRequest(
+      input,
+      request.requestId,
+      "worker_execution_failed",
+      failureTelemetry,
+      error
+    );
     return failedResult(request.requestId, "worker_execution_failed");
   }
 }
@@ -279,8 +310,26 @@ function failedResult(
 async function failRequest(
   input: RunSnapshotCommissionWorkerInput,
   requestId: string,
-  errorCode: string
+  errorCode: string,
+  failureTelemetry: SnapshotCommissionFailureTelemetry,
+  originalError?: unknown
 ): Promise<void> {
+  const logContext = {
+    requestId,
+    workerRunKey: input.workerRunKey,
+    errorCode,
+    traceId: failureTelemetry.traceId,
+    stage: failureTelemetry.stage,
+    classification: failureTelemetry.classification,
+    errorFingerprint: failureTelemetry.errorFingerprint,
+    sourceErrorCode: failureTelemetry.sourceErrorCode
+  };
+  if (originalError !== undefined) {
+    console.error("Snapshot commission worker acquisition failed", logContext, originalError);
+  } else {
+    console.warn("Snapshot commission request failed", logContext);
+  }
+
   try {
     await completeSnapshotCommissionRequest({
       connectionString: input.connectionString,
@@ -289,7 +338,8 @@ async function failRequest(
       workerRunKey: input.workerRunKey,
       status: "failed",
       errorCode,
-      errorMessage: snapshotCommissionOperatorErrorForCode(errorCode)
+      errorMessage: snapshotCommissionOperatorErrorForCode(errorCode),
+      failureTelemetry
     });
   } catch (error) {
     console.error("Snapshot commission failure update failed", error);

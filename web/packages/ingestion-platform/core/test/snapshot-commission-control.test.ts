@@ -193,6 +193,10 @@ describe("snapshot commission control schema", () => {
       controlSchemaSql,
       /create_snapshot_commission_request\([\s\S]*p_source_key text/
     );
+    assert.match(controlSchemaSql, /failure_telemetry jsonb not null default '\{\}'::jsonb/);
+    assert.match(controlSchemaSql, /missing_failure_telemetry/);
+    assert.match(controlSchemaSql, /jsonb_object_keys\(p_failure_telemetry\)/);
+    assert.match(controlSchemaSql, /snapshot_commission\.failed/);
     assert.match(confluendoBootstrapSql, /grant select on ingestion_platform\.ingestion_snapshot_commission_requests/i);
     assert.match(confluendoBootstrapSql, /grant execute on function ingestion_platform\.create_snapshot_commission_request/i);
     assert.doesNotMatch(

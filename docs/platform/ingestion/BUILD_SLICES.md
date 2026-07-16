@@ -1902,6 +1902,23 @@ State model:
 `requested → running → release_registered → activation_pending`; failures move
 to `failed`. Release registration never activates automatically.
 
+Failure telemetry:
+
+- Every terminal `failed` request persists a safe failure record
+  (`traceId`, execution stage, classification, optional provider error code, and
+  a non-reversible error fingerprint) plus an immutable
+  `snapshot_commission.failed` control-plane event.
+- The Queue card shows those safe fields so an operator can distinguish a
+  Portal, artifact-store, release-registry, contract, or worker failure without
+  exposing credentials, artifact paths, DSNs, or raw provider errors.
+- The trusted worker writes the original exception only to its protected job
+  log. Use the persisted trace ID to correlate that log entry; do not recover
+  the original exception from browser-visible control-plane data.
+- This schema change must be applied and verified in Confluendo Control Staging
+  before the identical `control_schema.sql` plus
+  `control_bootstrap_confluendo.sql` pair is promoted to Control Production in
+  the same release window.
+
 Control-plane deployment checkpoint (2026-07-14):
 
 - A distinct `confluendo-control-staging` environment now exists. The

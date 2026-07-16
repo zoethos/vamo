@@ -22,6 +22,15 @@ export const SNAPSHOT_COMMISSION_ACTIVE_STATUSES = [
   "release_registered"
 ] as const satisfies readonly SnapshotCommissionRequestStatus[];
 export const SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS = 30 * 60;
+
+export interface SnapshotCommissionFailureTelemetry {
+  traceId: string;
+  stage: string;
+  classification: string;
+  errorFingerprint?: string;
+  sourceErrorCode?: string;
+}
+
 export interface SnapshotCommissionRequestRecord {
   requestId: string;
   projectKey: string;
@@ -43,6 +52,7 @@ export interface SnapshotCommissionRequestRecord {
   registeredReleaseId?: string;
   errorCode?: string;
   errorMessage?: string;
+  failureTelemetry?: SnapshotCommissionFailureTelemetry;
   completedAt?: string;
 }
 export interface SnapshotCommissionRequestCreateInput {

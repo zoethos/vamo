@@ -22,6 +22,7 @@ import {
   isSnapshotCommissionRequestStatus,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,
   SNAPSHOT_COMMISSION_DEFAULT_LEASE_SECONDS,
+  type SnapshotCommissionFailureTelemetry,
   type SnapshotCommissionRequestRecord,
   type SnapshotCommissionRequestStatus
 } from "./snapshot-commission-request.js";
@@ -73,6 +74,7 @@ export interface CompleteSnapshotCommissionRequestInput {
   registeredReleaseId?: string;
   errorCode?: string;
   errorMessage?: string;
+  failureTelemetry?: SnapshotCommissionFailureTelemetry;
 }
 export interface CompleteSnapshotCommissionRequestResult {
   ok: true;
@@ -299,7 +301,8 @@ export async function completeSnapshotCommissionRequest(
           $3,
           $4,
           $5,
-          $6
+          $6,
+          $7::jsonb
         ) as result
       `,
       [
@@ -308,7 +311,8 @@ export async function completeSnapshotCommissionRequest(
         input.status,
         input.registeredReleaseId ?? null,
         input.errorCode ?? null,
-        safeErrorMessage
+        safeErrorMessage,
+        input.failureTelemetry ? JSON.stringify(input.failureTelemetry) : null
       ]
     );
     const result = response.rows[0]?.result ?? {};
@@ -356,6 +360,7 @@ export async function loadLatestSnapshotCommissionRequest(input: {
           r.registered_release_id,
           r.error_code,
           r.error_message,
+          r.failure_telemetry,
           r.completed_at
         from ingestion_platform.ingestion_snapshot_commission_requests r
         join ingestion_platform.ingestion_projects p on p.id = r.project_id
@@ -446,6 +451,7 @@ interface CommissionRow extends Record<string, unknown> {
   registered_release_id?: string | null;
   error_code?: string | null;
   error_message?: string | null;
+  failure_telemetry?: unknown;
   completed_at?: string | Date | null;
 }
 function mapCommissionRow(row: CommissionRow): SnapshotCommissionRequestRecord {
@@ -474,7 +480,31 @@ function mapCommissionRow(row: CommissionRow): SnapshotCommissionRequestRecord {
     registeredReleaseId: row.registered_release_id ?? undefined,
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
+    failureTelemetry: parseFailureTelemetry(row.failure_telemetry),
     completedAt: row.completed_at ? toIsoString(row.completed_at) : undefined
+  };
+}
+
+function parseFailureTelemetry(value: unknown): SnapshotCommissionFailureTelemetry | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.traceId !== "string" ||
+    typeof record.stage !== "string" ||
+    typeof record.classification !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    traceId: record.traceId,
+    stage: record.stage,
+    classification: record.classification,
+    errorFingerprint:
+      typeof record.errorFingerprint === "string" ? record.errorFingerprint : undefined,
+    sourceErrorCode:
+      typeof record.sourceErrorCode === "string" ? record.sourceErrorCode : undefined
   };
 }
 function mapClaimResult(result: Record<string, unknown>): SnapshotCommissionRequestRecord {

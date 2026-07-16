@@ -141,4 +141,34 @@ describe("snapshot commission operator errors", () => {
       "acquisition_blocked"
     );
   });
+
+  it("presents safe telemetry labels while preserving a trace identifier", () => {
+    const card = presentSnapshotCommissionCard({
+      request: {
+        ...baseRequest,
+        status: "failed",
+        errorCode: "worker_execution_failed",
+        failureTelemetry: {
+          traceId: "21b3f5c4-4ab3-4fa0-9d1a-d390ee642760",
+          stage: "artifact_store",
+          classification: "access_denied",
+          errorFingerprint: "a".repeat(64),
+          sourceErrorCode: "AccessDenied"
+        }
+      },
+      hasActiveRequest: false,
+      defaultSourceKey: "fsq-os-places-snapshot",
+      defaultCountries: ["italy"],
+      defaultCategories: ["poi"],
+      defaultMaxRowsPerScope: 250
+    });
+
+    assert.deepEqual(card.failureTelemetry, {
+      traceId: "21b3f5c4-4ab3-4fa0-9d1a-d390ee642760",
+      stageLabel: "Artifact Store",
+      classificationLabel: "Access Denied",
+      errorFingerprint: "a".repeat(64),
+      sourceErrorCode: "AccessDenied"
+    });
+  });
 });
