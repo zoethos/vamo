@@ -24,7 +24,8 @@ function buildSampleArtifacts() {
       duplicateRowCount: 0,
       outOfScopeRowCount: 0,
       byCountry: { italy: 1 },
-      byPoiType: { landmark: 1 }
+      byPoiType: { landmark: 1 },
+      byCountryAndPoiType: { italy: { landmark: 1 } }
     },
     null,
     2

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import type {
   FsqPortalIcebergDuckDbRunner,
+  FsqPortalIcebergQueryRow,
   FsqPortalPlaceRecord
 } from "../src/fsq-os-places-portal-iceberg-acquire.js";
 import {
@@ -31,6 +32,12 @@ const sampleTaxonomy: FsqSourceTaxonomyMapping = {
       providerCategoryLabels: ["restaurant"],
       consumerCategory: "restaurant",
       precedence: 90
+    },
+    {
+      providerCategoryIds: ["4d4b7104d754a06370d81259"],
+      providerCategoryLabels: ["arts and entertainment"],
+      consumerCategory: "poi",
+      precedence: 10
     }
   ]
 };
@@ -53,6 +60,18 @@ const fixtureRecords: FsqPortalPlaceRecord[] = [
     category: "poi"
   }
 ];
+
+function row(partial: Partial<FsqPortalIcebergQueryRow> & Pick<FsqPortalIcebergQueryRow, "fsqPlaceId" | "name">): FsqPortalIcebergQueryRow {
+  return {
+    latitude: 41.9,
+    longitude: 12.5,
+    countryIso: "IT",
+    locality: "Rome",
+    providerCategoryIds: [],
+    providerCategoryLabels: [],
+    ...partial
+  };
+}
 
 describe("validateFsqAcquisitionBounds", () => {
   it("accepts bounded country and category scopes", () => {
@@ -170,26 +189,177 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
     }
   });
 
-  it("uses injectable DuckDB runner only when fixtures are not supplied", async () => {
-    let queryCount = 0;
+  it("issues one bounded runner call per country and POI type", async () => {
+    const calls: Array<{ countryIso: string; providerCategoryIds: readonly string[]; limit: number }> =
+      [];
     const runner: FsqPortalIcebergDuckDbRunner = {
-      async queryCountryPlaces(input) {
-        queryCount += 1;
-        assert.equal(input.countryIso, "IT");
-        assert.equal(input.portalAccessToken, "portal-token-secret-value");
+      async queryCountryCategoryPlaces(input) {
+        calls.push({
+          countryIso: input.countryIso,
+          providerCategoryIds: input.providerCategoryIds,
+          limit: input.limit
+        });
+        if (input.providerCategoryIds.includes("4bf58dd8d48988d181941735")) {
+          return {
+            ok: true,
+            rows: [
+              row({
+                fsqPlaceId: "rome_pantheon",
+                name: "Pantheon",
+                providerCategoryIds: ["4bf58dd8d48988d181941735"],
+                providerCategoryLabels: ["Museum"]
+              })
+            ]
+          };
+        }
         return {
           ok: true,
           rows: [
-            {
-              fsqPlaceId: "rome_pantheon",
-              name: "Pantheon",
-              latitude: 41.8986,
-              longitude: 12.4768,
-              countryIso: "IT",
-              locality: "Rome",
+            row({
+              fsqPlaceId: "rome_trattoria",
+              name: "Trattoria",
+              providerCategoryIds: ["4d4b7105d754a06374d81259"],
+              providerCategoryLabels: ["Restaurant"]
+            })
+          ]
+        };
+      }
+    };
+
+    const result = await acquireFsqOsPlacesPortalIceberg({
+      countries: ["italy"],
+      categories: ["landmark", "restaurant"],
+      maxRowsPerScope: 3,
+      preview: false,
+      portalAccessToken: "portal-token-secret-value",
+      sourceTaxonomy: sampleTaxonomy,
+      duckDbRunner: runner
+    });
+
+    assert.equal(calls.length, 2);
+    assert.deepEqual(
+      calls.map((call) => ({
+        countryIso: call.countryIso,
+        ids: [...call.providerCategoryIds],
+        limit: call.limit
+      })),
+      [
+        { countryIso: "IT", ids: ["4bf58dd8d48988d181941735"], limit: 3 },
+        { countryIso: "IT", ids: ["4d4b7105d754a06374d81259"], limit: 3 }
+      ]
+    );
+    assert.equal(result.ok, true);
+    if (result.ok && !result.preview) {
+      assert.equal(result.providerRecordCount, 2);
+      assert.match(result.normalizedJsonl, /rome_pantheon/);
+      assert.match(result.normalizedJsonl, /rome_trattoria/);
+      assert.doesNotMatch(JSON.stringify(result), /portal-token-secret-value/);
+    }
+  });
+
+  it("prevents one category from consuming another category's limit", async () => {
+    const runner: FsqPortalIcebergDuckDbRunner = {
+      async queryCountryCategoryPlaces(input) {
+        if (input.providerCategoryIds.includes("4bf58dd8d48988d181941735")) {
+          return {
+            ok: true,
+            rows: Array.from({ length: 5 }, (_, index) =>
+              row({
+                fsqPlaceId: `rome_landmark_${index}`,
+                name: `Landmark ${index}`,
+                providerCategoryIds: ["4bf58dd8d48988d181941735"],
+                providerCategoryLabels: ["Museum"]
+              })
+            )
+          };
+        }
+        return {
+          ok: true,
+          rows: [
+            row({
+              fsqPlaceId: "rome_restaurant_only",
+              name: "Restaurant only",
+              providerCategoryIds: ["4d4b7105d754a06374d81259"],
+              providerCategoryLabels: ["Restaurant"]
+            })
+          ]
+        };
+      }
+    };
+
+    const result = await acquireFsqOsPlacesPortalIceberg({
+      countries: ["italy"],
+      categories: ["landmark", "restaurant"],
+      maxRowsPerScope: 2,
+      preview: false,
+      portalAccessToken: "portal-token-budget",
+      sourceTaxonomy: sampleTaxonomy,
+      duckDbRunner: runner
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok && !result.preview) {
+      assert.equal(result.providerRecordCount, 3);
+      assert.match(result.normalizedJsonl, /rome_restaurant_only/);
+      assert.match(result.normalizedJsonl, /rome_landmark_0/);
+      assert.match(result.normalizedJsonl, /rome_landmark_1/);
+      assert.doesNotMatch(result.normalizedJsonl, /rome_landmark_2/);
+    }
+  });
+
+  it("blocks labels-only taxonomy before calling the runner", async () => {
+    let queried = false;
+    const labelsOnly: FsqSourceTaxonomyMapping = {
+      provider: "fsq_os_places",
+      fallbackConsumerCategory: "poi",
+      mappings: [
+        {
+          providerCategoryIds: [],
+          providerCategoryLabels: ["museum"],
+          consumerCategory: "landmark",
+          precedence: 100
+        }
+      ]
+    };
+    const result = await acquireFsqOsPlacesPortalIceberg({
+      countries: ["italy"],
+      categories: ["landmark"],
+      preview: false,
+      portalAccessToken: "portal-token-labels-only",
+      sourceTaxonomy: labelsOnly,
+      duckDbRunner: {
+        async queryCountryCategoryPlaces() {
+          queried = true;
+          return { ok: true, rows: [] };
+        }
+      }
+    });
+    assert.equal(queried, false);
+    assert.deepEqual(result, {
+      ok: false,
+      blocks: ["source_category_query_ids_required:landmark"]
+    });
+  });
+
+  it("discards rows that classify to a different POI type than the query scope", async () => {
+    const runner: FsqPortalIcebergDuckDbRunner = {
+      async queryCountryCategoryPlaces() {
+        return {
+          ok: true,
+          rows: [
+            row({
+              fsqPlaceId: "rome_misclassified",
+              name: "Actually a restaurant",
+              // Provider ID match for landmark query, but taxonomy classifies to restaurant.
+              providerCategoryIds: ["4d4b7105d754a06374d81259"],
+              providerCategoryLabels: ["Restaurant"]
+            }),
+            row({
+              fsqPlaceId: "rome_true_landmark",
+              name: "True landmark",
               providerCategoryIds: ["4bf58dd8d48988d181941735"],
               providerCategoryLabels: ["Museum"]
-            }
+            })
           ]
         };
       }
@@ -199,58 +369,7 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
       countries: ["italy"],
       categories: ["landmark"],
       preview: false,
-      portalAccessToken: "portal-token-secret-value",
-      sourceTaxonomy: sampleTaxonomy,
-      duckDbRunner: runner
-    });
-
-    assert.equal(queryCount, 1);
-    assert.equal(result.ok, true);
-    if (result.ok && !result.preview) {
-      assert.match(result.normalizedJsonl, /fsq_rome_pantheon/);
-      assert.match(result.normalizedJsonl, /"category":"landmark"/);
-      assert.doesNotMatch(result.normalizedJsonl, /portal-token-secret-value/);
-      assert.doesNotMatch(JSON.stringify(result), /portal-token-secret-value/);
-    }
-  });
-
-  it("skips valid rows outside a bounded category request instead of rejecting the run", async () => {
-    const runner: FsqPortalIcebergDuckDbRunner = {
-      async queryCountryPlaces() {
-        return {
-          ok: true,
-          rows: [
-            {
-              fsqPlaceId: "rome_general_poi",
-              name: "General place",
-              latitude: 41.9,
-              longitude: 12.5,
-              countryIso: "IT",
-              locality: "Rome",
-              providerCategoryIds: [],
-              providerCategoryLabels: ["Business and Professional Services > Spa"]
-            },
-            {
-              fsqPlaceId: "rome_restaurant",
-              name: "Restaurant",
-              latitude: 41.91,
-              longitude: 12.51,
-              countryIso: "IT",
-              locality: "Rome",
-              providerCategoryIds: ["4d4b7105d754a06374d81259"],
-              providerCategoryLabels: ["Dining and Drinking > Restaurant"]
-            }
-          ]
-        };
-      }
-    };
-
-    const result = await acquireFsqOsPlacesPortalIceberg({
-      countries: ["italy"],
-      categories: ["restaurant"],
-      maxRowsPerScope: 2,
-      preview: false,
-      portalAccessToken: "portal-token-secret-value",
+      portalAccessToken: "portal-token-classify",
       sourceTaxonomy: sampleTaxonomy,
       duckDbRunner: runner
     });
@@ -258,23 +377,62 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
     assert.equal(result.ok, true);
     if (result.ok && !result.preview) {
       assert.equal(result.providerRecordCount, 1);
-      assert.match(result.normalizedJsonl, /rome_restaurant/);
-      assert.doesNotMatch(result.normalizedJsonl, /rome_general_poi/);
+      assert.match(result.normalizedJsonl, /rome_true_landmark/);
+      assert.doesNotMatch(result.normalizedJsonl, /rome_misclassified/);
     }
   });
 
-  it("orders bounded Iceberg reads before applying the limit", () => {
+  it("deduplicates by FSQ place id deterministically across scopes", async () => {
+    const runner: FsqPortalIcebergDuckDbRunner = {
+      async queryCountryCategoryPlaces() {
+        return {
+          ok: true,
+          rows: [
+            row({
+              fsqPlaceId: "shared_place",
+              name: "Shared",
+              providerCategoryIds: ["4bf58dd8d48988d181941735"],
+              providerCategoryLabels: ["Museum"]
+            })
+          ]
+        };
+      }
+    };
+
+    const result = await acquireFsqOsPlacesPortalIceberg({
+      countries: ["italy"],
+      categories: ["landmark"],
+      preview: false,
+      portalAccessToken: "portal-token-dedupe",
+      sourceTaxonomy: sampleTaxonomy,
+      duckDbRunner: runner
+    });
+
+    assert.equal(result.ok, true);
+    if (result.ok && !result.preview) {
+      assert.equal(result.providerRecordCount, 1);
+      assert.equal((result.normalizedJsonl.match(/shared_place/g) ?? []).length, 1);
+    }
+  });
+
+  it("binds provider category IDs as scalar parameters in SQL", () => {
     const query = buildFsqPortalIcebergSelectSql({
       countryIso: "IT",
+      providerCategoryIds: ["id-a", "id-b"],
       limit: 25
     });
+    assert.match(query.sql, /list_contains\(fsq_category_ids, \$providerCategoryId0\)/);
+    assert.match(query.sql, /list_contains\(fsq_category_ids, \$providerCategoryId1\)/);
     assert.match(query.sql, /ORDER BY fsq_place_id ASC\s+LIMIT \$limit/);
+    assert.equal(query.params.providerCategoryId0, "id-a");
+    assert.equal(query.params.providerCategoryId1, "id-b");
+    assert.doesNotMatch(query.sql, /id-a|id-b/);
   });
 
   it("interrupts on query timeout and returns a safe operator block", async () => {
     let interrupted = false;
     const runner: FsqPortalIcebergDuckDbRunner = {
-      async queryCountryPlaces() {
+      async queryCountryCategoryPlaces() {
         interrupted = true;
         return { ok: false, block: "portal_query_timeout" };
       }
@@ -282,7 +440,7 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
 
     const result = await acquireFsqOsPlacesPortalIceberg({
       countries: ["italy"],
-      categories: ["poi"],
+      categories: ["landmark"],
       preview: false,
       portalAccessToken: "portal-token-timeout",
       sourceTaxonomy: sampleTaxonomy,
@@ -297,14 +455,14 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
 
   it("rejects expired or unauthorized portal tokens without leaking the token", async () => {
     const runner: FsqPortalIcebergDuckDbRunner = {
-      async queryCountryPlaces() {
+      async queryCountryCategoryPlaces() {
         return { ok: false, block: "portal_access_token_rejected" };
       }
     };
 
     const result = await acquireFsqOsPlacesPortalIceberg({
       countries: ["italy"],
-      categories: ["poi"],
+      categories: ["landmark"],
       preview: false,
       portalAccessToken: "expired-portal-token-xyz",
       sourceTaxonomy: sampleTaxonomy,
@@ -319,14 +477,14 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
     let queried = false;
     const result = await acquireFsqOsPlacesPortalIceberg({
       countries: ["italy"],
-      categories: ["poi"],
+      categories: ["landmark"],
       preview: false,
       portalAccessToken: "expired-portal-token-xyz",
       portalAccessTokenExpiresAt: "2026-07-01T00:00:00.000Z",
       now: "2026-07-01T00:00:00.000Z",
       sourceTaxonomy: sampleTaxonomy,
       duckDbRunner: {
-        async queryCountryPlaces() {
+        async queryCountryCategoryPlaces() {
           queried = true;
           return { ok: false, block: "portal_access_token_rejected" };
         }

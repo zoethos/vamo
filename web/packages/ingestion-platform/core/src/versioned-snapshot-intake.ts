@@ -54,6 +54,8 @@ export interface SnapshotCoverageReport {
   outOfScopeRowCount: number;
   byCountry: Record<string, number>;
   byPoiType: Record<string, number>;
+  /** Valid-row matrix only — never invents zero-valued requested scopes. */
+  byCountryAndPoiType: Record<string, Record<string, number>>;
 }
 
 export interface SnapshotReleaseMetadata {
@@ -431,11 +433,15 @@ function buildCoverageReport(input: {
 }): SnapshotCoverageReport {
   const byCountry: Record<string, number> = {};
   const byPoiType: Record<string, number> = {};
+  const byCountryAndPoiType: Record<string, Record<string, number>> = {};
 
   for (const row of input.validRows) {
     const country = inferCountryFromGeography(row.scope.geography);
+    const category = row.scope.category;
     byCountry[country] = (byCountry[country] ?? 0) + 1;
-    byPoiType[row.scope.category] = (byPoiType[row.scope.category] ?? 0) + 1;
+    byPoiType[category] = (byPoiType[category] ?? 0) + 1;
+    const countryBucket = byCountryAndPoiType[country] ?? (byCountryAndPoiType[country] = {});
+    countryBucket[category] = (countryBucket[category] ?? 0) + 1;
   }
 
   return {
@@ -447,7 +453,8 @@ function buildCoverageReport(input: {
     duplicateRowCount: input.issues.filter((issue) => issue.category === "duplicate").length,
     outOfScopeRowCount: input.issues.filter((issue) => issue.category === "out_of_scope").length,
     byCountry,
-    byPoiType
+    byPoiType,
+    byCountryAndPoiType
   };
 }
 

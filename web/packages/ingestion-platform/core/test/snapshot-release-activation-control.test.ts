@@ -241,7 +241,8 @@ function sampleRelease(overrides: Partial<SourceAcquisitionReleaseRecord> = {}):
       duplicateRowCount: 0,
       outOfScopeRowCount: 0,
       byCountry: { italy: 1, france: 1 },
-      byPoiType: { poi: 1, landmark: 1 }
+      byPoiType: { poi: 1, landmark: 1 },
+      byCountryAndPoiType: { italy: { poi: 1 }, france: { landmark: 1 } }
     },
     rowCounts: {
       valid: 2,

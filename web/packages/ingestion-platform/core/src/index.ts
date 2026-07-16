@@ -1012,6 +1012,18 @@ export {
   type FsqAcquisitionScopePlan
 } from "./fsq-acquisition-scope.js";
 export {
+  FSQ_CATEGORY_COVERAGE_COUNTRY_ISO,
+  assessFsqRequestedCoverage,
+  buildFsqCategoryCoveragePlan,
+  formatFsqRequestedCoverageAssessment,
+  providerCategoryIdsForConsumerCategory,
+  type BuildFsqCategoryCoveragePlanResult,
+  type FsqCategoryCoveragePlan,
+  type FsqCategoryQueryScope,
+  type FsqRequestedCoverageAssessment,
+  type FsqRequestedCoverageScope
+} from "./fsq-category-coverage-plan.js";
+export {
   FSQ_SOURCE_TAXONOMY_PROVIDER,
   classifyFsqPlaceConsumerCategory,
   extractFsqSourceTaxonomyFromPlan,

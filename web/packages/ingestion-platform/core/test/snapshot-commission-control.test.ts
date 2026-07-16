@@ -474,7 +474,7 @@ describe("snapshot commission control DB smoke", () => {
               'vamo-place-intelligence',
               'fsq-os-places-snapshot/test/bundle',
               'file:///tmp/bundle',
-              '{"kind":"ingestion.snapshot_coverage_report","releaseId":"fsq_os_places-20260701-deadbeefcafe","derivedFromValidRowsOnly":true,"validRowCount":1,"invalidRowCount":0,"duplicateRowCount":0,"outOfScopeRowCount":0,"byCountry":{"italy":1},"byPoiType":{"poi":1}}'::jsonb,
+              '{"kind":"ingestion.snapshot_coverage_report","releaseId":"fsq_os_places-20260701-deadbeefcafe","derivedFromValidRowsOnly":true,"validRowCount":1,"invalidRowCount":0,"duplicateRowCount":0,"outOfScopeRowCount":0,"byCountry":{"italy":1},"byPoiType":{"poi":1},"byCountryAndPoiType":{"italy":{"poi":1}}}'::jsonb,
               '{"valid":1,"invalid":0,"duplicate":0,"outOfScope":0}'::jsonb,
               jsonb_build_object('commissionRequestId', $1::text),
               now()
