@@ -17,6 +17,7 @@ import {
   refreshBatchPlanSourceTaxonomy
 } from "../src/batch-plan-contract-refresh-control.js";
 import { parseBatchPlanSpec } from "../src/batch-plan-spec.js";
+import { resetDisposableTestDatabase } from "./disposable-test-database.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const confluendoBootstrapSql = readFileSync(
@@ -184,8 +185,8 @@ describe("batch plan contract refresh", () => {
       const owner = new Client({ connectionString: databaseUrl });
       await owner.connect();
       try {
-        await owner.query("drop schema if exists ingestion_platform cascade");
-        await owner.query("drop role if exists confluendo_app");
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
         await owner.query(confluendoBootstrapSql);
@@ -309,8 +310,12 @@ describe("batch plan contract refresh", () => {
         assert.deepEqual(row.audits, ["refresh_batch_plan_source_taxonomy"]);
         assert.deepEqual(row.events, ["batch_plan.source_taxonomy_refreshed"]);
       } finally {
-        await owner.query("drop schema if exists ingestion_platform cascade").catch(() => undefined);
-        await owner.query("drop role if exists confluendo_app").catch(() => undefined);
+        await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] }).catch(
+          () => undefined
+        );
+        await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] }).catch(
+          () => undefined
+        );
         await owner.end();
       }
     }
