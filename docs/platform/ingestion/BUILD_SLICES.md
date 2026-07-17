@@ -1902,6 +1902,23 @@ State model:
 `requested → running → release_registered → activation_pending`; failures move
 to `failed`. Release registration never activates automatically.
 
+Failure telemetry:
+
+- Every terminal `failed` request persists a safe failure record
+  (`traceId`, execution stage, classification, optional provider error code, and
+  a non-reversible error fingerprint) plus an immutable
+  `snapshot_commission.failed` control-plane event.
+- The Queue card shows those safe fields so an operator can distinguish a
+  Portal, artifact-store, release-registry, contract, or worker failure without
+  exposing credentials, artifact paths, DSNs, or raw provider errors.
+- The trusted worker writes the original exception only to its protected job
+  log. Use the persisted trace ID to correlate that log entry; do not recover
+  the original exception from browser-visible control-plane data.
+- This schema change must be applied and verified in Confluendo Control Staging
+  before the identical `control_schema.sql` plus
+  `control_bootstrap_confluendo.sql` pair is promoted to Control Production in
+  the same release window.
+
 Control-plane deployment checkpoint (2026-07-14):
 
 - A distinct `confluendo-control-staging` environment now exists. The
@@ -1917,6 +1934,16 @@ Human provisioning prerequisite:
    server/job host with owner `INGESTION_CONTROL_DATABASE_URL`, FSQ catalog
    token, artifact-store config, and
    `CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER=YES`.
+2. For trusted Windows operator runs, use
+   `web/scripts/Invoke-Ip18SnapshotCommissionWorker.ps1` instead of manually
+   exporting secrets. It loads the selected artifact and commissioning profiles,
+   enables `NODE_USE_SYSTEM_CA=1`, runs the non-writing storage preflight, and
+   claims only a console-recorded request when `-Execute` is explicit:
+
+   ```powershell
+   .\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 -ControlEnvironment Staging -PreflightOnly
+   .\scripts\Invoke-Ip18SnapshotCommissionWorker.ps1 -ControlEnvironment Staging -Execute
+   ```
 
 ### IP-18.8.12 — implemented (hosted snapshot artifact store)
 

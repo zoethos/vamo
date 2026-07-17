@@ -1031,6 +1031,7 @@ export {
   canTransitionSnapshotCommissionStatus,
   isSnapshotCommissionRequestStatus,
   parseSnapshotCommissionRequestCreate,
+  type SnapshotCommissionFailureTelemetry,
   type SnapshotCommissionRequestCreateInput,
   type SnapshotCommissionRequestRecord,
   type SnapshotCommissionRequestStatus

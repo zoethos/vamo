@@ -14,6 +14,7 @@ import {
   runFsqSnapshotAcquire
 } from "../src/fsq-snapshot-acquire.js";
 import { SNAPSHOT_ARTIFACT_BUNDLE_FILES } from "../src/snapshot-artifact-store.js";
+import type { SnapshotArtifactStore } from "../src/snapshot-artifact-store.js";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = join(testDir, "..", "..", "..");
@@ -126,6 +127,34 @@ describe("runFsqSnapshotAcquire", () => {
     } finally {
       rmSync(artifactStoreBaseDir, { recursive: true, force: true });
     }
+  });
+
+  it("returns a safe artifact-write block instead of throwing storage details", async () => {
+    const failingStore: SnapshotArtifactStore = {
+      async putReleaseBundle() {
+        throw new Error("s3://private-bucket/internal-key access denied");
+      },
+      async readReleaseBundle() {
+        throw new Error("not reached");
+      },
+      async verifyReleaseBundle() {
+        throw new Error("not reached");
+      }
+    };
+
+    const result = await runFsqSnapshotAcquire({
+      countries: ["italy"],
+      categories: ["landmark"],
+      preview: false,
+      confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
+      portalAccessToken: "super-secret-portal-token",
+      fixtureRecords,
+      artifactStore: failingStore,
+      acquiredAt: "2026-07-01T12:00:00.000Z",
+      now: "2026-07-01T12:00:00.000Z"
+    });
+
+    assert.deepEqual(result, { ok: false, blocks: ["artifact_store_write_failed"] });
   });
 
   it("redacts portal access tokens from formatted logs", () => {

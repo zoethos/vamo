@@ -210,38 +210,53 @@ export async function runFsqSnapshotAcquire(input: {
     return { ok: false, blocks: ["artifact_store_missing"] };
   }
 
-  const stored = await artifactStore.putReleaseBundle({
-    artifactKey,
-    artifacts
-  });
-  const verified = await artifactStore.verifyReleaseBundle({
-    artifactKey,
-    expectedBundleSha256: stored.bundleSha256
-  });
+  let stored: Awaited<ReturnType<SnapshotArtifactStore["putReleaseBundle"]>>;
+  try {
+    stored = await artifactStore.putReleaseBundle({
+      artifactKey,
+      artifacts
+    });
+  } catch {
+    return { ok: false, blocks: ["artifact_store_write_failed"] };
+  }
+
+  let verified: boolean;
+  try {
+    verified = await artifactStore.verifyReleaseBundle({
+      artifactKey,
+      expectedBundleSha256: stored.bundleSha256
+    });
+  } catch {
+    return { ok: false, blocks: ["artifact_store_verify_failed"] };
+  }
   if (!verified) {
     return { ok: false, blocks: ["artifact_bundle_checksum_mismatch"] };
   }
 
   let registryAuditId: string | undefined;
   if (input.controlConnectionString && input.projectKey && input.actor && input.auditReason) {
-    const registered = await registerSnapshotRelease({
-      connectionString: input.controlConnectionString,
-      projectKey: input.projectKey,
-      release: buildRegistryReleaseRecord({
-        releaseId,
-        artifactKey,
-        artifactUri: stored.artifactUri,
-        bundleSha256: stored.bundleSha256,
-        intakeRelease: intake.release,
-        coverage: intake.coverage
-      }),
-      actor: input.actor,
-      auditReason: input.auditReason,
-      registrationMetadata: input.commissionRequestId
-        ? { commissionRequestId: input.commissionRequestId }
-        : undefined
-    });
-    registryAuditId = registered.auditId;
+    try {
+      const registered = await registerSnapshotRelease({
+        connectionString: input.controlConnectionString,
+        projectKey: input.projectKey,
+        release: buildRegistryReleaseRecord({
+          releaseId,
+          artifactKey,
+          artifactUri: stored.artifactUri,
+          bundleSha256: stored.bundleSha256,
+          intakeRelease: intake.release,
+          coverage: intake.coverage
+        }),
+        actor: input.actor,
+        auditReason: input.auditReason,
+        registrationMetadata: input.commissionRequestId
+          ? { commissionRequestId: input.commissionRequestId }
+          : undefined
+      });
+      registryAuditId = registered.auditId;
+    } catch {
+      return { ok: false, blocks: ["release_registration_failed"] };
+    }
   }
 
   return {

@@ -17,6 +17,7 @@ import type { FsqSnapshotAcquireResult } from "../src/fsq-snapshot-acquire.js";
 
 const controlSchemaSql = readFileSync("core/sql/control_schema.sql", "utf8");
 const workerModule = readFileSync("core/src/snapshot-commission-worker.ts", "utf8");
+const workerScript = readFileSync("scripts/run-ip18-snapshot-commission-worker.mjs", "utf8");
 import {
   resetDisposableTestDatabase,
   resolveDisposableTestDatabaseUrl
@@ -91,6 +92,14 @@ describe("runSnapshotCommissionWorker", () => {
   it("never imports activation paths", () => {
     assert.doesNotMatch(workerModule, /runSnapshotReleaseActivation/);
     assert.doesNotMatch(workerModule, /activateSnapshotRelease/);
+  });
+
+  it("makes failed and retryable worker outcomes visible to job runners", () => {
+    assert.match(workerScript, /result\.outcome === "failed"/);
+    assert.match(workerScript, /result\.outcome === "pending_retry"/);
+    assert.match(workerScript, /process\.exitCode = 1/);
+    assert.match(workerModule, /traceId: failureTelemetry\.traceId/);
+    assert.match(workerModule, /Snapshot commission worker acquisition failed/, "raw worker errors retain a trace ID in trusted logs");
   });
 
   it("rejects missing worker confirmation and portal access token", async () => {
@@ -234,6 +243,55 @@ describe("runSnapshotCommissionWorker", () => {
           failed.errorMessage,
           snapshotCommissionOperatorErrorForCode("acquisition_blocked")
         );
+
+        const failedRequestRows = await owner.query<{
+          status: string;
+          error_code: string;
+          failure_telemetry: {
+            traceId?: string;
+            stage?: string;
+            classification?: string;
+          };
+        }>(
+          `
+            select status, error_code, failure_telemetry
+            from ingestion_platform.ingestion_snapshot_commission_requests
+            order by id desc
+            limit 1
+          `
+        );
+        const failedRequest = failedRequestRows.rows[0];
+        assert.equal(failedRequest?.status, "failed");
+        assert.equal(failedRequest?.error_code, "acquisition_blocked");
+        assert.match(failedRequest?.failure_telemetry.traceId ?? "", /^[a-f0-9-]{36}$/i);
+        assert.equal(failedRequest?.failure_telemetry.stage, "worker");
+        assert.equal(failedRequest?.failure_telemetry.classification, "provider_unavailable");
+
+        const failureEventRows = await owner.query<{
+          event_type: string;
+          severity: string;
+          signal: string | null;
+          payload: {
+            traceId?: string;
+            stage?: string;
+            classification?: string;
+          };
+        }>(
+          `
+            select event_type, severity, signal, payload
+            from ingestion_platform.ingestion_events
+            where event_type = 'snapshot_commission.failed'
+            order by id desc
+            limit 1
+          `
+        );
+        const failureEvent = failureEventRows.rows[0];
+        assert.equal(failureEvent?.event_type, "snapshot_commission.failed");
+        assert.equal(failureEvent?.severity, "error");
+        assert.equal(failureEvent?.signal, "acquisition_blocked");
+        assert.equal(failureEvent?.payload.traceId, failedRequest?.failure_telemetry.traceId);
+        assert.equal(failureEvent?.payload.stage, "worker");
+        assert.equal(failureEvent?.payload.classification, "provider_unavailable");
       } finally {
         await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await owner.end();
