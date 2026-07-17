@@ -49,6 +49,12 @@ function buildSampleArtifacts() {
 
 class FakeS3Client implements S3ObjectClientLike {
   readonly objects = new Map<string, string>();
+  readonly putRequests: Array<{
+    bucket: string;
+    key: string;
+    body: string;
+    ifNoneMatch?: string;
+  }> = [];
 
   async headBucket() {}
 
@@ -72,6 +78,7 @@ class FakeS3Client implements S3ObjectClientLike {
     body: string;
     ifNoneMatch?: string;
   }) {
+    this.putRequests.push(input);
     const objectId = `${input.bucket}/${input.key}`;
     if (input.ifNoneMatch === "*" && this.objects.has(objectId)) {
       const error = new Error("PreconditionFailed");
@@ -143,6 +150,39 @@ describe("s3 snapshot artifact store", () => {
       true
     );
     assert.equal(loaded.sourceJsonl, artifacts.sourceJsonl);
+    assert.ok(client.putRequests.every((request) => request.ifNoneMatch === "*"));
+  });
+
+  it("uses Supabase Storage's supported PutObject path and verifies the immutable bundle", async () => {
+    const sampleArtifacts = buildSampleArtifacts();
+    const artifacts = {
+      sourceJsonl: sampleArtifacts.sourceJsonl,
+      releaseJson: sampleArtifacts.releaseJson,
+      coverageReportJson: sampleArtifacts.coverageReportJson
+    };
+    const client = new FakeS3Client();
+    const store = createS3SnapshotArtifactStore({
+      config: {
+        kind: "s3",
+        provider: "supabase_storage",
+        bucket: "snapshot-artifacts",
+        region: "eu-central-1",
+        endpoint: "https://example.storage.supabase.co/storage/v1/s3"
+      },
+      client
+    });
+    const artifactKey = deriveSnapshotArtifactKey({
+      sourceKey: "fsq-os-places-snapshot",
+      releaseId: sampleArtifacts.releaseId,
+      outputSha256: sampleArtifacts.outputSha256
+    });
+
+    const put = await store.putReleaseBundle({ artifactKey, artifacts });
+
+    assert.equal(put.bundleSha256, computeSnapshotArtifactBundleSha256(artifacts));
+    assert.equal(await store.verifyReleaseBundle({ artifactKey, expectedBundleSha256: put.bundleSha256 }), true);
+    assert.equal(client.putRequests.length, 3);
+    assert.ok(client.putRequests.every((request) => request.ifNoneMatch === undefined));
   });
 
   it("accepts idempotent retries with identical bundle content", async () => {
