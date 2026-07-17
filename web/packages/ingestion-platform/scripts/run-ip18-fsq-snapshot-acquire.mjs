@@ -27,7 +27,9 @@ import {
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_ENV,
   FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
   VAMO_EU_FULL_DATA_BATCH_SPEC_PATH,
+  assessFsqRequestedCoverage,
   extractFsqSourceTaxonomyFromPlan,
+  formatFsqRequestedCoverageAssessment,
   formatFsqSnapshotAcquireLog,
   isOutputPathInsideRepo,
   parseBatchPlanSpec,
@@ -249,6 +251,22 @@ console.log("");
 console.log("Coverage from valid rows only:");
 console.log(`- by country: ${JSON.stringify(result.result.coverage.byCountry)}`);
 console.log(`- by POI type: ${JSON.stringify(result.result.coverage.byPoiType)}`);
+const coverageAssessment = assessFsqRequestedCoverage({
+  countries,
+  categories,
+  byCountryAndPoiType: result.result.coverage.byCountryAndPoiType
+});
+console.log("");
+console.log("Requested country × POI-type coverage:");
+for (const line of formatFsqRequestedCoverageAssessment(coverageAssessment)) {
+  console.log(line);
+}
+if (coverageAssessment.missingScopes.length > 0) {
+  console.log("");
+  console.log(
+    "Sparse/missing scopes stay parked pending review or a later release; acquisition does not activate or reseed."
+  );
+}
 if (result.result.registryAuditId) {
   console.log("");
   console.log(`Registry audit id: ${result.result.registryAuditId}`);

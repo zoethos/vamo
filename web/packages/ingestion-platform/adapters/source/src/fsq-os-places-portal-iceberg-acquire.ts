@@ -12,6 +12,7 @@ import {
   FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE,
   validateFsqAcquisitionBounds as validateCoreFsqAcquisitionBounds
 } from "../../../core/src/fsq-acquisition-scope.js";
+import { buildFsqCategoryCoveragePlan } from "../../../core/src/fsq-category-coverage-plan.js";
 import {
   classifyFsqPlaceConsumerCategory,
   type FsqSourceTaxonomyMapping
@@ -110,11 +111,12 @@ export interface FsqPortalIcebergQueryRow {
  * (CLI/job only — never imported by Console).
  */
 export interface FsqPortalIcebergDuckDbRunner {
-  queryCountryPlaces(input: {
+  queryCountryCategoryPlaces(input: {
     portalAccessToken: string;
     endpoint: string;
     table: string;
     countryIso: string;
+    providerCategoryIds: readonly string[];
     limit: number;
     timeoutMs: number;
   }): Promise<
@@ -200,10 +202,29 @@ export function buildFsqPortalIcebergSetupSql(input: {
 export function buildFsqPortalIcebergSelectSql(input: {
   table?: string;
   countryIso: string;
+  providerCategoryIds: readonly string[];
   limit: number;
-}): { sql: string; params: { countryIso: string; limit: number } } {
+}): {
+  sql: string;
+  params: Record<string, string | number>;
+} {
   const table = input.table ?? FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE;
-  // Fixed identifiers only; country + limit are bound by the runner.
+  if (input.providerCategoryIds.length === 0) {
+    throw new Error("providerCategoryIds_required");
+  }
+
+  const params: Record<string, string | number> = {
+    countryIso: input.countryIso,
+    limit: input.limit
+  };
+  const categoryPredicates: string[] = [];
+  input.providerCategoryIds.forEach((providerCategoryId, index) => {
+    const key = `providerCategoryId${index}`;
+    params[key] = providerCategoryId;
+    categoryPredicates.push(`list_contains(fsq_category_ids, $${key})`);
+  });
+
+  // Fixed identifiers only; country, provider IDs, and limit are bound params.
   return {
     sql: `
 SELECT
@@ -217,13 +238,11 @@ SELECT
   fsq_category_labels
 FROM ${table}
 WHERE country = $countryIso
+  AND (${categoryPredicates.join(" OR ")})
 ORDER BY fsq_place_id ASC
 LIMIT $limit
 `.trim(),
-    params: {
-      countryIso: input.countryIso,
-      limit: input.limit
-    }
+    params
   };
 }
 
@@ -297,33 +316,41 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
     if (!input.duckDbRunner) {
       return { ok: false, blocks: ["portal_duckdb_runner_missing"] };
     }
+
+    const coveragePlan = buildFsqCategoryCoveragePlan({
+      countries: bounds.plan.countries,
+      categories: bounds.plan.categories,
+      maxRowsPerScope: bounds.plan.maxRowsPerScope,
+      sourceTaxonomy: input.sourceTaxonomy,
+      countryIsoByKey: FSQ_OS_PLACES_COUNTRY_ISO
+    });
+    if (!coveragePlan.ok) {
+      return { ok: false, blocks: coveragePlan.blocks };
+    }
+
     const runner = input.duckDbRunner;
     const timeoutMs = input.queryTimeoutMs ?? FSQ_OS_PLACES_PORTAL_DEFAULT_QUERY_TIMEOUT_MS;
-    const perCountryLimit = Math.min(
-      bounds.plan.maxRowsPerScope * bounds.plan.categories.length * 4,
-      FSQ_ACQUISITION_DEFAULT_MAX_ROWS_PER_SCOPE * 40
-    );
+    const seenPlaceIds = new Set<string>();
 
-    for (const country of bounds.plan.countries) {
-      const countryIso = FSQ_OS_PLACES_COUNTRY_ISO[country];
-      if (!countryIso) {
-        return { ok: false, blocks: [`country_iso_unmapped:${country}`] };
-      }
-
-      const queried = await runner.queryCountryPlaces({
+    for (const scope of coveragePlan.plan.scopes) {
+      const queried = await runner.queryCountryCategoryPlaces({
         portalAccessToken: portalAccessToken!,
         endpoint: input.endpoint ?? FSQ_OS_PLACES_PORTAL_ICEBERG_ENDPOINT,
         table: input.table ?? FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE,
-        countryIso,
-        limit: perCountryLimit,
+        countryIso: scope.countryIso,
+        providerCategoryIds: scope.providerCategoryIds,
+        limit: scope.maxRowsPerScope,
         timeoutMs
       });
       if (!queried.ok) {
         return { ok: false, blocks: [queried.block] };
       }
 
-      const perScope = new Map<string, number>();
+      let acceptedForScope = 0;
       for (const row of queried.rows) {
+        if (seenPlaceIds.has(row.fsqPlaceId)) {
+          continue;
+        }
         const classification = classifyFsqPlaceConsumerCategory({
           mapping: input.sourceTaxonomy,
           providerCategoryIds: row.providerCategoryIds,
@@ -332,21 +359,21 @@ export async function acquireFsqOsPlacesPortalIceberg(input: {
         if (!classification.ok) {
           return { ok: false, blocks: [classification.block] };
         }
-        if (!allowedCategories.has(classification.consumerCategory)) {
+        // Keep only rows that still classify to the requested query scope.
+        if (classification.consumerCategory !== scope.consumerCategory) {
           continue;
         }
-        const scopeKey = `${country}:${classification.consumerCategory}`;
-        const count = perScope.get(scopeKey) ?? 0;
-        if (count >= bounds.plan.maxRowsPerScope) {
+        if (acceptedForScope >= scope.maxRowsPerScope) {
           continue;
         }
-        perScope.set(scopeKey, count + 1);
+        seenPlaceIds.add(row.fsqPlaceId);
+        acceptedForScope += 1;
         records.push({
           fsqPlaceId: row.fsqPlaceId,
           name: row.name,
           latitude: row.latitude,
           longitude: row.longitude,
-          geography: buildGeography(row.locality, country),
+          geography: buildGeography(row.locality, scope.country),
           category: classification.consumerCategory,
           providerCategoryIds: row.providerCategoryIds,
           providerCategoryLabels: row.providerCategoryLabels

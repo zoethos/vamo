@@ -189,7 +189,8 @@ describe("batch plan contract refresh", () => {
       await owner.connect();
       try {
         await resetDisposableTestDatabase(owner, databaseUrl!, {
-          schemas: ["ingestion_platform"]
+          schemas: ["ingestion_platform"],
+          roles: ["confluendo_app"]
         });
         await owner.query(controlSchemaSql);
         await owner.query("create role confluendo_app login password 'test'");
@@ -315,8 +316,9 @@ describe("batch plan contract refresh", () => {
         assert.deepEqual(row.events, ["batch_plan.source_taxonomy_refreshed"]);
       } finally {
         await resetDisposableTestDatabase(owner, databaseUrl!, {
-          schemas: ["ingestion_platform"]
-        });
+          schemas: ["ingestion_platform"],
+          roles: ["confluendo_app"]
+        }).catch(() => undefined);
         await owner.end();
       }
     }
