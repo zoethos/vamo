@@ -40,7 +40,6 @@ export const FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL =
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_ENDPOINT =
   "https://catalog.h3-hub.foursquare.com/iceberg" as const;
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE = "places.datasets.places_os" as const;
-export const FSQ_OS_PLACES_PORTAL_ICEBERG_CATEGORY_TABLE = "places.datasets.categories" as const;
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_CATALOG_ALIAS = "places" as const;
 
 export const FSQ_OS_PLACES_PORTAL_DEFAULT_QUERY_TIMEOUT_MS = FSQ_PORTAL_QUERY_DEFAULT_TIMEOUT_MS;
@@ -203,7 +202,6 @@ export function buildFsqPortalIcebergSetupSql(input: {
 
 export function buildFsqPortalIcebergSelectSql(input: {
   table?: string;
-  categoryTable?: string;
   countryIso: string;
   providerCategoryIds: readonly string[];
   limit: number;
@@ -212,7 +210,6 @@ export function buildFsqPortalIcebergSelectSql(input: {
   params: Record<string, string | number>;
 } {
   const table = input.table ?? FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE;
-  const categoryTable = input.categoryTable ?? FSQ_OS_PLACES_PORTAL_ICEBERG_CATEGORY_TABLE;
   if (input.providerCategoryIds.length === 0) {
     throw new Error("providerCategoryIds_required");
   }
@@ -225,40 +222,20 @@ export function buildFsqPortalIcebergSelectSql(input: {
   input.providerCategoryIds.forEach((providerCategoryId, index) => {
     const key = `providerCategoryId${index}`;
     params[key] = providerCategoryId;
-    // FSQ places hold the most-granular IDs. A configured ID may itself be a
-    // leaf or a level-two parent, so resolve both through the categories table.
-    categoryPredicates.push(
-      `(category_id = $${key} OR level2_category_id = $${key})`
-    );
+    categoryPredicates.push(`$${key}`);
   });
 
   // Fixed identifiers only; country, provider IDs, and limit are bound params.
-  // This follows FSQ's documented parent-category approach, with the country
-  // predicate applied before unnesting category arrays.
+  // The live Places Portal catalog exposes category IDs on places_os but does
+  // not guarantee a separately queryable categories relation. The plan's
+  // explicit provider IDs are therefore the authoritative bounded predicate.
+  // Confluendo sorts accepted records after classification, so avoiding a
+  // remote ORDER BY lets the Portal apply the row bound without sorting a
+  // country's full Iceberg partition.
   return {
     sql: `
-WITH matching_categories AS (
-  SELECT category_id
-  FROM ${categoryTable}
-  WHERE ${categoryPredicates.join(" OR ")}
-),
-country_places AS (
-  SELECT
-    p.fsq_place_id,
-    p.name,
-    p.latitude,
-    p.longitude,
-    p.country,
-    p.locality,
-    p.fsq_category_ids,
-    p.fsq_category_labels,
-    category_match.fsq_category_id
-  FROM ${table} AS p
-  CROSS JOIN UNNEST(p.fsq_category_ids) AS category_match(fsq_category_id)
-  WHERE p.country = $countryIso
-)
 SELECT
-  DISTINCT p.fsq_place_id,
+  p.fsq_place_id,
   p.name,
   p.latitude,
   p.longitude,
@@ -266,9 +243,9 @@ SELECT
   p.locality,
   p.fsq_category_ids,
   p.fsq_category_labels
-FROM country_places AS p
-INNER JOIN matching_categories AS c ON c.category_id = p.fsq_category_id
-ORDER BY p.fsq_place_id ASC
+FROM ${table} AS p
+WHERE p.country = $countryIso
+  AND list_has_any(p.fsq_category_ids, [${categoryPredicates.join(", ")}])
 LIMIT $limit
 `.trim(),
     params

@@ -415,19 +415,21 @@ describe("acquireFsqOsPlacesPortalIceberg", () => {
     }
   });
 
-  it("resolves direct and parent provider category IDs through the FSQ categories table", () => {
+  it("uses the plan's explicit provider category IDs without requiring a separate categories table", () => {
     const query = buildFsqPortalIcebergSelectSql({
       countryIso: "IT",
       providerCategoryIds: ["id-a", "id-b"],
       limit: 25
     });
-    assert.match(query.sql, /WITH matching_categories AS/);
-    assert.match(query.sql, /FROM places\.datasets\.categories/);
-    assert.match(query.sql, /category_id = \$providerCategoryId0/);
-    assert.match(query.sql, /level2_category_id = \$providerCategoryId1/);
-    assert.match(query.sql, /CROSS JOIN UNNEST\(p\.fsq_category_ids\)/);
+    assert.match(query.sql, /FROM places\.datasets\.places_os AS p/);
     assert.match(query.sql, /WHERE p\.country = \$countryIso/);
-    assert.match(query.sql, /ORDER BY p\.fsq_place_id ASC\s+LIMIT \$limit/);
+    assert.match(
+      query.sql,
+      /list_has_any\(p\.fsq_category_ids, \[\$providerCategoryId0, \$providerCategoryId1\]\)/
+    );
+    assert.match(query.sql, /LIMIT \$limit/);
+    assert.doesNotMatch(query.sql, /categories/);
+    assert.doesNotMatch(query.sql, /ORDER BY/);
     assert.equal(query.params.providerCategoryId0, "id-a");
     assert.equal(query.params.providerCategoryId1, "id-b");
     assert.doesNotMatch(query.sql, /id-a|id-b/);

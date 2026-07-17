@@ -110,13 +110,15 @@ provider query. It is separate from activation and queue reseed:
 
 - **Acquisition** — bounded FSQ OS Places Portal/Iceberg fetch through the
   dedicated adapter/job only; one query per requested country/type using
-  explicit `sourceTaxonomy` provider IDs. The adapter resolves both direct IDs
-  and parent-level IDs through FSQ's `categories` dataset before matching the
-  most-granular IDs carried on places (fallback is not query evidence). The
-  trusted job defaults to a five-minute query deadline; an operator may set the
-  server-only `FSQ_OS_PLACES_PORTAL_QUERY_TIMEOUT_MS` from 30 seconds through
-  15 minutes. Classify after fetch; normalize deterministically by FSQ place
-  id; reuse IP-18.8.9 intake; store immutable artifacts with
+  explicit `sourceTaxonomy` provider IDs carried by `places_os`. The Portal
+  catalog does not guarantee a separately queryable categories relation, so
+  hierarchy expansion is an approved taxonomy-data change, never an implicit
+  runtime guess. A configured POI type is queryable only through its explicit
+  provider IDs; fallback remains non-evidence. The trusted job defaults to a
+  five-minute query deadline; an operator may set the server-only
+  `FSQ_OS_PLACES_PORTAL_QUERY_TIMEOUT_MS` from 30 seconds through 15 minutes.
+  Classify after fetch; normalize deterministically by FSQ place id; reuse
+  IP-18.8.9 intake; store immutable artifacts with
   `byCountryAndPoiType` from valid rows only; optionally register
   `activation_ready` metadata in the Confluendo control plane.
 - **Activation** — IP-18.8.11: bind a registered release to a batch plan and
