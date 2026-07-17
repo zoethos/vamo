@@ -16,6 +16,7 @@ export function createDefaultFsqPortalIcebergDuckDbRunner(): FsqPortalIcebergDuc
   return {
     async queryCountryCategoryPlaces(input) {
       let connection: { interrupt(): void; closeSync(): void } | undefined;
+      let timedOut = false;
       try {
         const { DuckDBInstance } = await import("@duckdb/node-api");
         const instance = await DuckDBInstance.create(":memory:");
@@ -42,6 +43,7 @@ export function createDefaultFsqPortalIcebergDuckDbRunner(): FsqPortalIcebergDuc
         const queryPromise = duckConnection.runAndReadAll(select.sql, select.params);
 
         const reader = await withTimeout(queryPromise, input.timeoutMs, () => {
+          timedOut = true;
           duckConnection.interrupt();
         });
         if (!reader.ok) {
@@ -61,10 +63,15 @@ export function createDefaultFsqPortalIcebergDuckDbRunner(): FsqPortalIcebergDuc
       } catch (error) {
         return { ok: false, block: classifyPortalDuckDbError(error) };
       } finally {
-        try {
-          connection?.closeSync();
-        } catch {
-          // ignore disconnect errors
+        // DuckDB can block closeSync while an interrupted remote Iceberg read is
+        // still unwinding. The caller is a one-shot trusted job and explicitly
+        // exits after its terminal control-plane update in this case.
+        if (!timedOut) {
+          try {
+            connection?.closeSync();
+          } catch {
+            // ignore disconnect errors
+          }
         }
       }
     }

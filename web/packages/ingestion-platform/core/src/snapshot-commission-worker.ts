@@ -36,6 +36,7 @@ export interface RunSnapshotCommissionWorkerInput {
   confirmation?: string;
   portalAccessToken?: string;
   portalAccessTokenExpiresAt?: string;
+  queryTimeoutMs?: number;
   artifactStore?: SnapshotArtifactStore;
   artifactStoreBaseDir?: string;
   client?: SnapshotCommissionPgClientLike;
@@ -164,6 +165,7 @@ export async function runSnapshotCommissionWorker(
       confirmation: FSQ_SNAPSHOT_ACQUIRE_CONFIRMATION_VALUE,
       portalAccessToken: input.portalAccessToken,
       portalAccessTokenExpiresAt: input.portalAccessTokenExpiresAt,
+      queryTimeoutMs: input.queryTimeoutMs,
       sourceTaxonomy: planContext.sourceTaxonomy,
       duckDbRunner: input.duckDbRunner,
       artifactStore: input.artifactStore,
