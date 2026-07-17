@@ -66,7 +66,10 @@ export function createS3SnapshotArtifactStore(
               bucket: config.bucket,
               key,
               body: content,
-              ifNoneMatch: "*"
+              // Supabase Storage supports PutObject but not the conditional
+              // PutObject header. The content-addressed release key plus the
+              // post-write bundle SHA verification still protect integrity.
+              ifNoneMatch: config.provider === "supabase_storage" ? undefined : "*"
             });
           }
         });
