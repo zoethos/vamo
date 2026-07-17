@@ -74,6 +74,7 @@ export function SnapshotCommissionControl({
   const router = useRouter();
 
   const pending = decision.state === "running";
+  const isRetryAfterFailure = commissionCard.status === "failed";
   const stepUpFresh =
     freshStepUpExpiresAt !== undefined && Date.parse(freshStepUpExpiresAt) > serverNowMs;
   const disabledReason =
@@ -259,6 +260,11 @@ export function SnapshotCommissionControl({
 
       {commissionCard.canCreateRequest ? (
         <>
+          {isRetryAfterFailure ? (
+            <p className="admin-agent-uex-runbook-note">
+              This creates a new bounded request. The failed request above remains available as audit evidence.
+            </p>
+          ) : null}
           <div className="admin-agent-ramp-fields">
             <fieldset className="admin-agent-commission-scope">
               <legend>Countries</legend>
@@ -334,7 +340,9 @@ export function SnapshotCommissionControl({
                 disabled={pending}
               >
                 <option value="">Select confirmation</option>
-                <option value={SNAPSHOT_COMMISSION_CONFIRMATION_STATE}>Request commissioning</option>
+                <option value={SNAPSHOT_COMMISSION_CONFIRMATION_STATE}>
+                  {isRetryAfterFailure ? "Request another commissioning run" : "Request commissioning"}
+                </option>
               </select>
             </label>
           </div>
@@ -348,7 +356,11 @@ export function SnapshotCommissionControl({
               disabled={Boolean(disabledReason) || pending}
               title={disabledReason ?? undefined}
             >
-              {pending ? "Submitting commissioning request..." : "Request commissioning"}
+              {pending
+                ? "Submitting commissioning request..."
+                : isRetryAfterFailure
+                  ? "Request another commissioning run"
+                  : "Request commissioning"}
             </button>
             {disabledReason ? (
               <p className="admin-action-status" data-state="unavailable">

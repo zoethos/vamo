@@ -85,7 +85,9 @@ export function presentSnapshotCommissionCard(input: {
     failureTelemetry: presentFailureTelemetry(request.failureTelemetry),
     requestedAt: request.requestedAt,
     requestedById: request.requestedById,
-    canCreateRequest: false,
+    // A failed request is terminal and remains as evidence, but it must not
+    // prevent the operator from recording a fresh bounded retry.
+    canCreateRequest: request.status === "failed" && !input.hasActiveRequest,
     confirmationState: "request_commission"
   };
 }
