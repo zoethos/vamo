@@ -1768,14 +1768,17 @@ Deliverables:
   query coverage evidence; missing IDs fail closed with
   `source_category_query_ids_required:<category>` before any provider call.
 - Portal adapter queries each `{country, consumerCategory}` scope with bound
-  country ISO + provider category IDs, resolving direct and parent-level IDs
-  through FSQ's categories dataset before matching places' most-granular
-  category IDs. It uses deterministic `ORDER BY fsq_place_id` and
-  `LIMIT maxRowsPerScope`. The trusted worker default is a five-minute query
+  country ISO + the explicit provider category IDs held on `places_os`.
+  The Portal catalog does not guarantee a separately queryable categories
+  relation, so hierarchy expansion is never guessed at runtime: a mapping must
+  include every approved provider ID it intends to acquire. It applies
+  `LIMIT maxRowsPerScope` without a remote sort; post-query taxonomy
+  classification still applies and accepted records are sorted locally for
+  deterministic output. The trusted worker default is a five-minute query
   deadline; `FSQ_OS_PLACES_PORTAL_QUERY_TIMEOUT_MS` is server/job-only and may
-  be set from 30 seconds through 15 minutes. Post-query taxonomy classification
-  still applies; cross-scope misclassifications are discarded; ambiguous
-  mappings remain fail-closed; place IDs dedupe deterministically.
+  be set from 30 seconds through 15 minutes. Cross-scope misclassifications are
+  discarded; ambiguous mappings remain fail-closed; place IDs dedupe
+  deterministically.
 - `SnapshotCoverageReport.byCountryAndPoiType` is populated from valid intake
   rows only (no invented zero cells). CLI prints requested/covered/missing
   scopes and the valid-row matrix without activating sparse scopes.
