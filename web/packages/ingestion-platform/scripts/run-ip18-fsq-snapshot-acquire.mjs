@@ -33,6 +33,8 @@ import {
   formatFsqSnapshotAcquireLog,
   isOutputPathInsideRepo,
   parseBatchPlanSpec,
+  FSQ_PORTAL_QUERY_TIMEOUT_ENV,
+  resolveFsqPortalQueryTimeoutMs,
   runFsqSnapshotAcquire
 } from "../dist/core/src/index.js";
 import { FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV } from "../dist/adapters/source/src/index.js";
@@ -101,9 +103,17 @@ const auditReason =
   "Register validated FSQ snapshot release after Portal/Iceberg acquisition execute.";
 const portalAccessToken = process.env[FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV];
 const controlConnectionString = process.env.INGESTION_CONTROL_DATABASE_URL;
+const queryTimeout = resolveFsqPortalQueryTimeoutMs(process.env[FSQ_PORTAL_QUERY_TIMEOUT_ENV]);
 
 if (countries.length === 0 || categories.length === 0) {
   console.error("Missing required arguments: --countries and --categories are required.");
+  process.exit(1);
+}
+
+if (!queryTimeout.ok) {
+  console.error(
+    `${FSQ_PORTAL_QUERY_TIMEOUT_ENV} must be a whole number from 30000 through 900000 milliseconds.`
+  );
   process.exit(1);
 }
 
@@ -160,6 +170,7 @@ const result = await runFsqSnapshotAcquire({
   portalAccessTokenExpiresAt: process.env.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT,
   sourceTaxonomy,
   duckDbRunner: execute ? createDefaultFsqPortalIcebergDuckDbRunner() : undefined,
+  queryTimeoutMs: queryTimeout.timeoutMs,
   artifactStoreBaseDir,
   artifactStore,
   projectKey,

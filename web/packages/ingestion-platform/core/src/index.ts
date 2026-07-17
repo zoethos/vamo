@@ -1035,6 +1035,14 @@ export {
 } from "./fsq-source-taxonomy.js";
 export { validateFsqPortalAccessTokenExpiry } from "./fsq-portal-access-token.js";
 export {
+  FSQ_PORTAL_QUERY_DEFAULT_TIMEOUT_MS,
+  FSQ_PORTAL_QUERY_MAX_TIMEOUT_MS,
+  FSQ_PORTAL_QUERY_MIN_TIMEOUT_MS,
+  FSQ_PORTAL_QUERY_TIMEOUT_ENV,
+  resolveFsqPortalQueryTimeoutMs,
+  type ResolveFsqPortalQueryTimeoutResult
+} from "./fsq-portal-query-timeout.js";
+export {
   SNAPSHOT_COMMISSION_CONFIRMATION_STATE,
   SNAPSHOT_COMMISSION_REQUEST_STATUSES,
   SNAPSHOT_COMMISSION_ACTIVE_STATUSES,

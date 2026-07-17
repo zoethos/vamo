@@ -13,6 +13,7 @@ import {
   validateFsqAcquisitionBounds as validateCoreFsqAcquisitionBounds
 } from "../../../core/src/fsq-acquisition-scope.js";
 import { buildFsqCategoryCoveragePlan } from "../../../core/src/fsq-category-coverage-plan.js";
+import { FSQ_PORTAL_QUERY_DEFAULT_TIMEOUT_MS } from "../../../core/src/fsq-portal-query-timeout.js";
 import {
   classifyFsqPlaceConsumerCategory,
   type FsqSourceTaxonomyMapping
@@ -39,9 +40,10 @@ export const FSQ_OS_PLACES_DEFAULT_PROVENANCE_URL =
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_ENDPOINT =
   "https://catalog.h3-hub.foursquare.com/iceberg" as const;
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE = "places.datasets.places_os" as const;
+export const FSQ_OS_PLACES_PORTAL_ICEBERG_CATEGORY_TABLE = "places.datasets.categories" as const;
 export const FSQ_OS_PLACES_PORTAL_ICEBERG_CATALOG_ALIAS = "places" as const;
 
-export const FSQ_OS_PLACES_PORTAL_DEFAULT_QUERY_TIMEOUT_MS = 120_000;
+export const FSQ_OS_PLACES_PORTAL_DEFAULT_QUERY_TIMEOUT_MS = FSQ_PORTAL_QUERY_DEFAULT_TIMEOUT_MS;
 
 /** Country plan keys → ISO-3166 alpha-2 codes used by FSQ OS Places. */
 export const FSQ_OS_PLACES_COUNTRY_ISO: Readonly<Record<string, string>> = {
@@ -201,6 +203,7 @@ export function buildFsqPortalIcebergSetupSql(input: {
 
 export function buildFsqPortalIcebergSelectSql(input: {
   table?: string;
+  categoryTable?: string;
   countryIso: string;
   providerCategoryIds: readonly string[];
   limit: number;
@@ -209,6 +212,7 @@ export function buildFsqPortalIcebergSelectSql(input: {
   params: Record<string, string | number>;
 } {
   const table = input.table ?? FSQ_OS_PLACES_PORTAL_ICEBERG_TABLE;
+  const categoryTable = input.categoryTable ?? FSQ_OS_PLACES_PORTAL_ICEBERG_CATEGORY_TABLE;
   if (input.providerCategoryIds.length === 0) {
     throw new Error("providerCategoryIds_required");
   }
@@ -221,25 +225,50 @@ export function buildFsqPortalIcebergSelectSql(input: {
   input.providerCategoryIds.forEach((providerCategoryId, index) => {
     const key = `providerCategoryId${index}`;
     params[key] = providerCategoryId;
-    categoryPredicates.push(`list_contains(fsq_category_ids, $${key})`);
+    // FSQ places hold the most-granular IDs. A configured ID may itself be a
+    // leaf or a level-two parent, so resolve both through the categories table.
+    categoryPredicates.push(
+      `(category_id = $${key} OR level2_category_id = $${key})`
+    );
   });
 
   // Fixed identifiers only; country, provider IDs, and limit are bound params.
+  // This follows FSQ's documented parent-category approach, with the country
+  // predicate applied before unnesting category arrays.
   return {
     sql: `
+WITH matching_categories AS (
+  SELECT category_id
+  FROM ${categoryTable}
+  WHERE ${categoryPredicates.join(" OR ")}
+),
+country_places AS (
+  SELECT
+    p.fsq_place_id,
+    p.name,
+    p.latitude,
+    p.longitude,
+    p.country,
+    p.locality,
+    p.fsq_category_ids,
+    p.fsq_category_labels,
+    category_match.fsq_category_id
+  FROM ${table} AS p
+  CROSS JOIN UNNEST(p.fsq_category_ids) AS category_match(fsq_category_id)
+  WHERE p.country = $countryIso
+)
 SELECT
-  fsq_place_id,
-  name,
-  latitude,
-  longitude,
-  country,
-  locality,
-  fsq_category_ids,
-  fsq_category_labels
-FROM ${table}
-WHERE country = $countryIso
-  AND (${categoryPredicates.join(" OR ")})
-ORDER BY fsq_place_id ASC
+  DISTINCT p.fsq_place_id,
+  p.name,
+  p.latitude,
+  p.longitude,
+  p.country,
+  p.locality,
+  p.fsq_category_ids,
+  p.fsq_category_labels
+FROM country_places AS p
+INNER JOIN matching_categories AS c ON c.category_id = p.fsq_category_id
+ORDER BY p.fsq_place_id ASC
 LIMIT $limit
 `.trim(),
     params
