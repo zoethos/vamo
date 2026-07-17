@@ -83,10 +83,12 @@ describe("presentSnapshotCommissionCard", () => {
           card.errorMessage,
           snapshotCommissionOperatorErrorForCode("acquisition_blocked")
         );
+        assert.equal(card.canCreateRequest, true);
       }
       if (status === "activation_pending") {
         assert.match(card.nextHumanAction, /snapshot-activate/i);
         assert.match(card.recoveryHint ?? "", /never automatic/i);
+        assert.equal(card.canCreateRequest, false);
       }
     });
   }
