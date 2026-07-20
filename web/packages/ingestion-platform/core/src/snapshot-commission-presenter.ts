@@ -105,8 +105,10 @@ function presentCommissionStatus(status: SnapshotCommissionRequestStatus): {
         label: "Requested",
         tone: "info",
         description: "The commissioning request is queued for a trusted worker.",
-        nextHumanAction: "Wait for the trusted worker to claim and execute acquisition.",
-        recoveryHint: "If the worker is unavailable, verify the job schedule and control-plane connectivity."
+        nextHumanAction:
+          "Start the protected commissioning worker workflow for this control environment, then keep this page open for status updates.",
+        recoveryHint:
+          "The Console checks this request while it is active. If it does not begin running, verify the protected job workflow and control-plane connectivity."
       };
     case "running":
       return {
@@ -114,7 +116,8 @@ function presentCommissionStatus(status: SnapshotCommissionRequestStatus): {
         tone: "info",
         description: "A trusted worker is executing bounded FSQ acquisition.",
         nextHumanAction: "Wait for acquisition to finish. Do not submit another request for this plan.",
-        recoveryHint: "If this state persists, inspect worker logs and retry from the worker after failure recovery."
+        recoveryHint:
+          "The Console refreshes this status automatically. If it persists, inspect the protected worker log for this control environment and retry only after failure recovery."
       };
     case "release_registered":
       return {

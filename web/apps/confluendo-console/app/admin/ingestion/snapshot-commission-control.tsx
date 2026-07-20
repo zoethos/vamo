@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminAssuranceLevel, AdminRole } from "@confluendo/ingestion-platform/admin-auth";
 import type { SnapshotCommissionCardPresentation } from "@confluendo/ingestion-platform/core";
@@ -41,6 +41,8 @@ const blockLabels: Record<string, string> = {
 const freshStepUpHref =
   "/admin/mfa/challenge?reason=fresh_step_up_required&next=%2Fadmin%2Fingestion";
 
+const COMMISSION_STATUS_REFRESH_INTERVAL_MS = 10_000;
+
 export function SnapshotCommissionControl({
   projectKey,
   planKey,
@@ -72,8 +74,12 @@ export function SnapshotCommissionControl({
   const [decision, setDecision] = useState<Decision>({ state: "idle" });
   const inFlightRef = useRef(false);
   const router = useRouter();
+  const [isStatusRefreshPending, startStatusRefresh] = useTransition();
 
   const pending = decision.state === "running";
+  const awaitingSubmittedRequest =
+    decision.state === "requested" && commissionCard.requestId !== decision.requestId;
+  const awaitingWorker = isActiveCommissionStatus(commissionCard.status) || awaitingSubmittedRequest;
   const isRetryAfterFailure = commissionCard.status === "failed";
   const stepUpFresh =
     freshStepUpExpiresAt !== undefined && Date.parse(freshStepUpExpiresAt) > serverNowMs;
@@ -88,6 +94,24 @@ export function SnapshotCommissionControl({
     (confirmedState !== SNAPSHOT_COMMISSION_CONFIRMATION_STATE
       ? "Select request commissioning in the confirmation dropdown."
       : undefined);
+
+  useEffect(() => {
+    if (!awaitingWorker) {
+      return;
+    }
+
+    const refreshStatus = () => {
+      if (document.visibilityState === "visible") {
+        startStatusRefresh(() => router.refresh());
+      }
+    };
+    const interval = window.setInterval(refreshStatus, COMMISSION_STATUS_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", refreshStatus);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshStatus);
+    };
+  }, [awaitingWorker, router, startStatusRefresh]);
 
   async function submitRequest() {
     if (inFlightRef.current) {
@@ -191,6 +215,16 @@ export function SnapshotCommissionControl({
       </div>
 
       <p className="admin-agent-ramp-note">{commissionCard.description}</p>
+
+      {awaitingWorker ? (
+        <div className="admin-command-result admin-command-result-watch" role="status" aria-live="polite">
+          <strong>{isStatusRefreshPending ? "Checking worker status..." : "Status refresh active"}</strong>
+          <span>
+            This page checks the control plane every 10 seconds while the request is active. The protected
+            staging worker runs separately; this browser never calls FSQ or accesses release artifacts.
+          </span>
+        </div>
+      ) : null}
 
       <dl className="admin-agent-uex-meta">
         <div>
@@ -439,4 +473,8 @@ function commissionDisabledReason(
     return "An active commissioning request already exists for this batch plan.";
   }
   return undefined;
+}
+
+function isActiveCommissionStatus(status: SnapshotCommissionCardPresentation["status"]): boolean {
+  return status === "requested" || status === "running" || status === "release_registered";
 }

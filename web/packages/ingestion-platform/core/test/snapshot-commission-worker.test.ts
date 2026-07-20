@@ -99,6 +99,8 @@ describe("runSnapshotCommissionWorker", () => {
     assert.match(workerScript, /result\.outcome === "pending_retry"/);
     assert.match(workerScript, /process\.exitCode = 1/);
     assert.match(workerScript, /resolveFsqPortalQueryTimeoutMs/);
+    assert.match(workerScript, /--require-hosted-artifact-store/);
+    assert.match(workerScript, /requireHostedStore: requireHostedArtifactStore/);
     assert.match(workerScript, /process\.exit\(process\.exitCode \?\? 0\)/);
     assert.match(workerModule, /traceId: failureTelemetry\.traceId/);
     assert.match(workerModule, /Snapshot commission worker acquisition failed/, "raw worker errors retain a trace ID in trusted logs");

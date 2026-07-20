@@ -683,6 +683,9 @@ describe("snapshot commission route artifact", () => {
     assert.doesNotMatch(postBodyBlock[0]!, /sourceKey/);
     assert.doesNotMatch(postBodyBlock[0]!, /planKey/);
     assert.match(controlSource, /trusted worker/i);
+    assert.match(controlSource, /COMMISSION_STATUS_REFRESH_INTERVAL_MS/);
+    assert.match(controlSource, /document\.visibilityState/);
+    assert.match(controlSource, /router\.refresh\(\)/);
   });
 
   it("keeps commissioning parser free of provider adapter imports", () => {

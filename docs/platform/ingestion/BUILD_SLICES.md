@@ -1788,6 +1788,44 @@ Deliverables:
 Architecture: pure helper for query/coverage planning; adapter/gateway remains
 the sole DuckDB/Iceberg boundary.
 
+### IP-18.8.20 — implemented (hosted staging commissioning worker)
+
+**Status:** done — a protected, manually dispatched GitHub Actions worker runs
+one existing Staging commissioning request on a stable Linux job runner.
+**Not** browser execution, **not** automatic request dispatch, **not** release
+activation, **not** production commissioning, and **not** Vamo writes.
+
+Deliverables:
+
+- `.github/workflows/confluendo-snapshot-commission-staging.yml` is
+  `workflow_dispatch` only. It has no scope or plan input: the worker claims at
+  most one already-recorded Staging request from the control plane.
+- The job is constrained to the protected GitHub environment
+  `confluendo-control-staging`, uses the owner control-DB connection and FSQ
+  Portal credential only as environment secrets, and requires the hosted
+  Supabase artifact-store profile. A local filesystem artifact store is refused.
+- The existing `ip18:snapshot-commission-worker` remains the only execution
+  path. It still registers a verified release as `activation_pending`; activation
+  remains a separately confirmed operator action.
+- The Queue commissioning card refreshes its existing control-plane snapshot
+  every 10 seconds while a request is active. It visibly says when it is
+  checking status, and it never triggers acquisition from the browser.
+- Boundary audit locks the workflow to manual staging execution, protected
+  server-only secrets, and the hosted-artifact requirement.
+
+Human provisioning after merge:
+
+1. Create the GitHub Environment `confluendo-control-staging` and add the
+   server-only control DB, FSQ Portal, and Supabase artifact-store secrets.
+2. Record a bounded request in the Staging Console, then use **Actions →
+   Confluendo staging snapshot commission → Run workflow** on `main`.
+3. Watch the Queue card until it reaches `Activation pending` or `Failed`; use
+   the protected Actions log with its persisted trace ID for failure diagnosis.
+
+Production remains intentionally uncommissioned by GitHub Actions. It needs a
+separate Confluendo-owned managed job runtime and independently protected
+production credentials before it can be enabled.
+
 ### IP-18.8.17 — implemented (safe plan contract refresh)
 
 **Status:** done — add a missing published `sourceTaxonomy` to an active plan
