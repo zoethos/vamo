@@ -1,0 +1,51 @@
+name: Confluendo staging snapshot commission
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: confluendo-staging-snapshot-commission
+  cancel-in-progress: false
+
+jobs:
+  commission:
+    name: Claim one staging commissioning request
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: confluendo-control-staging
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Claim and run one bounded staging request
+        env:
+          CONFIRM_CONFLUENDO_SNAPSHOT_COMMISSION_WORKER: "YES"
+          INGESTION_CONTROL_DATABASE_URL: ${{ secrets.INGESTION_CONTROL_OWNER_DATABASE_URL }}
+          FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN: ${{ secrets.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN }}
+          FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT: ${{ secrets.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_EXPIRES_AT }}
+          FSQ_OS_PLACES_PORTAL_QUERY_TIMEOUT_MS: "900000"
+          CONFLUENDO_SNAPSHOT_ARTIFACT_STORE: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_STORE }}
+          CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF }}
+          CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET }}
+          CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION }}
+          CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID }}
+          CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY: ${{ secrets.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY }}
+        run: >-
+          npm --workspace @confluendo/ingestion-platform run ip18:snapshot-commission-worker --
+          --worker-id github-actions-confluendo-staging
+          --require-hosted-artifact-store

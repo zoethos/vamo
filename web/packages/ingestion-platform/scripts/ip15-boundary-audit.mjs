@@ -301,6 +301,39 @@ assert(
   "hosted scheduler success response must not expose artifact-store config"
 );
 
+const stagingSnapshotCommissionWorkflow = path.join(
+  repoRoot,
+  ".github",
+  "workflows",
+  "confluendo-snapshot-commission-staging.yml"
+);
+const stagingSnapshotCommissionWorkflowSource = readFileSync(stagingSnapshotCommissionWorkflow, "utf8");
+assert(
+  /workflow_dispatch:/.test(stagingSnapshotCommissionWorkflowSource) &&
+    !/\bpull_request:|\bpush:/.test(stagingSnapshotCommissionWorkflowSource),
+  "staging snapshot commission workflow must be manually dispatched only"
+);
+assert(
+  /environment:\s*\n\s+name:\s+confluendo-control-staging/.test(
+    stagingSnapshotCommissionWorkflowSource
+  ),
+  "staging snapshot commission workflow must use the protected confluendo-control-staging environment"
+);
+assert(
+  /ip18:snapshot-commission-worker/.test(stagingSnapshotCommissionWorkflowSource) &&
+    /--require-hosted-artifact-store/.test(stagingSnapshotCommissionWorkflowSource),
+  "staging snapshot commission workflow must run the trusted worker with a hosted artifact store"
+);
+assert(
+  /secrets\.INGESTION_CONTROL_OWNER_DATABASE_URL/.test(stagingSnapshotCommissionWorkflowSource) &&
+    /secrets\.FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/.test(stagingSnapshotCommissionWorkflowSource) &&
+    /secrets\.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY/.test(
+      stagingSnapshotCommissionWorkflowSource
+    ) &&
+    !/NEXT_PUBLIC_/.test(stagingSnapshotCommissionWorkflowSource),
+  "staging snapshot commission workflow must use server-only protected secrets"
+);
+
 assert(
   /\bFSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV\b/.test(fsqAcquisitionSource) &&
     !/TOKEN\s*=\s*['"][^'"]+['"]/.test(fsqAcquisitionSource),

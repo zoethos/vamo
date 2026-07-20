@@ -44,6 +44,20 @@ describe("presentSnapshotCommissionCard", () => {
     assert.match(card.nextHumanAction, /trusted worker/i);
   });
 
+  it("directs a requested release to the protected worker workflow for its control environment", () => {
+    const card = presentSnapshotCommissionCard({
+      request: baseRequest,
+      hasActiveRequest: true,
+      defaultSourceKey: "fsq-os-places-snapshot",
+      defaultCountries: ["italy"],
+      defaultCategories: ["poi"],
+      defaultMaxRowsPerScope: 250
+    });
+
+    assert.match(card.nextHumanAction, /protected commissioning worker workflow for this control environment/i);
+    assert.match(card.recoveryHint ?? "", /Console checks this request/i);
+  });
+
   for (const status of [
     "requested",
     "running",

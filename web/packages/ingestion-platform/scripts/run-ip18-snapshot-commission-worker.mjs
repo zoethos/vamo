@@ -19,6 +19,7 @@ const workerId = readArg("--worker-id") ?? "snapshot-commission-worker";
 const workerRunKey = readArg("--worker-run-key") ?? randomUUID();
 const controlDsn = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
 const queryTimeout = resolveFsqPortalQueryTimeoutMs(process.env[FSQ_PORTAL_QUERY_TIMEOUT_ENV]);
+const requireHostedArtifactStore = process.argv.includes("--require-hosted-artifact-store");
 
 if (!controlDsn) {
   console.error("INGESTION_CONTROL_DATABASE_URL is required.");
@@ -39,7 +40,9 @@ if (process.env[SNAPSHOT_COMMISSION_WORKER_CONFIRMATION_ENV] !== SNAPSHOT_COMMIS
   process.exit(1);
 }
 
-const artifactStoreResolved = await resolveCliSnapshotArtifactStore({});
+const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+  requireHostedStore: requireHostedArtifactStore
+});
 if (!artifactStoreResolved.ok) {
   console.error("Snapshot artifact store is required for commission worker execution.");
   process.exit(1);
