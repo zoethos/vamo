@@ -14,3 +14,13 @@ jobs:
       scan-args: |-
         --recursive
         ./
+  sharp-reachability-guard:
+    name: sharp-reachability-guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+      - run: node --test web/scripts/osv-sharp-reachability-guard.test.mjs
+      - run: node web/scripts/osv-sharp-reachability-guard.mjs
