@@ -27,6 +27,9 @@ export function isSnapshotArtifactStorageError(
 }
 
 export function isObjectNotFoundError(error: unknown): boolean {
+  if (isSnapshotArtifactStorageError(error)) {
+    return error.code === "artifact_bundle_missing";
+  }
   if (typeof error !== "object" || error === null) {
     return false;
   }
