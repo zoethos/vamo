@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { classifyArtifactReadError } from "../src/snapshot-artifact-storage-error.js";
+import {
+  classifyArtifactReadError,
+  isObjectNotFoundError,
+  SnapshotArtifactStorageError
+} from "../src/snapshot-artifact-storage-error.js";
 
 describe("snapshot artifact storage error classification", () => {
   it("classifies S3 authorization status responses without exposing the provider error", () => {
@@ -22,5 +26,14 @@ describe("snapshot artifact storage error classification", () => {
     });
 
     assert.equal(classified.code, "artifact_storage_access_denied");
+  });
+
+  it("keeps a wrapped missing-object error detectable by immutable writes", () => {
+    const wrapped = new SnapshotArtifactStorageError(
+      "artifact_bundle_missing",
+      "Snapshot artifact bundle file was not found."
+    );
+
+    assert.equal(isObjectNotFoundError(wrapped), true);
   });
 });

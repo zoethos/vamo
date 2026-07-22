@@ -6,7 +6,10 @@ import {
   computeSnapshotArtifactBundleSha256,
   deriveSnapshotArtifactKey
 } from "../../../core/src/snapshot-artifact-store.js";
-import { isSnapshotArtifactStorageError } from "../../../core/src/snapshot-artifact-storage-error.js";
+import {
+  isSnapshotArtifactStorageError,
+  SnapshotArtifactStorageError
+} from "../../../core/src/snapshot-artifact-storage-error.js";
 import {
   createS3SnapshotArtifactStore,
   type S3ObjectClientLike
@@ -114,6 +117,19 @@ class PartialUploadFakeS3Client extends FakeS3Client {
   }
 }
 
+class WrappedMissingObjectFakeS3Client extends FakeS3Client {
+  override async getObject(input: { bucket: string; key: string }) {
+    const value = this.objects.get(`${input.bucket}/${input.key}`);
+    if (value === undefined) {
+      throw new SnapshotArtifactStorageError(
+        "artifact_bundle_missing",
+        "Snapshot artifact bundle file was not found."
+      );
+    }
+    return { body: value };
+  }
+}
+
 describe("s3 snapshot artifact store", () => {
   it("stores, reads, and verifies immutable bundles without using ETags", async () => {
     const sampleArtifacts = buildSampleArtifacts();
@@ -184,6 +200,34 @@ describe("s3 snapshot artifact store", () => {
     assert.equal(await store.verifyReleaseBundle({ artifactKey, expectedBundleSha256: put.bundleSha256 }), true);
     assert.equal(client.putRequests.length, 3);
     assert.ok(client.putRequests.every((request) => request.ifNoneMatch === undefined));
+  });
+
+  it("writes a new bundle after the transport has wrapped an expected missing-object response", async () => {
+    const sampleArtifacts = buildSampleArtifacts();
+    const artifacts = {
+      sourceJsonl: sampleArtifacts.sourceJsonl,
+      releaseJson: sampleArtifacts.releaseJson,
+      coverageReportJson: sampleArtifacts.coverageReportJson
+    };
+    const store = createS3SnapshotArtifactStore({
+      config: {
+        kind: "s3",
+        provider: "supabase_storage",
+        bucket: "snapshot-artifacts",
+        region: "eu-central-1",
+        endpoint: "https://example.storage.supabase.co/storage/v1/s3"
+      },
+      client: new WrappedMissingObjectFakeS3Client()
+    });
+    const artifactKey = deriveSnapshotArtifactKey({
+      sourceKey: "fsq-os-places-snapshot",
+      releaseId: sampleArtifacts.releaseId,
+      outputSha256: sampleArtifacts.outputSha256
+    });
+
+    const stored = await store.putReleaseBundle({ artifactKey, artifacts });
+
+    assert.equal(stored.bundleSha256, computeSnapshotArtifactBundleSha256(artifacts));
   });
 
   it("accepts idempotent retries with identical bundle content", async () => {
