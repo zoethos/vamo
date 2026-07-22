@@ -1,0 +1,4 @@
+[[IgnoredVulns]]
+id = "GHSA-f88m-g3jw-g9cj"
+ignoreUntil = 2026-08-21
+reason = "Temporary: sharp 0.34.5 is transitive through Next and currently receives only fixed local /brand assets. Remove when stable Next resolves sharp >= 0.35.0. CI rejects remote, dynamic, console, or direct-sharp use."
