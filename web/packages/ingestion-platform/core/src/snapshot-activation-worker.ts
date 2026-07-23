@@ -76,6 +76,37 @@ export async function runSnapshotActivationWorker(input: {
     };
   }
 
+  if (!request.auditReason.trim()) {
+    const failureTelemetry = describeSnapshotActivationPreconditionFailure({
+      blocks: ["activation_request_audit_reason_missing"]
+    });
+    console.error("Snapshot activation worker claim is missing an audit reason", {
+      requestId: request.requestId,
+      workerRunKey: input.workerRunKey,
+      traceId: failureTelemetry.traceId,
+      stage: failureTelemetry.stage,
+      classification: failureTelemetry.classification
+    });
+    const completed = await completeSnapshotActivationRequest({
+      connectionString: input.connectionString,
+      requestId: request.requestId,
+      workerRunKey: input.workerRunKey,
+      status: "failed",
+      errorCode: "activation_request_audit_reason_missing",
+      errorMessage: "The worker could not load the activation request audit reason.",
+      failureTelemetry
+    });
+    return {
+      ok: true,
+      outcome: "failed",
+      requestId: completed.requestId,
+      releaseId: request.releaseId,
+      errorCode: "activation_request_audit_reason_missing",
+      errorMessage: "The worker could not load the activation request audit reason.",
+      traceId: failureTelemetry.traceId
+    };
+  }
+
   try {
     const activation = await runSnapshotReleaseActivation({
       preview: false,

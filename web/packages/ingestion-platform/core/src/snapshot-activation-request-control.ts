@@ -273,7 +273,7 @@ function mapClaimResult(result: Record<string, unknown>): SnapshotActivationRequ
     commission_request_id: String(result.commissionRequestId),
     release_id: String(result.releaseId),
     status: String(result.status),
-    audit_reason: "",
+    audit_reason: typeof result.auditReason === "string" ? result.auditReason : "",
     requested_by_type: "operator",
     requested_by_id: "",
     requested_at: new Date(0),

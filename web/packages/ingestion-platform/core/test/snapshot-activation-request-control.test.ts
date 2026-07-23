@@ -48,6 +48,39 @@ describe("snapshot activation request control adapter", () => {
     assert.equal(created.requestId, "1");
     assert.equal(connectCalls, 0);
   });
+
+  it("preserves the recorded audit reason when a worker claims a request", async () => {
+    const client = {
+      query: async () => ({
+        rows: [
+          {
+            result: {
+              ok: true,
+              idempotentReplay: false,
+              requestId: "1",
+              projectKey: smokeProjectKey,
+              planKey: smokePlanKey,
+              commissionRequestId: "2",
+              releaseId: "fsq-release-1",
+              status: "running",
+              auditReason: "Activate the reviewed release after staging verification.",
+              attemptCount: 1
+            }
+          }
+        ]
+      })
+    };
+
+    const claimed = await claimSnapshotActivationRequest({
+      client: client as unknown as SnapshotActivationRequestPgClientLike,
+      workerId: "activation-worker",
+      workerRunKey: "activation-run-1"
+    });
+
+    assert.equal(claimed.ok, true);
+    if (!claimed.ok) return;
+    assert.equal(claimed.request.auditReason, "Activate the reviewed release after staging verification.");
+  });
 });
 
 describe("snapshot activation request control schema", () => {
@@ -57,6 +90,11 @@ describe("snapshot activation request control schema", () => {
     assert.match(controlSchemaSql, /create_snapshot_activation_request/);
     assert.match(controlSchemaSql, /claim_snapshot_activation_request/);
     assert.match(controlSchemaSql, /complete_snapshot_activation_request/);
+    assert.equal(
+      [...controlSchemaSql.matchAll(/'auditReason', v_request\.audit_reason/g)].length,
+      2,
+      "both claim responses must carry the operator audit reason"
+    );
     assert.match(controlSchemaSql, /ingestion_snapshot_activation_requests_failure_telemetry_object/);
     assert.match(controlSchemaSql, /snapshot_activation\.failed/);
     assert.match(confluendoBootstrapSql, /grant select on ingestion_platform\.ingestion_snapshot_activation_requests/i);
@@ -167,6 +205,7 @@ describe("snapshot activation request control DB smoke", () => {
         assert.equal(claimed.ok, true);
         if (!claimed.ok) return;
         assert.equal(claimed.request.status, "running");
+        assert.equal(claimed.request.auditReason, "Activate reviewed release.");
         await completeSnapshotActivationRequest({
           client: owner,
           requestId: claimed.request.requestId,
