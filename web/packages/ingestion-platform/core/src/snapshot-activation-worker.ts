@@ -12,6 +12,10 @@ import {
   SNAPSHOT_ACTIVATION_CONFIRMATION_VALUE,
   runSnapshotReleaseActivation
 } from "./snapshot-release-activation.js";
+import {
+  describeSnapshotActivationPreconditionFailure,
+  describeUnexpectedSnapshotActivationFailure
+} from "./snapshot-activation-failure-telemetry.js";
 import type { SnapshotArtifactStore } from "./snapshot-artifact-store.js";
 
 export const SNAPSHOT_ACTIVATION_WORKER_CONFIRMATION_ENV =
@@ -22,7 +26,7 @@ export type SnapshotActivationWorkerResult =
   | { ok: false; blocks: string[] }
   | { ok: true; outcome: "idle"; message: string }
   | { ok: true; outcome: "activated"; requestId: string; releaseId: string; bindingId: string; auditId: string; idempotentReplay: boolean }
-  | { ok: true; outcome: "failed"; requestId: string; releaseId: string; errorCode: string; errorMessage: string };
+  | { ok: true; outcome: "failed"; requestId: string; releaseId: string; errorCode: string; errorMessage: string; traceId?: string };
 
 export async function runSnapshotActivationWorker(input: {
   connectionString: string;
@@ -67,7 +71,8 @@ export async function runSnapshotActivationWorker(input: {
       requestId: request.requestId,
       releaseId: request.releaseId,
       errorCode: request.errorCode ?? "worker_execution_failed",
-      errorMessage: request.errorMessage ?? "Activation worker could not complete the request."
+      errorMessage: request.errorMessage ?? "Activation worker could not complete the request.",
+      traceId: request.failureTelemetry?.traceId
     };
   }
 
@@ -86,13 +91,22 @@ export async function runSnapshotActivationWorker(input: {
     });
 
     if (!activation.ok) {
+      const failureTelemetry = describeSnapshotActivationPreconditionFailure({ blocks: activation.blocks });
+      console.warn("Snapshot activation worker blocked", {
+        requestId: request.requestId,
+        workerRunKey: input.workerRunKey,
+        traceId: failureTelemetry.traceId,
+        stage: failureTelemetry.stage,
+        classification: failureTelemetry.classification
+      });
       const completed = await completeSnapshotActivationRequest({
         connectionString: input.connectionString,
         requestId: request.requestId,
         workerRunKey: input.workerRunKey,
         status: "failed",
         errorCode: "activation_blocked",
-        errorMessage: "A verified artifact, release, or queue precondition blocked activation."
+        errorMessage: "A verified artifact, release, or queue precondition blocked activation.",
+        failureTelemetry
       });
       return {
         ok: true,
@@ -100,7 +114,8 @@ export async function runSnapshotActivationWorker(input: {
         requestId: completed.requestId,
         releaseId: request.releaseId,
         errorCode: "activation_blocked",
-        errorMessage: "A verified artifact, release, or queue precondition blocked activation."
+        errorMessage: "A verified artifact, release, or queue precondition blocked activation.",
+        traceId: failureTelemetry.traceId
       };
     }
 
@@ -125,14 +140,25 @@ export async function runSnapshotActivationWorker(input: {
       auditId: activation.result.auditId,
       idempotentReplay: false
     };
-  } catch {
+  } catch (error) {
+    const failureTelemetry = describeUnexpectedSnapshotActivationFailure(error);
+    console.error("Snapshot activation worker execution failed", {
+      requestId: request.requestId,
+      workerRunKey: input.workerRunKey,
+      traceId: failureTelemetry.traceId,
+      stage: failureTelemetry.stage,
+      classification: failureTelemetry.classification,
+      errorFingerprint: failureTelemetry.errorFingerprint,
+      sourceErrorCode: failureTelemetry.sourceErrorCode
+    }, error);
     const completed = await completeSnapshotActivationRequest({
       connectionString: input.connectionString,
       requestId: request.requestId,
       workerRunKey: input.workerRunKey,
       status: "failed",
       errorCode: "worker_execution_failed",
-      errorMessage: "Activation worker could not complete the request."
+      errorMessage: "Activation worker could not complete the request.",
+      failureTelemetry
     });
     return {
       ok: true,
@@ -140,7 +166,8 @@ export async function runSnapshotActivationWorker(input: {
       requestId: completed.requestId,
       releaseId: request.releaseId,
       errorCode: "worker_execution_failed",
-      errorMessage: "Activation worker could not complete the request."
+      errorMessage: "Activation worker could not complete the request.",
+      traceId: failureTelemetry.traceId
     };
   }
 }

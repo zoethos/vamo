@@ -958,6 +958,7 @@ export {
   canTransitionSnapshotActivationRequestStatus,
   isSnapshotActivationRequestStatus,
   parseSnapshotActivationRequestCreate,
+  type SnapshotActivationFailureTelemetry,
   type SnapshotActivationRequestCreateInput,
   type SnapshotActivationRequestRecord,
   type SnapshotActivationRequestStatus

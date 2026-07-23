@@ -2772,6 +2772,7 @@ create table if not exists ingestion_platform.ingestion_snapshot_activation_requ
   activation_audit_id bigint,
   error_code text,
   error_message text,
+  failure_telemetry jsonb not null default '{}'::jsonb,
   completed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -2780,8 +2781,29 @@ create table if not exists ingestion_platform.ingestion_snapshot_activation_requ
   ),
   constraint ingestion_snapshot_activation_requests_attempt_count_nonnegative check (
     attempt_count >= 0
+  ),
+  constraint ingestion_snapshot_activation_requests_failure_telemetry_object check (
+    jsonb_typeof(failure_telemetry) = 'object'
   )
 );
+
+alter table ingestion_platform.ingestion_snapshot_activation_requests
+  add column if not exists failure_telemetry jsonb not null default '{}'::jsonb;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'ingestion_snapshot_activation_requests_failure_telemetry_object'
+      and conrelid = 'ingestion_platform.ingestion_snapshot_activation_requests'::regclass
+  ) then
+    alter table ingestion_platform.ingestion_snapshot_activation_requests
+      add constraint ingestion_snapshot_activation_requests_failure_telemetry_object
+      check (jsonb_typeof(failure_telemetry) = 'object');
+  end if;
+end;
+$$;
 
 create index if not exists ingestion_snapshot_activation_requests_project_plan_status_idx
   on ingestion_platform.ingestion_snapshot_activation_requests (project_id, batch_plan_id, status, requested_at desc);
@@ -2973,7 +2995,8 @@ begin
       'status', v_request.status, 'attemptCount', v_request.attempt_count,
       'claimExpiresAt', v_request.claim_expires_at, 'bindingId', v_request.binding_id::text,
       'activationAuditId', v_request.activation_audit_id::text,
-      'errorCode', v_request.error_code, 'errorMessage', v_request.error_message
+      'errorCode', v_request.error_code, 'errorMessage', v_request.error_message,
+      'failureTelemetry', case when v_request.status = 'failed' then v_request.failure_telemetry else null end
     );
   end if;
 
@@ -3028,7 +3051,8 @@ create or replace function ingestion_platform.complete_snapshot_activation_reque
   p_binding_id bigint,
   p_activation_audit_id bigint,
   p_error_code text,
-  p_error_message text
+  p_error_message text,
+  p_failure_telemetry jsonb
 ) returns jsonb
 language plpgsql
 security definer
@@ -3042,6 +3066,7 @@ begin
   p_status := nullif(btrim(p_status), '');
   p_error_code := nullif(btrim(p_error_code), '');
   p_error_message := nullif(btrim(p_error_message), '');
+  p_failure_telemetry := coalesce(p_failure_telemetry, '{}'::jsonb);
   if p_worker_run_key is null or p_status is null then
     raise exception 'missing_completion_identity';
   end if;
@@ -3067,6 +3092,50 @@ begin
   if p_status = 'failed' and p_error_code is null then
     raise exception 'missing_error_code';
   end if;
+  if jsonb_typeof(p_failure_telemetry) <> 'object' then
+    raise exception 'invalid_failure_telemetry';
+  end if;
+  if exists (
+    select 1
+    from jsonb_object_keys(p_failure_telemetry) as telemetry_key(key)
+    where key not in (
+      'traceId',
+      'stage',
+      'classification',
+      'errorFingerprint',
+      'sourceErrorCode'
+    )
+  ) then
+    raise exception 'invalid_failure_telemetry';
+  end if;
+  if p_status = 'failed' and (
+    nullif(btrim(p_failure_telemetry->>'traceId'), '') is null or
+    nullif(btrim(p_failure_telemetry->>'stage'), '') is null or
+    nullif(btrim(p_failure_telemetry->>'classification'), '') is null
+  ) then
+    raise exception 'missing_failure_telemetry';
+  end if;
+  if p_status = 'failed' and (
+    p_failure_telemetry->>'traceId' !~ '^[A-Za-z0-9-]{1,128}$' or
+    p_failure_telemetry->>'stage' not in (
+      'artifact_store',
+      'release_registry',
+      'control_plane',
+      'activation',
+      'worker'
+    ) or
+    p_failure_telemetry->>'classification' !~ '^[a-z0-9_-]{1,96}$' or
+    (
+      p_failure_telemetry ? 'errorFingerprint' and
+      p_failure_telemetry->>'errorFingerprint' !~ '^[A-Fa-f0-9]{64}$'
+    ) or
+    (
+      p_failure_telemetry ? 'sourceErrorCode' and
+      p_failure_telemetry->>'sourceErrorCode' !~ '^[A-Za-z0-9_-]{1,32}$'
+    )
+  ) then
+    raise exception 'invalid_failure_telemetry';
+  end if;
 
   update ingestion_platform.ingestion_snapshot_activation_requests
   set status = p_status,
@@ -3074,6 +3143,7 @@ begin
       activation_audit_id = case when p_status = 'activated' then p_activation_audit_id else activation_audit_id end,
       error_code = p_error_code,
       error_message = p_error_message,
+      failure_telemetry = case when p_status = 'failed' then p_failure_telemetry else failure_telemetry end,
       completed_at = now(), claim_expires_at = null, updated_at = now()
   where id = v_request.id returning * into v_request;
 
@@ -3086,15 +3156,78 @@ begin
     jsonb_build_object(
       'requestId', v_request.id::text, 'status', v_request.status,
       'releaseId', v_request.release_id, 'bindingId', v_request.binding_id,
-      'activationAuditId', v_request.activation_audit_id, 'errorCode', v_request.error_code
+      'activationAuditId', v_request.activation_audit_id, 'errorCode', v_request.error_code,
+      'failureTelemetry', case when v_request.status = 'failed' then v_request.failure_telemetry else null end
     )
   ) returning id into v_audit_id;
 
+  if v_request.status = 'failed' then
+    insert into ingestion_platform.ingestion_events (
+      project_id,
+      event_type,
+      severity,
+      signal,
+      message,
+      payload
+    ) values (
+      v_request.project_id,
+      'snapshot_activation.failed',
+      'error',
+      v_request.error_code,
+      coalesce(v_request.error_message, 'Snapshot activation failed.'),
+      jsonb_build_object(
+        'requestId', v_request.id::text,
+        'workerRunKey', v_request.worker_run_key,
+        'traceId', v_request.failure_telemetry->>'traceId',
+        'stage', v_request.failure_telemetry->>'stage',
+        'classification', v_request.failure_telemetry->>'classification',
+        'errorFingerprint', v_request.failure_telemetry->>'errorFingerprint',
+        'sourceErrorCode', v_request.failure_telemetry->>'sourceErrorCode'
+      )
+    );
+  end if;
+
   return jsonb_build_object(
     'ok', true, 'idempotentReplay', false,
-    'requestId', v_request.id::text, 'status', v_request.status, 'auditId', v_audit_id::text
+    'requestId', v_request.id::text, 'status', v_request.status, 'auditId', v_audit_id::text,
+    'failureTelemetry', case when v_request.status = 'failed' then v_request.failure_telemetry else null end
   );
 end;
+$$;
+
+revoke all on function ingestion_platform.complete_snapshot_activation_request(
+  bigint, text, text, bigint, bigint, text, text, jsonb
+) from public;
+
+-- Compatibility wrapper for a worker process that started before the telemetry
+-- signature upgrade. It records a safe legacy trace rather than dropping it.
+create or replace function ingestion_platform.complete_snapshot_activation_request(
+  p_request_id bigint,
+  p_worker_run_key text,
+  p_status text,
+  p_binding_id bigint,
+  p_activation_audit_id bigint,
+  p_error_code text,
+  p_error_message text
+) returns jsonb
+language sql
+security definer
+set search_path = pg_catalog, ingestion_platform
+as $$
+  select ingestion_platform.complete_snapshot_activation_request(
+    p_request_id,
+    p_worker_run_key,
+    p_status,
+    p_binding_id,
+    p_activation_audit_id,
+    p_error_code,
+    p_error_message,
+    case when p_status = 'failed' then jsonb_build_object(
+      'traceId', 'legacy-' || p_request_id::text || '-' || floor(extract(epoch from statement_timestamp()))::text,
+      'stage', 'worker',
+      'classification', coalesce(nullif(btrim(p_error_code), ''), 'legacy_failure')
+    ) else '{}'::jsonb end
+  );
 $$;
 
 revoke all on function ingestion_platform.complete_snapshot_activation_request(
