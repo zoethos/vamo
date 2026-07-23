@@ -14,6 +14,13 @@ export interface SnapshotActivationCardPresentation {
   confirmationState: string;
   errorCode?: string;
   errorMessage?: string;
+  failureTelemetry?: {
+    traceId: string;
+    stageLabel: string;
+    classificationLabel: string;
+    errorFingerprint?: string;
+    sourceErrorCode?: string;
+  };
 }
 
 export function presentSnapshotActivationCard(input: {
@@ -50,7 +57,8 @@ export function presentSnapshotActivationCard(input: {
           canCreateRequest: !input.hasActiveRequest && Boolean(releaseId),
           confirmationState: "request_activation",
           errorCode: request.errorCode,
-          errorMessage: request.errorMessage
+          errorMessage: request.errorMessage,
+          failureTelemetry: presentFailureTelemetry(request.failureTelemetry)
         };
     }
   }
@@ -79,6 +87,40 @@ export function presentSnapshotActivationCard(input: {
     canCreateRequest: !input.hasActiveRequest,
     confirmationState: "request_activation"
   };
+}
+
+function presentFailureTelemetry(
+  telemetry: SnapshotActivationRequestRecord["failureTelemetry"]
+): SnapshotActivationCardPresentation["failureTelemetry"] {
+  if (!telemetry) return undefined;
+  if (
+    !/^[A-Za-z0-9-]{1,128}$/.test(telemetry.traceId) ||
+    !/^[a-z_]{1,64}$/.test(telemetry.stage) ||
+    !/^[a-z0-9_-]{1,96}$/.test(telemetry.classification)
+  ) {
+    return undefined;
+  }
+  return {
+    traceId: telemetry.traceId,
+    stageLabel: formatTelemetryLabel(telemetry.stage),
+    classificationLabel: formatTelemetryLabel(telemetry.classification),
+    errorFingerprint:
+      telemetry.errorFingerprint && /^[a-f0-9]{64}$/i.test(telemetry.errorFingerprint)
+        ? telemetry.errorFingerprint
+        : undefined,
+    sourceErrorCode:
+      telemetry.sourceErrorCode && /^[A-Za-z0-9_-]{1,32}$/.test(telemetry.sourceErrorCode)
+        ? telemetry.sourceErrorCode
+        : undefined
+  };
+}
+
+function formatTelemetryLabel(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
 }
 
 function active(

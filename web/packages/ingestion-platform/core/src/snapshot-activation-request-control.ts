@@ -112,12 +112,13 @@ export async function completeSnapshotActivationRequest(input: {
   activationAuditId?: string;
   errorCode?: string;
   errorMessage?: string;
+  failureTelemetry?: SnapshotActivationRequestRecord["failureTelemetry"];
 }): Promise<{ ok: true; idempotentReplay: boolean; requestId: string; status: SnapshotActivationRequestStatus; auditId?: string }> {
   return withClient(input, "write", async (client) => {
     const response = await client.query<{ result: Record<string, unknown> }>(
       `
         select ingestion_platform.complete_snapshot_activation_request(
-          $1::bigint, $2, $3, $4, $5, $6, $7
+          $1::bigint, $2, $3, $4, $5, $6, $7, $8::jsonb
         ) as result
       `,
       [
@@ -127,7 +128,8 @@ export async function completeSnapshotActivationRequest(input: {
         input.bindingId ?? null,
         input.activationAuditId ?? null,
         input.errorCode ?? null,
-        input.errorMessage ?? null
+        input.errorMessage ?? null,
+        input.failureTelemetry ? JSON.stringify(input.failureTelemetry) : null
       ]
     );
     const result = response.rows[0]?.result ?? {};
@@ -170,6 +172,7 @@ export async function loadLatestSnapshotActivationRequest(input: {
           r.activation_audit_id::text as activation_audit_id,
           r.error_code,
           r.error_message,
+          r.failure_telemetry,
           r.completed_at
         from ingestion_platform.ingestion_snapshot_activation_requests r
         join ingestion_platform.ingestion_projects p on p.id = r.project_id
@@ -229,6 +232,7 @@ interface ActivationRow extends Record<string, unknown> {
   activation_audit_id?: string | null;
   error_code?: string | null;
   error_message?: string | null;
+  failure_telemetry?: unknown;
   completed_at?: string | Date | null;
 }
 
@@ -256,6 +260,7 @@ function mapActivationRow(row: ActivationRow): SnapshotActivationRequestRecord {
     activationAuditId: row.activation_audit_id ?? undefined,
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
+    failureTelemetry: parseFailureTelemetry(row.failure_telemetry),
     completedAt: row.completed_at ? toIsoString(row.completed_at) : undefined
   };
 }
@@ -283,7 +288,31 @@ function mapClaimResult(result: Record<string, unknown>): SnapshotActivationRequ
     bindingId: typeof result.bindingId === "string" ? result.bindingId : undefined,
     activationAuditId: typeof result.activationAuditId === "string" ? result.activationAuditId : undefined,
     errorCode: typeof result.errorCode === "string" ? result.errorCode : undefined,
-    errorMessage: typeof result.errorMessage === "string" ? result.errorMessage : undefined
+    errorMessage: typeof result.errorMessage === "string" ? result.errorMessage : undefined,
+    failureTelemetry: parseFailureTelemetry(result.failureTelemetry)
+  };
+}
+
+function parseFailureTelemetry(
+  value: unknown
+): SnapshotActivationRequestRecord["failureTelemetry"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.traceId !== "string" ||
+    typeof record.stage !== "string" ||
+    typeof record.classification !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    traceId: record.traceId,
+    stage: record.stage,
+    classification: record.classification,
+    errorFingerprint:
+      typeof record.errorFingerprint === "string" ? record.errorFingerprint : undefined,
+    sourceErrorCode:
+      typeof record.sourceErrorCode === "string" ? record.sourceErrorCode : undefined
   };
 }
 

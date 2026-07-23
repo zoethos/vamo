@@ -60,6 +60,10 @@ if (result.outcome === "activated") {
 } else {
   console.log(`Error code: ${result.errorCode}`);
   console.log(`Error message: ${result.errorMessage}`);
+  if (result.traceId) {
+    console.log(`Failure trace: ${result.traceId}`);
+  }
+  process.exitCode = 1;
 }
 
 function readArg(name) {

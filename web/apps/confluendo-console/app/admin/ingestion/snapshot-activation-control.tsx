@@ -137,6 +137,18 @@ export function SnapshotActivationControl({
           </div>
         </dl>
       ) : null}
+      {activationCard.failureTelemetry ? (
+        <dl className="admin-agent-uex-meta">
+          <div>
+            <dt>Failure reference</dt>
+            <dd><code>{activationCard.failureTelemetry.traceId}</code></dd>
+          </div>
+          <div>
+            <dt>Failure stage</dt>
+            <dd>{activationCard.failureTelemetry.stageLabel} · {activationCard.failureTelemetry.classificationLabel}</dd>
+          </div>
+        </dl>
+      ) : null}
 
       {activationCard.canCreateRequest ? (
         <>

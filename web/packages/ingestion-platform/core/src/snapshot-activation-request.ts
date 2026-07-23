@@ -23,6 +23,14 @@ export const SNAPSHOT_ACTIVATION_REQUEST_ACTIVE_STATUSES = [
 
 export const SNAPSHOT_ACTIVATION_REQUEST_DEFAULT_LEASE_SECONDS = 30 * 60;
 
+export interface SnapshotActivationFailureTelemetry {
+  traceId: string;
+  stage: string;
+  classification: string;
+  errorFingerprint?: string;
+  sourceErrorCode?: string;
+}
+
 export interface SnapshotActivationRequestRecord {
   requestId: string;
   projectKey: string;
@@ -43,6 +51,7 @@ export interface SnapshotActivationRequestRecord {
   activationAuditId?: string;
   errorCode?: string;
   errorMessage?: string;
+  failureTelemetry?: SnapshotActivationFailureTelemetry;
   completedAt?: string;
 }
 

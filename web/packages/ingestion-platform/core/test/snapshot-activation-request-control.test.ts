@@ -57,6 +57,8 @@ describe("snapshot activation request control schema", () => {
     assert.match(controlSchemaSql, /create_snapshot_activation_request/);
     assert.match(controlSchemaSql, /claim_snapshot_activation_request/);
     assert.match(controlSchemaSql, /complete_snapshot_activation_request/);
+    assert.match(controlSchemaSql, /ingestion_snapshot_activation_requests_failure_telemetry_object/);
+    assert.match(controlSchemaSql, /snapshot_activation\.failed/);
     assert.match(confluendoBootstrapSql, /grant select on ingestion_platform\.ingestion_snapshot_activation_requests/i);
     assert.match(confluendoBootstrapSql, /grant execute on function ingestion_platform\.create_snapshot_activation_request/i);
     assert.doesNotMatch(confluendoBootstrapSql, /grant execute on function ingestion_platform\.claim_snapshot_activation_request/i);
@@ -171,13 +173,23 @@ describe("snapshot activation request control DB smoke", () => {
           workerRunKey: "activation-run-1",
           status: "failed",
           errorCode: "activation_blocked",
-          errorMessage: "A safe precondition blocked activation."
+          errorMessage: "A safe precondition blocked activation.",
+          failureTelemetry: {
+            traceId: "0ff01c4a-23fe-4b20-bd8e-0b95a1d24cf8",
+            stage: "activation",
+            classification: "activation_precondition_blocked"
+          }
         });
-        const finalRow = await owner.query<{ status: string }>(
-          `select status from ingestion_platform.ingestion_snapshot_activation_requests where id = $1::bigint`,
+        const finalRow = await owner.query<{ status: string; failure_telemetry: Record<string, unknown> }>(
+          `select status, failure_telemetry from ingestion_platform.ingestion_snapshot_activation_requests where id = $1::bigint`,
           [claimed.request.requestId]
         );
         assert.equal(finalRow.rows[0]?.status, "failed");
+        assert.deepEqual(finalRow.rows[0]?.failure_telemetry, {
+          traceId: "0ff01c4a-23fe-4b20-bd8e-0b95a1d24cf8",
+          stage: "activation",
+          classification: "activation_precondition_blocked"
+        });
       } finally {
         await resetDisposableTestDatabase(owner, databaseUrl!, { schemas: ["ingestion_platform"] });
         await resetDisposableTestDatabase(owner, databaseUrl!, { roles: ["confluendo_app"] });

@@ -128,6 +128,41 @@ describe("snapshot activation request presenter", () => {
     assert.equal(card.releaseId, activationPendingCommission.registeredReleaseId);
     assert.equal(card.canCreateRequest, true);
   });
+
+  it("presents a safe failure trace without exposing worker details", () => {
+    const card = presentSnapshotActivationCard({
+      commissionRequest: activationPendingCommission,
+      hasActiveRequest: false,
+      activationRequest: {
+        requestId: "100",
+        projectKey: "vamo",
+        planKey: "vamo-eu-full-data-v1",
+        commissionRequestId: activationPendingCommission.requestId,
+        releaseId: activationPendingCommission.registeredReleaseId!,
+        status: "failed",
+        auditReason: "Activation recovery.",
+        requestedByType: "operator",
+        requestedById: "admin@example.com",
+        requestedAt: "2026-07-22T12:00:00.000Z",
+        errorCode: "worker_execution_failed",
+        errorMessage: "Activation worker could not complete the request.",
+        failureTelemetry: {
+          traceId: "0ff01c4a-23fe-4b20-bd8e-0b95a1d24cf8",
+          stage: "artifact_store",
+          classification: "access_denied",
+          errorFingerprint: "a".repeat(64)
+        }
+      }
+    });
+
+    assert.deepEqual(card.failureTelemetry, {
+      traceId: "0ff01c4a-23fe-4b20-bd8e-0b95a1d24cf8",
+      stageLabel: "Artifact Store",
+      classificationLabel: "Access Denied",
+      errorFingerprint: "a".repeat(64),
+      sourceErrorCode: undefined
+    });
+  });
 });
 
 describe("snapshot activation request lifecycle and boundary", () => {
@@ -172,6 +207,10 @@ describe("snapshot activation request lifecycle and boundary", () => {
     assert.doesNotMatch(stagingActivationWorkflowSource, /NEXT_PUBLIC_|VAMO_/);
     assert.match(workerCliSource, /--require-hosted-artifact-store/);
     assert.match(workerCliSource, /requireHostedStore:\s*requireHostedArtifactStore/);
+    assert.match(workerCliSource, /Failure trace: \$\{result\.traceId\}/);
+    assert.match(workerCliSource, /process\.exitCode = 1/);
+    assert.match(workerSource, /Snapshot activation worker execution failed/);
+    assert.match(workerSource, /traceId: failureTelemetry\.traceId/);
   });
 
   it("refuses worker execution without its own explicit confirmation", async () => {
