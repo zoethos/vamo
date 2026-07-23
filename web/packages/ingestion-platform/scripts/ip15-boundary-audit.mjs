@@ -334,6 +334,43 @@ assert(
   "staging snapshot commission workflow must use server-only protected secrets"
 );
 
+const stagingSnapshotActivationWorkflow = path.join(
+  repoRoot,
+  ".github",
+  "workflows",
+  "confluendo-snapshot-activation-staging.yml"
+);
+const stagingSnapshotActivationWorkflowSource = readFileSync(stagingSnapshotActivationWorkflow, "utf8");
+assert(
+  /workflow_dispatch:/.test(stagingSnapshotActivationWorkflowSource) &&
+    !/\b(?:pull_request|push|schedule):/.test(stagingSnapshotActivationWorkflowSource),
+  "staging snapshot activation workflow must be manually dispatched only"
+);
+assert(
+  /environment:\s*\n\s+name:\s+confluendo-control-staging/.test(
+    stagingSnapshotActivationWorkflowSource
+  ),
+  "staging snapshot activation workflow must use the protected confluendo-control-staging environment"
+);
+assert(
+  /ip18:snapshot-activation-worker/.test(stagingSnapshotActivationWorkflowSource) &&
+    /--require-hosted-artifact-store/.test(stagingSnapshotActivationWorkflowSource),
+  "staging snapshot activation workflow must run the trusted worker with a hosted artifact store"
+);
+assert(
+  /CONFIRM_CONFLUENDO_SNAPSHOT_ACTIVATION_WORKER:\s*"YES"/.test(
+    stagingSnapshotActivationWorkflowSource
+  ) &&
+    /secrets\.INGESTION_CONTROL_OWNER_DATABASE_URL/.test(stagingSnapshotActivationWorkflowSource) &&
+    /secrets\.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY/.test(
+      stagingSnapshotActivationWorkflowSource
+    ) &&
+    !/FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN|NEXT_PUBLIC_|VAMO_/.test(
+      stagingSnapshotActivationWorkflowSource
+    ),
+  "staging snapshot activation workflow must use only protected activation secrets"
+);
+
 assert(
   /\bFSQ_OS_PLACES_PORTAL_ACCESS_TOKEN_ENV\b/.test(fsqAcquisitionSource) &&
     !/TOKEN\s*=\s*['"][^'"]+['"]/.test(fsqAcquisitionSource),

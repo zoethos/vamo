@@ -260,6 +260,13 @@ INGESTION_CONTROL_DATABASE_URL=... \
 npm --workspace @confluendo/ingestion-platform run ip18:snapshot-activation-worker
 ```
 
+For Staging, the same worker is available as the manually dispatched
+**Confluendo staging snapshot activation** GitHub Actions workflow. It claims
+one already-recorded request using the protected
+`confluendo-control-staging` environment and requires the hosted artifact
+store. It has no FSQ Portal credential and cannot acquire provider data.
+Production activation remains a separately commissioned managed-job concern.
+
 The worker requires the same server/job-only artifact-store configuration as
 the activation CLI. It claims one request, invokes the existing verified
 activation path, and records `activated` or `failed`. It never acquires from a
