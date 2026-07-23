@@ -2992,7 +2992,7 @@ begin
       'ok', true, 'idempotentReplay', true,
       'requestId', v_request.id::text, 'projectKey', v_project_key, 'planKey', v_plan_key,
       'commissionRequestId', v_request.commission_request_id::text, 'releaseId', v_request.release_id,
-      'status', v_request.status, 'attemptCount', v_request.attempt_count,
+      'status', v_request.status, 'auditReason', v_request.audit_reason, 'attemptCount', v_request.attempt_count,
       'claimExpiresAt', v_request.claim_expires_at, 'bindingId', v_request.binding_id::text,
       'activationAuditId', v_request.activation_audit_id::text,
       'errorCode', v_request.error_code, 'errorMessage', v_request.error_message,
@@ -3036,7 +3036,7 @@ begin
     'ok', true, 'idempotentReplay', false,
     'requestId', v_request.id::text, 'projectKey', v_project_key, 'planKey', v_plan_key,
     'commissionRequestId', v_request.commission_request_id::text, 'releaseId', v_request.release_id,
-    'status', v_request.status, 'attemptCount', v_request.attempt_count,
+    'status', v_request.status, 'auditReason', v_request.audit_reason, 'attemptCount', v_request.attempt_count,
     'claimExpiresAt', v_request.claim_expires_at
   );
 end;

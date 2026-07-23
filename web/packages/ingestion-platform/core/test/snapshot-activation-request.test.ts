@@ -211,6 +211,7 @@ describe("snapshot activation request lifecycle and boundary", () => {
     assert.match(workerCliSource, /process\.exitCode = 1/);
     assert.match(workerSource, /Snapshot activation worker execution failed/);
     assert.match(workerSource, /traceId: failureTelemetry\.traceId/);
+    assert.match(workerSource, /activation_request_audit_reason_missing/);
   });
 
   it("refuses worker execution without its own explicit confirmation", async () => {
