@@ -1826,6 +1826,42 @@ Production remains intentionally uncommissioned by GitHub Actions. It needs a
 separate Confluendo-owned managed job runtime and independently protected
 production credentials before it can be enabled.
 
+### IP-18.8.21 — implemented (hosted staging activation worker)
+
+**Status:** done — a protected, manually dispatched GitHub Actions worker runs
+one existing Staging snapshot activation request. **Not** browser execution,
+**not** automatic request dispatch, **not** FSQ acquisition, **not** production
+activation, and **not** Vamo writes.
+
+Deliverables:
+
+- `.github/workflows/confluendo-snapshot-activation-staging.yml` is
+  `workflow_dispatch` only. It accepts no release, plan, or scope input: the
+  worker claims at most one already-recorded Staging activation request from
+  the control plane.
+- The job is constrained to the protected GitHub environment
+  `confluendo-control-staging`. It uses only the owner control-DB connection
+  and the hosted Supabase artifact-store secrets; it deliberately has no FSQ
+  Portal credential, Vamo credential, or browser-visible secret.
+- The existing `ip18:snapshot-activation-worker` remains the only execution
+  path. In the hosted job it refuses a filesystem artifact store, verifies the
+  immutable registered artifact, then performs the existing binding and
+  supply-reconciliation transaction.
+- Boundary tests lock the workflow to manual Staging execution, protected
+  server-only secrets, no provider token, and the hosted-artifact requirement.
+
+Operator path:
+
+1. In **Queue**, request activation for an `activation_pending` registered
+   release with fresh MFA and an audit reason.
+2. In **Actions**, run **Confluendo staging snapshot activation** on `main`.
+3. Watch the Queue activation card until it reaches **Activated** or
+   **Failed**. The control plane retains the request and audit trail either way.
+
+Production remains intentionally unactivated by GitHub Actions. It requires a
+separate Confluendo-owned managed job runtime and independently protected
+production credentials before it can be enabled.
+
 ### IP-18.8.17 — implemented (safe plan contract refresh)
 
 **Status:** done — add a missing published `sourceTaxonomy` to an active plan

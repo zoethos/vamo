@@ -13,6 +13,7 @@ import { resolveCliSnapshotArtifactStore } from "./snapshot-artifact-store-cli.m
 const workerId = readArg("--worker-id") ?? "snapshot-activation-worker";
 const workerRunKey = readArg("--worker-run-key") ?? randomUUID();
 const controlDsn = process.env.INGESTION_CONTROL_DATABASE_URL?.trim();
+const requireHostedArtifactStore = process.argv.includes("--require-hosted-artifact-store");
 
 if (!controlDsn) {
   console.error("INGESTION_CONTROL_DATABASE_URL is required.");
@@ -23,7 +24,9 @@ if (process.env[SNAPSHOT_ACTIVATION_WORKER_CONFIRMATION_ENV] !== SNAPSHOT_ACTIVA
   process.exit(1);
 }
 
-const artifactStoreResolved = await resolveCliSnapshotArtifactStore({});
+const artifactStoreResolved = await resolveCliSnapshotArtifactStore({
+  requireHostedStore: requireHostedArtifactStore
+});
 if (!artifactStoreResolved.ok) {
   console.error("Snapshot artifact store is required for activation worker execution.");
   process.exit(1);

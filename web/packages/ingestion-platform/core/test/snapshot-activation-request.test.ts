@@ -20,6 +20,11 @@ const routeSource = readFileSync(
   "utf8"
 );
 const workerSource = readFileSync("core/src/snapshot-activation-worker.ts", "utf8");
+const workerCliSource = readFileSync("scripts/run-ip18-snapshot-activation-worker.mjs", "utf8");
+const stagingActivationWorkflowSource = readFileSync(
+  "../../../.github/workflows/confluendo-snapshot-activation-staging.yml",
+  "utf8"
+);
 
 const activationPendingCommission: SnapshotCommissionRequestRecord = {
   requestId: "42",
@@ -140,6 +145,33 @@ describe("snapshot activation request lifecycle and boundary", () => {
     assert.doesNotMatch(routeSource, /FSQ_OS_PLACES_CATALOG_SERVICE_API_KEY/);
     assert.doesNotMatch(routeSource, /@duckdb\/node-api/);
     assert.match(workerSource, /runSnapshotReleaseActivation/);
+  });
+
+  it("keeps hosted staging activation manual, protected, and free of provider credentials", () => {
+    assert.match(stagingActivationWorkflowSource, /workflow_dispatch:/);
+    assert.doesNotMatch(stagingActivationWorkflowSource, /\b(?:pull_request|push|schedule):/);
+    assert.match(
+      stagingActivationWorkflowSource,
+      /environment:\s*\n\s+name:\s+confluendo-control-staging/
+    );
+    assert.match(stagingActivationWorkflowSource, /ip18:snapshot-activation-worker/);
+    assert.match(stagingActivationWorkflowSource, /--require-hosted-artifact-store/);
+    assert.match(
+      stagingActivationWorkflowSource,
+      /CONFIRM_CONFLUENDO_SNAPSHOT_ACTIVATION_WORKER:\s*"YES"/
+    );
+    assert.match(
+      stagingActivationWorkflowSource,
+      /secrets\.INGESTION_CONTROL_OWNER_DATABASE_URL/
+    );
+    assert.match(
+      stagingActivationWorkflowSource,
+      /secrets\.CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY/
+    );
+    assert.doesNotMatch(stagingActivationWorkflowSource, /FSQ_OS_PLACES_PORTAL_ACCESS_TOKEN/);
+    assert.doesNotMatch(stagingActivationWorkflowSource, /NEXT_PUBLIC_|VAMO_/);
+    assert.match(workerCliSource, /--require-hosted-artifact-store/);
+    assert.match(workerCliSource, /requireHostedStore:\s*requireHostedArtifactStore/);
   });
 
   it("refuses worker execution without its own explicit confirmation", async () => {
