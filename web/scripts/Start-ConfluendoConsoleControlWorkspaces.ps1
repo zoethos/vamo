@@ -126,15 +126,34 @@ function Load-ControlWorkspaceProfile {
   Write-Host "Loaded $EnvironmentName control workspace profile: Supabase Auth and control DB configured."
 }
 
+function Get-ListeningProcessIds {
+  param([Parameter(Mandatory = $true)][int]$LocalPort)
+
+  $netstatPath = Join-Path $env:SystemRoot "System32\netstat.exe"
+  if (!(Test-Path -LiteralPath $netstatPath -PathType Leaf)) {
+    throw "Windows netstat.exe is unavailable; cannot inspect port $LocalPort."
+  }
+
+  $listenerPattern = "^\s*TCP\s+\S+:$LocalPort\s+\S+\s+LISTENING\s+(\d+)\s*$"
+  return @(
+    & $netstatPath -ano -p tcp 2>$null |
+      ForEach-Object {
+        if ($_ -match $listenerPattern) {
+          [int]$Matches[1]
+        }
+      } |
+      Sort-Object -Unique
+  )
+}
+
 function Find-ConfluendoConsoleListener {
   param([Parameter(Mandatory = $true)][int]$LocalPort)
 
-  $connections = @(Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue)
-  if ($connections.Count -eq 0) {
+  $processIds = @(Get-ListeningProcessIds -LocalPort $LocalPort)
+  if ($processIds.Count -eq 0) {
     return $null
   }
 
-  $processIds = @($connections | Select-Object -ExpandProperty OwningProcess -Unique)
   if ($processIds.Count -ne 1) {
     throw "Port $LocalPort has multiple listeners. Stop or inspect them before starting the Confluendo console."
   }
