@@ -164,6 +164,20 @@ describe("hosted autonomy scheduler route artifact", () => {
     assert.match(routeSource, /CRON_SECRET/);
   });
 
+  it("forwards the server-only Supabase Storage profile to the hosted parser", () => {
+    const routeSource = readFileSync(schedulerRoute, "utf8");
+    for (const name of [
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PROJECT_REF",
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_BUCKET",
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_REGION",
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_PREFIX",
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_ACCESS_KEY_ID",
+      "CONFLUENDO_SNAPSHOT_ARTIFACT_SUPABASE_SECRET_ACCESS_KEY"
+    ]) {
+      assert.match(routeSource, new RegExp(name));
+    }
+  });
+
   it("requires hosted S3 artifact store configuration", () => {
     const parsed = parseHostedAutonomySchedulerConfig({
       INGESTION_CONTROL_DATABASE_URL: "postgresql://control.example/postgres",
