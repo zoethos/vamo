@@ -201,6 +201,69 @@ describe("autonomy executor", () => {
     }
   });
 
+  it("counts a scope once per day across its dry-run and staging-approval lifecycle", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
+    const client = await setupDb();
+    try {
+      await seedPolicyAndQueue(client, {
+        dryRunSucceeded: 1,
+        rollingLimits: { maxUnitsPerDay: 1, maxRowsPerDay: 100, maxCyclesPerDay: 10 }
+      });
+      const queue = await client.query<{ unit_key: string }>(
+        "select unit_key from ingestion_platform.ingestion_batch_queue_items where status = 'dry_run_succeeded'"
+      );
+      const unitKey = queue.rows[0]?.unit_key;
+      assert.ok(unitKey);
+      await client.query(
+        `
+          insert into ingestion_platform.ingestion_autonomy_runs (
+            project_id, policy_id, run_key, phase, status, actor_type, actor_id,
+            selected_units, scanned_count, advanced_count, highest_safety_mode, guard_outcome
+          )
+          select
+            p.id,
+            ap.id,
+            'prior-dry-run-for-distinct-unit-limit',
+            'dry_run',
+            'advanced',
+            'autonomous_agent',
+            $1,
+            jsonb_build_array($2::text),
+            1,
+            1,
+            'dry_run',
+            jsonb_build_object('rowsAdvanced', 1)
+          from ingestion_platform.ingestion_projects p
+          join ingestion_platform.ingestion_autonomy_policies ap on ap.project_id = p.id
+          where p.project_key = 'vamo'
+            and ap.policy_key = 'vamo-eu-poi-staging-v1'
+        `,
+        [agentId, unitKey]
+      );
+
+      const stagingPreview = await previewAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:30:00.000Z"
+      });
+      assert.equal(stagingPreview.context.evaluation.decision, "continue");
+      assert.equal(stagingPreview.context.evaluation.requiredAction, "approve_or_execute_staging_wave_later");
+
+      const stagingApproval = await executeAutonomyCycle({
+        client,
+        projectKey: "vamo",
+        policyKey: "vamo-eu-poi-staging-v1",
+        agentId,
+        now: "2026-07-06T12:30:00.000Z"
+      });
+      assert.equal(stagingApproval.actionApplied, "approve_staging_wave");
+      assert.equal(await countQueueStatus(client, "staging_canary_approved"), 1);
+    } finally {
+      await teardownDb(client);
+    }
+  });
+
   it("marks an opened run failed when applying the action throws", { skip: databaseUrl ? false : "Set INGESTION_TEST_DATABASE_URL." }, async () => {
     const client = await setupDb();
     try {

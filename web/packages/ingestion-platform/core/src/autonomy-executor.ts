@@ -1024,23 +1024,35 @@ async function loadRollingCounts(
   const result = await client.query<{
     cyclesToday: string;
     unitsAdvancedToday: string;
+    unitKeysAdvancedToday: string[];
     rowsAdvancedToday: string;
   }>(
     `
       select
-        count(*) filter (where status in ('advanced', 'completed', 'failed'))::text as "cyclesToday",
-        coalesce(sum(advanced_count) filter (where status in ('advanced', 'completed')), 0)::text as "unitsAdvancedToday",
-        coalesce(sum((guard_outcome->>'rowsAdvanced')::int) filter (where status in ('advanced', 'completed')), 0)::text as "rowsAdvancedToday"
-      from ingestion_platform.ingestion_autonomy_runs
-      where policy_id = $1::bigint
-        and created_at >= date_trunc('day', now())
+        count(*) filter (where runs.status in ('advanced', 'completed', 'failed'))::text as "cyclesToday",
+        coalesce((
+          select jsonb_agg(distinct unit_key.value order by unit_key.value)
+          from ingestion_platform.ingestion_autonomy_runs unit_runs
+          cross join lateral jsonb_array_elements_text(unit_runs.selected_units) as unit_key(value)
+          where unit_runs.policy_id = $1::bigint
+            and unit_runs.created_at >= date_trunc('day', now())
+            and unit_runs.status in ('advanced', 'completed')
+        ), '[]'::jsonb) as "unitKeysAdvancedToday",
+        coalesce(sum((runs.guard_outcome->>'rowsAdvanced')::int) filter (where runs.status in ('advanced', 'completed')), 0)::text as "rowsAdvancedToday"
+      from ingestion_platform.ingestion_autonomy_runs runs
+      where runs.policy_id = $1::bigint
+        and runs.created_at >= date_trunc('day', now())
     `,
     [policyId]
   );
   const row = result.rows[0];
+  const unitKeysAdvancedToday = Array.isArray(row?.unitKeysAdvancedToday)
+    ? row.unitKeysAdvancedToday
+    : [];
   return {
     cyclesToday: Number(row?.cyclesToday ?? 0),
-    unitsAdvancedToday: Number(row?.unitsAdvancedToday ?? 0),
+    unitsAdvancedToday: unitKeysAdvancedToday.length,
+    unitKeysAdvancedToday,
     rowsAdvancedToday: Number(row?.rowsAdvancedToday ?? 0)
   };
 }
