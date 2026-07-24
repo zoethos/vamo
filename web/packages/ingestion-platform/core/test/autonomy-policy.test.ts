@@ -146,6 +146,60 @@ describe("autonomy policy", () => {
     assert.ok(result.recommendedAction);
   });
 
+  it("counts a scope once across its workflow steps while still blocking a new scope", () => {
+    const item = sampleVamoEuPoiBatchQueueSnapshot().items[0]!;
+    const snapshot = {
+      ...sampleVamoEuPoiBatchQueueSnapshot(),
+      items: [
+        {
+          ...item,
+          status: "dry_run_succeeded" as const,
+          dryRunReport: {
+            wroteToTarget: false as const,
+            rowsProcessed: 1,
+            insertCount: 1,
+            updateCount: 0,
+            noOpCount: 0
+          }
+        }
+      ]
+    };
+    const policy = activePolicy({
+      maxUnitsPerCycle: 1,
+      maxRowsPerCycle: 25,
+      rollingLimits: { maxUnitsPerDay: 1, maxRowsPerDay: 25, maxCyclesPerDay: 3 },
+      allowedTransitions: ["approve_staging_wave"]
+    });
+
+    const sameScope = evaluateAutonomyCycle({
+      policy,
+      queueSnapshot: snapshot,
+      rollingCounts: {
+        unitKeysAdvancedToday: [item.unitKey],
+        unitsAdvancedToday: 1,
+        rowsAdvancedToday: 1,
+        cyclesToday: 1
+      },
+      actor: autonomousActor
+    });
+    assert.equal(sameScope.decision, "continue");
+    assert.equal(sameScope.requiredAction, "approve_or_execute_staging_wave_later");
+
+    const newScope = evaluateAutonomyCycle({
+      policy,
+      queueSnapshot: snapshot,
+      rollingCounts: {
+        unitKeysAdvancedToday: ["vamo-place-intelligence:other:landmark"],
+        unitsAdvancedToday: 1,
+        rowsAdvancedToday: 1,
+        cyclesToday: 1
+      },
+      actor: autonomousActor
+    });
+    assert.equal(newScope.decision, "pause");
+    assert.equal(newScope.pauseReasonCode, "rolling_limit_exceeded");
+  });
+
   it("refuses to exceed max_units_per_cycle", () => {
     const snapshot = {
       ...sampleVamoEuPoiBatchQueueSnapshot(),

@@ -82,6 +82,7 @@ export interface AutonomyPolicyEnvelope {
 
 export interface AutonomyRollingCounts {
   unitsAdvancedToday?: number;
+  unitKeysAdvancedToday?: readonly string[];
   rowsAdvancedToday?: number;
   cyclesToday?: number;
 }
@@ -322,10 +323,17 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     });
   }
 
-  const rollingViolation = checkRollingLimits(policy, input.rollingCounts);
-  if (rollingViolation) {
+  const continueWithinRollingLimits = (candidate: Parameters<typeof continueResult>[0]) => {
+    const rollingViolation = checkRollingLimits(
+      policy,
+      input.rollingCounts,
+      candidate.selectedUnitKeys,
+      candidate.maxRowsApplied
+    );
+    if (!rollingViolation) return continueResult(candidate);
+
     return pauseResult({
-      phase: "planning",
+      phase: candidate.phase,
       pauseReasonCode: "rolling_limit_exceeded",
       pauseReason: rollingViolation,
       requiredAction: "wait_for_human",
@@ -339,10 +347,11 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
         ...baseTelemetry,
         eventName: "autonomy.cycle.paused",
         decision: "pause",
+        phase: candidate.phase,
         pauseReason: "rolling_limit_exceeded"
       }
     });
-  }
+  };
 
   const inScopeItems = filterItemsToPolicyEnvelope(snapshot.items, policy);
   const maxUnits = policy.maxUnitsPerCycle;
@@ -354,7 +363,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     maxRows
   );
   if (readyForSchedule.length > 0 && policy.allowedTransitions.includes(PLANNING_TRANSITION)) {
-    return continueResult({
+    return continueWithinRollingLimits({
       phase: "planning",
       requiredAction: "schedule_dry_run",
       selectedUnitKeys: readyForSchedule.map((item) => item.unitKey),
@@ -405,7 +414,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     if (bounded.unitKeys.length === 0) {
       return pauseForBounds(policy, snapshot, baseTelemetry);
     }
-    return continueResult({
+    return continueWithinRollingLimits({
       phase: "dry_run",
       requiredAction: "execute_dry_run",
       selectedUnitKeys: bounded.unitKeys,
@@ -477,7 +486,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
 
     const wave = input.latestStagingWave;
     if (wave && ["approved", "running"].includes(wave.status)) {
-      return continueResult({
+      return continueWithinRollingLimits({
         phase: "staging_canary",
         requiredAction: "approve_or_execute_staging_wave_later",
         selectedUnitKeys: stagingEligible.map((item) => item.unitKey),
@@ -501,7 +510,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
       });
     }
 
-    return continueResult({
+    return continueWithinRollingLimits({
       phase: "staging_canary",
       requiredAction: "approve_or_execute_staging_wave_later",
       selectedUnitKeys: stagingEligible.map((item) => item.unitKey),
@@ -572,7 +581,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
     const plannedRows = readPositiveNumber(productionPackage.totalPlannedRows)
       ?? sumPackageItemRows(productionPackage)
       ?? Math.min(policy.maxRowsPerCycle, 1);
-    return continueResult({
+    return continueWithinRollingLimits({
       phase: "production_inbox",
       requiredAction: "deliver_production_package_wave",
       selectedUnitKeys,
@@ -695,7 +704,7 @@ export function evaluateAutonomyCycle(input: EvaluateAutonomyCycleInput): Evalua
         productionPackage
       );
     }
-    return continueResult({
+    return continueWithinRollingLimits({
       phase: "production_inbox",
       requiredAction: "approve_production_package_wave",
       selectedUnitKeys: productionReady.map((item) => item.unitKey),
@@ -954,21 +963,36 @@ function sumPlannedRows(items: BatchQueueItem[], cap: number): number {
 
 function checkRollingLimits(
   policy: AutonomyPolicyEnvelope,
-  counts: AutonomyRollingCounts | undefined
+  counts: AutonomyRollingCounts | undefined,
+  selectedUnitKeys: readonly string[],
+  selectedRows: number
 ): string | undefined {
   if (!counts) return undefined;
   const limits = policy.rollingLimits;
   const maxUnitsPerDay = readPositiveLimit(limits, "maxUnitsPerDay");
   const maxRowsPerDay = readPositiveLimit(limits, "maxRowsPerDay");
   const maxCyclesPerDay = readPositiveLimit(limits, "maxCyclesPerDay");
+  const advancedUnitKeys = new Set(counts.unitKeysAdvancedToday ?? []);
+  const distinctSelectedUnitKeys = new Set(selectedUnitKeys);
+  const newlySelectedUnitCount = [...distinctSelectedUnitKeys].filter(
+    (unitKey) => !advancedUnitKeys.has(unitKey)
+  ).length;
+  const existingUnitCount =
+    advancedUnitKeys.size > 0 ? advancedUnitKeys.size : (counts.unitsAdvancedToday ?? 0);
 
-  if (maxUnitsPerDay !== undefined && (counts.unitsAdvancedToday ?? 0) >= maxUnitsPerDay) {
+  if (
+    maxUnitsPerDay !== undefined &&
+    existingUnitCount + newlySelectedUnitCount > maxUnitsPerDay
+  ) {
     return `Rolling daily unit limit (${maxUnitsPerDay}) would be exceeded.`;
   }
-  if (maxRowsPerDay !== undefined && (counts.rowsAdvancedToday ?? 0) >= maxRowsPerDay) {
+  if (
+    maxRowsPerDay !== undefined &&
+    (counts.rowsAdvancedToday ?? 0) + selectedRows > maxRowsPerDay
+  ) {
     return `Rolling daily row limit (${maxRowsPerDay}) would be exceeded.`;
   }
-  if (maxCyclesPerDay !== undefined && (counts.cyclesToday ?? 0) >= maxCyclesPerDay) {
+  if (maxCyclesPerDay !== undefined && (counts.cyclesToday ?? 0) + 1 > maxCyclesPerDay) {
     return `Rolling daily cycle limit (${maxCyclesPerDay}) would be exceeded.`;
   }
   return undefined;
