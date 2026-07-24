@@ -137,15 +137,47 @@ function Get-ListeningProcessIds {
   }
 
   $listenerPattern = "^\s*TCP\s+\S+:$LocalPort\s+\S+\s+LISTENING\s+(\d+)\s*$"
-  return @(
-    & $netstatPath -ano -p tcp 2>$null |
-      ForEach-Object {
-        if ($_ -match $listenerPattern) {
-          [int]$Matches[1]
-        }
-      } |
-      Sort-Object -Unique
-  )
+  $processIds = @()
+  foreach ($line in (& $netstatPath -ano -p tcp 2>$null)) {
+    if ($line -match $listenerPattern) {
+      $processId = [int]$Matches[1]
+      if ($processIds -notcontains $processId) {
+        $processIds += $processId
+      }
+    }
+  }
+  return $processIds
+}
+
+function Get-ProcessName {
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+
+  $tasklistPath = Join-Path $env:SystemRoot "System32\tasklist.exe"
+  if (!(Test-Path -LiteralPath $tasklistPath -PathType Leaf)) {
+    throw "Windows tasklist.exe is unavailable; cannot identify process $ProcessId."
+  }
+
+  foreach ($line in (& $tasklistPath /fi "PID eq $ProcessId" /fo csv /nh 2>$null)) {
+    if ($line -match '^"([^"]+)","(\d+)"') {
+      return $Matches[1]
+    }
+  }
+
+  return $null
+}
+
+function Stop-ProcessTree {
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+
+  $taskkillPath = Join-Path $env:SystemRoot "System32\taskkill.exe"
+  if (!(Test-Path -LiteralPath $taskkillPath -PathType Leaf)) {
+    throw "Windows taskkill.exe is unavailable; cannot stop process $ProcessId."
+  }
+
+  & $taskkillPath /PID $ProcessId /T /F | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not stop process $ProcessId."
+  }
 }
 
 function Find-ConfluendoConsoleListener {
@@ -161,8 +193,8 @@ function Find-ConfluendoConsoleListener {
   }
 
   $processId = [int]$processIds[0]
-  $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-  if (!$process) {
+  $processName = Get-ProcessName -ProcessId $processId
+  if ([string]::IsNullOrWhiteSpace($processName)) {
     throw "Port $LocalPort is in use, but its owning process could not be identified."
   }
 
@@ -170,11 +202,11 @@ function Find-ConfluendoConsoleListener {
   # makes command-line inspection unavailable. Port 4373 is reserved for this
   # console, so an explicit -Restart may replace only its Node listener.
   $isConfluendoConsole =
-    $process.ProcessName -ieq "node"
+    $processName -ieq "node.exe"
 
   return [pscustomobject]@{
     ProcessId = $processId
-    ProcessName = $process.ProcessName
+    ProcessName = $processName
     IsConfluendoConsole = $isConfluendoConsole
   }
 }
@@ -187,7 +219,7 @@ function Stop-ConfluendoConsoleListener {
   }
 
   Write-Host "Stopping the existing Confluendo console listener (pid $($Listener.ProcessId))."
-  Stop-Process -Id $Listener.ProcessId -Force -ErrorAction Stop
+  Stop-ProcessTree -ProcessId $Listener.ProcessId
 
   for ($attempt = 1; $attempt -le 10; $attempt++) {
     Start-Sleep -Milliseconds 300
