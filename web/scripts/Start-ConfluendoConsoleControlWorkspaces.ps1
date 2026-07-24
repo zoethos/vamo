@@ -8,6 +8,8 @@ param(
 
   [switch]$Restart,
 
+  [switch]$ClearNextCache,
+
   [switch]$ValidateOnly
 )
 
@@ -198,6 +200,17 @@ function Stop-ConfluendoConsoleListener {
   throw "The existing Confluendo console listener did not stop. Check port $consolePort before retrying."
 }
 
+function Clear-ConfluendoConsoleNextCache {
+  $nextCache = Join-Path $consoleRoot ".next"
+  if (!(Test-Path -LiteralPath $nextCache)) {
+    Write-Host "Next.js cache already absent: $nextCache"
+    return
+  }
+
+  Write-Host "Removing Confluendo console Next.js cache: $nextCache"
+  Remove-Item -LiteralPath $nextCache -Recurse -Force
+}
+
 if (!(Test-Path -LiteralPath (Join-Path $webRoot "package.json"))) {
   throw "Missing web package root: $webRoot"
 }
@@ -225,10 +238,17 @@ try {
     if (!$Restart) {
       Write-Host "Confluendo console is already running at http://localhost:$consolePort/admin/ingestion (pid $($existingListener.ProcessId))."
       Write-Host "It keeps its current workspace profile. Run this script again with -Restart to apply $DefaultEnvironment as the default workspace."
+      if ($ClearNextCache) {
+        Write-Host "Cache was not cleared because the active console was not restarted. Add -Restart to clear it safely."
+      }
       return
     }
 
     Stop-ConfluendoConsoleListener -Listener $existingListener
+  }
+
+  if ($ClearNextCache) {
+    Clear-ConfluendoConsoleNextCache
   }
 
   Write-Host ""
