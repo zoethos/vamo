@@ -8,7 +8,9 @@
     "packages/*"
   ],
   "overrides": {
-    "postcss": "8.5.12"
+    "next": {
+      "postcss": "8.5.18"
+    }
   },
   "scripts": {
     "build": "turbo run build",
