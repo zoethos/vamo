@@ -159,26 +159,20 @@ function Find-ConfluendoConsoleListener {
   }
 
   $processId = [int]$processIds[0]
-  $process = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+  $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
   if (!$process) {
     throw "Port $LocalPort is in use, but its owning process could not be identified."
   }
 
-  $expectedNextServers = @(
-    (Join-Path $consoleRoot "node_modules\next\dist\server\lib\start-server.js"),
-    (Join-Path $webRoot "node_modules\next\dist\server\lib\start-server.js")
-  )
-  $commandLine = [string]$process.CommandLine
+  # PowerShell 7 on some Windows installations cannot load CimCmdlets, which
+  # makes command-line inspection unavailable. Port 4373 is reserved for this
+  # console, so an explicit -Restart may replace only its Node listener.
   $isConfluendoConsole =
-    $process.Name -ieq "node.exe" -and
-    $null -ne ($expectedNextServers | Where-Object {
-      $commandLine.IndexOf($_, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-    } | Select-Object -First 1)
+    $process.ProcessName -ieq "node"
 
   return [pscustomobject]@{
     ProcessId = $processId
-    ProcessName = $process.Name
-    CommandLine = $commandLine
+    ProcessName = $process.ProcessName
     IsConfluendoConsole = $isConfluendoConsole
   }
 }

@@ -86,11 +86,6 @@ function Stop-PortListeners {
 function Stop-ProcessTree {
   param([Parameter(Mandatory = $true)][int]$ProcessId)
 
-  $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$ProcessId" -ErrorAction SilentlyContinue)
-  foreach ($child in $children) {
-    Stop-ProcessTree -ProcessId ([int]$child.ProcessId)
-  }
-
   $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
   if ($process) {
     Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
