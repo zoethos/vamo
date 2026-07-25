@@ -42,11 +42,48 @@ function Remove-DirectoryIfPresent {
   }
 }
 
+function Get-ListeningProcessIds {
+  param([Parameter(Mandatory = $true)][int]$LocalPort)
+
+  $netstatPath = Join-Path $env:SystemRoot "System32\netstat.exe"
+  if (!(Test-Path -LiteralPath $netstatPath -PathType Leaf)) {
+    throw "Windows netstat.exe is unavailable; cannot inspect port $LocalPort."
+  }
+
+  $listenerPattern = "^\s*TCP\s+\S+:$LocalPort\s+\S+\s+LISTENING\s+(\d+)\s*$"
+  $processIds = @()
+  foreach ($line in (& $netstatPath -ano -p tcp 2>$null)) {
+    if ($line -match $listenerPattern) {
+      $processId = [int]$Matches[1]
+      if ($processIds -notcontains $processId) {
+        $processIds += $processId
+      }
+    }
+  }
+  return $processIds
+}
+
+function Get-ProcessName {
+  param([Parameter(Mandatory = $true)][int]$ProcessId)
+
+  $tasklistPath = Join-Path $env:SystemRoot "System32\tasklist.exe"
+  if (!(Test-Path -LiteralPath $tasklistPath -PathType Leaf)) {
+    throw "Windows tasklist.exe is unavailable; cannot identify process $ProcessId."
+  }
+
+  foreach ($line in (& $tasklistPath /fi "PID eq $ProcessId" /fo csv /nh 2>$null)) {
+    if ($line -match '^"([^"]+)","(\d+)"') {
+      return $Matches[1]
+    }
+  }
+
+  return $null
+}
+
 function Stop-PortListeners {
   param([Parameter(Mandatory = $true)][int]$LocalPort)
 
-  $connections = Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue
-  $processIds = @($connections | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -and $_ -ne $PID })
+  $processIds = @(Get-ListeningProcessIds -LocalPort $LocalPort | Where-Object { $_ -and $_ -ne $PID })
 
   if ($processIds.Count -eq 0) {
     Write-Host "No listener found on port $LocalPort."
@@ -54,12 +91,12 @@ function Stop-PortListeners {
   }
 
   foreach ($processId in $processIds) {
-    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
-    if (!$process) {
+    $processName = Get-ProcessName -ProcessId $processId
+    if ([string]::IsNullOrWhiteSpace($processName)) {
       continue
     }
 
-    Write-Host "Stopping port $LocalPort listener: $($process.ProcessName) (pid $processId)"
+    Write-Host "Stopping port $LocalPort listener: $processName (pid $processId)"
     Stop-ProcessTree -ProcessId $processId
   }
 }
@@ -67,14 +104,14 @@ function Stop-PortListeners {
 function Stop-ProcessTree {
   param([Parameter(Mandatory = $true)][int]$ProcessId)
 
-  $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$ProcessId" -ErrorAction SilentlyContinue)
-  foreach ($child in $children) {
-    Stop-ProcessTree -ProcessId ([int]$child.ProcessId)
+  $taskkillPath = Join-Path $env:SystemRoot "System32\taskkill.exe"
+  if (!(Test-Path -LiteralPath $taskkillPath -PathType Leaf)) {
+    throw "Windows taskkill.exe is unavailable; cannot stop process $ProcessId."
   }
 
-  $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-  if ($process) {
-    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+  & $taskkillPath /PID $ProcessId /T /F | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Could not stop process $ProcessId."
   }
 }
 
@@ -86,9 +123,9 @@ function Stop-TrackedConsoleDevServer {
   $trackedPidRaw = (Get-Content -LiteralPath $PidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
   $trackedPid = 0
   if ([int]::TryParse($trackedPidRaw, [ref]$trackedPid) -and $trackedPid -gt 0 -and $trackedPid -ne $PID) {
-    $process = Get-Process -Id $trackedPid -ErrorAction SilentlyContinue
-    if ($process) {
-      Write-Host "Stopping tracked console dev wrapper: $($process.ProcessName) (pid $trackedPid)"
+    $processName = Get-ProcessName -ProcessId $trackedPid
+    if (![string]::IsNullOrWhiteSpace($processName)) {
+      Write-Host "Stopping tracked console dev wrapper: $processName (pid $trackedPid)"
       Stop-ProcessTree -ProcessId $trackedPid
     }
   }
