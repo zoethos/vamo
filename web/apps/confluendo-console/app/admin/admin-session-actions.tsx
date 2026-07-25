@@ -11,6 +11,8 @@ type AdminSessionActionsProps = {
   serverNowMs?: number;
 };
 
+const RENEWAL_WARNING_MS = 5 * 60 * 1000;
+
 export function AdminSessionActions({
   principal,
   freshStepUpExpiresAt,
@@ -34,6 +36,18 @@ export function AdminSessionActions({
 
   const remainingMs = Number.isFinite(expiresAtMs) ? Math.max(0, expiresAtMs - nowMs) : undefined;
   const isExpired = remainingMs !== undefined && remainingMs <= 0;
+  const needsRenewal =
+    remainingMs !== undefined && (isExpired || remainingMs <= RENEWAL_WARNING_MS);
+  const mfaStatus = isExpired
+    ? "MFA renewal required"
+    : needsRenewal
+      ? "Renew MFA soon"
+      : "MFA active";
+  const mfaAction = isExpired
+    ? "Renew now"
+    : needsRenewal
+      ? `Renew now · ${formatRemaining(remainingMs ?? 0)}`
+      : `${formatRemaining(remainingMs ?? 0)} remaining`;
 
   return (
     <div className="admin-session-actions" aria-label="Admin session">
@@ -49,12 +63,19 @@ export function AdminSessionActions({
       </div>
       {remainingMs !== undefined ? (
         <Link
-          className={`admin-stepup-timer${isExpired ? " admin-stepup-expired" : ""}`}
+          className={`admin-stepup-timer${needsRenewal ? " admin-stepup-renewal" : ""}${
+            isExpired ? " admin-stepup-expired" : ""
+          }`}
           href={mfaChallengeHref}
-          title="Refresh the short MFA window required for protected operator actions"
+          aria-label={`${mfaStatus}. ${
+            isExpired
+              ? "Renew now with your authenticator app."
+              : "Select to renew early with your authenticator app."
+          } You remain signed in to the console.`}
+          title="You remain signed in. Renewing opens the authenticator check only; it does not send a new email sign-in link."
         >
-          <span>{isExpired ? "MFA expired" : "MFA window"}</span>
-          <strong>{isExpired ? "Refresh MFA" : formatRemaining(remainingMs)}</strong>
+          <span>{mfaStatus}</span>
+          <strong>{mfaAction}</strong>
         </Link>
       ) : null}
       <Link className="admin-logout-button" href="/admin/sign-out">
