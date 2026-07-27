@@ -9,18 +9,25 @@ import {
 export function ControlEnvironmentSwitcher({
   activeEnvironment,
   availableEnvironments,
-  nextPath = "/admin/ingestion"
+  nextPath = "/admin/ingestion",
+  label = "Workspace",
+  showStatus = true
 }: {
   activeEnvironment: ControlEnvironment;
   availableEnvironments: ControlEnvironment[];
   nextPath?: string;
+  label?: string;
+  showStatus?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="admin-control-environment" aria-label="Control environment">
-      <label htmlFor="control-environment-select">Workspace</label>
+    <div
+      className={`admin-control-environment${showStatus ? "" : " admin-control-environment-without-status"}`}
+      aria-label="Control environment"
+    >
+      <label htmlFor="control-environment-select">{label}</label>
       <select
         aria-describedby={error ? "control-environment-error" : undefined}
         disabled={pending || availableEnvironments.length < 2}
@@ -56,9 +63,11 @@ export function ControlEnvironmentSwitcher({
           </option>
         ))}
       </select>
-      <span className={`admin-control-environment-status admin-control-environment-${activeEnvironment}`}>
-        {pending ? "Switching workspace..." : controlEnvironmentLabel(activeEnvironment)}
-      </span>
+      {showStatus ? (
+        <span className={`admin-control-environment-status admin-control-environment-${activeEnvironment}`}>
+          {pending ? "Switching workspace..." : controlEnvironmentLabel(activeEnvironment)}
+        </span>
+      ) : null}
       {error ? (
         <span className="admin-control-environment-error" id="control-environment-error" role="alert">
           {error}

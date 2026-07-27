@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ConfluendoMark } from "@/app/admin/confluendo-brand";
 import { ControlEnvironmentSwitcher } from "@/app/admin/control-environment-switcher";
-import { CONTROL_ENVIRONMENTS } from "@/lib/control-environment";
+import { CONTROL_ENVIRONMENTS, controlEnvironmentLabel } from "@/lib/control-environment";
 import { getControlEnvironmentConfig } from "@/lib/control-environment-config";
 import { getActiveControlEnvironmentConfig } from "@/lib/control-environment-server";
 import { getSupabasePublicConfig } from "@/lib/supabase-config";
@@ -94,16 +94,15 @@ export default async function AdminSignInPage({
           </p>
 
           <div className="admin-sign-in-copy">
-            <ControlEnvironmentSwitcher
+            <SignInWorkspaceContext
               activeEnvironment={activeEnvironment}
               availableEnvironments={availableControlEnvironments}
-              nextPath="/admin/sign-in"
             />
-            <h1 id="admin-sign-in-title">Sign in to continue</h1>
+            <h1 id="admin-sign-in-title">Sign in to {controlEnvironmentLabel(activeEnvironment)}</h1>
             <p>
-              Use an existing admin account. This console never creates accounts
-              from sign-in requests; MFA setup happens after email verification
-              if your account needs it.
+              Use the administrator account provisioned for this workspace.
+              This console never creates accounts from sign-in requests; MFA
+              setup happens after email verification if your account needs it.
             </p>
           </div>
 
@@ -171,6 +170,49 @@ export default async function AdminSignInPage({
         </div>
       </section>
     </main>
+  );
+}
+
+function SignInWorkspaceContext({
+  activeEnvironment,
+  availableEnvironments
+}: {
+  activeEnvironment: (typeof CONTROL_ENVIRONMENTS)[number];
+  availableEnvironments: (typeof CONTROL_ENVIRONMENTS)[number][];
+}) {
+  const workspaceLabel = controlEnvironmentLabel(activeEnvironment);
+  const isStaging = activeEnvironment === "staging";
+
+  return (
+    <section
+      className={`admin-sign-in-workspace admin-sign-in-workspace-${activeEnvironment}`}
+      aria-labelledby="admin-sign-in-workspace-title"
+    >
+      <div className="admin-sign-in-workspace-heading">
+        <span aria-hidden="true" />
+        <div>
+          <p>Active workspace</p>
+          <h2 id="admin-sign-in-workspace-title">{workspaceLabel}</h2>
+        </div>
+      </div>
+      <p className="admin-sign-in-workspace-summary">
+        {isStaging
+          ? "Safe integration workspace. It cannot read or write the Vamo production inbox."
+          : "Live control workspace. Production package approvals and Apply to Vamo are available only here."}
+      </p>
+      <ControlEnvironmentSwitcher
+        activeEnvironment={activeEnvironment}
+        availableEnvironments={availableEnvironments}
+        label="Change workspace"
+        nextPath="/admin/sign-in"
+        showStatus={false}
+      />
+      <p className="admin-sign-in-workspace-boundary">
+        <strong>Account boundary:</strong> {isStaging
+          ? "use a Staging-provisioned administrator account. Staging accounts and sessions do not carry into Production."
+          : "confirm you intend to use Production. Production accounts and sessions are separate from Staging."}
+      </p>
+    </section>
   );
 }
 
