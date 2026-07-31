@@ -18,7 +18,7 @@ dependencies:
     path: ../packages/app_core
   feature_split:
     path: ../packages/feature_split
-  app_links: ^6.3.2
+  app_links: ^7.1.2
   firebase_core: ^3.8.1
   firebase_crashlytics: ^4.3.10
   firebase_messaging: ^15.1.6
