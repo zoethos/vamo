@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/admin/ingestion/autonomy/scheduler",
-      "schedule": "*/10 * * * *"
-    }
-  ]
-}
