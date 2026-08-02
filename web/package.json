@@ -3,23 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "npm@11.11.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "workspaces": ["apps/*"],
   "overrides": {
-    "postcss": "8.5.18"
+    "postcss": "8.5.18",
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.17"
+    },
+    "minimatch@10.2.5": {
+      "brace-expansion": "5.0.8"
+    }
   },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "dev:console": "npm --workspace @confluendo/console run dev",
-    "dev:console:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
-    "dev:site:fresh": "powershell -NoProfile -ExecutionPolicy Bypass -File ../Start-ConfluendoDashboard.ps1",
-    "build:console": "npm --workspace @confluendo/console run build",
-    "ingestion:docker": "docker compose -f ../tool/ingestion/docker-compose.yml up --build",
-    "ingestion:docker:down": "docker compose -f ../tool/ingestion/docker-compose.yml down",
-    "ingestion:worker": "npm --workspace @confluendo/ingestion-platform run build && npm --workspace @confluendo/ingestion-platform run worker",
     "lint": "turbo run lint",
     "test": "turbo run test"
   },
