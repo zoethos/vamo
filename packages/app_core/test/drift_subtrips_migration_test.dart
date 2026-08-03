@@ -76,6 +76,19 @@ void main() {
     await db.customStatement(
       'ALTER TABLE local_trips DROP COLUMN subtrips_enabled',
     );
+    await db.customStatement(
+      "insert into local_trips "
+      "(id, name, destination, owner_id, base_currency, lifecycle, "
+      "budget_mode, created_at, updated_at) values "
+      "('trip-v24', 'Before upgrade', 'Rome', 'user-1', 'EUR', 'active', "
+      "'none', 1710000000000, 1710000000000)",
+    );
+    await db.customStatement(
+      "insert into local_plan_items "
+      "(id, trip_id, kind, title, created_by, created_at, updated_at) values "
+      "('plan-v24', 'trip-v24', 'visit', 'Colosseum', 'user-1', "
+      "1710000000000, 1710000000000)",
+    );
     await db.customStatement('PRAGMA user_version = 24');
 
     final migrator = db.createMigrator();
@@ -105,5 +118,18 @@ void main() {
       contains('subtrip_id'),
     );
     expect(subtripTables, hasLength(2));
+
+    final trip = await (db.select(db.localTrips)
+          ..where((row) => row.id.equals('trip-v24')))
+        .getSingle();
+    final planItem = await (db.select(db.localPlanItems)
+          ..where((row) => row.id.equals('plan-v24')))
+        .getSingle();
+
+    expect(trip.name, 'Before upgrade');
+    expect(trip.subtripsEnabled, isFalse);
+    expect(planItem.title, 'Colosseum');
+    expect(planItem.tripId, 'trip-v24');
+    expect(planItem.subtripId, null);
   });
 }
