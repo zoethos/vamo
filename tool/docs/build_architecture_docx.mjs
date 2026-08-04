@@ -15,8 +15,32 @@
 // surface and CI weight for no benefit at that cadence.
 //
 //   node >= 20
-//   npm install --no-save docx @resvg/resvg-js
+//   npm install --no-save --package-lock=false docx@9.7.1 @resvg/resvg-js@2.6.2
 //   node tool/docs/build_architecture_docx.mjs
+//
+// Versions are pinned so a later run cannot quietly produce a different export
+// from unchanged sources. `--package-lock=false` matters: without it npm leaves
+// a package-lock.json in the repo root, which is not gitignored.
+//
+// SUPPORTED ENVIRONMENT: Windows only, for now.
+//
+// The diagram's layout is tuned against Segoe UI metrics -- several label
+// positions were chosen to avoid collisions at that font's specific advance
+// widths. Segoe UI ships only on Windows and is not redistributable, so this
+// script pins the exact font files and disables ambient system-font discovery.
+// Without that, a non-Windows run would silently fall back to some other face,
+// reflow the labels, and commit a broken PNG that no diff can show.
+//
+// It therefore refuses to run off Windows rather than producing a bad export.
+// Making generation cross-platform needs a bundled, licensed font committed
+// alongside the SVG and the layout re-tuned against it. Substituting a nominally
+// common stack such as Arial or Helvetica does NOT fix this -- neither is
+// guaranteed present on Linux, so the silent fallback remains.
+//
+// CI does not run or validate this generator. Nothing checks that the committed
+// .docx and .png still match their sources. After regenerating, open the PNG and
+// look at it before committing -- a font or layout regression is invisible in
+// review, because binaries show no diff.
 //
 // The Markdown subset understood here is exactly what the source documents
 // use: ATX headings, paragraphs, `-` bullets, ordered lists, pipe tables,
@@ -24,9 +48,10 @@
 // Anything else raises rather than being silently dropped -- these documents
 // state load-bearing rules, so quiet content loss is the failure that matters.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { platform } from "node:process";
 
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
@@ -51,6 +76,42 @@ const ACCENT = "1D5334";
 const MUTED = "5B6472";
 const DANGER = "B3261E";
 const BODY = 21; // half-points
+
+// ---------------------------------------------------------------- fonts
+
+// The SVG asks for Segoe UI at weights 400/600/700 plus italic. Every face it
+// can reach must be passed explicitly, because system-font discovery is off.
+const SEGOE_FACES = [
+  "segoeui.ttf",  // regular 400
+  "seguisb.ttf",  // semibold 600
+  "segoeuib.ttf", // bold 700
+  "segoeuii.ttf", // italic
+  "segoeuiz.ttf", // bold italic
+];
+
+function resolveFontFiles() {
+  if (platform !== "win32") {
+    throw new Error(
+      "This generator is Windows-only.\n" +
+      "The funnel diagram's layout is tuned to Segoe UI metrics, and Segoe UI is " +
+      "neither present nor redistributable elsewhere. Running here would silently " +
+      "substitute another face, reflow the labels and commit a broken PNG.\n" +
+      "Regenerate on Windows, or make generation portable first by committing a " +
+      "bundled licensed font next to the SVG and re-tuning the layout against it.",
+    );
+  }
+
+  const root = join(process.env.SystemRoot ?? "C:\\Windows", "Fonts");
+  const files = SEGOE_FACES.map((face) => join(root, face));
+  const missing = files.filter((file) => !existsSync(file));
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required Segoe UI font files:\n  ${missing.join("\n  ")}\n` +
+      "The diagram cannot be rendered faithfully without them.",
+    );
+  }
+  return files;
+}
 
 // ---------------------------------------------------------------- markdown
 
@@ -324,19 +385,27 @@ function buildSections(blocks, pngBytes) {
 
 // ---------------------------------------------------------------- build
 
-function renderPng(svgPath, pngPath) {
+function renderPng(svgPath, pngPath, fontFiles) {
   const svg = readFileSync(svgPath, "utf8");
   const resvg = new Resvg(svg, {
     fitTo: { mode: "width", value: 2880 },
-    font: { loadSystemFonts: true },
+    font: {
+      // Pinned faces only. Ambient discovery is off so a missing face fails
+      // loudly here rather than reflowing the diagram in a committed binary.
+      fontFiles,
+      loadSystemFonts: false,
+      defaultFontFamily: "Segoe UI",
+    },
   });
   const png = resvg.render().asPng();
   writeFileSync(pngPath, png);
   return png;
 }
 
+const fontFiles = resolveFontFiles();
+
 for (const spec of DOCS) {
-  const png = renderPng(spec.svg, spec.png);
+  const png = renderPng(spec.svg, spec.png, fontFiles);
   const blocks = parseMarkdown(readFileSync(spec.markdown, "utf8"));
 
   const doc = new Document({
@@ -356,3 +425,9 @@ for (const spec of DOCS) {
     `${spec.png.replace(REPO, ".")} (${png.length} bytes)`,
   );
 }
+
+console.log(
+  "\nNow open the regenerated PNG and look at it before committing.\n" +
+  "CI does not run this generator and cannot see inside a binary, so a layout\n" +
+  "or font regression would reach main unreviewed.",
+);
