@@ -173,7 +173,11 @@ function scheduleObservation(
       userId: args.userId,
       tripId: args.input.tripId,
       query: args.input.destination,
-      resolvedDisplayName: args.result?.title ?? null,
+      // Foursquare's title is provider content, and `foursquare_places_api` is
+      // seeded `can_store_content = false`. It may be shown live in the
+      // response but must never be persisted. The user's own query is retained
+      // in `query_norm`, so the demand signal survives.
+      resolvedDisplayName: null,
       resolvedFeatureType: "poi",
       resolvedLat: args.input.lat ?? null,
       resolvedLng: args.input.lng ?? null,
