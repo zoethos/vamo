@@ -2,7 +2,6 @@ import { ImageResponse } from "next/og";
 import { fetchTripPreview } from "../../../lib/trip-preview";
 import { themeGradientCss } from "../../../lib/theme";
 
-export const runtime = "edge";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const alt = "Vamo trip invite preview";
