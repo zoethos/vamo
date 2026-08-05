@@ -122,6 +122,7 @@ class TripsRepository {
                   lifecycle: r.lifecycle,
                   budgetMode: r.budgetMode,
                   budgetCents: r.budgetCents,
+                  subtripsEnabled: r.subtripsEnabled,
                   backgroundStoragePath: r.backgroundPath,
                   backgroundLocalPath: r.backgroundLocalPath,
                 ),
@@ -145,6 +146,7 @@ class TripsRepository {
         closeRequestedAt: row.closeRequestedAt,
         budgetMode: row.budgetMode,
         budgetCents: row.budgetCents,
+        subtripsEnabled: row.subtripsEnabled,
         backgroundStoragePath: row.backgroundPath,
         backgroundLocalPath: row.backgroundLocalPath,
       );
@@ -197,6 +199,8 @@ class TripsRepository {
     await _db.delete(_db.localExpenses).go();
     await _db.delete(_db.localTripMembers).go();
     await _db.delete(_db.localPlaces).go();
+    await _db.delete(_db.localSubtripMembers).go();
+    await _db.delete(_db.localSubtrips).go();
     await _db.delete(_db.localPlanItems).go();
     await _db.delete(_db.localTripListItems).go();
     await _db.delete(_db.localTripFxRates).go();
@@ -325,6 +329,7 @@ class TripsRepository {
           closeRequestedAt: Value(_timestamp(row['close_requested_at'])),
           budgetMode: Value((row['budget_mode'] as String?) ?? 'none'),
           budgetCents: Value(row['budget_cents'] as int?),
+          subtripsEnabled: Value(row['subtrips_enabled'] == true),
           backgroundPath: Value(row['background_path'] as String?),
           createdAt: Value(created),
           updatedAt: Value(now),
@@ -599,6 +604,23 @@ class TripsRepository {
     );
   }
 
+  Future<void> setSubtripsEnabled({
+    required String tripId,
+    required bool enabled,
+  }) async {
+    await _client
+        .from('trips')
+        .update({'subtrips_enabled': enabled}).eq('id', tripId);
+    await _db.updateTripFields(
+      tripId,
+      LocalTripsCompanion(
+        subtripsEnabled: Value(enabled),
+        updatedAt: Value(DateTime.now().toUtc()),
+      ),
+    );
+    await syncTripFromRemote(tripId);
+  }
+
   Future<void> captureFxRate({
     required String tripId,
     required String currency,
@@ -675,7 +697,7 @@ class TripsRepository {
   static const _tripSelectFields =
       'id, name, destination, start_date, end_date, owner_id, base_currency, '
       'lifecycle, close_requested_at, budget_mode, budget_cents, background_path, '
-      'created_at';
+      'subtrips_enabled, created_at';
 
   /// Caches the hero background locally when only the remote path is known.
   Future<String?> ensureTripBackgroundCached({

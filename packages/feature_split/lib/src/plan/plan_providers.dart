@@ -17,6 +17,11 @@ final tripListItemsProvider =
   return ref.watch(planRepositoryProvider).watchListItems(tripId);
 });
 
+final tripSubtripsProvider =
+    StreamProvider.family<List<SubtripSummary>, String>((ref, tripId) {
+  return ref.watch(planRepositoryProvider).watchSubtrips(tripId);
+});
+
 final tripEventRsvpsProvider =
     StreamProvider.family<List<EventRsvpRow>, String>((ref, tripId) {
   return ref.watch(planRepositoryProvider).watchEventRsvps(tripId);

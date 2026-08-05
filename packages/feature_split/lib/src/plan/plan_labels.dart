@@ -77,6 +77,13 @@ class PlanTabLabels {
     required this.datePickerSkip,
     required this.datePickerSelect,
     required this.addChecklistItem,
+    this.mainTripSection = 'Everyone',
+    this.addSubtrip = 'New subtrip',
+    this.subtripNameLabel = 'Subtrip name',
+    this.subtripMembersLabel = 'Members',
+    this.subtripNameRequired = 'Name this subtrip.',
+    this.subtripMembersRequired = 'Pick at least one member.',
+    this.subtripCreateFailed = 'Could not create subtrip. Try again.',
     required this.deleteConfirmTitle,
     required this.endBeforeStart,
     this.dateOutsideTripRange = 'Plan items must stay inside the trip dates.',
@@ -155,6 +162,13 @@ class PlanTabLabels {
   final String datePickerSkip;
   final String datePickerSelect;
   final String addChecklistItem;
+  final String mainTripSection;
+  final String addSubtrip;
+  final String subtripNameLabel;
+  final String subtripMembersLabel;
+  final String subtripNameRequired;
+  final String subtripMembersRequired;
+  final String subtripCreateFailed;
   final String deleteConfirmTitle;
   final String endBeforeStart;
   final String dateOutsideTripRange;
