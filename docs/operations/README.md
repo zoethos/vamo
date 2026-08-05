@@ -13,6 +13,7 @@ Launch, disaster-recovery, and observability runbooks live here.
 | `CYCLE2_OBSERVABILITY_RUNBOOK.md` | Cycle 2 scenario/k6/observability runbook. |
 | `MIGRATION_PROMOTION_POLICY.md` | Mandatory staging -> production migration governance and agent checkpoint. |
 | `PLACE_INTELLIGENCE_CACHE_PROMOTION.md` | Exact staging -> production checklist for the place-intelligence cache migration. |
+| `CONFLUENDO_CONSUMER_IDENTITY_PROMOTION.md` | Vamo-wide database environment identity and Confluendo receipt verification. |
 
 Operational documents are execution checklists. Keep them current with the
 actual staging/prod project shape.
