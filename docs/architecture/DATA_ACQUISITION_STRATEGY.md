@@ -5,7 +5,7 @@
 | | | | |
 | --- | --- | --- | --- |
 | **Owner** | Tiziano | **Date** | 3 August 2026 |
-| **Status** | Draft for review | **Applies to** | Vamo place graph · Confluendo |
+| **Status** | Architecture contract; current-state gaps stated below | **Applies to** | Vamo place graph · Confluendo |
 
 **Not legal advice.** Items marked ⚖ require confirmation from counsel before we rely on them commercially.
 
@@ -13,11 +13,27 @@
 > `DATA_ACQUISITION_FUNNEL.png` are generated from it and from `DATA_ACQUISITION_FUNNEL.svg` by
 > `tool/docs/build_architecture_docx.mjs`. Edit this file, then regenerate — never edit the exports.
 
+> **Implementation status, 4 August 2026:** this is an architecture contract, not a claim that every
+> control described below is live. The current place-promotion function still permits a trusted-source
+> bypass or two distinct users, and it does not count distinct days. Device-fix contribution has not
+> been built because its consent design remains open. The status matrix in §1.1 names the other
+> material gaps; every unqualified invariant in §9 is a required target state until its enforcement
+> slice has landed and been verified.
+
 ## 1. Why this document exists
 
 Vamo's place data architecture — and Confluendo's existence — rests on a small number of assumptions about what data we are permitted to keep. Those assumptions were never written down, and one of them was wrong.
 
 This document states them explicitly so they can be challenged, and defines the rules that follow. If any load-bearing rule in §9 turns out to be wrong, the architecture changes. That is precisely why they are written down rather than held in memory.
+
+## 1.1 Current state and contract
+
+| Capability | Current state | Required contract |
+| --- | --- | --- |
+| Observation promotion | Legacy `promote_location_aliases` may promote with `trusted_source_match` or two distinct users; it does not require distinct days. | At least 3 distinct users across at least 2 distinct UTC days; no provider-derived bypass. |
+| Device-fix contribution | Not implemented. Consent and capture design remain subject to counsel review. | Separate, declinable consent; use only consented device fixes to derive a canonical coordinate. |
+| Provider facts on observations | `location_source_refs` records canonical provenance. The approved observation-side split is not yet deployed. | PDA-2 adds expiry-bound `location_observation_provider_facts`; promotion runs as a role with no read grant on that table. |
+| Confluendo production delivery | The controlled delivery components exist, but `productionInboxEnabled` is false in `bootstrap`, `staging_ramp`, and `volume_ramp`. `steady_state` is currently locked. | Advance through the three controlled promotions only after the consumer persistence receipt and its evidence are proven. |
 
 ## 2. Correcting the founding assumption
 
@@ -46,7 +62,7 @@ Every fact we hold falls into exactly one of three rights classes.
 | **Vamo-originated** | Device GPS fixes, user-typed names, confirmations, corrections, saves, visits | Ours. No third party holds rights in the facts | Yes | Permanent, subject to GDPR |
 | **Licensed-restricted** | Commercial Places API responses, provider photos | Governed by the API contract, including its anti-database clause | No | TTL only |
 
-The single most important structural decision is that these classes are tracked **per fact, not per record.** One canonical place may carry a name from OS Places, a coordinate corroborated by our own users, and a photo we may not keep at all. `location_source_refs` already models this; it must remain authoritative rather than decorative. Without that separation, every row would have to be treated at the most restrictive level of any fact inside it.
+The single most important structural decision is that these classes are tracked **per fact, not per record.** One canonical place may carry a name from OS Places, a coordinate corroborated by our own users, and a photo we may not keep at all. `location_source_refs` records canonical provenance today. The approved PDA-2 observation-side split adds expiry-bound `location_observation_provider_facts` for provider-derived observation facts. Together, those stores must remain authoritative rather than decorative. Without that separation, every row would have to be treated at the most restrictive level of any fact inside it.
 
 ## 4. The funnel
 
@@ -70,6 +86,8 @@ Confluendo is the governed path from an external dataset into Vamo's production 
 - **Dry-run and staging verification before production** — a licence or schema error surfaces in a disposable environment.
 - **Consumer-owned apply** — Confluendo never writes Vamo's product tables. Vamo's own function decides what lands.
 - **Delivered ≠ applied as an explicit state** — so a successful delivery is never mistaken for a persisted row. The July reconciliation is the cautionary case: audit 387 recorded a successful apply for rows not present in either Vamo environment.
+
+**Delivery ceiling today:** `productionInboxEnabled` remains false in `bootstrap`, `staging_ramp`, and `volume_ramp`; it becomes true only in `steady_state`. The transition from `volume_ramp` to `steady_state` is deliberately locked until a production-handoff slice enables it. The three controlled promotions, the consumer persistence receipt, and the telemetry derived from that receipt are therefore prerequisites to routine Layer 1 delivery — not background implementation detail.
 
 What Confluendo must add to serve this strategy:
 
@@ -95,9 +113,9 @@ Required:
 - no degradation of the app for users who decline;
 - a plain statement of what is retained after aggregation, and what is discarded.
 
-### The corroboration gate
+### The corroboration gate — target contract
 
-Individual traces are never promoted. A fact enters the canonical graph only when **k ≥ 3 distinct users on distinct days** independently support it, and the raw observations are dropped at promotion.
+This is **not current system behaviour**. Under the target contract, individual traces are never promoted. A fact may enter the canonical graph only when **at least 3 distinct users across at least 2 distinct UTC days** independently support it, and the raw observations are dropped at promotion.
 
 This threshold does three jobs at once, which is why it is the highest-leverage decision in the layer:
 
@@ -113,9 +131,9 @@ The test to apply:
 
 > Could we have produced this fact if the provider's response had been empty?
 
-Which yields a hard implementation constraint: **the canonical coordinate must be computed from device fixes — the median of corroborating observations — and never copied from a provider response field.** The provider's role is to give the user something to point at. It is a UI affordance, not the source of the geometry. The same applies to the name: it is independent if the user typed or confirmed it, not if the provider's string was silently carried through.
+Which yields a hard implementation constraint: **the canonical coordinate must be computed from consented device fixes — the median of corroborating observations — and never copied from a provider response field.** The provider's role is to give the user something to point at. It is a UI affordance, not the source of the geometry. The same applies to the name: it is independent if the user typed or confirmed it, not if the provider's string was silently carried through.
 
-This must be enforced by construction rather than convention: **the promotion job should have no read access to provider payload columns.** That is the same boundary discipline Confluendo already enforces between platform and consumer, applied one layer down — and it belongs in the same executable boundary audit.
+This must be enforced by construction rather than convention: **the target `vamo_place_promotion` role has no read grant on `location_observation_provider_facts`.** That is the same boundary discipline Confluendo already enforces between platform and consumer, applied one layer down — and it belongs in the same executable boundary audit.
 
 ## 7. Layer 3 — the commercial API as discovery, not storage
 
@@ -143,10 +161,10 @@ User photos are the highest-risk and lowest-value element of this strategy, and 
 
 ## 9. Load-bearing rules
 
-These are the invariants. If one is violated the strategy does not hold. Each should be enforceable in code or CI rather than by memory.
+These are the required target invariants. If one is violated the strategy does not hold. Each should be enforceable in code or CI rather than by memory; §1.1 identifies those not yet enforced.
 
-1. The canonical coordinate is computed from device fixes. It is never copied from a provider response.
-2. Promotion to canonical requires k ≥ 3 distinct users on distinct days. Raw traces are dropped at promotion.
+1. The canonical coordinate is computed from consented device fixes. It is never copied from a provider response.
+2. Promotion to canonical requires at least 3 distinct users across at least 2 distinct UTC days. Raw traces are dropped at promotion.
 3. Consent for the observation layer is a separate, declinable opt-in — not the EULA, and not bundled with the "nearby" feature.
 4. Provider payloads live only in expiry-bound provider stores, and never in the canonical graph or the promotion path.
 5. Every canonical fact carries a licence via `location_source_refs`. A fact with unknown licence is unusable.
@@ -167,7 +185,7 @@ Secondary indicators: canonical coverage measured against saved-place demand; sh
 
 ## 11. Open questions for counsel ⚖
 
-1. **The exact terms of the commercial Places API endpoints we call today** — particularly the photo endpoints used by `destination-visual`. Caching window, identifier retention, and the precise wording of the anti-database clause.
+1. **The exact terms of the commercial Places API product we call today.** `destination-visual` calls Foursquare `/places/search` with the `photos` field; it does not call the separate `/places/{id}/photos` endpoint. Caching window, identifier retention, and the precise wording of the anti-database clause remain open.
 2. **Whether ODbL share-alike on any OSM-derived component contaminates the resale case**, and whether OSM should therefore be excluded from the redistributable tier.
 3. **Validity of our consent construction for the observation layer**, and whether legitimate interest is a defensible alternative basis with a documented LIA.
 4. **Whether the k-anonymity threshold as designed takes the canonical store outside personal-data scope**, and what value of k is required.

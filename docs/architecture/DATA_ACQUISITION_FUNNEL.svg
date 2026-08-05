@@ -18,6 +18,7 @@
 
   <text x="72" y="46" font-size="27" font-weight="700" fill="#12171f">Vamo Place Data — Acquisition Funnel</text>
   <text x="72" y="74" font-size="15" fill="#5b6472">Three sources, three rights classes, one canonical graph. Provenance is carried per fact, never per row.</text>
+  <text x="72" y="96" font-size="12.5" font-weight="700" fill="#a8641b">ARCHITECTURE CONTRACT: observation capture and the corroboration gate are target state; Confluendo production delivery remains gated.</text>
 
   <text x="72"   y="118" font-size="13" font-weight="700" fill="#8b94a3" letter-spacing="1.2">SOURCE</text>
   <text x="410"  y="118" font-size="13" font-weight="700" fill="#8b94a3" letter-spacing="1.2">GATE — WHAT MAKES IT KEEPABLE</text>
@@ -53,9 +54,9 @@
 
   <rect x="410" y="300" width="350" height="118" rx="9" fill="#ffffff" stroke="#2a5d9e" stroke-width="2.5"/>
   <text x="430" y="328" font-size="17" font-weight="700" fill="#1c406e">CORROBORATION GATE</text>
-  <text x="430" y="352" font-size="13" fill="#2c3a46">k ≥ 3 distinct users, distinct days</text>
-  <text x="430" y="371" font-size="13" fill="#2c3a46">Coordinate = median of device fixes</text>
-  <text x="430" y="395" font-size="12.5" font-weight="600" fill="#b3261e">Provider payload columns not readable here</text>
+  <text x="430" y="352" font-size="13" fill="#2c3a46">Target: ≥ 3 users across ≥ 2 UTC days</text>
+  <text x="430" y="371" font-size="13" fill="#2c3a46">Target: median of consented device fixes</text>
+  <text x="430" y="395" font-size="12.5" font-weight="600" fill="#b3261e">Promotion role cannot read provider-facts table</text>
   <text x="430" y="412" font-size="12.5" fill="#5b6472">Raw traces dropped on promotion</text>
 
   <line x1="376" y1="359" x2="404" y2="359" stroke="#2a5d9e" stroke-width="5" marker-end="url(#arB)"/>
@@ -85,8 +86,9 @@
   <line x1="836" y1="272" x2="1036" y2="272" stroke="#c8cfd8" stroke-width="1.5"/>
   <text x="836" y="298" font-size="13" fill="#2c3a46">location_canonicals</text>
   <text x="836" y="320" font-size="13" fill="#2c3a46">location_source_refs</text>
-  <text x="836" y="344" font-size="12.5" font-style="italic" fill="#5b6472">one fact ← one source</text>
-  <text x="836" y="362" font-size="12.5" font-style="italic" fill="#5b6472">one source ← one licence</text>
+  <text x="836" y="341" font-size="10.5" fill="#5b6472">location_observation_provider_facts (PDA-2)</text>
+  <text x="836" y="363" font-size="12.5" font-style="italic" fill="#5b6472">one fact ← one source</text>
+  <text x="836" y="381" font-size="12.5" font-style="italic" fill="#5b6472">one source ← one licence</text>
   <line x1="836" y1="380" x2="1036" y2="380" stroke="#c8cfd8" stroke-width="1.5"/>
   <text x="836" y="406" font-size="12.5" font-weight="700" fill="#2f7a4d">Every row in here is</text>
   <text x="836" y="424" font-size="12.5" font-weight="700" fill="#2f7a4d">redistributable or ours.</text>
@@ -125,10 +127,10 @@
 
   <!-- ================= RULES ================= -->
   <line x1="72" y1="716" x2="1400" y2="716" stroke="#c8cfd8" stroke-width="1.5"/>
-  <text x="72" y="744" font-size="14" font-weight="700" fill="#12171f">Load-bearing rules</text>
+  <text x="72" y="744" font-size="14" font-weight="700" fill="#12171f">Target contract rules</text>
 
-  <text x="72" y="772" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">1.</tspan>  The canonical coordinate is computed from device fixes — never copied from a provider response.</text>
-  <text x="72" y="796" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">2.</tspan>  Promotion to canonical requires k ≥ 3 distinct users on distinct days; raw traces are dropped at promotion.</text>
+  <text x="72" y="772" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">1.</tspan>  The canonical coordinate is computed from consented device fixes — never copied from a provider response.</text>
+  <text x="72" y="796" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">2.</tspan>  Promotion requires ≥ 3 users across ≥ 2 UTC days; raw traces are dropped at promotion.</text>
   <text x="72" y="820" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">3.</tspan>  Consent for the observation layer is a separate, declinable opt-in — not the EULA.</text>
   <text x="72" y="844" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">4.</tspan>  Provider payloads live only in expiry-bound provider stores — never in the canonical graph or the promotion path.</text>
   <text x="72" y="868" font-size="13" fill="#2c3a46"><tspan font-weight="700" fill="#b3261e">5.</tspan>  Programme metric: <tspan font-weight="700">paid API calls per active user per month</tspan> — must trend down while coverage and freshness hold.</text>
