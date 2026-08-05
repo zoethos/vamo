@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vamo New Trip Refined UEX Render</title>
+  <style>
+    :root {
+      --ink: #0C0E16;
+      --ink-soft: #2A2E3A;
+      --slate: #6B7280;
+      --muted: #8A93A0;
+      --muted-2: #9AA0AC;
+      --app-bg: #FAFAFB;
+      --paper: #E7E5DF;
+      --surface: #FFFFFF;
+      --border: #E2E4EA;
+      --hairline: #ECEDF1;
+      --dash: #D7DAE0;
+      --lime: #C6FF00;
+      --plum: #6A2D6F;
+      --coral: #FF5B4D;
+      --jade: #00A892;
+      --train: #00C2A8;
+      --car: #FF8A3D;
+      --sky: #21B7D7;
+      --seg: #EEF0F4;
+      --feas-bg: #E2F6EC;
+      --feas-bd: #BFE8D2;
+      --feas-fg: #1F8F5E;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .board {
+      width: 1200px;
+      min-height: 1400px;
+      margin: 0 auto;
+      padding: 48px;
+      background: var(--paper);
+    }
+
+    .intro {
+      max-width: 1000px;
+      margin-bottom: 30px;
+    }
+
+    .kicker {
+      margin-bottom: 10px;
+      color: var(--plum);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 30px;
+      line-height: 1.16;
+      font-weight: 750;
+    }
+
+    .intro p {
+      max-width: 760px;
+      margin: 10px 0 0;
+      color: var(--ink-soft);
+      font-size: 14.5px;
+      line-height: 1.55;
+    }
+
+    .stage {
+      display: flex;
+      align-items: flex-start;
+      gap: 34px;
+    }
+
+    .frame-label {
+      margin-bottom: 10px;
+      color: var(--plum);
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 600;
+    }
+
+    .phone {
+      position: relative;
+      width: 340px;
+      height: 740px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 11px solid var(--ink);
+      border-radius: 44px;
+      background: var(--app-bg);
+      box-shadow: 0 14px 44px rgba(12, 14, 22, .20);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 26px 2px;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 650;
+      flex: none;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .wifi {
+      position: relative;
+      width: 17px;
+      height: 13px;
+      color: var(--ink);
+    }
+
+    .wifi:before,
+    .wifi:after,
+    .wifi span {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 2px solid currentColor;
+      border-color: currentColor transparent transparent transparent;
+      border-radius: 50% 50% 0 0;
+    }
+
+    .wifi:before { top: 0; width: 17px; height: 12px; }
+    .wifi:after { top: 4px; width: 11px; height: 8px; }
+    .wifi span { top: 8px; width: 5px; height: 4px; }
+
+    .battery {
+      position: relative;
+      width: 7px;
+      height: 17px;
+      border-radius: 2px;
+      background: var(--ink);
+    }
+
+    .battery:before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: 2px;
+      width: 3px;
+      height: 2px;
+      border-radius: 1px 1px 0 0;
+      background: var(--ink);
+    }
+
+    .appbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 20px 8px;
+      flex: none;
+    }
+
+    .appbar-title {
+      flex: 1;
+      margin-right: 24px;
+      text-align: center;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .editor .appbar {
+      padding-bottom: 12px;
+    }
+
+    .editor .appbar-title {
+      margin-right: 0;
+      text-align: left;
+      font-size: 17px;
+    }
+
+    .remove {
+      color: #D7402F;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .body {
+      flex: 1;
+      overflow: hidden;
+      padding: 6px 20px 0;
+    }
+
+    .footer {
+      flex: none;
+      padding: 10px 20px 18px;
+      background: linear-gradient(180deg, rgba(250,250,251,0), var(--app-bg) 18%);
+    }
+
+    .label {
+      color: var(--slate);
+      font-size: 11px;
+      line-height: 1;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .field {
+      min-height: 55px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      border: 1.5px solid var(--border);
+      border-radius: 15px;
+      background: var(--surface);
+      padding: 15px;
+    }
+
+    .trip-field {
+      margin: 9px 0 21px;
+    }
+
+    .field-text {
+      flex: 1;
+      min-width: 0;
+      color: var(--ink);
+      font-size: 15.5px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dest-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .ai-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid #E6D9EE;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #F3E9FA, #FBEEF3);
+      color: var(--plum);
+      padding: 5px 11px;
+      font-size: 11px;
+      line-height: 1;
+      font-weight: 850;
+    }
+
+    .search-field {
+      border-color: var(--plum);
+      box-shadow: 0 0 0 3px rgba(106, 45, 111, .10);
+    }
+
+    .cursor {
+      color: var(--plum);
+      font-weight: 300;
+    }
+
+    .suggestions {
+      margin-top: 8px;
+    }
+
+    .suggestion {
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 8px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.64);
+    }
+
+    .suggestion.selected {
+      background: #F3EFF6;
+    }
+
+    .photo {
+      width: 48px;
+      height: 48px;
+      border-radius: 13px;
+      flex: none;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+    }
+
+    .photo.one { background: linear-gradient(135deg, #7FB3D5 0%, #F5B64A 100%); }
+    .photo.two { background: linear-gradient(135deg, #F3A15F 0%, #C44D7C 100%); }
+    .photo.three { background: linear-gradient(135deg, #5AB8C7 0%, #E7C858 100%); }
+
+    .suggestion-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .suggestion-copy strong {
+      display: block;
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.1;
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .suggestion-copy span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1;
+    }
+
+    .date-label {
+      margin: 20px 0 9px;
+    }
+
+    .date-field .field-text {
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    .date-len {
+      color: var(--muted-2);
+      font-size: 12.5px;
+      font-weight: 750;
+    }
+
+    .advanced-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 14px;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    .advanced-row.on {
+      border-color: var(--plum);
+      background: #FBF7FE;
+    }
+
+    .advanced-copy {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      color: var(--ink-soft);
+      font-size: 12.5px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .advanced-badge {
+      border: 1px solid #E6D9EE;
+      border-radius: 999px;
+      background: #F1E6F8;
+      color: var(--plum);
+      padding: 2px 5px;
+      font-size: 7.8px;
+      font-weight: 850;
+    }
+
+    .switch {
+      width: 34px;
+      height: 20px;
+      border-radius: 999px;
+      background: var(--dash);
+      padding: 2px;
+      flex: none;
+    }
+
+    .switch:after {
+      content: "";
+      display: block;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    }
+
+    .switch.on {
+      background: var(--plum);
+    }
+
+    .switch.on:after {
+      margin-left: auto;
+    }
+
+    .compact-panel {
+      margin-top: 16px;
+      padding-bottom: 16px;
+    }
+
+    .compact-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 7px 0 16px;
+    }
+
+    .mode-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-height: 31px;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--slate);
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .mode-chip.selected {
+      border-color: var(--mode);
+      background: var(--tint);
+      color: var(--ink-soft);
+    }
+
+    .mode-chip.car { --mode: var(--car); --tint: rgba(255,138,61,.09); }
+    .mode-chip.train { --mode: var(--train); --tint: rgba(0,194,168,.09); }
+
+    .legs-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 16px 0 7px;
+    }
+
+    .in-order {
+      color: var(--muted-2);
+      font-size: 9.5px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .leg-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .leg-row {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 9px 11px;
+      box-shadow: 0 1px 2px rgba(12,14,22,.04);
+    }
+
+    .leg-tile {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      flex: none;
+      background: var(--tint);
+      color: var(--mode);
+    }
+
+    .leg-tile.car { --mode: var(--car); --tint: rgba(255,138,61,.10); }
+    .leg-tile.train { --mode: var(--train); --tint: rgba(0,194,168,.10); }
+
+    .leg-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .leg-copy strong {
+      display: block;
+      font-size: 12.5px;
+      line-height: 1.1;
+      font-weight: 750;
+    }
+
+    .leg-copy span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 10.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .add-leg {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1.5px dashed var(--dash);
+      border-radius: 12px;
+      color: var(--plum);
+      padding: 9px 11px;
+      font-size: 12.5px;
+      font-weight: 750;
+    }
+
+    .feasible {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 11px;
+      border: 1px solid var(--feas-bd);
+      border-radius: 11px;
+      background: var(--feas-bg);
+      padding: 9px 11px;
+      color: var(--ink-soft);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .primary {
+      width: 100%;
+      border: none;
+      border-radius: 15px;
+      background: var(--lime);
+      color: var(--ink);
+      padding: 16px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      box-shadow: 0 6px 16px rgba(198,255,0,.40);
+      font-family: inherit;
+      font-size: 15.5px;
+      line-height: 1;
+      font-weight: 850;
+    }
+
+    .escape {
+      margin-top: 10px;
+      color: var(--muted-2);
+      text-align: center;
+      font-size: 11.5px;
+      line-height: 1.2;
+    }
+
+    .escape strong {
+      color: var(--ink-soft);
+      font-weight: 750;
+    }
+
+    .hint {
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 0;
+      width: 340px;
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--plum);
+      padding: 8px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.10);
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+
+    .editor .body {
+      padding-top: 4px;
+    }
+
+    .editor .mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 9px 0 22px;
+    }
+
+    .editor .mode-chip {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .travel-field {
+      min-height: 52px;
+      margin: 9px 0;
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .helper {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 22px;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .reach-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+    }
+
+    .segmented {
+      display: flex;
+      border-radius: 10px;
+      background: var(--seg);
+      padding: 2px;
+    }
+
+    .segment {
+      min-width: 61px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: var(--slate);
+      font-size: 11.5px;
+      font-weight: 800;
+    }
+
+    .segment.active {
+      background: var(--ink);
+      color: white;
+    }
+
+    .reach-value {
+      padding: 10px 0 14px;
+      text-align: center;
+    }
+
+    .reach-number {
+      color: var(--ink);
+      font-size: 40px;
+      line-height: 1;
+      font-weight: 850;
+    }
+
+    .reach-unit {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 750;
+    }
+
+    .reach-caption {
+      margin-top: 3px;
+      color: var(--muted-2);
+      font-size: 11px;
+    }
+
+    .presets {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 4px;
+    }
+
+    .preset {
+      min-width: 70px;
+      min-height: 35px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: #F1F2F5;
+      color: var(--ink-soft);
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .preset.active {
+      background: var(--ink);
+      color: white;
+    }
+
+    .unit-note {
+      margin-top: 12px;
+      color: var(--muted-2);
+      font-size: 10.5px;
+      line-height: 1.4;
+    }
+
+    .notes {
+      width: 330px;
+      min-height: 740px;
+      border-radius: 16px;
+      background: var(--surface);
+      padding: 26px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+
+    .notes h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      line-height: 1.2;
+      font-weight: 750;
+    }
+
+    .notes p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .note-list {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .note-item {
+      display: flex;
+      gap: 12px;
+    }
+
+    .note-icon {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      flex: none;
+      color: var(--note);
+      background: var(--note-bg);
+    }
+
+    .note-rule {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #E9ECF2;
+      color: var(--slate);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .svg {
+      width: var(--size, 20px);
+      height: var(--size, 20px);
+      display: inline-block;
+      vertical-align: middle;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: none;
+    }
+
+    .svg.fill {
+      fill: currentColor;
+      stroke: none;
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7M9 12h10"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 16l-1 5 5-1L19 9l-4-4zM13 7l4 4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6zM18.5 15l.8 2.7L22 18.5l-2.7.8-.8 2.7-.8-2.7-2.7-.8 2.7-.8z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h.1M12 14h.1M16 14h.1M8 17h.1M12 17h.1"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-tune" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h4M12 12h8M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 12l2-5h10l2 5M6 12h12v6H6zM8 18v2M16 18v2M8 15h.1M16 15h.1"/></symbol>
+    <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M8.5 16l3-7h2l2.5 7M11.5 9h-3M13.5 9l3-2M11.5 9l5 7"/></symbol>
+    <symbol id="i-train" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="15" rx="3"/><path d="M9 6h6M8 10h8M8 14h2M14 14h2M9 18l-2 3M15 18l2 3"/></symbol>
+    <symbol id="i-flight" viewBox="0 0 24 24"><path d="M3 11l18-7-7 18-3-8-8-3z"/></symbol>
+    <symbol id="i-bus" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="14" rx="3"/><path d="M8 8h8M8 12h8M8 18v2M16 18v2M8.5 15h.1M15.5 15h.1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-verified" viewBox="0 0 24 24"><path d="M12 3l2 2 3-.5 1.2 2.8 2.8 1.2-.5 3 2 2-2 2 .5 3-2.8 1.2-1.2 2.8-3-.5-2 2-2-2-3 .5-1.2-2.8L3 18.5l.5-3-2-2 2-2-.5-3 2.8-1.2L7 4.5l3 .5z"/><path d="M8.5 12.5l2.2 2.2 4.8-5.2"/></symbol>
+  </svg>
+
+  <main class="board">
+    <section class="intro">
+      <div class="kicker">Vamo &middot; New trip &mdash; refined</div>
+      <h1>Destination is the hero &middot; Advanced is a quiet opt-in</h1>
+      <p>The previous screen let "Plan how you'll travel" dominate and squeezed the destination into a tiny chip. Here the <strong>destination search is full-width and roomy</strong>, dates collapse to one line, and the advanced multimodal planner is a <strong>single slim row that's off by default</strong> &mdash; it expands to a compact legs panel only when toggled. <strong>Type-and-tap is live: pick a suggestion, open the date sheet, flip Advanced.</strong></p>
+    </section>
+
+    <section class="stage">
+      <div>
+        <div class="frame-label">1 &middot; New trip &mdash; roomy destination, slim Advanced</div>
+        <article class="phone">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-icons"><span class="wifi"><span></span></span><span class="battery"></span></span>
+          </div>
+          <div class="appbar">
+            <svg class="svg" style="--size:24px"><use href="#i-close"/></svg>
+            <div class="appbar-title">New trip</div>
+          </div>
+
+          <div class="body">
+            <div class="label">Trip name</div>
+            <div class="field trip-field">
+              <svg class="svg" style="--size:20px;color:var(--muted-2)"><use href="#i-edit"/></svg>
+              <span class="field-text">Summer on the Amalfi Coast</span>
+            </div>
+
+            <div class="dest-head">
+              <span class="label">Destination</span>
+              <span class="ai-pill"><svg class="svg" style="--size:14px"><use href="#i-spark"/></svg>AI resolve</span>
+            </div>
+            <div class="field search-field">
+              <svg class="svg" style="--size:21px;color:var(--plum)"><use href="#i-search"/></svg>
+              <span class="field-text" style="font-weight:400">amalfi<span class="cursor">|</span></span>
+              <svg class="svg" style="--size:20px;color:var(--plum)"><use href="#i-spark"/></svg>
+            </div>
+
+            <div class="suggestions">
+              <div class="suggestion">
+                <span class="photo one"></span>
+                <span class="suggestion-copy"><strong>Amalfi</strong><span>Town &middot; Salerno, Italy</span></span>
+              </div>
+              <div class="suggestion">
+                <span class="photo two"></span>
+                <span class="suggestion-copy"><strong>Amalfi Coast</strong><span>Region &middot; Campania, Italy</span></span>
+              </div>
+              <div class="suggestion selected">
+                <span class="photo three"></span>
+                <span class="suggestion-copy"><strong>Amalfi (Positano area)</strong><span>Area &middot; 16 km west</span></span>
+                <svg class="svg" style="--size:24px;color:var(--plum)"><use href="#i-check"/></svg>
+              </div>
+            </div>
+
+            <div class="label date-label">Dates</div>
+            <div class="field date-field">
+              <svg class="svg" style="--size:21px;color:var(--coral)"><use href="#i-calendar"/></svg>
+              <span class="field-text">May 12 &ndash; 18</span>
+              <span class="date-len">7 days</span>
+              <svg class="svg" style="--size:19px;color:#C4C8D0"><use href="#i-chevron"/></svg>
+            </div>
+
+            <div class="advanced-row">
+              <svg class="svg" style="--size:20px;color:var(--plum)"><use href="#i-tune"/></svg>
+              <span class="advanced-copy">Plan how you'll travel <span class="advanced-badge">ADVANCED</span></span>
+              <span class="switch"></span>
+            </div>
+          </div>
+
+          <footer class="footer">
+            <button class="primary"><svg class="svg" style="--size:21px"><use href="#i-spark"/></svg>Draft my plan with AI</button>
+            <div class="escape">or <strong>start empty</strong> &mdash; add stops yourself</div>
+          </footer>
+          <div class="hint">tap a suggestion &middot; tap Dates &rarr; sheet &middot; flip <strong>Advanced</strong> to reveal legs</div>
+        </article>
+      </div>
+
+      <div>
+        <div class="frame-label">2 &middot; Travel leg &mdash; window + reach (when Advanced is on)</div>
+        <article class="phone editor">
+          <div class="status">
+            <span>9:41</span>
+            <span class="status-icons"><span class="wifi"><span></span></span><span class="battery"></span></span>
+          </div>
+          <div class="appbar">
+            <svg class="svg" style="--size:24px"><use href="#i-back"/></svg>
+            <div class="appbar-title">Travel leg</div>
+            <span class="remove">Remove</span>
+          </div>
+
+          <div class="body">
+            <div class="label">Mode</div>
+            <div class="mode-row">
+              <span class="mode-chip selected car"><svg class="svg" style="--size:16px"><use href="#i-car"/></svg>Car</span>
+              <span class="mode-chip"><svg class="svg" style="--size:16px"><use href="#i-bike"/></svg>Motorbike</span>
+              <span class="mode-chip"><svg class="svg" style="--size:16px"><use href="#i-bike"/></svg>Bike</span>
+              <span class="mode-chip"><svg class="svg" style="--size:16px"><use href="#i-train"/></svg>Train</span>
+              <span class="mode-chip"><svg class="svg" style="--size:16px"><use href="#i-flight"/></svg>Flight</span>
+              <span class="mode-chip"><svg class="svg" style="--size:16px"><use href="#i-bus"/></svg>Bus</span>
+            </div>
+
+            <div class="label">When you can travel</div>
+            <div class="field travel-field">
+              <svg class="svg" style="--size:21px;color:var(--coral)"><use href="#i-calendar"/></svg>
+              <span class="field-text" style="font-size:15px;font-weight:750">May 12 &ndash; May 14</span>
+              <span class="date-len">3 days</span>
+            </div>
+            <div class="helper"><svg class="svg" style="--size:17px;color:var(--jade)"><use href="#i-clock"/></svg>Times optional &mdash; leave open for flexibility</div>
+
+            <div class="reach-head">
+              <span class="label">Reach limit</span>
+              <div class="segmented">
+                <span class="segment active">Distance</span>
+                <span class="segment">Time</span>
+              </div>
+            </div>
+
+            <div class="reach-value">
+              <span class="reach-number">600</span><span class="reach-unit"> km</span>
+              <div class="reach-caption">max you'll cover by car on this leg</div>
+            </div>
+
+            <div class="presets">
+              <span class="preset">100 km</span>
+              <span class="preset">300 km</span>
+              <span class="preset active">600 km</span>
+              <span class="preset">No limit</span>
+            </div>
+            <div class="unit-note">Units follow your profile &middot; <strong>km</strong> &middot; change in Profile &rsaquo; Preferences</div>
+          </div>
+
+          <footer class="footer">
+            <button class="primary">Save leg</button>
+          </footer>
+        </article>
+      </div>
+
+      <aside class="notes">
+        <h2>The paradigm, applied</h2>
+        <p>One screen, one job at a time. Naming and dates are quick; the destination is where attention goes; everything AI/advanced waits politely until invited.</p>
+
+        <div class="note-list">
+          <div class="note-item">
+            <span class="note-icon" style="--note:var(--plum);--note-bg:#6A2D6F14"><svg class="svg" style="--size:16px"><use href="#i-search"/></svg></span>
+            <p><strong>Destination is the hero.</strong> A full-width focused search with the AI-resolve pill and roomy 48px photo suggestions &mdash; not a cramped chip. It's the field people actually came to fill.</p>
+          </div>
+          <div class="note-item">
+            <span class="note-icon" style="--note:var(--coral);--note-bg:#FF5B4D14"><svg class="svg" style="--size:16px"><use href="#i-calendar"/></svg></span>
+            <p><strong>Dates collapse to one line</strong> that opens the scroller sheet &mdash; the calendar lives in the sheet, not inline, so the form stays short.</p>
+          </div>
+          <div class="note-item">
+            <span class="note-icon" style="--note:var(--plum);--note-bg:#6A2D6F14"><svg class="svg" style="--size:16px"><use href="#i-tune"/></svg></span>
+            <p><strong>Advanced is a single slim row, off by default.</strong> It no longer pushes the destination down. Flip it on and a compact modes + legs panel reveals; tap a leg to open the editor.</p>
+          </div>
+          <div class="note-item">
+            <span class="note-icon" style="--note:#5C7000;--note-bg:#C6FF0044"><svg class="svg" style="--size:16px"><use href="#i-spark"/></svg></span>
+            <p><strong>One lime CTA + an escape hatch.</strong> "Draft my plan with AI" is the single primary action; "start empty" stays beside it. Lime is never spent on anything else here.</p>
+          </div>
+        </div>
+        <div class="note-rule">Rule learned from the reference: <strong>progressive disclosure</strong> &mdash; show the 90% path big and clean; tuck the 10% power path behind one tap.</div>
+      </aside>
+    </section>
+  </main>
+</body>
+</html>

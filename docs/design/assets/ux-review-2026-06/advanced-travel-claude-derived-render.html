@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vamo Advanced Travel - Claude Derived Render</title>
+  <style>
+    :root {
+      --ink: #0C0E16;
+      --ink-soft: #2A2E3A;
+      --slate: #6b7280;
+      --mute: #8a93a0;
+      --mute-2: #9aa0ac;
+      --lime: #C6FF00;
+      --plum: #6A2D6F;
+      --coral: #FF5B4D;
+      --jade: #00A892;
+      --jade-bright: #00C2A8;
+      --sky: #21B7D7;
+      --car: #FF8A3D;
+      --surface: #FFFFFF;
+      --app-bg: #FAFAFB;
+      --hairline: #ECEDF1;
+      --border: #E2E4EA;
+      --border-dash: #D7DAE0;
+      --chip-bg: #F1F2F5;
+      --seg-bg: #EEF0F4;
+      --feas-bg: #E2F6EC;
+      --feas-bd: #BFE8D2;
+      --feas-fg: #1F8F5E;
+      --bezel: #24262D;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: #efeee8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .board {
+      width: 1238px;
+      min-height: 1229px;
+      margin: 0 auto;
+      padding: 24px 29px 38px;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(255,255,255,.78), transparent 28%),
+        linear-gradient(180deg, #f1f0ea 0%, #ecebe4 100%);
+    }
+
+    .board-head {
+      display: grid;
+      grid-template-columns: 528px 528px;
+      gap: 50px;
+      align-items: center;
+      margin-bottom: 16px;
+      color: var(--plum);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .board-head .right {
+      justify-self: start;
+      color: var(--ink-soft);
+      background: rgba(12, 14, 22, .08);
+      padding: 3px 8px;
+      font-weight: 800;
+    }
+
+    .phones {
+      display: grid;
+      grid-template-columns: 528px 528px;
+      gap: 50px;
+      align-items: start;
+    }
+
+    .phone {
+      width: 528px;
+      height: 1112px;
+      border: 16px solid var(--bezel);
+      border-radius: 67px;
+      background: var(--app-bg);
+      overflow: hidden;
+      box-shadow: 0 28px 42px rgba(12, 14, 22, .08);
+    }
+
+    .screen {
+      height: 100%;
+      border-radius: 48px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--app-bg);
+    }
+
+    .status-bar {
+      height: 58px;
+      padding: 22px 37px 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 650;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 19px;
+      color: #08111d;
+    }
+
+    .wifi {
+      position: relative;
+      width: 25px;
+      height: 18px;
+    }
+
+    .wifi::before,
+    .wifi::after,
+    .wifi span {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 3px solid currentColor;
+      border-color: currentColor transparent transparent transparent;
+      border-radius: 50% 50% 0 0;
+    }
+
+    .wifi::before {
+      top: 0;
+      width: 25px;
+      height: 16px;
+    }
+
+    .wifi::after {
+      top: 5px;
+      width: 17px;
+      height: 11px;
+    }
+
+    .wifi span {
+      top: 10px;
+      width: 8px;
+      height: 6px;
+    }
+
+    .battery {
+      position: relative;
+      width: 11px;
+      height: 20px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+
+    .battery::before {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: -3px;
+      width: 5px;
+      height: 3px;
+      border-radius: 1px 1px 0 0;
+      background: currentColor;
+    }
+
+    .appbar {
+      height: 63px;
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 22px;
+      flex: none;
+    }
+
+    .appbar.editor {
+      padding: 0 26px;
+      gap: 21px;
+    }
+
+    .appbar h1 {
+      margin: 0;
+      flex: 1;
+      font-size: 29px;
+      line-height: 1;
+      font-weight: 850;
+      color: var(--ink);
+    }
+
+    .appbar.editor h1 {
+      font-size: 26px;
+    }
+
+    .remove {
+      color: #ff3f31;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .icon-button {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: #07111f;
+      flex: none;
+    }
+
+    .svg {
+      width: var(--size, 22px);
+      height: var(--size, 22px);
+      display: inline-block;
+      vertical-align: middle;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .svg.fill {
+      fill: currentColor;
+      stroke: none;
+    }
+
+    .body {
+      padding: 0 24px;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .editor .body {
+      padding: 0 26px;
+    }
+
+    .context-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 0 0 22px;
+    }
+
+    .context-card {
+      min-height: 78px;
+      border: 1px solid var(--hairline);
+      background: rgba(255,255,255,.66);
+      border-radius: 17px;
+      padding: 17px 16px 13px;
+    }
+
+    .label {
+      color: #818a9a;
+      font-size: 14px;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .context-card .value {
+      margin-top: 11px;
+      color: #20232d;
+      font-size: 19px;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .advanced-card {
+      min-height: 145px;
+      border: 2px solid #8e3797;
+      background: #fbf7fe;
+      border-radius: 23px;
+      padding: 25px 20px;
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .advanced-card .main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .advanced-title {
+      position: relative;
+      min-height: 64px;
+      display: block;
+      margin-bottom: 7px;
+    }
+
+    .advanced-title strong {
+      display: block;
+      width: 218px;
+      color: #22242d;
+      font-size: 23px;
+      line-height: 1.18;
+      font-weight: 850;
+    }
+
+    .advanced-pill {
+      position: absolute;
+      left: 186px;
+      top: 3px;
+      color: #87388c;
+      background: #f1e6f8;
+      border: 1px solid #e6d9ee;
+      border-radius: 999px;
+      padding: 7px 10px 6px;
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 850;
+    }
+
+    .advanced-sub {
+      max-width: 230px;
+      color: #a4adbd;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+
+    .switch {
+      width: 64px;
+      height: 39px;
+      border-radius: 999px;
+      background: #87388c;
+      padding: 4px;
+      flex: none;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.03);
+    }
+
+    .switch::after {
+      content: "";
+      display: block;
+      width: 31px;
+      height: 31px;
+      margin-left: auto;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,.25);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 29px 0 14px;
+    }
+
+    .section-head .aside {
+      color: #bdc3cf;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 13px 12px;
+      margin-bottom: 26px;
+    }
+
+    .chip {
+      min-height: 59px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      border: 1.5px solid var(--border);
+      background: rgba(255,255,255,.72);
+      border-radius: 999px;
+      color: #b8c0ce;
+      padding: 0 21px;
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .chip.small {
+      min-height: 0;
+      height: 45px;
+      padding: 0 17px;
+      font-size: 15px;
+      gap: 7px;
+    }
+
+    .chip.selected {
+      color: var(--ink-soft);
+    }
+
+    .chip.car {
+      --mode: var(--car);
+      --tint: rgba(255,138,61,.09);
+    }
+
+    .chip.train {
+      --mode: var(--jade-bright);
+      --tint: rgba(0,194,168,.09);
+    }
+
+    .chip.motorbike {
+      --mode: var(--coral);
+      --tint: rgba(255,91,77,.07);
+    }
+
+    .chip.bike {
+      --mode: var(--jade);
+      --tint: rgba(0,168,146,.08);
+    }
+
+    .chip.flight {
+      --mode: var(--sky);
+      --tint: rgba(33,183,215,.08);
+    }
+
+    .chip.bus {
+      --mode: var(--plum);
+      --tint: rgba(106,45,111,.08);
+    }
+
+    .chip.selected {
+      border-color: var(--mode);
+      background: var(--tint);
+    }
+
+    .chip .svg {
+      --size: 21px;
+      stroke-width: 2.4;
+      color: currentColor;
+    }
+
+    .chip.selected .svg {
+      color: var(--mode);
+    }
+
+    .legs {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .leg-row {
+      min-height: 89px;
+      display: flex;
+      align-items: center;
+      gap: 17px;
+      padding: 14px 17px;
+      border: 1px solid var(--hairline);
+      border-radius: 19px;
+      background: rgba(255,255,255,.72);
+      box-shadow: 0 1px 2px rgba(12,14,22,.04);
+    }
+
+    .tile {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      flex: none;
+    }
+
+    .tile .svg {
+      --size: 27px;
+      stroke-width: 2.5;
+    }
+
+    .tile.car {
+      color: var(--car);
+      background: rgba(255,138,61,.10);
+    }
+
+    .tile.train {
+      color: var(--jade-bright);
+      background: rgba(0,194,168,.10);
+    }
+
+    .leg-copy {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .leg-copy strong {
+      display: block;
+      color: #151923;
+      font-size: 20px;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .leg-copy span {
+      display: block;
+      margin-top: 7px;
+      color: #9aa8bf;
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chev {
+      color: #d4d9e3;
+      --size: 24px;
+    }
+
+    .add-row {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 20px;
+      border: 1.5px dashed var(--border-dash);
+      border-radius: 19px;
+      color: var(--plum);
+      background: rgba(255,255,255,.34);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .add-row .svg {
+      --size: 24px;
+    }
+
+    .feasibility {
+      min-height: 61px;
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 14px 16px;
+      border: 1px solid var(--feas-bd);
+      border-radius: 16px;
+      background: var(--feas-bg);
+      color: var(--ink-soft);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .feasibility .svg {
+      --size: 21px;
+      color: var(--feas-fg);
+      flex: none;
+    }
+
+    .footer {
+      padding: 9px 24px 21px;
+      flex: none;
+      background: linear-gradient(180deg, rgba(250,250,251,0) 0%, var(--app-bg) 17%);
+    }
+
+    .footer.editor-footer {
+      padding: 10px 26px 23px;
+    }
+
+    .primary {
+      position: relative;
+      width: 100%;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border: 0;
+      border-radius: 22px;
+      background: var(--lime);
+      color: var(--ink);
+      box-shadow: 0 8px 21px rgba(198,255,0,.37);
+      font-size: 23px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .primary .svg {
+      --size: 27px;
+      stroke-width: 2.3;
+    }
+
+    .ai-badge {
+      position: absolute;
+      right: 20px;
+      top: -14px;
+      border-radius: 999px;
+      background: var(--plum);
+      color: white;
+      padding: 6px 12px 5px;
+      box-shadow: 0 2px 6px rgba(106,45,111,.36);
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .secondary {
+      min-height: 77px;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border: 1.5px solid var(--border-dash);
+      border-radius: 20px;
+      background: rgba(255,255,255,.70);
+      color: #263044;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .secondary .svg {
+      --size: 24px;
+      color: var(--slate);
+    }
+
+    .microcopy {
+      margin-top: 15px;
+      text-align: center;
+      color: #b5bdd0;
+      font-size: 15px;
+    }
+
+    .editor .section-head {
+      margin: 15px 0 15px;
+    }
+
+    .editor .chips {
+      gap: 13px 12px;
+      margin-bottom: 29px;
+    }
+
+    .editor .chip {
+      min-height: 58px;
+      font-size: 17px;
+      padding: 0 20px;
+      color: #7f889a;
+      background: rgba(255,255,255,.56);
+    }
+
+    .editor .chip.selected {
+      color: var(--ink-soft);
+      background: rgba(255,138,61,.08);
+    }
+
+    .date-field {
+      min-height: 82px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 19px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: rgba(255,255,255,.68);
+      box-shadow: 0 1px 2px rgba(12,14,22,.025);
+    }
+
+    .date-field .svg {
+      --size: 29px;
+      color: var(--coral);
+      flex: none;
+    }
+
+    .date-value {
+      flex: 1;
+      color: #20242e;
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 850;
+    }
+
+    .duration {
+      color: #b5bdcd;
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    .helper {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 18px 0 42px;
+      color: #8a93a5;
+      font-size: 17px;
+    }
+
+    .helper .svg {
+      --size: 22px;
+      color: var(--jade);
+      flex: none;
+    }
+
+    .reach-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .segmented {
+      height: 47px;
+      display: flex;
+      align-items: center;
+      padding: 3px;
+      border-radius: 13px;
+      background: var(--seg-bg);
+    }
+
+    .segment {
+      height: 41px;
+      display: grid;
+      place-items: center;
+      padding: 0 18px;
+      border-radius: 11px;
+      color: #7a8293;
+      font-size: 16px;
+      font-weight: 850;
+    }
+
+    .segment.active {
+      background: var(--bezel);
+      color: white;
+    }
+
+    .reach-value {
+      text-align: center;
+      margin: 0 0 25px;
+    }
+
+    .reach-value .number {
+      color: #20232d;
+      font-size: 62px;
+      line-height: .98;
+      font-weight: 900;
+    }
+
+    .reach-value .unit {
+      color: #aeb6c6;
+      font-size: 25px;
+      font-weight: 850;
+    }
+
+    .reach-value .caption {
+      margin-top: 8px;
+      color: #aeb7c8;
+      font-size: 15px;
+    }
+
+    .presets {
+      display: flex;
+      gap: 13px;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+
+    .preset {
+      min-width: 91px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      border-radius: 16px;
+      background: #F3F4F7;
+      color: #333b4a;
+      font-size: 17px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .preset.active {
+      background: var(--bezel);
+      color: white;
+    }
+
+    .unit-note {
+      color: #b4bccf;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .unit-note strong {
+      color: #9aa2b3;
+    }
+
+    .save {
+      min-height: 76px;
+      font-size: 22px;
+    }
+
+    .derivation-card {
+      width: 1110px;
+      margin: 18px auto 0;
+      padding: 13px 18px;
+      border: 1px solid rgba(106,45,111,.18);
+      border-radius: 14px;
+      background: rgba(255,255,255,.68);
+      color: #343847;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 16px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .derivation-card strong {
+      color: var(--plum);
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7M9 12h11"/></symbol>
+    <symbol id="i-tune" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h4M12 12h8M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 12l2-5h10l2 5M6 12h12v6H6zM8 18v2M16 18v2M8 15h.1M16 15h.1"/></symbol>
+    <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="6" cy="16" r="3"/><circle cx="18" cy="16" r="3"/><path d="M8.5 16l3-7h2l2.5 7M11.5 9h-3M13.5 9l3-2M11.5 9l5 7M10 13h4"/></symbol>
+    <symbol id="i-train" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="15" rx="3"/><path d="M9 6h6M8 10h8M8 14h2M14 14h2M9 18l-2 3M15 18l2 3"/></symbol>
+    <symbol id="i-flight" viewBox="0 0 24 24"><path d="M3 11l18-7-7 18-3-8-8-3z"/></symbol>
+    <symbol id="i-bus" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="14" rx="3"/><path d="M8 8h8M8 12h8M8 18v2M16 18v2M8.5 15h.1M15.5 15h.1"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-verified" viewBox="0 0 24 24"><path d="M12 3l2 2 3-.5 1.2 2.8 2.8 1.2-.5 3 2 2-2 2 .5 3-2.8 1.2-1.2 2.8-3-.5-2 2-2-2-3 .5-1.2-2.8L3 18.5l.5-3-2-2 2-2-.5-3 2.8-1.2L7 4.5l3 .5z"/><path d="M8.5 12.5l2.2 2.2 4.8-5.2"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7zM19 15l.8 3.2L23 19l-3.2.8L19 23l-.8-3.2L15 19l3.2-.8z"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 6h10M4 11h8M4 16h6M14 19l5-5 2 2-5 5h-2z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h.1M12 14h.1M16 14h.1M8 17h.1M12 17h.1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
+  </svg>
+
+  <main class="board">
+    <div class="board-head">
+      <span>1 · New trip &rarr; Travel (advanced)</span>
+      <span class="right">2 · Travel leg &mdash; window + reach limit</span>
+    </div>
+
+    <section class="phones">
+      <article class="phone">
+        <div class="screen">
+          <div class="status-bar">
+            <span>9:41</span>
+            <span class="status-icons"><span class="wifi"><span></span></span><span class="battery"></span></span>
+          </div>
+          <div class="appbar">
+            <span class="icon-button"><svg class="svg" style="--size:29px"><use href="#i-close"/></svg></span>
+            <h1>New trip</h1>
+          </div>
+
+          <div class="body">
+            <div class="context-row">
+              <div class="context-card">
+                <div class="label">Destination</div>
+                <div class="value">Amalfi Coast</div>
+              </div>
+              <div class="context-card">
+                <div class="label">Dates</div>
+                <div class="value">Jul 1 &ndash; 7</div>
+              </div>
+            </div>
+
+            <div class="advanced-card">
+              <svg class="svg" style="--size:30px;color:var(--plum)"><use href="#i-tune"/></svg>
+              <div class="main">
+                <div class="advanced-title">
+                  <strong>Plan how you'll<br>travel</strong>
+                  <span class="advanced-pill">ADVANCED</span>
+                </div>
+                <div class="advanced-sub">Multi-modal legs &amp; limits for AI to solve</div>
+              </div>
+              <span class="switch"></span>
+            </div>
+
+            <div class="section-head">
+              <div class="label">Modes you'll use</div>
+            </div>
+            <div class="chips">
+              <span class="chip selected car"><svg class="svg"><use href="#i-car"/></svg>Car</span>
+              <span class="chip motorbike"><svg class="svg"><use href="#i-bike"/></svg>Motorbike</span>
+              <span class="chip bike"><svg class="svg"><use href="#i-bike"/></svg>Bike</span>
+              <span class="chip selected train"><svg class="svg"><use href="#i-train"/></svg>Train</span>
+              <span class="chip flight"><svg class="svg"><use href="#i-flight"/></svg>Flight</span>
+              <span class="chip bus"><svg class="svg"><use href="#i-bus"/></svg>Bus</span>
+            </div>
+
+            <div class="section-head" style="margin-top:1px">
+              <div class="label">Travel legs</div>
+              <div class="aside">in order</div>
+            </div>
+            <div class="legs">
+              <div class="leg-row">
+                <span class="tile car"><svg class="svg"><use href="#i-car"/></svg></span>
+                <span class="leg-copy"><strong>Car</strong><span>Jul 1 &ndash; 3 · ≤ 600 km</span></span>
+                <svg class="svg chev"><use href="#i-chevron"/></svg>
+              </div>
+              <div class="leg-row">
+                <span class="tile train"><svg class="svg"><use href="#i-train"/></svg></span>
+                <span class="leg-copy"><strong>Train</strong><span>Jul 4 &ndash; 7 · ≤ 5h / day</span></span>
+                <svg class="svg chev"><use href="#i-chevron"/></svg>
+              </div>
+              <div class="add-row"><svg class="svg"><use href="#i-plus"/></svg>Add a travel leg</div>
+            </div>
+
+            <div class="feasibility">
+              <svg class="svg"><use href="#i-verified"/></svg>
+              <span>Feasible &mdash; AI can connect 8 stops across your 2 legs within the Jul 1&ndash;7 range.</span>
+            </div>
+          </div>
+
+          <footer class="footer">
+            <button class="primary"><span class="ai-badge">★ VAMO AI</span><svg class="svg"><use href="#i-spark"/></svg>Draft route with AI</button>
+            <div class="secondary"><svg class="svg"><use href="#i-edit"/></svg>I'll plan it myself</div>
+            <div class="microcopy">AI is optional &mdash; it drafts, you decide. Build by hand anytime.</div>
+          </footer>
+        </div>
+      </article>
+
+      <article class="phone editor">
+        <div class="screen">
+          <div class="status-bar">
+            <span>9:41</span>
+            <span class="status-icons"><span class="wifi"><span></span></span><span class="battery"></span></span>
+          </div>
+          <div class="appbar editor">
+            <span class="icon-button"><svg class="svg" style="--size:30px"><use href="#i-back"/></svg></span>
+            <h1>Travel leg</h1>
+            <span class="remove">Remove</span>
+          </div>
+
+          <div class="body">
+            <div class="section-head"><div class="label">Mode</div></div>
+            <div class="chips">
+              <span class="chip selected car small"><svg class="svg"><use href="#i-car"/></svg>Car</span>
+              <span class="chip train small"><svg class="svg"><use href="#i-bike"/></svg>Motorbike</span>
+              <span class="chip bike small"><svg class="svg"><use href="#i-bike"/></svg>Bike</span>
+              <span class="chip train small"><svg class="svg"><use href="#i-train"/></svg>Train</span>
+              <span class="chip flight small"><svg class="svg"><use href="#i-flight"/></svg>Flight</span>
+              <span class="chip bus small"><svg class="svg"><use href="#i-bus"/></svg>Bus</span>
+            </div>
+
+            <div class="section-head" style="margin-top:3px"><div class="label">When you can travel</div></div>
+            <div class="date-field">
+              <svg class="svg"><use href="#i-calendar"/></svg>
+              <span class="date-value">Jul 1 &ndash; Jul 3</span>
+              <span class="duration">3 days</span>
+            </div>
+            <div class="helper"><svg class="svg"><use href="#i-clock"/></svg>Times optional &mdash; leave open for flexibility</div>
+
+            <div class="reach-head">
+              <div class="label">Reach limit</div>
+              <div class="segmented">
+                <span class="segment active">Distance</span>
+                <span class="segment">Time</span>
+              </div>
+            </div>
+
+            <div class="reach-value">
+              <span class="number">600</span><span class="unit"> km</span>
+              <div class="caption">max you'll cover by car on this leg</div>
+            </div>
+
+            <div class="presets">
+              <span class="preset">100 km</span>
+              <span class="preset">300 km</span>
+              <span class="preset active">600 km</span>
+              <span class="preset">No limit</span>
+            </div>
+
+            <div class="unit-note">Units follow your profile · <strong>km</strong> · change in Profile &rsaquo; Preferences</div>
+          </div>
+
+          <footer class="footer editor-footer">
+            <button class="primary save">Save leg</button>
+          </footer>
+        </div>
+      </article>
+    </section>
+
+    <section class="derivation-card">
+      <div><strong>Navigation:</strong> list rows and Add a travel leg push into the editor; Save returns to the ordered list.</div>
+      <div><strong>Quiet palette:</strong> global modes are a filter/preselect layer, while each leg owns its mode.</div>
+      <div><strong>Leg rules:</strong> new legs prefill the next date gap; Back discards unsaved new legs; Remove appears only for existing legs.</div>
+    </section>
+  </main>
+</body>
+</html>
