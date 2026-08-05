@@ -33,7 +33,7 @@ This document states them explicitly so they can be challenged, and defines the 
 | Observation promotion | Legacy `promote_location_aliases` may promote with `trusted_source_match` or two distinct users; it does not require distinct days. | At least 3 distinct users across at least 2 distinct UTC days; no provider-derived bypass. |
 | Device-fix contribution | Not implemented. Consent and capture design remain subject to counsel review. | Separate, declinable consent; use only consented device fixes to derive a canonical coordinate. |
 | Provider facts on observations | `location_source_refs` records canonical provenance. The approved observation-side split is not yet deployed. | PDA-2 adds expiry-bound `location_observation_provider_facts`; promotion runs as a role with no read grant on that table. |
-| Confluendo production delivery | The controlled delivery components exist, but `productionInboxEnabled` is false in `bootstrap`, `staging_ramp`, and `volume_ramp`. `steady_state` is currently locked. | Advance through the three controlled promotions only after the consumer persistence receipt and its evidence are proven. |
+| Confluendo production delivery | Receipt enforcement is merged in Confluendo, but Vamo has not yet configured its database-owned environment identity. `productionInboxEnabled` is false in `bootstrap`, `staging_ramp`, and `volume_ramp`; `steady_state` is currently locked. | Configure and verify the Vamo marker in both databases; worker-configured expected environments must match it before any consumer write, then advance through the three controlled promotions only after consumer persistence evidence is proven. |
 
 ## 2. Correcting the founding assumption
 
@@ -92,8 +92,31 @@ Confluendo is the governed path from an external dataset into Vamo's production 
 What Confluendo must add to serve this strategy:
 
 1. **Licence metadata as a first-class field on every artifact**, carried through to `location_source_refs`. A fact whose licence is unknown must be unusable by construction.
-2. **A persistence receipt** computed by the consumer, in the consumer's database, and read back from it — target identity, package ID, persisted row count, content hash. This is the currently open P0.
+2. **A persistence receipt** computed by the consumer, in the consumer's database, and read back from it — target identity, package ID, persisted row count, content hash. Confluendo receipt enforcement is merged; Vamo environment identity configuration and the independently configured worker-environment match remain the current P0 gate.
 3. **An acquisition target queue** fed by the demand signal described in §7.
+
+### Data Foundation execution order
+
+The next Vamo programme is data foundation, not another provider integration in the
+consumer:
+
+1. Configure the Vamo Staging and Production receipt identities and prove the
+   consumer-owned apply receipt against each intended database.
+2. Define an `administrative-reference` artifact contract in Confluendo: stable
+   municipality identity, canonical label, aliases, country and parent codes,
+   centroid, source identifier, dataset version, licence, attribution, and validity
+   period.
+3. Add `municipality` as an explicit Vamo canonical feature type and map the
+   approved contract into `location_canonicals` and `location_source_refs`.
+4. Run one bounded Italy release through the governed artifact, Staging verification,
+   consumer inbox, and consumer receipt path; then expand the municipality baseline
+   across the EU in versioned releases.
+5. Add FSQ OS POIs progressively by country and category through Confluendo. A visual
+   is optional, rights-bound cache data; it is not a baseline requirement for every
+   municipality record.
+
+PDA-1 may proceed in parallel with steps 1–2. PDA-2 and PDA-3 remain separate
+enforcement work; neither justifies a Vamo-side source loader.
 
 ## 6. Layer 2 — user observations
 

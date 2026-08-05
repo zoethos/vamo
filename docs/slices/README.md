@@ -1,4 +1,9 @@
-# Slice tracker — Wave 2 (the real stage)
+# Slice tracker — Wave 2 (historical)
+
+> **Do not use this file as Vamo's current delivery roadmap.** Its detailed status
+> was last maintained on 19 June 2026. The current place-data programme and its
+> Confluendo boundary are in [DATA_ACQUISITION_STRATEGY.md](../architecture/DATA_ACQUISITION_STRATEGY.md).
+> This tracker remains as historical evidence for Wave 2 slices.
 
 Living status; specs stay sealed. Conventions: `docs/CONVENTIONS.md`.
 Updated: 2026-06-19.
