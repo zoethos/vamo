@@ -117,10 +117,10 @@ packages:
     dependency: transitive
     description:
       name: functions_client
-      sha256: "94bde5b8062b1c498795ce509cbe7e83417e171eb55c2c611da64c15034b7851"
+      sha256: "931e822688d2e97867b2300e2fdbb08c9db73f8653fc83efc7a259d2e0cca769"
       url: "https://pub.dev"
     source: hosted
-    version: "2.6.0"
+    version: "2.7.1"
   glob:
     dependency: transitive
     description:
@@ -133,10 +133,10 @@ packages:
     dependency: transitive
     description:
       name: gotrue
-      sha256: "22f0a6ea86c8024de6b164a49a213cfa60a23f19df26e5bca8d6eb7e087fdf17"
+      sha256: f6f42ea035953b2439664c1afb46630460edbb917093843a3a0618bfa45619f6
       url: "https://pub.dev"
     source: hosted
-    version: "2.21.0"
+    version: "2.27.1"
   graphs:
     dependency: transitive
     description:
@@ -177,14 +177,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.12.0"
-  jwt_decode:
-    dependency: transitive
-    description:
-      name: jwt_decode
-      sha256: d2e9f68c052b2225130977429d30f187aa1981d789c76ad104a32243cfdebfbb
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.1"
   logging:
     dependency: transitive
     description:
@@ -261,10 +253,10 @@ packages:
     dependency: transitive
     description:
       name: postgrest
-      sha256: "9d61b3d4a88fcf9424d400127c54d49ed1b56ec30838fc0a33a64f31d4e694cc"
+      sha256: b7f957273ba6a1c26cefa987ac524f4138e9ab7542fbb9e6abdfddacb9895a21
       url: "https://pub.dev"
     source: hosted
-    version: "2.7.0"
+    version: "2.9.1"
   process:
     dependency: transitive
     description:
@@ -309,26 +301,10 @@ packages:
     dependency: transitive
     description:
       name: realtime_client
-      sha256: "7dfccf372d2f55aacfeefb6186f65a06f3ffae383fe042dbeef9d85d33487576"
+      sha256: ff731ce21fd775e0d7accfb1eaccdcf47b687610720822ba8b9fd8f5bccb2bd9
       url: "https://pub.dev"
     source: hosted
-    version: "2.7.3"
-  retry:
-    dependency: transitive
-    description:
-      name: retry
-      sha256: "822e118d5b3aafed083109c72d5f484c6dc66707885e07c0fbcb8b986bba7efc"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.1.2"
-  rxdart:
-    dependency: transitive
-    description:
-      name: rxdart
-      sha256: "5c3004a4a8dbb94bd4bf5412a4def4acdaa12e12f269737a5751369e12d1a962"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.28.0"
+    version: "2.13.0"
   source_span:
     dependency: transitive
     description:
@@ -349,10 +325,10 @@ packages:
     dependency: transitive
     description:
       name: storage_client
-      sha256: c108351e9811f4c47afce1147ed3daef7f7647d095884101af16ad79bb2a8e9f
+      sha256: b16aaaadcef812fda31fca056f50fb3485afe64f94e5d537d30f485ed55dec5e
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.4"
+    version: "2.8.0"
   stream_channel:
     dependency: transitive
     description:
@@ -373,10 +349,18 @@ packages:
     dependency: "direct dev"
     description:
       name: supabase
-      sha256: "3eeddc8fd654360aa4105e6d28ef5d027687bb40bfcffd9b1f2814640862bc91"
+      sha256: eeea4f5edefd95977aa16045c3c4c8020aa31c87818669b8eb887ccb68805964
       url: "https://pub.dev"
     source: hosted
-    version: "2.12.0"
+    version: "2.16.0"
+  supabase_common:
+    dependency: transitive
+    description:
+      name: supabase_common
+      sha256: a7961a44953cf8d9da049381fc3377516348255042fbb12b9d4f8540816f2fe9
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.2"
   term_glyph:
     dependency: transitive
     description:
@@ -437,9 +421,9 @@ packages:
     dependency: transitive
     description:
       name: yet_another_json_isolate
-      sha256: fe45897501fa156ccefbfb9359c9462ce5dec092f05e8a56109db30be864f01e
+      sha256: eaa26beb5990b25a49d942374fd5a0c5aa67a837e03b14b4c26134aaa1ed01a9
       url: "https://pub.dev"
     source: hosted
-    version: "2.1.0"
+    version: "2.1.1"
 sdks:
   dart: ">=3.9.0 <4.0.0"
