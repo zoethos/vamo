@@ -19,9 +19,12 @@ deliberately inserts no environment. An owner then configures one row in each
 database during its own promotion step.
 
 Neither `confluendo_inbox_writer`, `confluendo_inbox_apply`, nor `vamo_canary_app`
-can read or change the marker table. The apply and canary roles can call the narrow
-reader function. If configuration is absent, it raises a named error instead of
-returning a default such as `production`.
+can read or change the marker table. Each installed worker role receives only the
+narrow reader function it needs: `vamo_canary_app` receives
+`current_app_environment()` in Staging, while the Production apply role receives
+both readers. The shared migration grants only to roles present in that database.
+If configuration is absent, the reader raises a named error instead of returning a
+default such as `production`.
 
 ## A. Apply to Vamo Staging
 
@@ -38,30 +41,31 @@ Verify the configured database:
 
 ```sql
 select * from public.current_app_environment();
-select * from confluendo_inbox.current_consumer_identity();
 ```
 
 Expected exactly one row:
 
 ```text
 staging
-vamo | staging | 1
 ```
 
-Verify that the restricted apply role can read only through the function:
+Verify that the restricted Staging canary role can read only through the function:
 
 ```sql
 begin;
-set local role confluendo_inbox_apply;
+set local role vamo_canary_app;
 
-select * from confluendo_inbox.current_consumer_identity();
--- Expected: vamo | staging | 1
+select * from public.current_app_environment();
+-- Expected: staging
 
 select * from public.app_environment;
 -- Expected: ERROR: permission denied for table app_environment
 
 rollback;
 ```
+
+`confluendo_inbox_apply` is intentionally not required in Staging. The
+Production-only receipt adapter is verified in the Production promotion step.
 
 If the first `insert` affected zero rows, stop and inspect the existing row. Do not
 overwrite it with an `upsert`; a correction is an owner-reviewed incident, not a
@@ -78,10 +82,33 @@ values (true, 'production')
 on conflict (singleton) do nothing;
 ```
 
-Run the same two verification blocks. The function must return:
+As the owner, verify both readers:
+
+```sql
+select * from public.current_app_environment();
+select * from confluendo_inbox.current_consumer_identity();
+```
+
+The receipt adapter must return:
 
 ```text
 vamo | production | 1
+```
+
+Then verify the restricted Production apply role can read only through the
+adapter:
+
+```sql
+begin;
+set local role confluendo_inbox_apply;
+
+select * from confluendo_inbox.current_consumer_identity();
+-- Expected: vamo | production | 1
+
+select * from public.app_environment;
+-- Expected: ERROR: permission denied for table app_environment
+
+rollback;
 ```
 
 ## C. Restore and worker guard
@@ -119,11 +146,11 @@ Migration promotion checkpoint:
 - Migration files changed: supabase/migrations/20260805210000_confluendo_inbox_consumer_identity.sql
 - Staging project/ref:
 - Staging apply status:
-- Staging verification/smoke: current_app_environment() returned staging; current_consumer_identity() returned vamo | staging | 1; canary/apply roles had function-only access checked; worker expected-environment match passed
+- Staging verification/smoke: current_app_environment() returned staging; vamo_canary_app had function-only access checked; canary worker expected-environment match passed
 - Production project/ref:
 - Production apply status:
 - Production verification: current_app_environment() returned production; current_consumer_identity() returned vamo | production | 1; apply role function-only access checked; worker expected-environment match passed
 - Current drift:
 - If production not promoted: blocker, owner, planned date, and why drift is acceptable:
-- Environment-specific objects excluded from production: no staging identity row, no canary role or canary grants
+- Environment-specific objects excluded from production: no staging identity row or canary role/grant; no Production apply-role grant is expected in Staging
 ```
