@@ -60,10 +60,14 @@ end;
 $$;
 
 revoke all on function public.current_app_environment() from public, anon, authenticated;
-grant execute on function public.current_app_environment() to confluendo_inbox_apply;
 
 do $$
 begin
+  -- Roles differ by Vamo environment. The shared schema must apply before the
+  -- Production-only inbox apply role is installed.
+  if to_regrole('confluendo_inbox_apply') is not null then
+    grant execute on function public.current_app_environment() to confluendo_inbox_apply;
+  end if;
   if to_regrole('confluendo_inbox_apply_app') is not null then
     grant execute on function public.current_app_environment() to confluendo_inbox_apply_app;
   end if;
@@ -99,11 +103,13 @@ $$;
 
 revoke all on function confluendo_inbox.current_consumer_identity() from public;
 revoke all on function confluendo_inbox.current_consumer_identity() from anon, authenticated;
-grant execute on function confluendo_inbox.current_consumer_identity()
-  to confluendo_inbox_apply;
 
 do $$
 begin
+  if to_regrole('confluendo_inbox_apply') is not null then
+    grant execute on function confluendo_inbox.current_consumer_identity()
+      to confluendo_inbox_apply;
+  end if;
   if to_regrole('confluendo_inbox_apply_app') is not null then
     grant execute on function confluendo_inbox.current_consumer_identity()
       to confluendo_inbox_apply_app;
