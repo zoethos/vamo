@@ -142,6 +142,56 @@ For both roles: `role_present`, `can_read_environment`,
 `can_read_marker_table` and `can_insert_product_rows` must be `false`.
 Stop if any value differs.
 
+### B.1 Production telemetry login activation
+
+`20260810090000_confluendo_inbox_telemetry_identity.sql` creates the
+non-login `confluendo_inbox_telemetry_app` role in both databases. Only
+Production enables its login/password. It is a separate, read-only credential
+for Confluendo reconciliation: it may read inbox status and the narrow identity
+readers, but it cannot apply a shipment, read
+`public.app_environment`, or write Vamo product tables.
+
+After the migration is applied to Production, a Vamo DBA enables that role as
+a login and assigns a new password. The password belongs only in the protected
+Confluendo Production environment secret; never in this repository or a
+browser-visible variable.
+
+Verify the resulting boundary as the Vamo owner:
+
+```sql
+select
+  has_function_privilege(
+    'confluendo_inbox_telemetry_app',
+    'public.current_app_environment()',
+    'EXECUTE'
+  ) as can_read_environment,
+  has_function_privilege(
+    'confluendo_inbox_telemetry_app',
+    'confluendo_inbox.current_consumer_identity()',
+    'EXECUTE'
+  ) as can_read_receipt,
+  has_function_privilege(
+    'confluendo_inbox_telemetry_app',
+    'confluendo_inbox.apply_confluendo_shipment(text,text,text)',
+    'EXECUTE'
+  ) as can_apply_shipment,
+  has_table_privilege(
+    'confluendo_inbox_telemetry_app',
+    'public.app_environment',
+    'SELECT'
+  ) as can_read_marker_table,
+  has_table_privilege(
+    'confluendo_inbox_telemetry_app',
+    'public.location_canonicals',
+    'INSERT'
+  ) as can_insert_product_rows;
+```
+
+Expected: `true`, `true`, `false`, `false`, `false` respectively. Stop if any
+value differs. The reconciliation worker compares the returned receipt with
+its independently configured `production` expectation before it reads inbox
+apply facts.
+
 As a direct spot check, verify the non-login apply role reads only through the
 adapter:
 
