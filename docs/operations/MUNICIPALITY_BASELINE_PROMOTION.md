@@ -193,7 +193,7 @@ Apply the same exact migration to Vamo Production only after the Staging smoke p
 Migration promotion checkpoint:
 
 ```text
-- Migration files changed: supabase/migrations/20260810120000_municipality_place_baseline.sql, supabase/migrations/20260810130000_location_canonicals_spatial_index.sql
+- Migration files changed: supabase/migrations/20260810120000_municipality_place_baseline.sql, supabase/migrations/20260810130000_location_canonicals_spatial_index.sql, supabase/migrations/20260810140000_assert_municipality_feature_type_constraint.sql
 - Staging project/ref:
 - Staging apply status:
 - Staging verification/smoke:
