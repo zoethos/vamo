@@ -14,6 +14,10 @@ The first baseline contains only core administrative records:
 - authority identifier, name, country, parent code, centroid, dataset version,
   validity facts when supplied, licence, and attribution.
 
+Each canonical item must carry a paired latitude and longitude. Vamo derives its
+WGS 84 `geom` projection from those declared item fields, so spatial data has no
+second write path and cannot drift from the checksummed shipment payload.
+
 It contains no aliases, photos, or provider-cache payloads. If a later release
 writes another product row, that row must be a separately checksummed shipment
 item with its own licence and provenance. No trigger or after-apply extension
@@ -84,8 +88,9 @@ or count writes that are not shipment items.
 
 ## Sequence
 
-1. Promote and verify the municipality schema expansion in Vamo Staging and
-   Production using the transactional apply smoke.
+1. Promote and verify the municipality and additive spatial schema migrations in
+   Vamo Staging and Production using the transactional apply smoke and a
+   nearest/radius query smoke.
 2. Implement deterministic partition materialization, canary selection,
    package identity, and receipts in the governed Confluendo-to-Vamo path.
 3. Commission one licensed country release only after step 2 is proven.

@@ -1,6 +1,8 @@
 # Municipality Baseline Promotion
 
-Status: operator checklist for the municipality schema and consumer-owned inbox apply expansion. This is not authorization to acquire or deliver a municipality release.
+Status: operator checklist for the municipality and additive spatial schema,
+plus the consumer-owned inbox apply expansion. This is not authorization to
+acquire or deliver a municipality release.
 
 Related policy: [MIGRATION_PROMOTION_POLICY.md](MIGRATION_PROMOTION_POLICY.md).
 
@@ -8,13 +10,37 @@ Migration:
 
 ```text
 supabase/migrations/20260810120000_municipality_place_baseline.sql
+supabase/migrations/20260810130000_location_canonicals_spatial_index.sql
 ```
 
-The migration is application schema and must be promoted Staging first, then Production in the same release window. It creates no canary role, sentinel, or environment-specific object.
+These application-schema migrations must be promoted Staging first, then
+Production in the same release window. They create no canary role, sentinel,
+or environment-specific object.
 
 ## Invariant
 
 If it writes a product row, it must be a shipment item. The migration removes the earlier post-apply trigger shape: it does not create aliases or any other product rows outside `confluendo_inbox.shipment_items`. Municipality v1 has two explicit item kinds only: `location_canonicals` and `location_source_refs`.
+
+`location_canonicals.geom` is a generated WGS 84 geography projection of the
+declared latitude and longitude. It is not a shipment item or a second write
+path. Municipalities require both coordinates; legacy non-municipality rows may
+remain coordinate-less.
+
+## Coordinate preflight
+
+Before applying the spatial migration in each environment, run this read-only
+query as the database owner. It must return zero rows; otherwise correct the
+existing data before applying the batch.
+
+```sql
+select canonical_key, feature_type, latitude, longitude
+from public.location_canonicals
+where (latitude is null) <> (longitude is null)
+   or (
+     feature_type = 'municipality'
+     and (latitude is null or longitude is null)
+   );
+```
 
 ## Staging verification
 
@@ -105,6 +131,9 @@ select confluendo_inbox.apply_confluendo_shipment(
 select
   canonical.feature_type,
   canonical.administrative_parent_code,
+  canonical.geom is not null as has_generated_geom,
+  extensions.st_y(canonical.geom::extensions.geometry) as derived_latitude,
+  extensions.st_x(canonical.geom::extensions.geometry) as derived_longitude,
   source_ref.dataset_version,
   source_ref.valid_from,
   source_ref.valid_to,
@@ -120,6 +149,26 @@ where canonical.canonical_key = 'smoke-municipality-it'
   and source_ref.provider = 'geonames'
   and source_ref.source_place_id = 'smoke-municipality-it';
 
+select
+  exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname = 'location_canonicals_geom_gist'
+  ) as has_geometry_index,
+  exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname = 'location_canonicals_country_feature_lookup_idx'
+  ) as has_lookup_index,
+  exists (
+    select 1
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname = 'location_canonicals_name_norm_trgm_idx'
+  ) as has_trigram_index;
+
 rollback;
 ```
 
@@ -127,6 +176,9 @@ Expected:
 
 - `no_custom_shipment_item_trigger = true`.
 - One `municipality` canonical with parent code `09`.
+- `has_generated_geom = true`, `derived_latitude = 45.4642`, and
+  `derived_longitude = 9.19`.
+- All three index checks are true.
 - One source reference with `smoke-2026-08`, `2026-08-01`, and `2026-12-31`.
 - `applied_item_count = 2`; no aliases or other product rows are created.
 - The rollback leaves no smoke shipment, inbox log, or product data.
@@ -138,7 +190,7 @@ Apply the same exact migration to Vamo Production only after the Staging smoke p
 Migration promotion checkpoint:
 
 ```text
-- Migration files changed: supabase/migrations/20260810120000_municipality_place_baseline.sql
+- Migration files changed: supabase/migrations/20260810120000_municipality_place_baseline.sql, supabase/migrations/20260810130000_location_canonicals_spatial_index.sql
 - Staging project/ref:
 - Staging apply status:
 - Staging verification/smoke:

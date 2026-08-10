@@ -58,10 +58,9 @@ sources. This is where value compounds and what the app reads from.
 `location_source_refs`* / `source_place_id` is the pointer linking a Plane-A
 identity to a Plane-B canonical. It is a key, not content — durable by design.
 
-> \* Naming: today these are `location_canonicals` and `location_source_refs`. The
-> deferred literal-spec slice renames them to `locations_core` / `location_source_ids`
-> and adds PostGIS `geom`/GiST + pg_trgm. This doc uses the target intent; treat the
-> current names as aliases until that slice lands.
+> \* `location_canonicals` and `location_source_refs` are the established consumer
+> contract names and remain so. The additive spatial migration adds generated
+> PostGIS `geom`/GiST and a `pg_trgm` name index without renaming either table.
 
 ---
 
@@ -146,9 +145,9 @@ Extend `location_provider_policies` with the enrichment sources:
   `location_visual_cache`, the `location_observations` flywheel.
 - **Feeds, does not couple to, Feature B:** offline packs consume the Plane-B
   canonical projection locally (name/address/lat-lng/source-id), never Plane A.
-- **Overlaps the deferred literal-spec slice** (chip): the PostGIS/geom/trigram
-  rename and the `location_visual_cache` fallback chain are prerequisites; this doc
-  is the reference that slice builds against.
+- **Spatial prerequisite:** generated PostGIS `geom`/GiST and trigram lookup are
+  additive schema support for this layer. The `location_visual_cache` fallback
+  chain remains separate; no cosmetic table rename is a prerequisite.
 
 ---
 
