@@ -2,12 +2,18 @@ import { assertEquals, assertStringIncludes } from "jsr:@std/assert@1.0.19";
 
 const municipalityMigrationName =
   "20260810120000_municipality_place_baseline.sql";
+const municipalityConstraintPostconditionMigrationName =
+  "20260810140000_assert_municipality_feature_type_constraint.sql";
 const migrationUrl = new URL(
   `../../migrations/${municipalityMigrationName}`,
   import.meta.url,
 );
 const consumerSnapshotManifestUrl = new URL(
   "../../confluendo-consumer-migration-snapshots.json",
+  import.meta.url,
+);
+const municipalityConstraintPostconditionMigrationUrl = new URL(
+  `../../migrations/${municipalityConstraintPostconditionMigrationName}`,
   import.meta.url,
 );
 
@@ -60,7 +66,9 @@ Deno.test("municipality baseline remains aligned with the recorded Confluendo co
 
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    await Deno.readFile(migrationUrl),
+    new TextEncoder().encode(
+      (await Deno.readTextFile(migrationUrl)).replaceAll("\r\n", "\n"),
+    ),
   );
   const actualSha256 = Array.from(
     new Uint8Array(digest),
@@ -72,4 +80,21 @@ Deno.test("municipality baseline remains aligned with the recorded Confluendo co
     snapshot?.sha256,
     "The Vamo municipality migration changed. Re-import its exact bytes into Confluendo and update supabase/confluendo-consumer-migration-snapshots.json in the same cross-repository change.",
   );
+});
+
+Deno.test("municipality feature-type postcondition fails closed on drift", async () => {
+  const migration = await Deno.readTextFile(
+    municipalityConstraintPostconditionMigrationUrl,
+  );
+
+  assertStringIncludes(
+    migration,
+    "location_canonicals_feature_type_allowed",
+  );
+  assertStringIncludes(migration, "municipality-allowing form");
+  assertStringIncludes(
+    migration,
+    "location_canonicals_municipality_coordinates_required",
+  );
+  assertStringIncludes(migration, "unexpected feature_type constraint(s)");
 });
