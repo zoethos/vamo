@@ -201,3 +201,12 @@ Migration promotion checkpoint:
 - If production not promoted: blocker, owner, planned date, and why drift is acceptable:
 - Environment-specific objects excluded from production: none
 ```
+# Municipality Baseline Promotion
+
+## Extension checkpoint
+
+The municipality migration batch enables the Supabase-supported PostGIS
+extension in the shared `extensions` schema. This is a database-wide extension
+change, not only a `location_canonicals` table change. Confirm that checkpoint
+explicitly in both Staging and Production promotion records before proceeding
+with the generated geography column and spatial indexes.

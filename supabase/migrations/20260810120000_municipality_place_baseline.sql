@@ -14,7 +14,7 @@ begin
     from pg_constraint
    where conrelid = 'public.location_canonicals'::regclass
      and contype = 'c'
-     and pg_get_constraintdef(oid) like '%feature_type%'
+     and pg_get_constraintdef(oid) like '%feature_type in (%'
    order by conname
    limit 1;
 
