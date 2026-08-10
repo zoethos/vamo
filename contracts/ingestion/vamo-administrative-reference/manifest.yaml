@@ -1,13 +1,11 @@
 kind: ingestion.consumer_contract
 consumer: vamo
-profile: place-intelligence
-version: 5
-title: Vamo Place Intelligence Ingestion Contract
+profile: administrative-reference
+version: 1
+title: Vamo Administrative Reference Ingestion Contract
 description: >-
-  What Vamo asks the ingestion platform to ingest into its place cache: the source
-  to read, the dry-run target shape, the policy gates that must hold, and a bounded
-  no-network snapshot sample for validation. The platform imports a pinned snapshot
-  of this bundle; it must not read the Vamo repo at runtime.
+  Vamo's governed municipality baseline. The platform imports a pinned snapshot
+  of this contract and never reads the Vamo repository at runtime.
 exports:
   pipeline: pipeline.yaml
   target: target.yaml

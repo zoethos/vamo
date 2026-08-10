@@ -5,6 +5,7 @@ export const GLOBAL_ALIAS_PROMOTION_MIN_DISTINCT_USERS = 2;
 export type PlaceFeatureType =
   | "country"
   | "region"
+  | "municipality"
   | "locality"
   | "neighborhood"
   | "poi"
@@ -124,6 +125,7 @@ export function normalizeFeatureType(
   switch (value) {
     case "country":
     case "region":
+    case "municipality":
     case "locality":
     case "neighborhood":
     case "poi":

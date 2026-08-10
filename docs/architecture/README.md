@@ -8,6 +8,7 @@ Architecture, provider-governance, and dependency-risk documents live here.
 | --- | --- |
 | `Vamo_Architecture.docx` | Founder-level architecture overview. |
 | `DATA_ACQUISITION_STRATEGY.md` | **Canonical.** Place-data rights model, the three-layer acquisition funnel, Confluendo's role, and the load-bearing rules the architecture depends on. |
+| `MUNICIPALITY_BASELINE_DELIVERY.md` | Proposed deterministic-partition delivery contract for the first municipality baseline. |
 | `DATA_ACQUISITION_FUNNEL.svg` | **Canonical.** Source for the funnel diagram. |
 | `Vamo_Data_Acquisition_Strategy.docx` | Generated export of `DATA_ACQUISITION_STRATEGY.md`. Do not edit. |
 | `DATA_ACQUISITION_FUNNEL.png` | Generated export of `DATA_ACQUISITION_FUNNEL.svg`. Do not edit. |
