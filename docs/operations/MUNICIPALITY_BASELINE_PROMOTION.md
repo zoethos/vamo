@@ -11,11 +11,14 @@ Migration:
 ```text
 supabase/migrations/20260810120000_municipality_place_baseline.sql
 supabase/migrations/20260810130000_location_canonicals_spatial_index.sql
+supabase/migrations/20260810140000_assert_municipality_feature_type_constraint.sql
 ```
 
-These application-schema migrations must be promoted Staging first, then
-Production in the same release window. They create no canary role, sentinel,
-or environment-specific object.
+Apply the files in this order. The final migration converges the known
+feature-type constraint shapes and then fails closed if an unexpected
+feature-type check remains. These application-schema migrations must be
+promoted Staging first, then Production in the same release window. They create
+no canary role, sentinel, or environment-specific object.
 
 ## Invariant
 
