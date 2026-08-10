@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "consumer": "confluendo",
+  "migrations": [
+    {
+      "sourceMigration": "20260810120000_municipality_place_baseline.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810120000_municipality_place_baseline.sql",
+      "sha256": "ae801955e073220bca330fdef493d336dfcfacc5c8e242e8dedc8d00c53fede1"
+    }
+  ]
+}
