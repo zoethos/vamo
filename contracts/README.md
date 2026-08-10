@@ -13,5 +13,6 @@ supply chain). Vamo is customer zero of that platform. Each profile bundle
 declares its source, target shape, policy gates, and a no-network fixture sample.
 
 - [ingestion/vamo-place-intelligence/](ingestion/vamo-place-intelligence/README.md)
+- [ingestion/vamo-administrative-reference/](ingestion/vamo-administrative-reference/README.md)
 
 See the platform side: `Z:\vamo-web-dashboard/docs/platform/ingestion/`.

@@ -3,6 +3,7 @@ import {
   aliasCollisionKey,
   assertPlaceProviderPolicy,
   normalizeAliasScope,
+  normalizeFeatureType,
   normalizePlaceAlias,
 } from "./place_intelligence.ts";
 
@@ -55,4 +56,12 @@ Deno.test("alias collision key is scoped by country feature and canonical", () =
 
   assertEquals(city === poi, false);
   assertEquals(city === canada, false);
+});
+
+Deno.test("municipality is a supported place feature type", () => {
+  assertEquals(normalizeFeatureType("municipality"), "municipality");
+  assertEquals(
+    normalizeAliasScope({ countryCode: "IT", featureType: "municipality" }).featureType,
+    "municipality",
+  );
 });
