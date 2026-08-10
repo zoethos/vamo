@@ -1,7 +1,9 @@
 # Municipality Baseline Delivery
 
-Status: proposed delivery contract. It is a prerequisite to a real municipality
-source release, not an authorization to acquire one.
+Status: proposed delivery contract. The deterministic partition materializer
+and its release-bound control ledger are under review in Confluendo; this
+document remains a prerequisite to a real municipality source release, not an
+authorization to acquire one.
 
 ## Scope
 
@@ -57,6 +59,19 @@ Today the batch model treats a unit's complete content as the material verified
 in Staging. It cannot verify a 25-municipality sample and then deliver the
 remaining partition. The **partitioned baseline delivery** slice must add that
 explicit relationship before any country dataset is commissioned.
+
+### Current implementation boundary
+
+The in-review Confluendo slice materializes the immutable release into full
+partitions, persists each member's source-authority id and candidate-content
+checksum, and records a deterministic canary subset plus the eventual package
+key. Replaying identical evidence is idempotent; changed evidence under the
+same active release binding fails closed.
+
+It does **not** yet connect that evidence to Staging approval, production
+package delivery, or receipt reconciliation. No municipality release may be
+commissioned and no delivery workflow may be dispatched until those phases use
+the persisted cohort rather than reloading an unbounded scope.
 
 ## Production envelope
 
