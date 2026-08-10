@@ -5,7 +5,7 @@
     {
       "sourceMigration": "20260810120000_municipality_place_baseline.sql",
       "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810120000_municipality_place_baseline.sql",
-      "sha256": "a6b33c694082de50326c3a9279434406365d67eb0279581cca85bb3a5d8987b4"
+      "sha256": "0766b758c47267471fafb7fdc226599186a16a7c0120529d06c5e255c3918098"
     }
   ]
 }

@@ -9,21 +9,21 @@ do $$
 declare
   v_constraint_name name;
 begin
-  select conname
-    into v_constraint_name
+  for v_constraint_name in
+    select conname
     from pg_constraint
    where conrelid = 'public.location_canonicals'::regclass
      and contype = 'c'
-     and pg_get_constraintdef(oid) like '%feature_type in (%'
-   order by conname
-   limit 1;
-
-  if v_constraint_name is not null then
+     and conname in (
+       'location_canonicals_feature_type_check',
+       'location_canonicals_feature_type_allowed'
+     )
+  loop
     execute format(
       'alter table public.location_canonicals drop constraint %I',
       v_constraint_name
     );
-  end if;
+  end loop;
 end;
 $$;
 
