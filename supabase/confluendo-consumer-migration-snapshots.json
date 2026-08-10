@@ -6,6 +6,11 @@
       "sourceMigration": "20260810120000_municipality_place_baseline.sql",
       "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810120000_municipality_place_baseline.sql",
       "sha256": "0766b758c47267471fafb7fdc226599186a16a7c0120529d06c5e255c3918098"
+    },
+    {
+      "sourceMigration": "20260810140000_assert_municipality_feature_type_constraint.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810140000_assert_municipality_feature_type_constraint.sql",
+      "sha256": "2ba6c0e671f8bcdc2b6ea5a0423f395174cc8b1ed3430b5fa0084b70eb26c820"
     }
   ]
 }

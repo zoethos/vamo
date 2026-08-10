@@ -106,3 +106,33 @@ Deno.test("municipality feature-type postcondition fails closed on drift", async
   );
   assertStringIncludes(migration, "unexpected feature_type constraint(s)");
 });
+
+Deno.test("municipality feature-type postcondition remains recorded for the Confluendo snapshot", async () => {
+  const manifest = JSON.parse(
+    await Deno.readTextFile(consumerSnapshotManifestUrl),
+  ) as ConsumerMigrationSnapshotManifest;
+  const snapshot = manifest.migrations.find(
+    (entry) =>
+      entry.sourceMigration ===
+        municipalityConstraintPostconditionMigrationName,
+  );
+
+  assertEquals(
+    snapshot?.consumerMigration,
+    "examples/consumers/vamo-place-intelligence/migrations/20260810140000_assert_municipality_feature_type_constraint.sql",
+  );
+
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(
+      (await Deno.readTextFile(municipalityConstraintPostconditionMigrationUrl))
+        .replaceAll("\r\n", "\n"),
+    ),
+  );
+  const actualSha256 = Array.from(
+    new Uint8Array(digest),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+
+  assertEquals(actualSha256, snapshot?.sha256);
+});
