@@ -91,6 +91,14 @@ Deno.test("municipality feature-type postcondition fails closed on drift", async
     migration,
     "location_canonicals_feature_type_allowed",
   );
+  assertStringIncludes(
+    migration,
+    "location_canonicals_feature_type_check",
+  );
+  assertStringIncludes(
+    migration,
+    "add constraint location_canonicals_feature_type_allowed",
+  );
   assertStringIncludes(migration, "municipality-allowing form");
   assertStringIncludes(
     migration,

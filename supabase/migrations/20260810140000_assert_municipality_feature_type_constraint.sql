@@ -1,6 +1,44 @@
--- Fail closed if the municipality baseline did not converge the feature-type
--- constraint. This migration is intentionally additive: it validates the
--- preceding baseline migration without rewriting it.
+-- Converge the municipality feature-type constraint, then fail closed if an
+-- unexpected check remains. This is intentionally additive: it repairs the
+-- known baseline shapes without rewriting the preceding migration.
+
+do $$
+declare
+  v_constraint_name name;
+begin
+  for v_constraint_name in
+    select conname
+    from pg_constraint
+   where conrelid = 'public.location_canonicals'::regclass
+     and contype = 'c'
+     and conname in (
+       'location_canonicals_feature_type_check',
+       'location_canonicals_feature_type_allowed'
+     )
+  loop
+    execute format(
+      'alter table public.location_canonicals drop constraint %I',
+      v_constraint_name
+    );
+  end loop;
+end;
+$$;
+
+alter table public.location_canonicals
+  add constraint location_canonicals_feature_type_allowed
+  check (
+    feature_type in (
+      'country',
+      'region',
+      'municipality',
+      'locality',
+      'neighborhood',
+      'poi',
+      'landmark',
+      'address',
+      'unknown'
+    )
+  );
 
 do $$
 declare
