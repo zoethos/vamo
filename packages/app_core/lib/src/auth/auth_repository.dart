@@ -83,12 +83,20 @@ class AuthRepository {
         ),
     };
     _pendingIdentityLink = provider;
-    final launched = await _client.auth.linkIdentity(
-      oauthProvider,
-      redirectTo: AuthUrls.redirectUri,
-    );
-    if (!launched) _pendingIdentityLink = null;
-    return launched;
+    try {
+      final launched = await _client.auth.linkIdentity(
+        oauthProvider,
+        redirectTo: AuthUrls.redirectUri,
+      );
+      if (!launched) _pendingIdentityLink = null;
+      return launched;
+    } on AuthException catch (error) {
+      _pendingIdentityLink = null;
+      if (_isManualLinkingUnavailable(error)) {
+        throw const IdentityLinkUnavailableException();
+      }
+      rethrow;
+    }
   }
 
   /// Waits for the redirect exchange to prove the requested identity is linked.
@@ -119,6 +127,14 @@ class AuthRepository {
     if (!hasSupportedCurrentIdentity) {
       throw UnsupportedAuthIdentityException(provider);
     }
+  }
+
+  static bool _isManualLinkingUnavailable(AuthException error) {
+    final message = error.message.toLowerCase();
+    final code = error.code?.toLowerCase();
+    return code == 'manual_linking_disabled' ||
+        message.contains('manual linking') ||
+        message.contains('identity linking');
   }
 
   Future<void> signOut() => _client.auth.signOut();

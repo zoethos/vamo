@@ -93,9 +93,11 @@ class _SignInMethodsSheetState extends State<SignInMethodsSheet> {
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(actionFailureUserMessage(error))));
+      final message = error is IdentityLinkUnavailableException
+          ? 'Adding a sign-in method is not enabled yet. Try again later.'
+          : actionFailureUserMessage(error);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _linking = null);
     }

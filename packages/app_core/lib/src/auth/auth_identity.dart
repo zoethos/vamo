@@ -30,3 +30,14 @@ class UnsupportedAuthIdentityException implements Exception {
   @override
   String toString() => 'UnsupportedAuthIdentityException($provider)';
 }
+
+/// Thrown when the server has not enabled authenticated identity linking.
+///
+/// The Profile surface remains safe to open in that configuration; it simply
+/// tells the member that this optional account-hardening step is unavailable.
+class IdentityLinkUnavailableException implements Exception {
+  const IdentityLinkUnavailableException();
+
+  @override
+  String toString() => 'IdentityLinkUnavailableException()';
+}
