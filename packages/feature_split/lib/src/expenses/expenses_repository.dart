@@ -140,9 +140,9 @@ class ExpensesRepository {
   }
 
   Stream<List<ExpenseShareSummary>> watchTripExpenseShares(String tripId) {
-    return _db.watchTripExpenseShares(tripId).map(
-          (rows) => rows.map(_toShareSummary).toList(),
-        );
+    return _db
+        .watchTripExpenseShares(tripId)
+        .map((rows) => rows.map(_toShareSummary).toList());
   }
 
   ExpenseShareSummary _toShareSummary(LocalExpenseShare row) =>
@@ -253,14 +253,14 @@ class ExpensesRepository {
       }
     }
 
-    final shareLines = equalSplit(
-      baseCents: baseCents,
-      memberIds: members.map((m) => m.userId).toList(),
-    );
-    assertSharesSumToBase(
-      baseCents: baseCents,
-      shareCents: shareLines.map((s) => s.shareCents),
-    );
+    final memberIds = members.map((member) => member.userId).toList();
+    final shareLines = input.shareLines == null
+        ? equalSplit(baseCents: baseCents, memberIds: memberIds)
+        : validateCustomSplit(
+            baseCents: baseCents,
+            memberIds: memberIds,
+            shares: input.shareLines!,
+          );
 
     final expenseId = _uuid.v4();
     final spentAt = (input.spentAt ?? DateTime.now()).toUtc();
@@ -398,10 +398,7 @@ class ExpensesRepository {
 
     await _syncQueue.enqueue(
       kind: SyncKind.expenseInsert,
-      payload: {
-        'expense': expensePayload,
-        'shares': sharePayloads,
-      },
+      payload: {'expense': expensePayload, 'shares': sharePayloads},
     );
     unawaited(_syncWorker.flush());
 
@@ -474,8 +471,9 @@ class ExpensesRepository {
       final tripId = row['trip_id'] as String;
       final remoteReceiptPath = row['receipt_path'] as String?;
 
-      final existing = await (_db.select(_db.localExpenses)
-            ..where((e) => e.id.equals(expenseId)))
+      final existing = await (_db.select(
+        _db.localExpenses,
+      )..where((e) => e.id.equals(expenseId)))
           .getSingleOrNull();
 
       var localReceiptPath = existing?.localReceiptPath;
@@ -625,17 +623,21 @@ class ExpensesRepository {
     double? fxRateManual,
     bool lock = true,
   }) async {
-    await _client.rpc('amend_expense_conversion', params: {
-      'p_expense_id': expenseId,
-      'p_base_cents': baseCents,
-      if (fxRate != null) 'p_fx_rate': fxRate,
-      'p_fx_rate_source': fxRateSource,
-      if (fxRateManual != null) 'p_fx_rate_manual': fxRateManual,
-      'p_lock': lock,
-    });
+    await _client.rpc(
+      'amend_expense_conversion',
+      params: {
+        'p_expense_id': expenseId,
+        'p_base_cents': baseCents,
+        if (fxRate != null) 'p_fx_rate': fxRate,
+        'p_fx_rate_source': fxRateSource,
+        if (fxRateManual != null) 'p_fx_rate_manual': fxRateManual,
+        'p_lock': lock,
+      },
+    );
 
-    final existing = await (_db.select(_db.localExpenses)
-          ..where((e) => e.id.equals(expenseId)))
+    final existing = await (_db.select(
+      _db.localExpenses,
+    )..where((e) => e.id.equals(expenseId)))
         .getSingleOrNull();
     if (existing != null) {
       await syncExpensesForTrips([existing.tripId]);
@@ -689,20 +691,23 @@ class ExpensesRepository {
 
     final expenseId = _uuid.v4();
 
-    await _client.rpc('propose_expense', params: {
-      'p_id': expenseId,
-      'p_trip_id': tripId,
-      'p_payer_id': payerId,
-      'p_amount_cents': amountCents,
-      'p_currency': currency,
-      'p_base_cents': effectiveBase,
-      'p_fx_rate': effectiveFx,
-      'p_description': description.trim(),
-      'p_category': category,
-      'p_fx_rate_source': fxMetadata.source,
-      if (fxMetadata.manual != null) 'p_fx_rate_manual': fxMetadata.manual,
-      'p_fx_conversion_locked': fxMetadata.locked,
-    });
+    await _client.rpc(
+      'propose_expense',
+      params: {
+        'p_id': expenseId,
+        'p_trip_id': tripId,
+        'p_payer_id': payerId,
+        'p_amount_cents': amountCents,
+        'p_currency': currency,
+        'p_base_cents': effectiveBase,
+        'p_fx_rate': effectiveFx,
+        'p_description': description.trim(),
+        'p_category': category,
+        'p_fx_rate_source': fxMetadata.source,
+        if (fxMetadata.manual != null) 'p_fx_rate_manual': fxMetadata.manual,
+        'p_fx_conversion_locked': fxMetadata.locked,
+      },
+    );
 
     await syncExpensesForTrips([tripId]);
 
@@ -720,24 +725,19 @@ class ExpensesRepository {
     required String? category,
   }) async {
     await _db.upsertExpense(
-      LocalExpensesCompanion(
-        id: Value(expenseId),
-        category: Value(category),
-      ),
+      LocalExpensesCompanion(id: Value(expenseId), category: Value(category)),
     );
     await _syncQueue.enqueue(
       kind: SyncKind.expenseUpdate,
-      payload: {
-        'id': expenseId,
-        'category': category,
-      },
+      payload: {'id': expenseId, 'category': category},
     );
     unawaited(_syncWorker.flush());
   }
 
   Future<void> commitExpense(String expenseId) async {
-    final existing = await (_db.select(_db.localExpenses)
-          ..where((e) => e.id.equals(expenseId)))
+    final existing = await (_db.select(
+      _db.localExpenses,
+    )..where((e) => e.id.equals(expenseId)))
         .getSingleOrNull();
     if (existing == null) return;
 
@@ -756,8 +756,9 @@ class ExpensesRepository {
   }
 
   Future<void> voidExpense(String expenseId) async {
-    final existing = await (_db.select(_db.localExpenses)
-          ..where((e) => e.id.equals(expenseId)))
+    final existing = await (_db.select(
+      _db.localExpenses,
+    )..where((e) => e.id.equals(expenseId)))
         .getSingleOrNull();
     if (existing == null) return;
 
@@ -780,19 +781,23 @@ class ExpensesRepository {
     required bool accept,
     String? reason,
   }) async {
-    final existing = await (_db.select(_db.localExpenses)
-          ..where((e) => e.id.equals(expenseId)))
+    final existing = await (_db.select(
+      _db.localExpenses,
+    )..where((e) => e.id.equals(expenseId)))
         .getSingleOrNull();
     if (existing == null) return;
 
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Must be signed in');
 
-    await _client.rpc('respond_to_share', params: {
-      'p_expense_id': expenseId,
-      'p_accept': accept,
-      'p_reason': reason,
-    });
+    await _client.rpc(
+      'respond_to_share',
+      params: {
+        'p_expense_id': expenseId,
+        'p_accept': accept,
+        'p_reason': reason,
+      },
+    );
 
     final share = await (_db.select(_db.localExpenseShares)
           ..where((s) => s.expenseId.equals(expenseId))
