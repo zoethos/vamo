@@ -4,8 +4,8 @@ const migrationUrl = new URL(
   "../../migrations/20260811120000_identity_integrity_signal.sql",
   import.meta.url,
 );
-const privilegeConvergenceMigrationUrl = new URL(
-  "../../migrations/20260811125000_identity_integrity_privilege_convergence.sql",
+const functionPrivilegeConvergenceMigrationUrl = new URL(
+  "../../migrations/20260811140000_function_privilege_convergence.sql",
   import.meta.url,
 );
 const lifecycleJobUrl = new URL(
@@ -15,8 +15,8 @@ const lifecycleJobUrl = new URL(
 
 Deno.test("identity integrity signal is aggregate-only and service-owned", async () => {
   const migration = await Deno.readTextFile(migrationUrl);
-  const privilegeConvergenceMigration = await Deno.readTextFile(
-    privilegeConvergenceMigrationUrl,
+  const functionPrivilegeConvergenceMigration = await Deno.readTextFile(
+    functionPrivilegeConvergenceMigrationUrl,
   );
   const lifecycleJob = await Deno.readTextFile(lifecycleJobUrl);
 
@@ -33,16 +33,16 @@ Deno.test("identity integrity signal is aggregate-only and service-owned", async
     "grant execute on function public.identity_integrity_summary() to service_role",
   );
   assertStringIncludes(
-    privilegeConvergenceMigration,
-    "revoke execute on function public.identity_integrity_summary() from anon",
+    functionPrivilegeConvergenceMigration,
+    "alter default privileges for role postgres",
   );
   assertStringIncludes(
-    privilegeConvergenceMigration,
-    "revoke execute on function public.identity_integrity_summary() from authenticated",
+    functionPrivilegeConvergenceMigration,
+    "revoke all on function %s from public, anon, authenticated",
   );
   assertStringIncludes(
-    privilegeConvergenceMigration,
-    "identity_integrity_summary() privileges did not converge",
+    functionPrivilegeConvergenceMigration,
+    "public.identity_integrity_summary()",
   );
   assertEquals(migration.includes("array_agg"), false);
   assertStringIncludes(

@@ -12,6 +12,16 @@ now on, every schema-affecting slice must explicitly track the path:
 local migration -> staging apply -> staging smoke -> production promotion -> production verification
 ```
 
+## Ledger Safety
+
+Until migration-ledger reconciliation is completed, operators must apply the
+reviewed SQL files manually through the appropriate Supabase SQL Editor.
+
+Do **not** run `supabase db push`, `supabase migration up`, or any linked CLI
+schema command from any Vamo worktree. The remote migration ledger is not yet
+authoritative, so a CLI apply could attempt to replay already-applied schema.
+This is a process guard, not a substitute for the staging-first policy below.
+
 ## Policy
 
 1. **Staging first, production close behind.**
