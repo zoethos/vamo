@@ -58,8 +58,9 @@ void main() {
 
   final directCallIssues = findDirectSupabaseCallViolationsInSource(
     source: [
-      "final rows = _client.from('expenses').select();",
-      "final result = client.rpc('commit_expense');",
+      'final SupabaseClient _client;',
+      "final rows = _client\n  .from('expenses').select();",
+      "final result = _client.rpc('commit_expense');",
       'final copy = Map<String, Object?>.from({});',
     ].join('\n'),
     relativePath:
@@ -72,8 +73,9 @@ void main() {
 
   final repositoryCalls = findDirectSupabaseCallViolationsInSource(
     source: [
+      'final SupabaseClient _client;',
       "final rows = _client.from('expenses').select();",
-      "final result = client.rpc('commit_expense');",
+      "final result = _client.rpc('commit_expense');",
     ].join('\n'),
     relativePath:
         'packages/feature_split/lib/src/expenses/expenses_repository.dart',
@@ -85,6 +87,17 @@ void main() {
     relativePath: 'packages/app_core/lib/src/sync/sync_worker.dart',
   );
   _expect(workerCalls.isEmpty, 'expected sync worker calls to pass');
+
+  final nonCodeCalls = findDirectSupabaseCallViolationsInSource(
+    source: [
+      'final SupabaseClient _client;',
+      "// _client.rpc('comment only')",
+      "final example = \"_client.from('string only')\";",
+    ].join('\n'),
+    relativePath:
+        'packages/feature_split/lib/src/expenses/expenses_overview.dart',
+  );
+  _expect(nonCodeCalls.isEmpty, 'expected comments and strings to pass');
 
   final tempRoot = Directory.systemTemp.createTempSync('vamo_arch_guard_');
   try {

@@ -3,8 +3,15 @@ import 'dart:io';
 const appColorsBaselinePath = 'tool/appcolors_baseline.txt';
 const appColorsScanRoot = 'packages/feature_split/lib';
 const directSupabaseScanRoots = ['app/lib', 'packages'];
-final _directSupabaseCall = RegExp(
-  r'\b(?:_client|client|supabase)\.(?:from|rpc)\s*\(',
+final _methodInvocation = RegExp(
+  r'\b([A-Za-z_$][A-Za-z0-9_$]*)\s*\.\s*(from|rpc)\s*\(',
+);
+final _typedSupabaseClient = RegExp(
+  r'\bSupabaseClient\s+([A-Za-z_$][A-Za-z0-9_$]*)',
+);
+final _inferredSupabaseClient = RegExp(
+  r'\b(?:final|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*='
+  r'\s*(?:Supabase\.instance\.)?client\b',
 );
 
 const forbiddenPureImports = [
@@ -223,19 +230,21 @@ List<GuardIssue> findDirectSupabaseCallViolations({
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final relativePath = _relativeTo(repoRoot.path, entity.path);
       if (_isDirectSupabaseCallAllowed(relativePath)) continue;
-      final lines = entity.readAsStringSync().split('\n');
-      for (var index = 0; index < lines.length; index += 1) {
-        final match = _directSupabaseCall.firstMatch(lines[index]);
-        if (match == null) continue;
+      final source = entity.readAsStringSync();
+      final maskedSource = _maskDartNonCode(source);
+      final receivers = _supabaseClientReceivers(maskedSource);
+      final lines = source.split('\n');
+      for (final match in _methodInvocation.allMatches(maskedSource)) {
+        if (!receivers.contains(match.group(1))) continue;
+        final lineNumber = _lineNumberAt(source, match.start);
         issues.add(
           GuardIssue(
             ruleName: 'direct Supabase boundary',
             relativePath: relativePath,
-            lineNumber: index + 1,
-            directive: lines[index].trim(),
+            lineNumber: lineNumber,
+            directive: lines[lineNumber - 1].trim(),
             forbiddenPattern: match.group(0)!,
-            reason:
-                'direct .from()/.rpc() calls belong in a *_repository.dart '
+            reason: 'direct .from()/.rpc() calls belong in a *_repository.dart '
                 'file or sync_worker.dart',
           ),
         );
@@ -250,6 +259,101 @@ bool _isDirectSupabaseCallAllowed(String relativePath) {
   final fileName = normalized.split('/').last;
   return fileName.endsWith('_repository.dart') ||
       fileName == 'sync_worker.dart';
+}
+
+Set<String> _supabaseClientReceivers(String source) {
+  return {
+    for (final match in _typedSupabaseClient.allMatches(source))
+      match.group(1)!,
+    for (final match in _inferredSupabaseClient.allMatches(source))
+      match.group(1)!,
+  };
+}
+
+int _lineNumberAt(String source, int offset) =>
+    '\n'.allMatches(source.substring(0, offset)).length + 1;
+
+/// Masks comments and string literals while preserving every newline and
+/// character offset, so diagnostics still point at the original source line.
+String _maskDartNonCode(String source) {
+  final chars = source.split('');
+  var index = 0;
+  while (index < chars.length) {
+    final current = chars[index];
+    final next = index + 1 < chars.length ? chars[index + 1] : '';
+    if (current == '/' && next == '/') {
+      index = _maskUntilNewline(chars, index);
+    } else if (current == '/' && next == '*') {
+      index = _maskBlockComment(chars, index);
+    } else if (current == '\"' || current == "'") {
+      index = _maskString(chars, index, current);
+    } else {
+      index += 1;
+    }
+  }
+  return chars.join();
+}
+
+int _maskUntilNewline(List<String> chars, int start) {
+  var index = start;
+  while (index < chars.length && chars[index] != '\n') {
+    chars[index] = ' ';
+    index += 1;
+  }
+  return index;
+}
+
+int _maskBlockComment(List<String> chars, int start) {
+  var index = start;
+  while (index < chars.length) {
+    final current = chars[index];
+    final next = index + 1 < chars.length ? chars[index + 1] : '';
+    if (current != '\n') chars[index] = ' ';
+    index += 1;
+    if (current == '*' && next == '/') {
+      chars[index] = ' ';
+      return index + 1;
+    }
+  }
+  return index;
+}
+
+int _maskString(List<String> chars, int start, String quote) {
+  final original = List<String>.from(chars);
+  final triple = start + 2 < chars.length &&
+      original[start + 1] == quote &&
+      original[start + 2] == quote;
+  final openingLength = triple ? 3 : 1;
+  for (var openingIndex = 0; openingIndex < openingLength; openingIndex += 1) {
+    chars[start + openingIndex] = ' ';
+  }
+  var index = start + openingLength;
+  while (index < chars.length) {
+    final escaped = original[index] == '\\';
+    if (chars[index] != '\n') chars[index] = ' ';
+    index += 1;
+    if (escaped && index < chars.length) {
+      if (chars[index] != '\n') chars[index] = ' ';
+      index += 1;
+      continue;
+    }
+    final closes = triple
+        ? index + 1 < chars.length &&
+            original[index - 1] == quote &&
+            original[index] == quote &&
+            original[index + 1] == quote
+        : original[index - 1] == quote;
+    if (!closes) continue;
+    final closingLength = triple ? 3 : 1;
+    for (var closeIndex = 0; closeIndex < closingLength - 1; closeIndex += 1) {
+      if (chars[index] != '\n') {
+        chars[index] = ' ';
+      }
+      index += 1;
+    }
+    return index;
+  }
+  return index;
 }
 
 AppColorsCheck checkAppColorsBaseline({
@@ -306,9 +410,8 @@ String _join(String first, String second) {
 }
 
 String _relativeTo(String root, String path) {
-  final normalizedRoot = root
-      .replaceAll('\\', '/')
-      .replaceFirst(RegExp(r'/$'), '');
+  final normalizedRoot =
+      root.replaceAll('\\', '/').replaceFirst(RegExp(r'/$'), '');
   final normalizedPath = path.replaceAll('\\', '/');
   return normalizedPath.startsWith('$normalizedRoot/')
       ? normalizedPath.substring(normalizedRoot.length + 1)
@@ -352,9 +455,8 @@ class GuardIssue {
   final String reason;
 
   String format() {
-    final location = lineNumber == 0
-        ? relativePath
-        : '$relativePath:$lineNumber';
+    final location =
+        lineNumber == 0 ? relativePath : '$relativePath:$lineNumber';
     return '$location [$ruleName] $reason '
         '(forbidden: $forbiddenPattern) -> $directive';
   }
