@@ -108,6 +108,28 @@ Use this checklist when a migration is ready:
 8. Run production-safe smoke only.
 9. Update the handoff with the checkpoint block.
 
+## Remote CLI Guard
+
+Vamo's remote migration ledger may be incomplete when an earlier migration was
+applied through the Supabase SQL Editor. Until a full migration-history
+reconciliation has been reviewed and recorded for an environment:
+
+- Do not run `supabase db push`, `supabase migration up`, `supabase db reset`,
+  or any other CLI command that can apply or reset remote schema.
+- Do not use `--linked` for a remote schema command. A CLI link is stored per
+  worktree in `supabase/.temp/project-ref`; it is not a repository-wide setting.
+- Keep feature worktrees unlinked from remote projects. Before any future
+  remote CLI operation, inspect that worktree's `supabase/.temp/project-ref`
+  and name the intended project in the promotion checkpoint.
+- Use the SQL Editor only for the exact, reviewed migration file of the active
+  promotion packet. Apply Staging first, verify it, then apply the unchanged
+  file to Production in the same packet window.
+
+Migration-history reconciliation is its own maintenance activity. Its
+read-only inventory may run in parallel with feature work; do not mark a
+migration applied in `supabase_migrations.schema_migrations` until the matching
+remote schema effect has been independently verified.
+
 ## Drift Review Cadence
 
 At least once per active development week, run a migration drift review:
