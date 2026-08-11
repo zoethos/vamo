@@ -33,24 +33,57 @@ Future<void> _loadGoldenFonts() async {
     if (!file.existsSync()) {
       throw StateError('Missing golden test font: ${file.path}');
     }
-    loader.addFont(
-      Future.value(ByteData.view(file.readAsBytesSync().buffer)),
-    );
+    loader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
     await loader.load();
   }
 
-  final flutterRoot = _flutterRoot();
-  final materialIcons = File(
-    '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  final materialFonts = Directory(
+    '${_flutterRoot()}/bin/cache/artifacts/material_fonts',
   );
-  if (!materialIcons.existsSync()) {
-    throw StateError('Missing MaterialIcons font: ${materialIcons.path}');
+  await _loadFlutterFont(
+    family: 'MaterialIcons',
+    directory: materialFonts,
+    candidates: const [
+      'MaterialIcons-Regular.otf',
+      'materialicons-regular.otf',
+    ],
+  );
+  await _loadFlutterFont(
+    family: 'Roboto',
+    directory: materialFonts,
+    candidates: const ['Roboto-Regular.ttf', 'roboto-regular.ttf'],
+  );
+  await _loadFlutterFont(
+    family: 'Roboto',
+    directory: materialFonts,
+    candidates: const ['Roboto-Medium.ttf', 'roboto-medium.ttf'],
+  );
+  await _loadFlutterFont(
+    family: 'Roboto',
+    directory: materialFonts,
+    candidates: const ['Roboto-Bold.ttf', 'roboto-bold.ttf'],
+  );
+}
+
+Future<void> _loadFlutterFont({
+  required String family,
+  required Directory directory,
+  required List<String> candidates,
+}) async {
+  File? file;
+  for (final candidate in candidates) {
+    final candidateFile = File('${directory.path}/$candidate');
+    if (candidateFile.existsSync()) {
+      file = candidateFile;
+      break;
+    }
   }
-  final materialLoader = FontLoader('MaterialIcons');
-  materialLoader.addFont(
-    Future.value(ByteData.view(materialIcons.readAsBytesSync().buffer)),
-  );
-  await materialLoader.load();
+  if (file == null) {
+    throw StateError('Missing $family font in ${directory.path}');
+  }
+  final loader = FontLoader(family);
+  loader.addFont(Future.value(ByteData.view(file.readAsBytesSync().buffer)));
+  await loader.load();
 }
 
 String _flutterRoot() {
