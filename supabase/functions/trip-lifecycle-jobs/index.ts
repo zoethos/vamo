@@ -11,8 +11,8 @@ import {
 import {
   isSoftCloseEligible,
   shouldNotifyWrappedTrip,
-  todayIsoUtc,
   type SoftCloseTripRow,
+  todayIsoUtc,
 } from "../_shared/soft_close_sweep.ts";
 
 interface TripInfo {
@@ -29,6 +29,14 @@ interface TripMemberRow {
   close_objected_at?: string | null;
   settle_nudged_at?: string | null;
   trips: TripInfo | TripInfo[] | null;
+}
+
+interface IdentityIntegritySummary {
+  duplicate_verified_email_groups: number;
+  duplicate_verified_email_accounts: number;
+  duplicate_profile_groups: number;
+  duplicate_profile_accounts: number;
+  apple_private_relay_only_accounts: number;
 }
 
 function tripName(row: TripMemberRow): string {
@@ -214,6 +222,12 @@ Deno.serve(async (req) => {
     wrapped_notices_recorded: 0,
   };
 
+  const { data: identityIntegrity, error: identityIntegrityError } =
+    await supabase.rpc("identity_integrity_summary");
+  if (identityIntegrityError) {
+    console.error("identity integrity check failed", identityIntegrityError);
+  }
+
   const todayIso = todayIsoUtc(new Date(now));
 
   const { data: softCloseRows, error: softCloseErr } = await supabase
@@ -377,6 +391,10 @@ Deno.serve(async (req) => {
     soft_close: softCloseStats,
     recorded: recordStats,
     push: pushStats,
+    identity_integrity: identityIntegrityError ? { status: "unavailable" } : {
+      status: "ok",
+      ...(identityIntegrity as IdentityIntegritySummary),
+    },
   };
 
   const { data: heartbeatId, error: hbError } = await supabase.rpc(
