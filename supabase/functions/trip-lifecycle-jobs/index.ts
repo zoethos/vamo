@@ -14,6 +14,10 @@ import {
   type SoftCloseTripRow,
   todayIsoUtc,
 } from "../_shared/soft_close_sweep.ts";
+import {
+  identityIntegrityHeartbeat,
+  type IdentityIntegritySummary,
+} from "../_shared/identity_integrity.ts";
 
 interface TripInfo {
   name: string;
@@ -29,14 +33,6 @@ interface TripMemberRow {
   close_objected_at?: string | null;
   settle_nudged_at?: string | null;
   trips: TripInfo | TripInfo[] | null;
-}
-
-interface IdentityIntegritySummary {
-  duplicate_verified_email_groups: number;
-  duplicate_verified_email_accounts: number;
-  duplicate_profile_groups: number;
-  duplicate_profile_accounts: number;
-  apple_private_relay_only_accounts: number;
 }
 
 function tripName(row: TripMemberRow): string {
@@ -391,10 +387,11 @@ Deno.serve(async (req) => {
     soft_close: softCloseStats,
     recorded: recordStats,
     push: pushStats,
-    identity_integrity: identityIntegrityError ? { status: "unavailable" } : {
-      status: "ok",
-      ...(identityIntegrity as IdentityIntegritySummary),
-    },
+    identity_integrity: identityIntegrityError
+      ? { status: "unavailable" }
+      : identityIntegrityHeartbeat(
+        identityIntegrity as IdentityIntegritySummary,
+      ),
   };
 
   const { data: heartbeatId, error: hbError } = await supabase.rpc(

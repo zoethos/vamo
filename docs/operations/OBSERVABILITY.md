@@ -18,6 +18,10 @@ release builds stay sanitized (no PII/secrets) per the error policy.
 4. **Debug shows the truth, release shows the catalogue.** Debug builds print the
    raw error + **stack trace** + context; release reports a sanitized, catalogued
    code to PostHog and a friendly message to the user.
+5. **Scheduled detectors self-report aggregate attention.** A successful job with
+   an aggregate integrity counter above zero records `status: "attention"` plus
+   the tripped counter names in its heartbeat. Do not attach emails, user IDs, or
+   source records; operators investigate the aggregate signal separately.
 
 ## The one helper
 All error handling routes through a single helper (extend the existing
