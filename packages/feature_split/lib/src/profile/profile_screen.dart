@@ -194,9 +194,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final completionRequired = widget.completionRequired;
           if (!_hydrated) {
             _hydrated = true;
-            _nameController.text = isPlaceholderDisplayName(p.displayName)
-                ? ''
-                : p.displayName;
+            _nameController.text =
+                isPlaceholderDisplayName(p.displayName) ? '' : p.displayName;
             _avatarInitialsController.text = p.avatarInitials ?? '';
             _baseCurrency = p.baseCurrency;
           }
@@ -238,9 +237,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Text(
           widget.labels.profileSection,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: AppColors.ink,
-            fontWeight: FontWeight.w700,
-          ),
+                color: AppColors.ink,
+                fontWeight: FontWeight.w700,
+              ),
         ),
         const SizedBox(height: 12),
         TextFormField(
@@ -303,9 +302,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String currency,
     required bool tagCaptureLocation,
   }) {
-    final oauthPreview = ref
-        .read(profileRepositoryProvider)
-        .oauthAvatarPreviewUrl();
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
     final headerPhotoUrl =
         _avatarPhotoUrl ?? (p.avatarUrl == null ? oauthPreview : null);
     final themePreference = ref.watch(themePreferenceProvider);
@@ -436,8 +434,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               onSelectionChanged: (selection) {
                                 ref
                                     .read(devLocaleOverrideProvider.notifier)
-                                    .state = selection
-                                    .first;
+                                    .state = selection.first;
                               },
                             ),
                           ),
@@ -527,9 +524,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   String _distanceUnitLabel(DistanceUnit unit) => switch (unit) {
-    DistanceUnit.km => 'Kilometres',
-    DistanceUnit.miles => 'Miles',
-  };
+        DistanceUnit.km => 'Kilometres',
+        DistanceUnit.miles => 'Miles',
+      };
 
   void _showDistanceUnitPickerSheet() {
     final current = ref.read(distanceUnitProvider);
@@ -548,11 +545,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     'Distance',
-                    style: Theme.of(sheetContext).textTheme.titleMedium
-                        ?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
@@ -596,9 +593,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Text(
                 widget.labels.displayName,
                 style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                  color: AppColors.ink,
-                  fontWeight: FontWeight.w700,
-                ),
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -650,7 +647,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     alignment: AlignmentDirectional.centerStart,
                     child: Text(
                       widget.labels.defaultCurrency,
-                      style: Theme.of(sheetContext).textTheme.titleMedium
+                      style: Theme.of(sheetContext)
+                          .textTheme
+                          .titleMedium
                           ?.copyWith(
                             color: AppColors.ink,
                             fontWeight: FontWeight.w700,
@@ -698,11 +697,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     'Theme',
-                    style: Theme.of(sheetContext).textTheme.titleMedium
-                        ?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    style:
+                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                   ),
                 ),
               ),
@@ -728,9 +727,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showAvatarActionsSheet(UserProfile profile) {
-    final oauthPreview = ref
-        .read(profileRepositoryProvider)
-        .oauthAvatarPreviewUrl();
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -754,9 +752,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 displayName: _effectiveDisplayName(profile),
                 initials: _avatarInitialsController.text,
                 photoUrl: _avatarPhotoUrl,
-                oauthPreviewUrl: profile.avatarUrl == null
-                    ? oauthPreview
-                    : null,
+                oauthPreviewUrl:
+                    profile.avatarUrl == null ? oauthPreview : null,
                 oauthPreviewAvailable: oauthPreview != null,
                 storedPhotoAvailable:
                     profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty,
@@ -789,9 +786,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// Avatar management card — shown both in the completion flow and the
   /// steady-state profile so an existing user can change their picture.
   Widget _avatarBlock(UserProfile p) {
-    final oauthPreview = ref
-        .read(profileRepositoryProvider)
-        .oauthAvatarPreviewUrl();
+    final oauthPreview =
+        ref.read(profileRepositoryProvider).oauthAvatarPreviewUrl();
     return _AvatarCompletionBlock(
       labels: widget.labels,
       displayName: _effectiveDisplayName(p),
@@ -829,9 +825,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _adoptOAuthAvatar(UserProfile profile) async {
     setState(() => _avatarBusy = true);
     try {
-      final updated = await ref
-          .read(profileRepositoryProvider)
-          .adoptOAuthAvatar();
+      final updated =
+          await ref.read(profileRepositoryProvider).adoptOAuthAvatar();
       ref.invalidate(userProfileProvider);
       if (!mounted) return;
       await _refreshAvatarPreview(updated);
@@ -901,9 +896,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Future<void> _usePhotoAvatar(UserProfile profile) async {
     setState(() => _avatarBusy = true);
     try {
-      final updated = await ref
-          .read(profileRepositoryProvider)
-          .usePhotoAvatar();
+      final updated =
+          await ref.read(profileRepositoryProvider).usePhotoAvatar();
       ref.invalidate(userProfileProvider);
       if (!mounted) return;
       await _refreshAvatarPreview(updated);
@@ -970,9 +964,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
     setState(() => _saving = true);
     try {
-      final saved = await ref
-          .read(profileRepositoryProvider)
-          .update(
+      final saved = await ref.read(profileRepositoryProvider).update(
             displayName: _nameController.text,
             baseCurrency: _baseCurrency ?? previous.baseCurrency,
           );
@@ -1006,9 +998,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _signingOut = true);
     try {
       await ref.read(syncWorkerProvider).flush();
-      final pendingMedia = await ref
-          .read(syncQueueProvider)
-          .countPendingMediaUploads();
+      final pendingMedia =
+          await ref.read(syncQueueProvider).countPendingMediaUploads();
       if (pendingMedia > 0) {
         if (!mounted) return;
         final discard = await showDialog<bool>(
@@ -1047,17 +1038,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _showSignInMethodsSheet() async {
-    final repository = ref.read(authRepositoryProvider);
-    final linkedProviders = await repository.linkedIdentityProviders();
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => SignInMethodsSheet(
-        linkedProviders: linkedProviders,
-        onLink: repository.linkIdentity,
-      ),
-    );
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final linkedProviders = await repository.linkedIdentityProviders();
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => SignInMethodsSheet(
+          linkedProviders: linkedProviders,
+          onLink: repository.linkIdentity,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'load_sign_in_methods',
+        error: error,
+      );
+    }
   }
 
   String? _validateDisplayName() {
@@ -1146,9 +1148,9 @@ class _AvatarCompletionBlock extends StatelessWidget {
             Text(
               labels.avatarSection,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 16),
             Center(
@@ -1165,8 +1167,7 @@ class _AvatarCompletionBlock extends StatelessWidget {
               controller: initialsController,
               decoration: InputDecoration(
                 labelText: labels.avatarInitialsLabel,
-                hintText:
-                    preferredAvatarInitials(
+                hintText: preferredAvatarInitials(
                       preferredInitials: null,
                       displayName: displayName,
                     ) ??
@@ -1293,9 +1294,9 @@ class _ProfileHeader extends StatelessWidget {
               key: const Key('profileHeaderDisplayName'),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.ink,
-                fontWeight: FontWeight.w700,
-              ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1335,9 +1336,9 @@ class _SettingsSection extends StatelessWidget {
             child: Text(
               title,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.graphite,
-                fontWeight: FontWeight.w600,
-              ),
+                    color: AppColors.graphite,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
           ),
           DecoratedBox(
@@ -1444,13 +1445,15 @@ class _SettingsRow extends StatelessWidget {
                       Text(
                         label,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: titleColor ?? AppColors.ink,
-                        ),
+                              color: titleColor ?? AppColors.ink,
+                            ),
                       ),
                       if (subtitle != null)
                         Text(
                           subtitle!,
-                          style: Theme.of(context).textTheme.bodySmall
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
                               ?.copyWith(color: AppColors.graphite),
                         ),
                     ],

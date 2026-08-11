@@ -14,6 +14,7 @@ class AuthRepository {
   AuthRepository(this._client);
 
   final SupabaseClient _client;
+  AuthIdentityProvider? _pendingIdentityLink;
 
   /// Emits on every sign-in / sign-out / token refresh.
   Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
@@ -21,6 +22,12 @@ class AuthRepository {
   Session? get currentSession => _client.auth.currentSession;
   User? get currentUser => _client.auth.currentUser;
   bool get isSignedIn => currentSession != null;
+  AuthIdentityProvider? get pendingIdentityLink => _pendingIdentityLink;
+
+  bool get hasSupportedCurrentIdentity {
+    final provider = currentUser?.appMetadata['provider'] as String?;
+    return AuthIdentityProvider.fromSupabaseProvider(provider) != null;
+  }
 
   /// Sends a magic-link / OTP to [email].
   Future<void> signInWithEmailOtp(String email) {
@@ -65,27 +72,51 @@ class AuthRepository {
   ///
   /// It intentionally cannot run before sign-in: linking must add a provider
   /// identity to an existing Vamo account, never create a second account.
-  Future<bool> linkIdentity(AuthIdentityProvider provider) {
+  Future<bool> linkIdentity(AuthIdentityProvider provider) async {
     final oauthProvider = switch (provider) {
       AuthIdentityProvider.google => OAuthProvider.google,
       AuthIdentityProvider.apple => OAuthProvider.apple,
       AuthIdentityProvider.email => throw ArgumentError.value(
-        provider,
-        'provider',
-        'Email is primary',
-      ),
+          provider,
+          'provider',
+          'Email is primary',
+        ),
     };
-    return _client.auth.linkIdentity(
+    _pendingIdentityLink = provider;
+    final launched = await _client.auth.linkIdentity(
       oauthProvider,
       redirectTo: AuthUrls.redirectUri,
     );
+    if (!launched) _pendingIdentityLink = null;
+    return launched;
+  }
+
+  /// Waits for the redirect exchange to prove the requested identity is linked.
+  ///
+  /// A pre-existing session survives a manual-link redirect, so a session alone
+  /// cannot be treated as successful linking.
+  Future<bool> awaitPendingIdentityLink({
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final pending = _pendingIdentityLink;
+    if (pending == null) return true;
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      final linked = await linkedIdentityProviders();
+      if (linked.contains(pending)) {
+        _pendingIdentityLink = null;
+        return true;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+    }
+    return false;
   }
 
   /// Rejects a session created through a method Vamo does not support before
   /// that session can accept a pending invite or create product state.
   void requireSupportedCurrentIdentity() {
     final provider = currentUser?.appMetadata['provider'] as String?;
-    if (AuthIdentityProvider.fromSupabaseProvider(provider) == null) {
+    if (!hasSupportedCurrentIdentity) {
       throw UnsupportedAuthIdentityException(provider);
     }
   }

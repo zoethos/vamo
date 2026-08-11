@@ -38,28 +38,25 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
       return;
     }
 
-    _authSub = ref
-        .read(authRepositoryProvider)
-        .authStateChanges
-        .listen(
-          (state) {
-            if (state.event == AuthChangeEvent.signedIn && mounted) {
-              unawaited(_continueSignedIn());
-            }
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            if (!mounted) return;
-            reportAndLog(
-              error,
-              stackTrace,
-              screen: 'auth_callback',
-              action: 'auth_callback_exchange',
-              severity: ActionFailureSeverity.degraded,
-              analytics: ref.read(analyticsProvider),
-            );
-            unawaited(_failWithoutSession());
-          },
+    _authSub = ref.read(authRepositoryProvider).authStateChanges.listen(
+      (state) {
+        if (state.event == AuthChangeEvent.signedIn && mounted) {
+          unawaited(_continueSignedIn());
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!mounted) return;
+        reportAndLog(
+          error,
+          stackTrace,
+          screen: 'auth_callback',
+          action: 'auth_callback_exchange',
+          severity: ActionFailureSeverity.degraded,
+          analytics: ref.read(analyticsProvider),
         );
+        unawaited(_failWithoutSession());
+      },
+    );
 
     _timeout = Timer(const Duration(seconds: 10), () {
       if (!mounted) return;
@@ -78,8 +75,40 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     _finished = true;
     _cleanup();
     if (!mounted) return;
+    final repository = ref.read(authRepositoryProvider);
     try {
-      ref.read(authRepositoryProvider).requireSupportedCurrentIdentity();
+      final linkCompleted = await repository.awaitPendingIdentityLink();
+      if (!linkCompleted) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'That sign-in method was not linked. Try again from Profile.'),
+          ),
+        );
+        context.go(AppRoutes.profile);
+        return;
+      }
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'auth_callback',
+        action: 'confirm_identity_link',
+        analytics: ref.read(analyticsProvider),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'That sign-in method could not be confirmed. Try again from Profile.'),
+        ),
+      );
+      context.go(AppRoutes.profile);
+      return;
+    }
+    try {
+      repository.requireSupportedCurrentIdentity();
     } on UnsupportedAuthIdentityException {
       await ref.read(authRepositoryProvider).signOut();
       if (!mounted) return;
