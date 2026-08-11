@@ -8,7 +8,9 @@ import 'package:intl/intl.dart';
 
 import '../expenses/money_format.dart';
 import '../plan/plan_models.dart';
+import '../plan/plan_providers.dart';
 import '../plan/plan_type_visuals.dart';
+import '../trips/trips_providers.dart';
 import 'activity_models.dart';
 import 'activity_repository.dart';
 
@@ -64,6 +66,8 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   @override
   Widget build(BuildContext context) {
     final feed = ref.watch(activityFeedProvider);
+    final nextPlan = ref.watch(nextDatedPlanItemProvider).valueOrNull;
+    final trips = ref.watch(tripsListProvider).valueOrNull ?? const [];
     final colors = context.vamoColors;
     final type = context.vamoType;
 
@@ -95,6 +99,21 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
                     ),
                   ),
                 ),
+                if (nextPlan != null)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding:
+                          const EdgeInsetsDirectional.fromSTEB(24, 18, 24, 0),
+                      child: _ActivityNextUpCard(
+                        item: nextPlan,
+                        tripName: trips
+                                .where((trip) => trip.id == nextPlan.tripId)
+                                .firstOrNull
+                                ?.name ??
+                            'Trip',
+                      ),
+                    ),
+                  ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(top: 18),
@@ -120,6 +139,65 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityNextUpCard extends StatelessWidget {
+  const _ActivityNextUpCard({required this.item, required this.tripName});
+
+  final PlanItemSummary item;
+  final String tripName;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final startsAt = item.startsAt!;
+    return Material(
+      color: colors.surfaceMuted,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push(AppRoutes.tripPlan(item.tripId)),
+        child: Padding(
+          padding: const EdgeInsetsDirectional.all(16),
+          child: Row(
+            children: [
+              Icon(item.kind.icon, color: colors.secondary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NEXT UP · $tripName',
+                      style: type.labelSmall.copyWith(
+                        color: colors.onSurfaceMuted,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.titleSmall.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      DateFormat.MMMEd().add_jm().format(startsAt.toLocal()),
+                      style: type.bodySmall.copyWith(color: colors.onSurfaceMuted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
