@@ -27,6 +27,9 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_uid uuid := auth.uid();
   v_source text := lower(trim(p_fx_rate_source));
+  v_trip_base char(3);
+  v_expected_base bigint;
+  v_currency char(3) := upper(trim(p_currency));
   v_members uuid[];
   v_share jsonb;
   v_share_user uuid;
@@ -51,6 +54,27 @@ begin
     raise exception 'invalid fx_rate_source';
   end if;
 
+  select upper(trim(t.base_currency)) into v_trip_base
+  from trips t
+  where t.id = p_trip_id;
+
+  if v_trip_base is null then
+    raise exception 'trip not found';
+  end if;
+
+  if v_source = 'auto' then
+    if p_fx_rate is null or p_fx_rate <= 0 then
+      raise exception 'auto fx_rate must be positive';
+    end if;
+    v_expected_base := case
+      when v_currency = v_trip_base then p_amount_cents
+      else round(p_amount_cents::numeric * p_fx_rate)::bigint
+    end;
+    if p_base_cents <> v_expected_base then
+      raise exception 'auto base_cents % must equal computed %', p_base_cents, v_expected_base;
+    end if;
+  end if;
+
   select array_agg(m.user_id order by m.user_id)
   into v_members
   from trip_members m
@@ -71,7 +95,7 @@ begin
     receipt_path, captured_lat, captured_lng, captured_at, place_label, place_id,
     fx_rate_source, fx_rate_manual, fx_conversion_locked
   ) values (
-    p_id, p_trip_id, p_payer_id, p_amount_cents, upper(trim(p_currency)), p_base_cents, p_fx_rate,
+    p_id, p_trip_id, p_payer_id, p_amount_cents, v_currency, p_base_cents, p_fx_rate,
     coalesce(p_description, ''), p_category, coalesce(p_spent_at, now()), v_uid, 'committed'::expense_status,
     p_receipt_path, p_captured_lat, p_captured_lng, p_captured_at, p_place_label, p_place_id,
     v_source, p_fx_rate_manual, coalesce(p_fx_conversion_locked, false)
