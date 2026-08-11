@@ -1,6 +1,8 @@
 name: Render Add Expense Linux Golden
 
 on:
+  push:
+    branches: [fix/add-expense-linux-golden]
   workflow_dispatch:
 
 jobs:
