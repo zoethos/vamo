@@ -2,34 +2,64 @@ import 'dart:io';
 
 const appColorsBaselinePath = 'tool/appcolors_baseline.txt';
 const appColorsScanRoot = 'packages/feature_split/lib';
+const directSupabaseScanRoots = ['app/lib', 'packages'];
+final _directSupabaseCall = RegExp(
+  r'\b(?:_client|client|supabase)\.(?:from|rpc)\s*\(',
+);
 
 const forbiddenPureImports = [
-  ForbiddenImport('dart:io',
-      reason: 'pure/domain modules must not perform I/O'),
-  ForbiddenImport('package:flutter/',
-      reason: 'pure/domain modules must not import Flutter UI'),
-  ForbiddenImport('package:drift/',
-      reason: 'pure/domain modules must not import Drift'),
-  ForbiddenImport('package:supabase',
-      reason: 'pure/domain modules must not import Supabase clients'),
-  ForbiddenImport('package:flutter_riverpod/',
-      reason: 'pure/domain modules must not import Riverpod'),
-  ForbiddenImport('package:image_picker/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:geocoding/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:google_mlkit',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:mobile_scanner/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:path_provider/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:share_plus/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:url_launcher/',
-      reason: 'pure/domain modules must not import platform plugins'),
-  ForbiddenImport('package:app_core/infra.dart',
-      reason: 'pure/domain modules must not import the infra sub-barrel'),
+  ForbiddenImport(
+    'dart:io',
+    reason: 'pure/domain modules must not perform I/O',
+  ),
+  ForbiddenImport(
+    'package:flutter/',
+    reason: 'pure/domain modules must not import Flutter UI',
+  ),
+  ForbiddenImport(
+    'package:drift/',
+    reason: 'pure/domain modules must not import Drift',
+  ),
+  ForbiddenImport(
+    'package:supabase',
+    reason: 'pure/domain modules must not import Supabase clients',
+  ),
+  ForbiddenImport(
+    'package:flutter_riverpod/',
+    reason: 'pure/domain modules must not import Riverpod',
+  ),
+  ForbiddenImport(
+    'package:image_picker/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:geocoding/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:google_mlkit',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:mobile_scanner/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:path_provider/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:share_plus/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:url_launcher/',
+    reason: 'pure/domain modules must not import platform plugins',
+  ),
+  ForbiddenImport(
+    'package:app_core/infra.dart',
+    reason: 'pure/domain modules must not import the infra sub-barrel',
+  ),
 ];
 
 const defaultRules = [
@@ -62,10 +92,12 @@ Future<void> main(List<String> args) async {
   final repoRoot = repoRootArg == null
       ? findRepoRoot(Directory.current)
       : Directory(repoRootArg).absolute;
-  final issues = findImportViolations(
+  final issues = findImportViolations(repoRoot: repoRoot, rules: defaultRules);
+  final directSupabaseIssues = findDirectSupabaseCallViolations(
     repoRoot: repoRoot,
-    rules: defaultRules,
+    scanRoots: directSupabaseScanRoots,
   );
+  issues.addAll(directSupabaseIssues);
 
   final appColors = checkAppColorsBaseline(
     repoRoot: repoRoot,
@@ -76,6 +108,7 @@ Future<void> main(List<String> args) async {
   if (issues.isEmpty && appColors.isPassing) {
     stdout.writeln(
       'arch-guard passed: ${defaultRules.length} import rules, '
+      'direct Supabase calls confined to repositories/sync worker, '
       'AppColors ${appColors.count}/${appColors.baseline}.',
     );
     if (appColors.count < appColors.baseline) {
@@ -174,13 +207,59 @@ List<GuardIssue> findViolationsInSource({
   return issues;
 }
 
+/// Direct PostgREST calls are an infrastructure concern. Keep them in a
+/// repository or the offline [SyncWorker], where retries and ownership are
+/// already centralized. The matcher deliberately targets known Supabase client
+/// receivers, not collection constructors such as `Map.from(...)`.
+List<GuardIssue> findDirectSupabaseCallViolations({
+  required Directory repoRoot,
+  required List<String> scanRoots,
+}) {
+  final issues = <GuardIssue>[];
+  for (final relativeRoot in scanRoots) {
+    final root = Directory(_join(repoRoot.path, _normalize(relativeRoot)));
+    if (!root.existsSync()) continue;
+    for (final entity in root.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final relativePath = _relativeTo(repoRoot.path, entity.path);
+      if (_isDirectSupabaseCallAllowed(relativePath)) continue;
+      final lines = entity.readAsStringSync().split('\n');
+      for (var index = 0; index < lines.length; index += 1) {
+        final match = _directSupabaseCall.firstMatch(lines[index]);
+        if (match == null) continue;
+        issues.add(
+          GuardIssue(
+            ruleName: 'direct Supabase boundary',
+            relativePath: relativePath,
+            lineNumber: index + 1,
+            directive: lines[index].trim(),
+            forbiddenPattern: match.group(0)!,
+            reason:
+                'direct .from()/.rpc() calls belong in a *_repository.dart '
+                'file or sync_worker.dart',
+          ),
+        );
+      }
+    }
+  }
+  return issues;
+}
+
+bool _isDirectSupabaseCallAllowed(String relativePath) {
+  final normalized = relativePath.replaceAll('\\', '/');
+  final fileName = normalized.split('/').last;
+  return fileName.endsWith('_repository.dart') ||
+      fileName == 'sync_worker.dart';
+}
+
 AppColorsCheck checkAppColorsBaseline({
   required Directory repoRoot,
   required String baselineRelativePath,
   required String scanRootRelativePath,
 }) {
-  final baselineFile =
-      File(_join(repoRoot.path, _normalize(baselineRelativePath)));
+  final baselineFile = File(
+    _join(repoRoot.path, _normalize(baselineRelativePath)),
+  );
   if (!baselineFile.existsSync()) {
     throw StateError('Missing AppColors baseline: $baselineRelativePath');
   }
@@ -226,6 +305,16 @@ String _join(String first, String second) {
   return '$first${Platform.pathSeparator}$second';
 }
 
+String _relativeTo(String root, String path) {
+  final normalizedRoot = root
+      .replaceAll('\\', '/')
+      .replaceFirst(RegExp(r'/$'), '');
+  final normalizedPath = path.replaceAll('\\', '/');
+  return normalizedPath.startsWith('$normalizedRoot/')
+      ? normalizedPath.substring(normalizedRoot.length + 1)
+      : normalizedPath;
+}
+
 class GuardRule {
   const GuardRule({
     required this.name,
@@ -263,18 +352,16 @@ class GuardIssue {
   final String reason;
 
   String format() {
-    final location =
-        lineNumber == 0 ? relativePath : '$relativePath:$lineNumber';
+    final location = lineNumber == 0
+        ? relativePath
+        : '$relativePath:$lineNumber';
     return '$location [$ruleName] $reason '
         '(forbidden: $forbiddenPattern) -> $directive';
   }
 }
 
 class AppColorsCheck {
-  const AppColorsCheck({
-    required this.count,
-    required this.baseline,
-  });
+  const AppColorsCheck({required this.count, required this.baseline});
 
   final int count;
   final int baseline;
