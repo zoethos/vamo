@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../signals/coming_soon_sheet.dart';
 import '../trips/trips_repository.dart';
+import 'sign_in_methods_sheet.dart';
 
 class ProfileScreenLabels {
   const ProfileScreenLabels({
@@ -208,11 +209,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           final tagCaptureLocation = ref.watch(captureLocationTaggingProvider);
 
           if (completionRequired) {
-            return _buildCompletionBody(
-              context,
-              p: p,
-              currency: currency,
-            );
+            return _buildCompletionBody(context, p: p, currency: currency);
           }
           return _buildSteadyStateBody(
             context,
@@ -484,6 +481,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _SettingsSection(
                       title: 'Account',
                       children: [
+                        _SettingsRow(
+                          key: const Key('profileRowSignInMethods'),
+                          icon: Icons.shield_outlined,
+                          label: 'Sign-in methods',
+                          trailingText: 'Manage',
+                          showChevron: true,
+                          onTap: _showSignInMethodsSheet,
+                        ),
                         _SettingsRow(
                           key: const Key('profileRowSignOut'),
                           icon: Icons.logout,
@@ -806,8 +811,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final repo = ref.read(profileRepositoryProvider);
     if (profile.activeAvatarStoragePath != null &&
         profile.activeAvatarStoragePath!.isNotEmpty) {
-      final signed =
-          await repo.signedAvatarUrl(profile.activeAvatarStoragePath);
+      final signed = await repo.signedAvatarUrl(
+        profile.activeAvatarStoragePath,
+      );
       if (!mounted) return;
       setState(() => _avatarPhotoUrl = signed);
       return;
@@ -1028,6 +1034,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     } finally {
       if (mounted) setState(() => _signingOut = false);
+    }
+  }
+
+  Future<void> _showSignInMethodsSheet() async {
+    try {
+      final repository = ref.read(authRepositoryProvider);
+      final linkedProviders = await repository.linkedIdentityProviders();
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (context) => SignInMethodsSheet(
+          linkedProviders: linkedProviders,
+          onLink: repository.linkIdentity,
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      showActionError(
+        context,
+        ref,
+        screen: 'profile',
+        action: 'load_sign_in_methods',
+        error: error,
+      );
     }
   }
 
@@ -1272,9 +1303,9 @@ class _ProfileHeader extends StatelessWidget {
               tagline,
               key: const Key('profileHeaderTagline'),
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.deepTeal,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.deepTeal),
             ),
           ],
         ),
@@ -1284,10 +1315,7 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingsSection({required this.title, required this.children});
 
   final String title;
   final List<Widget> children;
@@ -1434,9 +1462,9 @@ class _SettingsRow extends StatelessWidget {
                 if (trailingText != null) ...[
                   Text(
                     trailingText!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.graphite,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: AppColors.graphite),
                   ),
                   const SizedBox(width: 4),
                 ],
@@ -1478,9 +1506,7 @@ class _SaveBar extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(
-                color: AppColors.graphite.withValues(alpha: 0.2),
-              ),
+              top: BorderSide(color: AppColors.graphite.withValues(alpha: 0.2)),
             ),
           ),
           child: Padding(

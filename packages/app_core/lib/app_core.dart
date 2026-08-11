@@ -35,6 +35,7 @@ export 'src/profile/profile_repository.dart';
 export 'src/push/push_notification_route.dart';
 export 'src/push/push_registrar.dart';
 export 'src/auth/auth_providers.dart';
+export 'src/auth/auth_identity.dart';
 export 'src/auth/auth_repository.dart';
 export 'src/auth/auth_urls.dart';
 export 'src/db/app_database.dart';

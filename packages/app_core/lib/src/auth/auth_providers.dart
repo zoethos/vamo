@@ -18,7 +18,8 @@ final authStateChangesProvider = StreamProvider<AuthState>((ref) {
 /// Recomputed whenever [authStateChangesProvider] emits.
 final isSignedInProvider = Provider<bool>((ref) {
   ref.watch(authStateChangesProvider);
-  return ref.watch(authRepositoryProvider).isSignedIn;
+  final repository = ref.watch(authRepositoryProvider);
+  return repository.isSignedIn && repository.hasSupportedCurrentIdentity;
 });
 
 /// The current authenticated user, or null.

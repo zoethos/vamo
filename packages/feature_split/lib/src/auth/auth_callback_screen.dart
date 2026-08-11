@@ -75,6 +75,51 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     _finished = true;
     _cleanup();
     if (!mounted) return;
+    final repository = ref.read(authRepositoryProvider);
+    try {
+      final linkCompleted = await repository.awaitPendingIdentityLink();
+      if (!linkCompleted) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'That sign-in method was not linked. Try again from Profile.'),
+          ),
+        );
+        context.go(AppRoutes.profile);
+        return;
+      }
+    } catch (error, stackTrace) {
+      if (!mounted) return;
+      reportAndLog(
+        error,
+        stackTrace,
+        screen: 'auth_callback',
+        action: 'confirm_identity_link',
+        analytics: ref.read(analyticsProvider),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'That sign-in method could not be confirmed. Try again from Profile.'),
+        ),
+      );
+      context.go(AppRoutes.profile);
+      return;
+    }
+    try {
+      repository.requireSupportedCurrentIdentity();
+    } on UnsupportedAuthIdentityException {
+      await ref.read(authRepositoryProvider).signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Use email, Google, or Apple to sign in to Vamo.'),
+        ),
+      );
+      context.go(AppRoutes.auth);
+      return;
+    }
     await tryConsumePendingInvite(ref: ref, context: context);
     if (!mounted) return;
     context.go(AppRoutes.trips);
@@ -114,10 +159,6 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
