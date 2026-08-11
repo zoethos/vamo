@@ -12,6 +12,8 @@ import 'expense_governance.dart';
 import 'expense_governance_labels.dart';
 import 'expense_models.dart';
 import 'expense_consent_providers.dart';
+import 'expense_split.dart';
+import 'expense_split_state.dart';
 import 'expenses_providers.dart';
 import 'expenses_repository.dart';
 import 'money_format.dart';
@@ -21,6 +23,7 @@ import 'receipt_ocr.dart';
 import 'receipt_ocr_form_prefill.dart';
 import '../places/places_repository.dart';
 import 'add_expense_screen_labels.dart';
+import 'custom_split_editor.dart';
 
 const _ink = AppColors.ink;
 const _graphite = AppColors.graphite;
@@ -82,6 +85,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   bool _categorySyncedFromTrip = false;
   final Set<OcrSuggestionField> _ocrSuggested = {};
   final Map<OcrSuggestionField, String> _ocrOriginal = {};
+  ExpenseSplitMode _splitMode = ExpenseSplitMode.equal;
+  Map<String, int> _customShareCents = const {};
 
   @override
   void initState() {
@@ -159,9 +164,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     final members = ref.watch(tripMembersForExpenseProvider(widget.tripId));
 
     return trip.when(
-      loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(
         appBar: AppBar(),
         body: AppErrorState(
@@ -186,9 +190,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         }
 
         return members.when(
-          loading: () => const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (e, _) => Scaffold(
             appBar: AppBar(title: Text(widget.screenLabels.title)),
             body: AppErrorState(
@@ -234,12 +237,14 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
             if (isPropose) {
               final currentUserId = ref.watch(currentUserProvider)?.id;
               final role = ref.watch(
-                currentMemberRoleProvider(
-                  (tripId: widget.tripId, userId: currentUserId),
-                ),
+                currentMemberRoleProvider((
+                  tripId: widget.tripId,
+                  userId: currentUserId,
+                )),
               );
-              final tripReadOnly =
-                  isTripReadOnly(TripLifecycle.parse(detail.lifecycle));
+              final tripReadOnly = isTripReadOnly(
+                TripLifecycle.parse(detail.lifecycle),
+              );
               if (!canShowProposeExpenseForm(
                 tripReadOnly: tripReadOnly,
                 memberRole: role,
@@ -261,10 +266,13 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 isPropose ? labels.proposeExpenseTitle : labels.addExpenseTitle;
             final saveLabel =
                 isPropose ? labels.saveProposal : labels.saveExpense;
-            final shareCents = _shareCentsPerMember(
-              tripBase: tripBase,
-              memberCount: memberList.length,
-            );
+            final splitBaseCents = _splitBaseCents(tripBase: tripBase);
+            final shareCents = _splitMode == ExpenseSplitMode.equal
+                ? _shareCentsPerMember(
+                    tripBase: tripBase,
+                    memberCount: memberList.length,
+                  )
+                : null;
             final sharePreview = shareCents == null
                 ? null
                 : formatMoneyFromCents(shareCents, tripBase);
@@ -302,7 +310,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   ),
                   onPressed: (_saving || _ocrLoading)
                       ? null
-                      : () => _save(tripBaseCurrency: tripBase),
+                      : () => _save(
+                            tripBaseCurrency: tripBase,
+                            members: memberList,
+                          ),
                   child: _saving
                       ? const SizedBox.square(
                           dimension: 22,
@@ -318,17 +329,23 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   children: [
                     Expanded(
                       child: ListView(
-                        padding:
-                            const EdgeInsetsDirectional.fromSTEB(20, 2, 20, 12),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          20,
+                          2,
+                          20,
+                          12,
+                        ),
                         children: [
                           _AmountDisplay(
                             amountText: _amountController.text,
-                            currencySymbol:
-                                _currencySymbol(_expenseCurrency).trim(),
+                            currencySymbol: _currencySymbol(
+                              _expenseCurrency,
+                            ).trim(),
                             errorText: _amountError,
                           ),
-                          if (_ocrSuggested
-                                  .contains(OcrSuggestionField.amount) &&
+                          if (_ocrSuggested.contains(
+                                OcrSuggestionField.amount,
+                              ) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
@@ -346,8 +363,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ),
                             ),
                           ),
-                          if (_ocrSuggested
-                                  .contains(OcrSuggestionField.currency) &&
+                          if (_ocrSuggested.contains(
+                                OcrSuggestionField.currency,
+                              ) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
@@ -408,15 +426,16 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                             members: memberList,
                             sharePreview: sharePreview,
                             memberCount: memberList.length,
-                            onCustomTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    screenLabels.customSplitComingSoon,
-                                  ),
-                                ),
-                              );
-                            },
+                            mode: _splitMode,
+                            customEnabled: !isPropose,
+                            onEqualTap: () => setState(
+                              () => _splitMode = ExpenseSplitMode.equal,
+                            ),
+                            onCustomTap: () => _showCustomSplitEditor(
+                              members: memberList,
+                              baseCents: splitBaseCents,
+                              currency: tripBase,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Wrap(
@@ -466,15 +485,17 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               ),
                             ],
                           ),
-                          if (_ocrSuggested
-                                  .contains(OcrSuggestionField.title) &&
+                          if (_ocrSuggested.contains(
+                                OcrSuggestionField.title,
+                              ) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
                               child: OcrSuggestionChip(),
                             ),
-                          if (_ocrSuggested
-                                  .contains(OcrSuggestionField.placeLabel) &&
+                          if (_ocrSuggested.contains(
+                                OcrSuggestionField.placeLabel,
+                              ) &&
                               !isPropose)
                             const Padding(
                               padding: EdgeInsetsDirectional.only(top: 8),
@@ -498,8 +519,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       ),
                     ),
                     Padding(
-                      padding:
-                          const EdgeInsetsDirectional.fromSTEB(20, 0, 20, 8),
+                      padding: const EdgeInsetsDirectional.fromSTEB(
+                        20,
+                        0,
+                        20,
+                        8,
+                      ),
                       child: _AmountKeypad(
                         onDigit: (value) => _appendAmountToken(value, tripBase),
                         onDecimal: () => _appendAmountToken('.', tripBase),
@@ -568,11 +593,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     widget.screenLabels.currencySheetTitle,
-                    style:
-                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                              color: _ink,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: _ink, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -617,11 +641,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
                     widget.screenLabels.payerSheetTitle,
-                    style:
-                        Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                              color: _ink,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: _ink, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -665,10 +688,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                       style: Theme.of(sheetContext)
                           .textTheme
                           .titleMedium
-                          ?.copyWith(
-                            color: _ink,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          ?.copyWith(color: _ink, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -862,10 +882,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                   padding: const EdgeInsetsDirectional.only(top: 8),
                   child: Text(
                     widget.labels.fxSourceReceipt,
-                    style: Theme.of(sheetContext)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: _graphite),
+                    style: Theme.of(
+                      sheetContext,
+                    ).textTheme.bodySmall?.copyWith(color: _graphite),
                   ),
                 ),
               const SizedBox(height: 16),
@@ -1000,6 +1019,54 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         : parseAmountToCents(_baseOverrideController.text) ?? _autoBaseCents;
     if (baseCents == null) return null;
     return (baseCents / memberCount).round();
+  }
+
+  int? _splitBaseCents({required String tripBase}) {
+    final cents = parseAmountToCents(_amountController.text);
+    if (cents == null || cents <= 0) return null;
+    if (_expenseCurrency.toUpperCase() == tripBase.toUpperCase()) {
+      return cents;
+    }
+    return parseAmountToCents(_baseOverrideController.text) ?? _autoBaseCents;
+  }
+
+  Future<void> _showCustomSplitEditor({
+    required List<TripMemberView> members,
+    required int? baseCents,
+    required String currency,
+  }) async {
+    if (baseCents == null || baseCents <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter the amount before setting a custom split.'),
+        ),
+      );
+      return;
+    }
+    final initial = _customShareCents.isEmpty
+        ? {
+            for (final line in equalSplit(
+              baseCents: baseCents,
+              memberIds: members.map((member) => member.userId).toList(),
+            ))
+              line.userId: line.shareCents,
+          }
+        : _customShareCents;
+    final result = await showModalBottomSheet<Map<String, int>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CustomSplitEditor(
+        members: members,
+        baseCents: baseCents,
+        currency: currency,
+        initialShareCents: initial,
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _splitMode = ExpenseSplitMode.custom;
+      _customShareCents = result;
+    });
   }
 
   Future<void> _pickReceipt() async {
@@ -1168,7 +1235,10 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
   }
 
-  Future<void> _save({required String tripBaseCurrency}) async {
+  Future<void> _save({
+    required String tripBaseCurrency,
+    required List<TripMemberView> members,
+  }) async {
     if (_pendingOcr != null) await _pendingOcr;
     final inForeignCurrency =
         _expenseCurrency.toUpperCase() != tripBaseCurrency.toUpperCase();
@@ -1185,9 +1255,9 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     if (!_formKey.currentState!.validate()) return;
     final payerId = _payerId;
     if (payerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.screenLabels.choosePayer)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(widget.screenLabels.choosePayer)));
       return;
     }
 
@@ -1231,6 +1301,26 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         }
       }
 
+      final splitState = ExpenseSplitState(
+        mode: _splitMode,
+        customShareCents: _customShareCents,
+      );
+      final splitError = splitState.validationMessage(
+        baseCents: baseCents,
+        members: members,
+      );
+      if (splitError != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(splitError)));
+        }
+        return;
+      }
+      final shareLines = _splitMode == ExpenseSplitMode.custom
+          ? splitState.resolve(baseCents: baseCents, members: members)
+          : null;
+
       if (widget.mode == AddExpenseMode.proposed) {
         await ref.read(expensesRepositoryProvider).proposeExpense(
               tripId: widget.tripId,
@@ -1265,6 +1355,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 fxRateSource:
                     useManualBase ? (_fxRateSource ?? 'manual') : null,
                 lockConversion: useManualBase,
+                shareLines: shareLines,
               ),
               baseCurrency: tripBaseCurrency,
             );
@@ -1549,6 +1640,9 @@ class _SplitControl extends StatelessWidget {
     required this.members,
     required this.sharePreview,
     required this.memberCount,
+    required this.mode,
+    required this.customEnabled,
+    required this.onEqualTap,
     required this.onCustomTap,
   });
 
@@ -1557,14 +1651,19 @@ class _SplitControl extends StatelessWidget {
   final List<TripMemberView> members;
   final String? sharePreview;
   final int memberCount;
+  final ExpenseSplitMode mode;
+  final bool customEnabled;
+  final VoidCallback onEqualTap;
   final VoidCallback onCustomTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final summary = sharePreview == null
-        ? governanceLabels.splitLabel(memberCount)
-        : labels.splitEach(sharePreview!);
+    final summary = mode == ExpenseSplitMode.custom
+        ? labels.splitCustom
+        : sharePreview == null
+            ? governanceLabels.splitLabel(memberCount)
+            : labels.splitEach(sharePreview!);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1590,6 +1689,9 @@ class _SplitControl extends StatelessWidget {
                 _SplitSegmented(
                   equalLabel: labels.splitEqual,
                   customLabel: labels.splitCustom,
+                  mode: mode,
+                  customEnabled: customEnabled,
+                  onEqualTap: onEqualTap,
                   onCustomTap: onCustomTap,
                 ),
               ],
@@ -1623,11 +1725,17 @@ class _SplitSegmented extends StatelessWidget {
   const _SplitSegmented({
     required this.equalLabel,
     required this.customLabel,
+    required this.mode,
+    required this.customEnabled,
+    required this.onEqualTap,
     required this.onCustomTap,
   });
 
   final String equalLabel;
   final String customLabel;
+  final ExpenseSplitMode mode;
+  final bool customEnabled;
+  final VoidCallback onEqualTap;
   final VoidCallback onCustomTap;
 
   @override
@@ -1644,14 +1752,14 @@ class _SplitSegmented extends StatelessWidget {
           _SplitSegment(
             key: const Key('addExpenseSplitEqual'),
             label: equalLabel,
-            selected: true,
-            onTap: () {},
+            selected: mode == ExpenseSplitMode.equal,
+            onTap: onEqualTap,
           ),
           _SplitSegment(
             key: const Key('addExpenseSplitCustom'),
             label: customLabel,
-            selected: false,
-            enabled: false,
+            selected: mode == ExpenseSplitMode.custom,
+            enabled: customEnabled,
             onTap: onCustomTap,
           ),
         ],
@@ -1680,7 +1788,7 @@ class _SplitSegment extends StatelessWidget {
       color: selected ? _ink : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(8),
         child: Opacity(
           opacity: enabled ? 1 : 0.55,
@@ -1804,8 +1912,9 @@ class _AmountKeypad extends StatelessWidget {
                 for (final key in row)
                   Expanded(
                     child: Padding(
-                      padding:
-                          const EdgeInsetsDirectional.symmetric(horizontal: 2),
+                      padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: 2,
+                      ),
                       child: _AmountKey(
                         value: key,
                         onTap: switch (key) {

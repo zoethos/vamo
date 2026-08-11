@@ -1,6 +1,7 @@
 import 'package:app_core/app_core.dart';
 
 import 'expense_governance.dart';
+import 'expense_split.dart';
 
 /// Expense row for the trip home list (from Drift).
 class ExpenseSummary {
@@ -103,6 +104,7 @@ class AddExpenseInput {
     this.manualBaseCents,
     this.fxRateSource,
     this.lockConversion = false,
+    this.shareLines,
   });
 
   final String tripId;
@@ -124,6 +126,10 @@ class AddExpenseInput {
   final int? manualBaseCents;
   final String? fxRateSource;
   final bool lockConversion;
+
+  /// Explicit base-currency shares for all active members, when custom split
+  /// is selected. Omitted means the repository derives the equal split.
+  final List<ExpenseShareLine>? shareLines;
 }
 
 /// Result of [ExpensesRepository.addExpense].

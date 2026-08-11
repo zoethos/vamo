@@ -40,8 +40,34 @@ void assertSharesSumToBase({
 }) {
   final sum = shareCents.fold<int>(0, (a, b) => a + b);
   if (sum != baseCents) {
-    throw StateError(
-      'sum(shares)=$sum must equal base_cents=$baseCents',
-    );
+    throw StateError('sum(shares)=$sum must equal base_cents=$baseCents');
   }
+}
+
+/// Validates an explicit split before it is written locally or sent to the
+/// server. Every active member is named exactly once; a zero share is explicit.
+List<ExpenseShareLine> validateCustomSplit({
+  required int baseCents,
+  required List<String> memberIds,
+  required List<ExpenseShareLine> shares,
+}) {
+  if (baseCents <= 0) {
+    throw ArgumentError.value(baseCents, 'baseCents', 'must be positive');
+  }
+  final expected = memberIds.toSet();
+  final actual = shares.map((share) => share.userId).toSet();
+  if (expected.length != memberIds.length ||
+      actual.length != shares.length ||
+      actual.length != expected.length ||
+      !actual.containsAll(expected)) {
+    throw ArgumentError('Custom split must include each active member once.');
+  }
+  if (shares.any((share) => share.shareCents < 0)) {
+    throw ArgumentError('Custom split amounts cannot be negative.');
+  }
+  assertSharesSumToBase(
+    baseCents: baseCents,
+    shareCents: shares.map((share) => share.shareCents),
+  );
+  return shares;
 }

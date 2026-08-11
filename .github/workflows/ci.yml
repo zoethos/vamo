@@ -8,6 +8,18 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v5
 
@@ -58,6 +70,15 @@ jobs:
         # CI-safe: no --allow-net, so no live/paid provider calls. Locks the
         # deterministic draft + feasibility + eval fixtures (Slices 4–5).
         run: deno test --allow-env --allow-read supabase/functions
+
+      - name: Test custom expense split SQL invariants
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql --host localhost --username postgres --dbname postgres \
+            --file supabase/tests/custom_expense_split.sql
 
       - uses: subosito/flutter-action@v2
         with:
