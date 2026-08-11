@@ -42,6 +42,31 @@ which is why it competed with product work rather than serving it.
 
 ---
 
+## Destination: closed beta
+
+Everything below serves one near-term goal — **widening closed beta** — which is gated on the
+six operational items in [`operations/LAUNCH_GATES.md`](operations/LAUNCH_GATES.md):
+
+| # | Gate |
+| --- | --- |
+| 1 | Email SPOF closed |
+| 2 | Crashlytics proof |
+| 3 | App Links SHA |
+| 4 | DR basics |
+| 5 | Scenario sim + k6 |
+| 6 | Infra upgrade |
+
+Feature work may merge while these are open; **beta must not widen until every gate is met.**
+After that, the 14-day [`operations/BETA_SCORECARD.md`](operations/BETA_SCORECARD.md) decides
+what comes next — Cycle 4 UX follows beta evidence, not ahead of it.
+
+**Gap: the gates document defines the evidence each gate needs but records no current status.**
+Gate 1 is believed open (`RESEND_API_KEY` unset, so the Brevo→Resend fallback is coded and
+deployed but inert). The others are unknown. Establishing and recording those six statuses is
+the highest-value hour available right now — without it, "how far from beta" is unanswerable.
+
+---
+
 ## Now
 
 | # | Item | Owner | Blocked by |
@@ -174,6 +199,8 @@ directory. Worth one small pass to index them.
 | Custom expense split | `operations/CUSTOM_EXPENSE_SPLIT_PROMOTION.md` |
 | Scheduled jobs and heartbeats | `SCHEDULED_JOBS.md` |
 | Wave 2 history (closed) | `slices/README.md` |
+| Closed-beta gates | `operations/LAUNCH_GATES.md` |
+| 14-day beta scorecard | `operations/BETA_SCORECARD.md` |
 | Information architecture + wave retag decision | `design/NAVIGATION_MAP.md` |
 | Subtrips / "Follow me" spec | `specs/cycle5-subtrips-followme.md` |
 | Product direction, waves and gates | `business/Vamo_Roadmap.docx` |
