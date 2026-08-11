@@ -38,6 +38,29 @@ Future<void> _loadGoldenFonts() async {
     );
     await loader.load();
   }
+
+  final flutterRoot = _flutterRoot();
+  final materialIcons = File(
+    '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  );
+  if (!materialIcons.existsSync()) {
+    throw StateError('Missing MaterialIcons font: ${materialIcons.path}');
+  }
+  final materialLoader = FontLoader('MaterialIcons');
+  materialLoader.addFont(
+    Future.value(ByteData.view(materialIcons.readAsBytesSync().buffer)),
+  );
+  await materialLoader.load();
+}
+
+String _flutterRoot() {
+  final fromEnv = Platform.environment['FLUTTER_ROOT'];
+  if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+  var dir = File(Platform.resolvedExecutable).parent;
+  for (var i = 0; i < 5; i++) {
+    dir = dir.parent;
+  }
+  return dir.path;
 }
 
 /// Allows tiny platform/engine anti-alias drift while still failing real

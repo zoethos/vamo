@@ -1,0 +1,32 @@
+name: Render Add Expense Linux Golden
+
+on:
+  push:
+    branches: [fix/add-expense-linux-golden]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Create env asset
+        run: cp .env.example app/.env
+      - name: Install Melos
+        run: dart pub global activate melos
+      - name: Bootstrap workspace
+        run: melos bootstrap
+      - name: Generate Drift code
+        run: melos run build_runner
+      - name: Render the canonical golden
+        run: >-
+          melos exec --scope=feature_split --
+          flutter test test/add_expense_golden_test.dart --update-goldens
+      - uses: actions/upload-artifact@v4
+        with:
+          name: add-expense-linux-golden
+          path: packages/feature_split/test/goldens/add_expense_amount_first_light_small.png
+          if-no-files-found: error
