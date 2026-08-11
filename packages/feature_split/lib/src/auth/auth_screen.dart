@@ -9,14 +9,10 @@ import '../invites/invite_labels.dart';
 import '../invites/invite_qr_scanner.dart';
 import 'auth_labels.dart';
 
-/// Slice 0 onboarding: email OTP wired end-to-end, with Apple/Google/phone as
-/// the next surfaces to light up. On success the router redirects to /trips.
+/// Email OTP, Apple, and Google sign-in. On success the router redirects to
+/// /trips.
 class AuthScreen extends ConsumerStatefulWidget {
-  const AuthScreen({
-    super.key,
-    this.inviteLabels,
-    required this.authLabels,
-  });
+  const AuthScreen({super.key, this.inviteLabels, required this.authLabels});
 
   final InviteLabels? inviteLabels;
   final AuthLabels authLabels;
@@ -95,36 +91,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _sendCode() => _run(() async {
-        final email = _emailController.text.trim();
-        if (email.isEmpty) {
-          setState(() => _error = 'Enter your email first.');
-          return;
-        }
-        await ref.read(authRepositoryProvider).signInWithEmailOtp(email);
-        if (mounted) {
-          setState(() => _otpSent = true);
-          _startResendCooldown();
-        }
-      }, authAction: 'send_email_otp');
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Enter your email first.');
+      return;
+    }
+    await ref.read(authRepositoryProvider).signInWithEmailOtp(email);
+    if (mounted) {
+      setState(() => _otpSent = true);
+      _startResendCooldown();
+    }
+  }, authAction: 'send_email_otp');
 
   Future<void> _resendCode() => _run(() async {
-        await ref.read(authRepositoryProvider).signInWithEmailOtp(
-              _emailController.text.trim(),
-            );
-        if (mounted) _startResendCooldown();
-      }, authAction: 'resend_email_otp');
+    await ref
+        .read(authRepositoryProvider)
+        .signInWithEmailOtp(_emailController.text.trim());
+    if (mounted) _startResendCooldown();
+  }, authAction: 'resend_email_otp');
 
   Future<void> _verify() => _run(() async {
-        await ref.read(authRepositoryProvider).verifyOtp(
-              email: _emailController.text.trim(),
-              token: _otpController.text.trim(),
-            );
-      }, authAction: 'verify_email_otp');
+    await ref
+        .read(authRepositoryProvider)
+        .verifyOtp(
+          email: _emailController.text.trim(),
+          token: _otpController.text.trim(),
+        );
+  }, authAction: 'verify_email_otp');
 
   Future<void> _oauth(OAuthProvider provider) => _run(
-        () => ref.read(authRepositoryProvider).signInWithOAuth(provider),
-        authAction: 'oauth_${provider.name}',
-      );
+    () => ref.read(authRepositoryProvider).signInWithOAuth(provider),
+    authAction: 'oauth_${provider.name}',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -136,10 +134,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         children: [
           Opacity(
             opacity: 0.35,
-            child: Image.asset(
-              BrandAssets.patternLight,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(BrandAssets.patternLight, fit: BoxFit.cover),
           ),
           SafeArea(
             child: Center(
@@ -153,10 +148,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Image.asset(
-                        BrandAssets.primaryMark,
-                        height: 72,
-                      ),
+                      Image.asset(BrandAssets.primaryMark, height: 72),
                       const SizedBox(height: 12),
                       Text(
                         labels.tagline,
@@ -193,8 +185,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         TextField(
                           controller: _otpController,
                           keyboardType: TextInputType.number,
-                          decoration:
-                              InputDecoration(labelText: labels.otpLabel),
+                          decoration: InputDecoration(
+                            labelText: labels.otpLabel,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         FilledButton(
@@ -218,34 +211,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           onPressed: _busy
                               ? null
                               : () => setState(() {
-                                    _otpSent = false;
-                                    _otpController.clear();
-                                    _resendTimer?.cancel();
-                                    _resendCooldown = 0;
-                                  }),
+                                  _otpSent = false;
+                                  _otpController.clear();
+                                  _resendTimer?.cancel();
+                                  _resendCooldown = 0;
+                                }),
                           child: Text(labels.useDifferentEmail),
                         ),
                       ],
                       const SizedBox(height: 24),
-                      Row(children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(labels.orDivider),
-                        ),
-                        const Expanded(child: Divider()),
-                      ]),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(labels.orDivider),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
                       const SizedBox(height: 24),
                       OutlinedButton.icon(
-                        onPressed:
-                            _busy ? null : () => _oauth(OAuthProvider.apple),
+                        onPressed: _busy
+                            ? null
+                            : () => _oauth(OAuthProvider.apple),
                         icon: const Icon(Icons.apple),
                         label: Text(labels.continueWithApple),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed:
-                            _busy ? null : () => _oauth(OAuthProvider.google),
+                        onPressed: _busy
+                            ? null
+                            : () => _oauth(OAuthProvider.google),
                         icon: const Icon(Icons.g_mobiledata, size: 28),
                         label: Text(labels.continueWithGoogle),
                       ),
@@ -256,10 +253,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           onPressed: _busy
                               ? null
                               : () => showInviteQrScannerSheet(
-                                    context: context,
-                                    ref: ref,
-                                    labels: widget.inviteLabels!,
-                                  ),
+                                  context: context,
+                                  ref: ref,
+                                  labels: widget.inviteLabels!,
+                                ),
                           icon: const Icon(Icons.qr_code_scanner_outlined),
                           label: Text(widget.inviteLabels!.scanQr),
                         ),
@@ -288,11 +285,8 @@ class _Spinner extends StatelessWidget {
   const _Spinner();
   @override
   Widget build(BuildContext context) => const SizedBox(
-        height: 22,
-        width: 22,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          color: AppColors.ink,
-        ),
-      );
+    height: 22,
+    width: 22,
+    child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.ink),
+  );
 }

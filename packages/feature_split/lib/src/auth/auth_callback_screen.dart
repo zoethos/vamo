@@ -38,25 +38,28 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
       return;
     }
 
-    _authSub = ref.read(authRepositoryProvider).authStateChanges.listen(
-      (state) {
-        if (state.event == AuthChangeEvent.signedIn && mounted) {
-          unawaited(_continueSignedIn());
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (!mounted) return;
-        reportAndLog(
-          error,
-          stackTrace,
-          screen: 'auth_callback',
-          action: 'auth_callback_exchange',
-          severity: ActionFailureSeverity.degraded,
-          analytics: ref.read(analyticsProvider),
+    _authSub = ref
+        .read(authRepositoryProvider)
+        .authStateChanges
+        .listen(
+          (state) {
+            if (state.event == AuthChangeEvent.signedIn && mounted) {
+              unawaited(_continueSignedIn());
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!mounted) return;
+            reportAndLog(
+              error,
+              stackTrace,
+              screen: 'auth_callback',
+              action: 'auth_callback_exchange',
+              severity: ActionFailureSeverity.degraded,
+              analytics: ref.read(analyticsProvider),
+            );
+            unawaited(_failWithoutSession());
+          },
         );
-        unawaited(_failWithoutSession());
-      },
-    );
 
     _timeout = Timer(const Duration(seconds: 10), () {
       if (!mounted) return;
@@ -75,6 +78,19 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     _finished = true;
     _cleanup();
     if (!mounted) return;
+    try {
+      ref.read(authRepositoryProvider).requireSupportedCurrentIdentity();
+    } on UnsupportedAuthIdentityException {
+      await ref.read(authRepositoryProvider).signOut();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Use email, Google, or Apple to sign in to Vamo.'),
+        ),
+      );
+      context.go(AppRoutes.auth);
+      return;
+    }
     await tryConsumePendingInvite(ref: ref, context: context);
     if (!mounted) return;
     context.go(AppRoutes.trips);
@@ -114,10 +130,6 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
