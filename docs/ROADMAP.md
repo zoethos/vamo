@@ -75,12 +75,18 @@ the highest-value hour available right now — without it, "how far from beta" i
 | 2 | Auth settings: disable Phone sign-in, enable Manual Linking, verify linking Google + Apple to an existing email account | Owner | item 1 |
 | 3 | Merge #287 (heartbeat escalation) and #288 (next-up plan item) | Codex | CI |
 | 4 | Redeploy `trip-lifecycle-jobs` to Production from the merged commit | Owner | item 3 |
+| 5 | **Establish and record the status of all six launch gates** in `operations/LAUNCH_GATES.md` | Codex (audit) + Owner (ops facts) | nothing |
 
 **Item 1 — read the counters, not the status.** The currently deployed worker reports
 `identity_integrity.status: "ok"` unconditionally; the escalation that makes that field
 meaningful ships in #287 and is not live until item 4. Non-zero counters are expected —
 Production has real accounts and both OAuth methods have been live — and represent a
 baseline of pre-existing duplication, not a regression.
+
+**Item 5 answers "how far from beta".** The gates define required evidence but record no
+status, so the distance to the goal everything else serves is currently unknown. Codex can
+establish most of it from the repo and CI; only the ops facts — secrets provisioned, SHA
+registered, DR drill run — need the owner. Do this before choosing what to build next.
 
 **Item 2 is the launch risk.** Until identity linking is configured, one person signing in
 two ways becomes two trip members with split expenses and balances. Merging such accounts
