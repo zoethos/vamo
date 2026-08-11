@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 /// Theme for golden / script smoke tests — deterministic Noto font stack.
 ThemeData goldenTestTheme({Brightness brightness = Brightness.light}) {
   final base = brightness == Brightness.dark ? AppTheme.dark : AppTheme.light;
+  final typeScale = base.extension<VamoTypeScale>()!;
   const fallbacks = [
     'NotoSansArabic',
     'NotoSansHebrew',
@@ -31,10 +32,19 @@ ThemeData goldenTestTheme({Brightness brightness = Brightness.light}) {
         fontFamily: 'NotoSans',
         fontFamilyFallback: fallbacks,
       ),
-      unselectedLabelStyle:
-          base.tabBarTheme.unselectedLabelStyle?.copyWith(
+      unselectedLabelStyle: base.tabBarTheme.unselectedLabelStyle?.copyWith(
         fontFamily: 'NotoSans',
         fontFamilyFallback: fallbacks,
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: base.filledButtonTheme.style?.copyWith(
+        textStyle: WidgetStatePropertyAll(
+          typeScale.labelLarge.copyWith(
+            fontFamily: 'NotoSans',
+            fontFamilyFallback: fallbacks,
+          ),
+        ),
       ),
     ),
   );
