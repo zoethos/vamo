@@ -37,7 +37,7 @@ ThemeData goldenTestTheme({Brightness brightness = Brightness.light}) {
         fontFamilyFallback: fallbacks,
       ),
     ),
-    filledButtonTheme: base.filledButtonTheme.copyWith(
+    filledButtonTheme: FilledButtonThemeData(
       style: base.filledButtonTheme.style?.copyWith(
         textStyle: WidgetStatePropertyAll(
           typeScale.labelLarge.copyWith(
