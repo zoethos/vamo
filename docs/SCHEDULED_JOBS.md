@@ -91,6 +91,35 @@ opens a closing trip (no push device required).
 
 Heartbeat: `job_name = 'trip-lifecycle-jobs'`.
 
+### Identity-integrity signal
+
+Each successful lifecycle run records an aggregate-only `identity_integrity`
+object in its heartbeat. It reports duplicate groups of users with the same
+verified email, duplicate groups whose users each have a profile, and the count
+of Apple-only Private Relay accounts. It contains no email addresses or user
+IDs, because authenticated users can read recent heartbeats.
+
+An alert is required when either duplicate-group count is non-zero. Private
+Relay is a known linking blind spot: it is an exposure count, not proof of a
+duplicate. An owner investigates in the SQL Editor and resolves the member's
+access manually. Never merge or edit `auth.users` / `auth.identities` directly.
+
+Owner-only investigation query (do not export or paste its results into logs):
+
+```sql
+select
+  lower(u.email) as verified_email,
+  array_agg(u.id order by u.created_at) as user_ids,
+  count(p.id) as profile_count
+from auth.users u
+left join public.profiles p on p.id = u.id
+where u.email is not null
+  and u.email_confirmed_at is not null
+group by lower(u.email)
+having count(*) >= 2
+order by verified_email;
+```
+
 **Never copy `scheduled-heartbeat`'s unauthenticated pattern for real jobs.**
 
 ## 4. Shared FCM helper
