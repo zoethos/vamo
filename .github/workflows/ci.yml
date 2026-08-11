@@ -80,6 +80,15 @@ jobs:
           psql --host localhost --username postgres --dbname postgres \
             --file supabase/tests/custom_expense_split.sql
 
+      - name: Test Supabase function privilege convergence
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql --host localhost --username postgres --dbname postgres \
+            --file supabase/tests/function_privilege_convergence.sql
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
