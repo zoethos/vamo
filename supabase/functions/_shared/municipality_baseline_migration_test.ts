@@ -27,6 +27,42 @@ interface ConsumerMigrationSnapshotManifest {
   }>;
 }
 
+Deno.test("all recorded Confluendo consumer migrations fail closed on source drift", async () => {
+  const manifest = JSON.parse(
+    await Deno.readTextFile(consumerSnapshotManifestUrl),
+  ) as ConsumerMigrationSnapshotManifest;
+
+  assertEquals(manifest.version, 1);
+  assertEquals(manifest.consumer, "confluendo");
+  assertEquals(manifest.migrations.length, 10);
+
+  for (const snapshot of manifest.migrations) {
+    assertEquals(snapshot.sha256.match(/^[a-f0-9]{64}$/)?.[0], snapshot.sha256);
+    assertEquals(
+      snapshot.consumerMigration,
+      `examples/consumers/vamo-place-intelligence/migrations/${snapshot.sourceMigration}`,
+    );
+
+    const source = await Deno.readTextFile(
+      new URL(`../../migrations/${snapshot.sourceMigration}`, import.meta.url),
+    );
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(source.replaceAll("\r\n", "\n")),
+    );
+    const actualSha256 = Array.from(
+      new Uint8Array(digest),
+      (byte) => byte.toString(16).padStart(2, "0"),
+    ).join("");
+
+    assertEquals(
+      actualSha256,
+      snapshot.sha256,
+      `The Vamo migration ${snapshot.sourceMigration} changed. Re-import its exact bytes into Confluendo and update supabase/confluendo-consumer-migration-snapshots.json in the same cross-repository change.`,
+    );
+  }
+});
+
 Deno.test("municipality baseline keeps product writes in declared inbox items", async () => {
   const migration = await Deno.readTextFile(migrationUrl);
 

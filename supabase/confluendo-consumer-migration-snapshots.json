@@ -3,9 +3,49 @@
   "consumer": "confluendo",
   "migrations": [
     {
+      "sourceMigration": "20260625155733_place_intelligence_cache.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260625155733_place_intelligence_cache.sql",
+      "sha256": "91cd1f0f10d6c4804b970879a986539ad9ebc9611e4e2454e1d45f45c57f19b9"
+    },
+    {
+      "sourceMigration": "20260701100233_confluendo_inbox.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260701100233_confluendo_inbox.sql",
+      "sha256": "8ce0885c60dbd1f40ca0a1fc01baa6f4e50502e153a4230d3f982c220c31510a"
+    },
+    {
+      "sourceMigration": "20260701121500_confluendo_inbox_writer_digest_usage.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260701121500_confluendo_inbox_writer_digest_usage.sql",
+      "sha256": "82ab15a809a987f2eb8c7e165dbf695655769ec40e79d448ecaa0dbe818d9cf9"
+    },
+    {
+      "sourceMigration": "20260707120000_confluendo_inbox_telemetry_reader.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260707120000_confluendo_inbox_telemetry_reader.sql",
+      "sha256": "a63cc1407490d64eb531f03841f7f97fb612be173969f165e8f9804b324cecf4"
+    },
+    {
+      "sourceMigration": "20260708120000_confluendo_inbox_apply_executor.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260708120000_confluendo_inbox_apply_executor.sql",
+      "sha256": "f70b9c2c5f7ed693366fe6774afedd4eacf45070041f18312c05e1f04ff80662"
+    },
+    {
+      "sourceMigration": "20260805210000_confluendo_inbox_consumer_identity.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260805210000_confluendo_inbox_consumer_identity.sql",
+      "sha256": "7a09e5f93ece4c6ea586531f2836138b9fd8a0487505f22d70e35d17c85c31f1"
+    },
+    {
+      "sourceMigration": "20260810090000_confluendo_inbox_telemetry_identity.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810090000_confluendo_inbox_telemetry_identity.sql",
+      "sha256": "a8a18e6325a5a48999e8916bcfbd4142d4ae1cfc5f67cdef1cbff40014bca253"
+    },
+    {
       "sourceMigration": "20260810120000_municipality_place_baseline.sql",
       "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810120000_municipality_place_baseline.sql",
       "sha256": "0766b758c47267471fafb7fdc226599186a16a7c0120529d06c5e255c3918098"
+    },
+    {
+      "sourceMigration": "20260810130000_location_canonicals_spatial_index.sql",
+      "consumerMigration": "examples/consumers/vamo-place-intelligence/migrations/20260810130000_location_canonicals_spatial_index.sql",
+      "sha256": "fb0c1f0d56d97fbfedc8330949a1727a8159c576d6c19bf393e631fbfb1d15f0"
     },
     {
       "sourceMigration": "20260810140000_assert_municipality_feature_type_constraint.sql",
