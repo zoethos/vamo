@@ -164,6 +164,11 @@ For Confluendo-driven Vamo ingestion:
 
 - Vamo app schema migrations, such as place-intelligence cache tables, should
   be promoted staging -> production under this policy.
+- Consumer-owned inbox contract functions required by Confluendo Production
+  apply, such as `confluendo_inbox.current_consumer_identity()`, are Vamo app
+  schema and must also be promoted staging -> production in the same release
+  window. They may grant only their non-secret contract to the dedicated apply
+  role; they do not grant Confluendo product-table access.
 - Confluendo staging canary enablement remains staging-only:
   - `confluendo_guard.environment_sentinel`,
   - `vamo_canary_app`,
