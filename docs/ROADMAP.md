@@ -1,6 +1,6 @@
 # Vamo delivery roadmap
 
-**Updated:** 11 August 2026 · `main` at `1688633`
+**Updated:** 12 August 2026 · `main` at `181f546`
 
 This is the **execution layer**: what is in flight, who owns it, what blocks it, and what
 is applied to which database. It sits beneath the product roadmap, which sets direction.
@@ -71,19 +71,17 @@ the highest-value hour available right now — without it, "how far from beta" i
 
 | # | Item | Owner | Blocked by |
 | --- | --- | --- | --- |
-| 1 | Read Production `identity_integrity` **counters** after the 06:00 UTC run | Owner | nothing |
+| 1 | Verify the next scheduled Production `trip-lifecycle-jobs` heartbeat carries a meaningful `identity_integrity.status` | Codex | 06:00 UTC run |
 | 2 | Auth settings: disable Phone sign-in, enable Manual Linking, verify linking Google + Apple to an existing email account | Owner | item 1 |
-| 3 | Merge #287 (heartbeat escalation) and #288 (next-up plan item) | Codex | CI |
-| 4 | Redeploy `trip-lifecycle-jobs` to Production from the merged commit | Owner | item 3 |
-| 5 | **Establish and record the status of all six launch gates** in `operations/LAUNCH_GATES.md` | Codex (audit) + Owner (ops facts) | nothing |
+| 3 | Rebase #288 (next-up plan item) onto current `main`, rerun CI, then review for merge | Codex | nothing |
+| 4 | **Establish and record the status of all six launch gates** in `operations/LAUNCH_GATES.md` | Codex (audit) + Owner (ops facts) | nothing |
 
-**Item 1 — read the counters, not the status.** The currently deployed worker reports
-`identity_integrity.status: "ok"` unconditionally; the escalation that makes that field
-meaningful ships in #287 and is not live until item 4. Non-zero counters are expected —
-Production has real accounts and both OAuth methods have been live — and represent a
-baseline of pre-existing duplication, not a regression.
+**Item 1 — the status is now meaningful.** #287 merged and `trip-lifecycle-jobs` was
+redeployed to Production from `181f546` on 12 August. Its first post-deploy scheduled
+heartbeat must be read after 06:00 UTC: `attention` identifies which aggregate counter
+tripped; `ok` means none did. The pre-deploy baseline at 06:00 UTC was all zero.
 
-**Item 5 answers "how far from beta".** The gates define required evidence but record no
+**Item 4 answers "how far from beta".** The gates define required evidence but record no
 status, so the distance to the goal everything else serves is currently unknown. Codex can
 establish most of it from the repo and CI; only the ops facts — secrets provisioned, SHA
 registered, DR drill run — need the owner. Do this before choosing what to build next.
@@ -91,6 +89,13 @@ registered, DR drill run — need the owner. Do this before choosing what to bui
 **Item 2 is the launch risk.** Until identity linking is configured, one person signing in
 two ways becomes two trip members with split expenses and balances. Merging such accounts
 after real money exists is partly unresolvable, so this precedes everything else.
+
+### Completed 12 August
+
+- Production `identity_integrity` baseline read after the scheduled run: every aggregate
+  counter was `0`.
+- #287 merged; its escalation changes are deployed to Production. No migration, Auth setting,
+  secret, or manual worker invocation was involved.
 
 ---
 
