@@ -90,6 +90,23 @@ registered, DR drill run — need the owner. Do this before choosing what to bui
 two ways becomes two trip members with split expenses and balances. Merging such accounts
 after real money exists is partly unresolvable, so this precedes everything else.
 
+### Post-cron decision plan
+
+**Trigger:** shortly after the next 06:00 UTC Production run. This is a read-only check;
+do not invoke the worker manually, rotate `CRON_SECRET`, apply a migration, or change Auth
+before its result is known.
+
+| Result | Immediate action | Stop condition |
+| --- | --- | --- |
+| A fresh heartbeat has `identity_integrity.status = "ok"` | Codex records the timestamp and aggregate counters. Owner performs the Auth settings change: disable Phone sign-in; enable Manual Linking; then, in a controlled test account, link Google and Apple to an existing email account and confirm one identity/member result. | Stop before any unrelated migration promotion or tester build upload; record the test result in the roadmap/runbook first. |
+| A fresh heartbeat has `status = "attention"` | Codex reports only the named aggregate `attention_counters`; investigate the duplicate/relay condition before changing Auth settings. | Do not alter Auth settings, invoke the worker, or expose identities in the heartbeat. |
+| The expected heartbeat is missing or the worker reports any other status | Codex reports the fact and inspects deployment/log evidence read-only. | Do not retry by manually invoking the Production worker and do not change `CRON_SECRET`. |
+
+**After a successful Auth proof:** choose one human promotion window for #284 (custom expense
+split) or #286 (function privilege convergence); run its existing Staging-then-Production
+packet unchanged. #288 remains independent: Codex can rebase, validate, and prepare it for
+merge without waiting for the cron result.
+
 ### Completed 12 August
 
 - Production `identity_integrity` baseline read after the scheduled run: every aggregate
