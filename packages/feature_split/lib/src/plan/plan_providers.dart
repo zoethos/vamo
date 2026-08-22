@@ -12,6 +12,22 @@ final tripPlanItemsProvider =
   return ref.watch(planRepositoryProvider).watchPlanItems(tripId);
 });
 
+/// The one itinerary selector used by the trip dashboard and cross-trip
+/// Activity. It deliberately starts from the plan repository rather than an
+/// activity projection, so plan events cannot drift between surfaces.
+final nextDatedPlanItemProvider = StreamProvider<PlanItemSummary?>((ref) {
+  return ref.watch(planRepositoryProvider).watchAllPlanItems().map(
+        nextDatedPlanItem,
+      );
+});
+
+final nextDatedPlanItemForTripProvider =
+    Provider.family<AsyncValue<PlanItemSummary?>, String>((ref, tripId) {
+  return ref
+      .watch(tripPlanItemsProvider(tripId))
+      .whenData(nextDatedPlanItem);
+});
+
 final tripListItemsProvider =
     StreamProvider.family<List<TripListItemSummary>, String>((ref, tripId) {
   return ref.watch(planRepositoryProvider).watchListItems(tripId);

@@ -464,6 +464,15 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<LocalPlanItem>> watchAllPlanItems() {
+    return (select(localPlanItems)
+          ..orderBy([
+            (p) => OrderingTerm.asc(p.startsAt),
+            (p) => OrderingTerm.asc(p.position),
+          ]))
+        .watch();
+  }
+
   Stream<List<LocalTripListItem>> watchTripListItems(String tripId) {
     return (select(localTripListItems)
           ..where((l) => l.tripId.equals(tripId))

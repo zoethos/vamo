@@ -69,6 +69,12 @@ class PlanRepository {
         );
   }
 
+  Stream<List<PlanItemSummary>> watchAllPlanItems() {
+    return _db.watchAllPlanItems().map(
+          (rows) => rows.map(_toPlanSummary).toList(),
+        );
+  }
+
   Stream<List<TripListItemSummary>> watchListItems(String tripId) {
     return _db.watchTripListItems(tripId).map(
           (rows) => rows.map(_toListSummary).toList(),

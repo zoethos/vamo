@@ -91,6 +91,30 @@ class PlanItemSummary {
   }
 }
 
+/// Selects the first upcoming item using the same dated plan source every
+/// surface consumes. Undated and already-started items stay in the itinerary,
+/// but are not a user's next scheduled moment.
+PlanItemSummary? nextDatedPlanItem(
+  Iterable<PlanItemSummary> items, {
+  DateTime? now,
+}) {
+  final currentTime = now ?? DateTime.now();
+  final upcoming = items
+      .where((item) {
+        final startsAt = item.startsAt;
+        return startsAt != null && !startsAt.isBefore(currentTime);
+      })
+      .toList(growable: false)
+    ..sort((a, b) {
+      final byStart = a.startsAt!.compareTo(b.startsAt!);
+      if (byStart != 0) return byStart;
+      final byPosition = a.position.compareTo(b.position);
+      if (byPosition != 0) return byPosition;
+      return a.id.compareTo(b.id);
+    });
+  return upcoming.firstOrNull;
+}
+
 class PlanItemCapabilities {
   const PlanItemCapabilities({
     required this.kind,

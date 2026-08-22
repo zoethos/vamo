@@ -1,11 +1,14 @@
 import 'package:app_core/app_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../expenses/expense_governance.dart';
 import '../expenses/expense_models.dart';
 import '../expenses/expenses_providers.dart';
 import '../expenses/money_format.dart';
+import '../plan/plan_models.dart';
+import '../plan/plan_providers.dart';
 import 'dashboard_activity_row.dart';
 import 'member_avatar_row.dart';
 import 'trip_format.dart';
@@ -65,6 +68,7 @@ class TripDashboardTab extends ConsumerWidget {
     final space = context.vamoSpace;
     final shape = context.vamoShape;
     final expenses = ref.watch(tripExpensesProvider(tripId));
+    final nextPlan = ref.watch(nextDatedPlanItemForTripProvider(tripId));
     final members = ref.watch(tripMembersForExpenseProvider(tripId));
     final dates = formatTripDateRange(detail.startDate, detail.endDate);
     final cardHeroOverlap = _totalCardEstHeight * _cardHeroOverlapFraction;
@@ -188,6 +192,17 @@ class TripDashboardTab extends ConsumerWidget {
           ),
         ),
         SizedBox(height: space.x4),
+        nextPlan.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (item) => item == null
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: EdgeInsetsDirectional.symmetric(horizontal: space.x4),
+                  child: _NextUpCard(item: item, onTap: onPlans),
+                ),
+        ),
+        if (nextPlan.valueOrNull != null) SizedBox(height: space.x4),
         Padding(
           padding: EdgeInsetsDirectional.symmetric(horizontal: space.x4),
           child: Text(
@@ -234,6 +249,66 @@ class TripDashboardTab extends ConsumerWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _NextUpCard extends StatelessWidget {
+  const _NextUpCard({required this.item, required this.onTap});
+
+  final PlanItemSummary item;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.vamoColors;
+    final type = context.vamoType;
+    final space = context.vamoSpace;
+    final startsAt = item.startsAt!;
+    return Material(
+      color: colors.surfaceMuted,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsetsDirectional.all(space.x3),
+          child: Row(
+            children: [
+              Icon(item.kind.icon, color: colors.secondary),
+              SizedBox(width: space.x2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NEXT UP',
+                      style: type.labelSmall.copyWith(
+                        color: colors.onSurfaceMuted,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: type.titleSmall.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                DateFormat.MMMEd().add_jm().format(startsAt.toLocal()),
+                style: type.labelMedium.copyWith(color: colors.onSurfaceMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
