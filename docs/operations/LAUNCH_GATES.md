@@ -4,6 +4,44 @@ This is the public-v1 eligibility checklist. Code for the feature batch can be
 merged while these are open, but closed beta should not widen until every gate
 below is green.
 
+## Status as of 22 August 2026
+
+Established by a read-only audit (repo, CI, `supabase secrets list`, `supabase backups
+list`, Vercel team plan). **Update this table whenever a gate moves**; a gate is green only
+when its own pass criteria below are evidenced, not when its prerequisites are in place.
+
+| # | Gate | Status | What is proven | What is still missing |
+| --- | --- | --- | --- | --- |
+| 1 | Email SPOF closed | **Open — nearly done** | `RESEND_API_KEY` and `RESEND_SENDER_EMAIL` are set in **both** Staging (`sfwziwcuyctxvidivnsh`) and Production (`mjercplkmuoctdklosyy`), with identical digests. `send-auth-email` is ACTIVE in Production (v21). | The forced-fallback proof on staging has never been run/recorded. **Also a Production config defect — see below.** |
+| 2 | Crashlytics proof | **Open** | Crashlytics is wired in the Android app. | No recorded forced-crash event tied to a tester build version. Device QA fact — owner. |
+| 3 | App Links SHA | **Open — repo side done** | `web/apps/site/public/.well-known/assetlinks.json` carries two SHA-256 fingerprints, added in `3e1f5cc` (20 June 2026). | No recorded device proof that an invite link opens the installed app, and no record of which fingerprint is the Play app-signing key vs the upload key. |
+| 4 | DR basics | **Open — partly proven** | Supabase daily `PHYSICAL` backups are `COMPLETED` in Production, unbroken through 2026-08-22 (which also evidences a paid Supabase plan). | PITR not confirmed; no logical export exists (`backups/` is absent from the repo and nothing is recorded off-site); the restore drill has never been run. |
+| 5 | Scenario sim + k6 | **Open** | The runbook and both harnesses (`tool/scenario_sim.dart`, `tool/k6/vamo_hot_paths.js`) exist and are ready to run against Staging. | No run has ever been recorded, so no baseline exists for any pass criterion. |
+| 6 | Infra upgrade | **Open** | Supabase Production is on a paid plan (daily physical backups). | **Vercel is on the `hobby` plan** (team `tizianos-projects-96dfeb3a`) and no launch account/ownership decision is documented. Billing alerts unchecked. |
+
+**None of the six gates is green, so closed beta must not widen.** Gates 1, 3 and 4 are the
+closest — each is blocked only on running and recording a proof, not on building anything.
+
+### Production defect found during this audit — `send-auth-email` config
+
+Production secrets do **not** contain `BREVO_API_KEY` or `SEND_EMAIL_HOOK_SECRET`, which the
+deployed function requires (`supabase/functions/send-auth-email/index.ts`,
+`email_providers.ts`). Production instead carries a secret whose *name* is
+`ad9aa9001@smtp-brevo.com` — the shape produced by a malformed `supabase secrets set`, where
+an SMTP login became the key name. Staging has both variables set correctly.
+
+This means one of two things, and the owner must determine which before Gate 1 can close:
+
+1. **The Auth email hook is not enabled in Production.** Auth mail then goes through
+   Supabase's own SMTP settings, the deployed `send-auth-email` is dead code in Production,
+   and the Brevo→Resend fallback the gate is about does not protect Production at all.
+2. **The hook is enabled.** Then `SEND_EMAIL_HOOK_SECRET` is empty, so hook verification
+   cannot succeed and Brevo has no key — a live auth-email outage.
+
+Production sign-in is believed to work, which points at (1). Either way the stray
+`ad9aa9001@smtp-brevo.com` secret should be removed and the intended path made explicit.
+Do not change Production Auth or secrets from this audit; it is read-only by design.
+
 ## Gate 1 - Email SPOF Closed
 
 Owner: ops + agent proof script.

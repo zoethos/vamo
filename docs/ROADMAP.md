@@ -1,6 +1,6 @@
 # Vamo delivery roadmap
 
-**Updated:** 12 August 2026 · `main` at `181f546`
+**Updated:** 22 August 2026 · `main` at `1ce0c93`
 
 This is the **execution layer**: what is in flight, who owns it, what blocks it, and what
 is applied to which database. It sits beneath the product roadmap, which sets direction.
@@ -60,10 +60,20 @@ Feature work may merge while these are open; **beta must not widen until every g
 After that, the 14-day [`operations/BETA_SCORECARD.md`](operations/BETA_SCORECARD.md) decides
 what comes next — Cycle 4 UX follows beta evidence, not ahead of it.
 
-**Gap: the gates document defines the evidence each gate needs but records no current status.**
-Gate 1 is believed open (`RESEND_API_KEY` unset, so the Brevo→Resend fallback is coded and
-deployed but inert). The others are unknown. Establishing and recording those six statuses is
-the highest-value hour available right now — without it, "how far from beta" is unanswerable.
+**The six gate statuses were established on 22 August 2026** and are recorded in
+`operations/LAUNCH_GATES.md`. **All six are open**, so beta must not widen. Gates 1, 3 and 4
+are close — each is blocked only on running and recording a proof, not on building anything.
+
+Two corrections to what was previously believed here:
+
+- **Gate 1 is no longer blocked on a missing key.** `RESEND_API_KEY` and `RESEND_SENDER_EMAIL`
+  are set in both Staging and Production. What is missing is the forced-fallback proof — and a
+  **Production config defect** the audit surfaced: Production has neither `BREVO_API_KEY` nor
+  `SEND_EMAIL_HOOK_SECRET`, but does carry a stray secret named `ad9aa9001@smtp-brevo.com`.
+  Either the Auth hook is not enabled in Production (so the fallback protects nothing there),
+  or it is enabled and auth mail is broken. **Owner must determine which.**
+- **Gate 6 has a concrete blocker:** Vercel is on the `hobby` plan with no documented launch
+  account decision. Supabase Production is on a paid plan (unbroken daily physical backups).
 
 ---
 
@@ -73,18 +83,19 @@ the highest-value hour available right now — without it, "how far from beta" i
 | --- | --- | --- | --- |
 | 1 | Verify the next scheduled Production `trip-lifecycle-jobs` heartbeat carries a meaningful `identity_integrity.status` | Codex | 06:00 UTC run |
 | 2 | Auth settings: disable Phone sign-in, enable Manual Linking, verify linking Google + Apple to an existing email account | Owner | item 1 |
-| 3 | Rebase #288 (next-up plan item) onto current `main`, rerun CI, then review for merge | Codex | nothing |
-| 4 | **Establish and record the status of all six launch gates** in `operations/LAUNCH_GATES.md` | Codex (audit) + Owner (ops facts) | nothing |
+| 3 | ~~Rebase #288 (next-up plan item) onto current `main`, rerun CI~~ — rebased onto `31aa62d` and pushed 22 Aug; **awaiting CI, then review for merge** | Codex | CI |
+| 4 | ~~Establish and record the status of all six launch gates~~ — **done 22 Aug**, recorded in `operations/LAUNCH_GATES.md` | Codex | — |
+| 5 | Resolve the Production `send-auth-email` config defect (no `BREVO_API_KEY` / `SEND_EMAIL_HOOK_SECRET`; stray `ad9aa9001@smtp-brevo.com` secret) | Owner | nothing |
+| 6 | Close the three cheapest gates by running their existing proofs: staging forced-fallback (1), App Links device check (3), logical export + restore drill (4) | Owner runs, Codex triages | item 5 for gate 1 |
 
 **Item 1 — the status is now meaningful.** #287 merged and `trip-lifecycle-jobs` was
 redeployed to Production from `181f546` on 12 August. Its first post-deploy scheduled
 heartbeat must be read after 06:00 UTC: `attention` identifies which aggregate counter
 tripped; `ok` means none did. The pre-deploy baseline at 06:00 UTC was all zero.
 
-**Item 4 answers "how far from beta".** The gates define required evidence but record no
-status, so the distance to the goal everything else serves is currently unknown. Codex can
-establish most of it from the repo and CI; only the ops facts — secrets provisioned, SHA
-registered, DR drill run — need the owner. Do this before choosing what to build next.
+**Item 4 answered "how far from beta": not far, but nothing is proven.** No gate needs new
+code. Five of the six need a proof run and recorded; only Gate 6 needs a spend/ownership
+decision. The audit was read-only and did not change any Production setting.
 
 **Item 2 is the launch risk.** Until identity linking is configured, one person signing in
 two ways becomes two trip members with split expenses and balances. Merging such accounts
